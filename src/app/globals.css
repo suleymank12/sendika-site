@@ -1,27 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@layer base {
+  body {
+    @apply text-text-dark bg-white font-sans;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-bg-light;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-primary/30 rounded-full hover:bg-primary/50;
+  }
+
+  /* Focus visible for accessibility */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary ring-0;
+  }
+
+  /* Remove default focus outline, rely on focus-visible */
+  *:focus:not(:focus-visible) {
+    outline: none;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Tiptap Editor Styles */
+.tiptap {
+  @apply min-h-[200px] p-4 outline-none;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.tiptap p {
+  @apply mb-3;
 }
+
+.tiptap h1 {
+  @apply text-3xl font-bold mb-4;
+}
+
+.tiptap h2 {
+  @apply text-2xl font-bold mb-3;
+}
+
+.tiptap h3 {
+  @apply text-xl font-bold mb-2;
+}
+
+.tiptap ul {
+  @apply list-disc pl-6 mb-3;
+}
+
+.tiptap ol {
+  @apply list-decimal pl-6 mb-3;
+}
+
+.tiptap li {
+  @apply mb-1;
+}
+
+.tiptap blockquote {
+  @apply border-l-4 border-primary pl-4 italic my-4 text-text-muted;
+}
+
+.tiptap img {
+  @apply max-w-full h-auto rounded-lg my-4;
+}
+
+.tiptap a {
+  @apply text-primary-light underline hover:text-primary;
+}
+
+.tiptap hr {
+  @apply my-6 border-border;
+}
+
+.tiptap code {
+  @apply bg-bg-light px-1.5 py-0.5 rounded text-sm;
+}
+
+.tiptap pre {
+  @apply bg-bg-dark text-white p-4 rounded-lg my-4 overflow-x-auto;
+}
+
+.tiptap pre code {
+  @apply bg-transparent p-0;
+}
+
+/* Prose (rich text content on public pages) */
+.prose h1 { @apply text-3xl font-bold mb-4 mt-8; }
+.prose h2 { @apply text-2xl font-bold mb-3 mt-6; }
+.prose h3 { @apply text-xl font-bold mb-2 mt-5; }
+.prose p { @apply mb-4 leading-relaxed; }
+.prose ul { @apply list-disc pl-6 mb-4; }
+.prose ol { @apply list-decimal pl-6 mb-4; }
+.prose li { @apply mb-1; }
+.prose blockquote { @apply border-l-4 border-primary pl-4 italic my-6 text-text-muted; }
+.prose img { @apply max-w-full h-auto rounded-lg my-6; }
+.prose a { @apply text-primary-light underline hover:text-primary; }
+.prose hr { @apply my-8 border-border; }
+.prose strong { @apply font-semibold; }
+.prose table { @apply w-full border-collapse my-4; }
+.prose th, .prose td { @apply border border-border px-3 py-2 text-sm; }
+.prose th { @apply bg-bg-light font-medium; }
+
+/* Swiper overrides */
+.hero-slider .swiper-pagination-bullet {
+  background: white !important;
+  opacity: 0.5;
+  width: 10px;
+  height: 10px;
+}
+
+.hero-slider .swiper-pagination-bullet-active {
+  opacity: 1;
+}
+
+/* Line clamp utility */
+.line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
+.line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }

@@ -1,0 +1,168 @@
+import Link from "next/link";
+import { Phone, Mail, MapPin } from "lucide-react";
+
+interface FooterProps {
+  siteTitle: string;
+  siteDescription: string;
+  footerText: string;
+  phone: string;
+  email: string;
+  address: string;
+  facebookUrl: string;
+  twitterUrl: string;
+  instagramUrl: string;
+  youtubeUrl: string;
+}
+
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+    </svg>
+  );
+}
+
+function TwitterIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+  );
+}
+
+function InstagramIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+    </svg>
+  );
+}
+
+function YoutubeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  );
+}
+
+const socialIconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  facebook: FacebookIcon,
+  twitter: TwitterIcon,
+  instagram: InstagramIcon,
+  youtube: YoutubeIcon,
+};
+
+const quickLinks = [
+  { label: "Anasayfa", href: "/" },
+  { label: "Haberler", href: "/haberler" },
+  { label: "Duyurular", href: "/duyurular" },
+  { label: "Galeri", href: "/galeri" },
+  { label: "İletişim", href: "/iletisim" },
+];
+
+export default function Footer({
+  siteTitle,
+  siteDescription,
+  footerText,
+  phone,
+  email,
+  address,
+  facebookUrl,
+  twitterUrl,
+  instagramUrl,
+  youtubeUrl,
+}: FooterProps) {
+  const socialLinks = [
+    { url: facebookUrl, key: "facebook", label: "Facebook" },
+    { url: twitterUrl, key: "twitter", label: "Twitter" },
+    { url: instagramUrl, key: "instagram", label: "Instagram" },
+    { url: youtubeUrl, key: "youtube", label: "YouTube" },
+  ].filter((s) => s.url);
+
+  return (
+    <footer className="bg-bg-dark text-white/70">
+      <div className="container mx-auto px-4 py-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Logo + Description */}
+          <div>
+            <h3 className="text-white font-bold text-lg mb-2">{siteTitle}</h3>
+            <p className="text-sm leading-relaxed">{siteDescription}</p>
+            {/* Social icons */}
+            {socialLinks.length > 0 && (
+              <div className="flex items-center gap-2.5 mt-4">
+                {socialLinks.map((social) => {
+                  const Icon = socialIconMap[social.key];
+                  return (
+                    <a
+                      key={social.label}
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg bg-white/10 p-2 hover:bg-white/20 transition-colors"
+                      title={social.label}
+                    >
+                      <Icon className="h-4 w-4" />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Contact */}
+          <div>
+            <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider">İletişim</h4>
+            <ul className="space-y-2.5">
+              {address && (
+                <li className="flex items-start gap-2 text-sm">
+                  <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{address}</span>
+                </li>
+              )}
+              {phone && (
+                <li>
+                  <a href={`tel:${phone}`} className="flex items-center gap-2 text-sm hover:text-white transition-colors">
+                    <Phone className="h-4 w-4 shrink-0" />
+                    {phone}
+                  </a>
+                </li>
+              )}
+              {email && (
+                <li>
+                  <a href={`mailto:${email}`} className="flex items-center gap-2 text-sm hover:text-white transition-colors">
+                    <Mail className="h-4 w-4 shrink-0" />
+                    {email}
+                  </a>
+                </li>
+              )}
+            </ul>
+          </div>
+
+          {/* Quick Links as compact list */}
+          <div>
+            <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider">Hızlı Bağlantılar</h4>
+            <ul className="space-y-1.5">
+              {quickLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-sm hover:text-white transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Copyright */}
+      <div className="border-t border-white/10">
+        <div className="container mx-auto px-4 py-4">
+          <p className="text-center text-xs text-white/50">
+            {footerText || `© ${new Date().getFullYear()} ${siteTitle}. Tüm hakları saklıdır.`}
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
