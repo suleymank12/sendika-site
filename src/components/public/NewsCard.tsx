@@ -9,7 +9,7 @@ interface NewsCardProps {
 
 export default function NewsCard({ news }: NewsCardProps) {
   return (
-    <Link href={`/haberler/${news.slug}`} className="group block">
+    <Link href={`/haberler/${news.slug}`} className="group block h-full">
       <article className="rounded-xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 h-full flex flex-col">
         {/* Cover image */}
         <div className="relative h-52 bg-bg-light overflow-hidden">
@@ -45,7 +45,7 @@ export default function NewsCard({ news }: NewsCardProps) {
               {truncateText(news.summary, 120)}
             </p>
           )}
-          <span className="inline-block mt-3 text-sm font-medium text-primary-light group-hover:text-primary transition-colors">
+          <span className="inline-block mt-auto pt-3 text-sm font-medium text-primary-light group-hover:text-primary transition-colors">
             Devamını Oku →
           </span>
         </div>

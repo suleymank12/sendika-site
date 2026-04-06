@@ -23,7 +23,11 @@ export default async function HomePage() {
   return (
     <>
       {/* Hero Slider */}
-      <HeroSlider slides={sliders} />
+      <section className="px-4 pt-4">
+        <div className="rounded-xl overflow-hidden">
+          <HeroSlider slides={sliders} />
+        </div>
+      </section>
 
       {/* Quick Access */}
       {quickAccess.length > 0 && (
@@ -47,9 +51,11 @@ export default async function HomePage() {
         {news.length === 0 ? (
           <p className="text-text-muted text-sm">Henüz haber bulunmuyor.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {news.map((item) => (
-              <NewsCard key={item.id} news={item} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+            {news.map((item, index) => (
+              <div key={item.id} className={`h-full ${index >= 3 ? "hidden sm:block" : ""}`}>
+                <NewsCard news={item} />
+              </div>
             ))}
           </div>
         )}
