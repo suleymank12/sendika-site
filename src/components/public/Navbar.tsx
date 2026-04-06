@@ -152,24 +152,30 @@ export default function Navbar({ menuItems, logoUrl, siteTitle }: NavbarProps) {
       </div>
 
       {/* Mobile overlay */}
-      {mobileOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="fixed top-0 right-0 h-full w-72 bg-white shadow-xl overflow-y-auto">
-            <div className="flex items-center justify-between px-4 py-4 border-b border-border">
-              <span className="font-bold text-primary">{siteTitle}</span>
-              <button onClick={() => setMobileOpen(false)} className="p-1 text-text-muted hover:text-text-dark">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            {parents.map((item) => (
-              <MobileAccordion key={item.id} item={item} onClose={() => setMobileOpen(false)}>
-                {getChildren(item.id)}
-              </MobileAccordion>
-            ))}
+      <div className={cn("fixed inset-0 z-50 lg:hidden", mobileOpen ? "pointer-events-auto" : "pointer-events-none")}>
+        <div
+          className={cn("fixed inset-0 bg-black/50 transition-opacity duration-300", mobileOpen ? "opacity-100" : "opacity-0")}
+          onClick={() => setMobileOpen(false)}
+        />
+        <div
+          className={cn(
+            "fixed top-0 right-0 h-full w-72 bg-white shadow-xl overflow-y-auto transition-transform duration-300 ease-in-out",
+            mobileOpen ? "translate-x-0" : "translate-x-full"
+          )}
+        >
+          <div className="flex items-center justify-between px-4 py-4 border-b border-border">
+            <span className="font-bold text-primary">{siteTitle}</span>
+            <button onClick={() => setMobileOpen(false)} className="p-1 text-text-muted hover:text-text-dark">
+              <X className="h-5 w-5" />
+            </button>
           </div>
+          {parents.map((item) => (
+            <MobileAccordion key={item.id} item={item} onClose={() => setMobileOpen(false)}>
+              {getChildren(item.id)}
+            </MobileAccordion>
+          ))}
         </div>
-      )}
+      </div>
     </nav>
   );
 }
