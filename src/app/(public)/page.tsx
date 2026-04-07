@@ -10,7 +10,7 @@ export default async function HomePage() {
 
   const [slidersRes, newsRes, announcementsRes, quickAccessRes] = await Promise.all([
     supabase.from("sliders").select("*").eq("is_active", true).order("order", { ascending: true }),
-    supabase.from("news").select("*").eq("is_published", true).order("published_at", { ascending: false }).limit(6),
+    supabase.from("news").select("*").eq("is_published", true).order("published_at", { ascending: false }).limit(4),
     supabase.from("announcements").select("*").eq("is_published", true).order("published_at", { ascending: false }).limit(6),
     supabase.from("quick_access").select("*").eq("is_active", true).order("order", { ascending: true }),
   ]);
@@ -51,9 +51,9 @@ export default async function HomePage() {
         {news.length === 0 ? (
           <p className="text-text-muted text-sm">Henüz haber bulunmuyor.</p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-            {news.map((item, index) => (
-              <div key={item.id} className={`h-full ${index >= 3 ? "hidden sm:block" : ""}`}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+            {news.map((item) => (
+              <div key={item.id} className="h-full">
                 <NewsCard news={item} />
               </div>
             ))}

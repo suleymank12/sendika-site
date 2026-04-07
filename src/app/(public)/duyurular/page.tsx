@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import { formatDate, truncateText } from "@/lib/utils";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { PAGE_SIZE } from "@/lib/constants";
 
@@ -50,39 +50,53 @@ export default async function AnnouncementsListPage({ searchParams }: Props) {
                   href={`/duyurular/${item.slug}`}
                   className="group block rounded-xl border border-border bg-white p-5 hover:shadow-md hover:border-primary/20 transition-all"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="shrink-0 flex items-center gap-1.5 text-xs text-text-muted pt-0.5">
-                      <Calendar className="h-3.5 w-3.5" />
-                      <time>{formatDate(item.published_at || item.created_at)}</time>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-semibold text-text-dark group-hover:text-primary transition-colors">
-                        {item.title}
-                      </h3>
-                      {item.summary && (
-                        <p className="text-sm text-text-muted mt-1 line-clamp-2">
-                          {truncateText(item.summary, 200)}
-                        </p>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                    <Calendar className="h-3.5 w-3.5" />
+                    <time>{formatDate(item.published_at || item.created_at)}</time>
                   </div>
+                  <h3 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors mt-1">
+                    {item.title}
+                  </h3>
+                  {item.summary && (
+                    <p className="text-sm text-text-muted mt-1 line-clamp-2">
+                      {truncateText(item.summary, 200)}
+                    </p>
+                  )}
                 </Link>
               ))}
             </div>
 
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-10">
+                {page > 1 && (
+                  <Link
+                    href={`/duyurular${page - 1 > 1 ? `?sayfa=${page - 1}` : ""}`}
+                    className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted hover:bg-bg-light transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Önceki
+                  </Link>
+                )}
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <a
+                  <Link
                     key={p}
-                    href={`/duyurular?sayfa=${p}`}
+                    href={`/duyurular${p > 1 ? `?sayfa=${p}` : ""}`}
                     className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
                       p === page ? "bg-primary text-white" : "text-text-muted hover:bg-bg-light"
                     }`}
                   >
                     {p}
-                  </a>
+                  </Link>
                 ))}
+                {page < totalPages && (
+                  <Link
+                    href={`/duyurular?sayfa=${page + 1}`}
+                    className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted hover:bg-bg-light transition-colors"
+                  >
+                    Sonraki
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )}
               </div>
             )}
           </>

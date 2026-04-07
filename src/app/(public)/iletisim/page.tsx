@@ -26,7 +26,7 @@ export default async function ContactPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Contact Info */}
-          <div>
+          <div className="space-y-6">
             <div className="rounded-xl border border-border bg-white p-6 space-y-5">
               <h2 className="text-lg font-semibold text-text-dark">İletişim Bilgileri</h2>
 
@@ -78,6 +78,22 @@ export default async function ContactPage() {
                   <h3 className="text-sm font-medium text-text-dark">Çalışma Saatleri</h3>
                   <p className="text-sm text-text-muted mt-0.5">Pazartesi - Cuma: 08:30 - 17:30</p>
                 </div>
+              </div>
+            </div>
+
+            {/* Google Maps */}
+            <div className="rounded-xl border border-border bg-white overflow-hidden">
+              <div className="aspect-video w-full bg-bg-light">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d12042.123456789!2d32.85!3d39.92!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMznCsDU1JzEyLjAiTiAzMsKwNTEnMDAuMCJF!5e0!3m2!1str!2str!4v1700000000000"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Konum"
+                />
               </div>
             </div>
           </div>

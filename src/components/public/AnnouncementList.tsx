@@ -16,17 +16,17 @@ export default function AnnouncementList({ announcements }: AnnouncementListProp
         <Link
           key={item.id}
           href={`/duyurular/${item.slug}`}
-          className="group flex items-center gap-5 py-4 px-4 -mx-4 rounded-lg hover:bg-bg-light transition-colors"
+          className="group flex items-center gap-3 py-4 px-4 -mx-4 rounded-lg hover:bg-bg-light transition-colors"
         >
-          <div className="shrink-0">
-            <div className="flex items-center gap-2 text-sm text-text-muted">
-              <Calendar className="h-4 w-4" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-xs text-text-muted">
+              <Calendar className="h-3.5 w-3.5" />
               <time>{formatDate(item.published_at || item.created_at)}</time>
             </div>
+            <h4 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2 mt-1">
+              {item.title}
+            </h4>
           </div>
-          <h4 className="flex-1 text-base font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-1">
-            {item.title}
-          </h4>
           <ChevronRight className="h-5 w-5 text-text-muted/40 group-hover:text-primary shrink-0 transition-colors" />
         </Link>
       ))}

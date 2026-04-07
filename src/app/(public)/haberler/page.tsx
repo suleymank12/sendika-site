@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import NewsCard from "@/components/public/NewsCard";
-import { PAGE_SIZE } from "@/lib/constants";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { Metadata } from "next";
 
@@ -9,6 +10,8 @@ export const metadata: Metadata = {
   title: "Haberler",
   description: "En güncel haberler ve gelişmeler",
 };
+
+const PER_PAGE = 7;
 
 interface Props {
   searchParams: { sayfa?: string };
@@ -18,8 +21,8 @@ export default async function NewsListPage({ searchParams }: Props) {
   const page = parseInt(searchParams.sayfa || "1");
   const supabase = createClient();
 
-  const from = (page - 1) * PAGE_SIZE.NEWS;
-  const to = from + PAGE_SIZE.NEWS - 1;
+  const from = (page - 1) * PER_PAGE;
+  const to = from + PER_PAGE - 1;
 
   const { data, count } = await supabase
     .from("news")
@@ -29,7 +32,9 @@ export default async function NewsListPage({ searchParams }: Props) {
     .range(from, to);
 
   const news = data || [];
-  const totalPages = Math.ceil((count || 0) / PAGE_SIZE.NEWS);
+  const totalPages = Math.ceil((count || 0) / PER_PAGE);
+
+  const hrefFor = (p: number) => `/haberler${p > 1 ? `?sayfa=${p}` : ""}`;
 
   return (
     <>
@@ -50,10 +55,19 @@ export default async function NewsListPage({ searchParams }: Props) {
             {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-10">
+                {page > 1 && (
+                  <Link
+                    href={hrefFor(page - 1)}
+                    className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted hover:bg-bg-light transition-colors"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Önceki
+                  </Link>
+                )}
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                  <a
+                  <Link
                     key={p}
-                    href={`/haberler?sayfa=${p}`}
+                    href={hrefFor(p)}
                     className={`rounded-lg px-3.5 py-2 text-sm font-medium transition-colors ${
                       p === page
                         ? "bg-primary text-white"
@@ -61,8 +75,17 @@ export default async function NewsListPage({ searchParams }: Props) {
                     }`}
                   >
                     {p}
-                  </a>
+                  </Link>
                 ))}
+                {page < totalPages && (
+                  <Link
+                    href={hrefFor(page + 1)}
+                    className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-text-muted hover:bg-bg-light transition-colors"
+                  >
+                    Sonraki
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                )}
               </div>
             )}
           </>

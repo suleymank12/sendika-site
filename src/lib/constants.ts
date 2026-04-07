@@ -1,7 +1,7 @@
 // Sayfalama
 export const PAGE_SIZE = {
   NEWS: 12,
-  ANNOUNCEMENTS: 12,
+  ANNOUNCEMENTS: 15,
   GALLERY: 12,
   ADMIN_TABLE: 20,
 } as const;
