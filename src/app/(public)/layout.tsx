@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import PageLoader from "@/components/public/PageLoader";
 import TopBar from "@/components/public/TopBar";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
@@ -53,6 +54,7 @@ export default async function PublicLayout({ children }: { children: React.React
         youtubeUrl={settings.youtube_url || ""}
       />
       <ToastProvider />
+      <PageLoader />
     </>
   );
 }
