@@ -22,7 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="tr">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <div id="initial-loading-bar" aria-hidden />
+        {children}
+      </body>
     </html>
   );
 }
