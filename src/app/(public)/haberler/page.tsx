@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   description: "En güncel haberler ve gelişmeler",
 };
 
-const PER_PAGE = 7;
+const PER_PAGE = 6;
 
 interface Props {
   searchParams: { sayfa?: string };
