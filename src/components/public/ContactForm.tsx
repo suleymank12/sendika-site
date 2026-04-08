@@ -32,7 +32,7 @@ export default function ContactForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 flex-1 flex flex-col">
       <Input
         id="contact-name"
         label="Adınız Soyadınız"
@@ -58,7 +58,7 @@ export default function ContactForm() {
         placeholder="Mesajınızın konusu"
         required
       />
-      <div>
+      <div className="flex-1 flex flex-col min-h-[140px]">
         <label htmlFor="contact-message" className="block text-sm font-medium text-text-dark mb-1">
           Mesajınız
         </label>
@@ -66,9 +66,8 @@ export default function ContactForm() {
           id="contact-message"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          rows={5}
           placeholder="Mesajınızı yazın..."
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm text-text-dark placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
+          className="w-full flex-1 rounded-lg border border-border px-3 py-2 text-sm text-text-dark placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary resize-none"
           required
         />
       </div>

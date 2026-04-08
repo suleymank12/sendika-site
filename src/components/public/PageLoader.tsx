@@ -6,7 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 export default function PageLoader() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Sayfa degisince (mount/route degisimi) loading'i kapat
   useEffect(() => {

@@ -65,11 +65,15 @@ export default async function NewsDetailPage({ params }: Props) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main content */}
           <div className="lg:col-span-2">
-            {news.cover_image && (
-              <div className="relative w-full aspect-video overflow-hidden rounded-xl mb-6">
+            <div className="relative w-full aspect-video overflow-hidden rounded-xl mb-6 bg-bg-light">
+              {news.cover_image ? (
                 <img src={news.cover_image} alt={news.title} className="w-full h-full object-cover" />
-              </div>
-            )}
+              ) : (
+                <div className="h-full w-full flex items-center justify-center bg-primary/5">
+                  <span className="text-6xl font-bold text-primary/20">H</span>
+                </div>
+              )}
+            </div>
 
             <div className="flex items-center gap-3 mb-4">
               <div className="flex items-center gap-1.5 text-sm text-text-muted">
