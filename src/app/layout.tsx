@@ -24,6 +24,7 @@ export default function RootLayout({
     <html lang="tr">
       <body className="antialiased">
         <div id="initial-loading-bar" aria-hidden />
+        <script dangerouslySetInnerHTML={{ __html: `document.body.classList.add("hydrated")` }} />
         {children}
       </body>
     </html>
