@@ -4,6 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-primary: 27 58 92;
+  --color-primary-dark: 21 46 74;
+  --color-primary-light: 42 90 140;
+}
+
 /* Ilk sayfa acilis spinner'i — JS yuklenmeden once gorunur */
 #initial-loading-bar {
   position: fixed;

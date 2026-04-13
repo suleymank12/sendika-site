@@ -1,5 +1,18 @@
 // ==================== Database Types ====================
 
+export interface Headline {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  image_url: string | null;
+  link_url: string | null;
+  source_type: 'custom' | 'news' | 'announcement' | null;
+  source_id: string | null;
+  order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface MenuItem {
   id: string;
   title: string;
@@ -20,6 +33,7 @@ export interface News {
   cover_image: string | null;
   category: string | null;
   is_published: boolean;
+  is_headline: boolean;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -33,6 +47,7 @@ export interface Announcement {
   content: string | null;
   cover_image: string | null;
   is_published: boolean;
+  is_headline: boolean;
   published_at: string | null;
   created_at: string;
   updated_at: string;
@@ -119,6 +134,17 @@ export interface QuickAccess {
 
 // ==================== Form Types ====================
 
+export interface HeadlineFormData {
+  title: string;
+  subtitle: string;
+  image_url: string;
+  link_url: string;
+  source_type: 'custom' | 'news' | 'announcement';
+  source_id: string | null;
+  order: number;
+  is_active: boolean;
+}
+
 export interface NewsFormData {
   title: string;
   summary: string;
@@ -126,6 +152,7 @@ export interface NewsFormData {
   cover_image: string;
   category: string;
   is_published: boolean;
+  is_headline: boolean;
 }
 
 export interface AnnouncementFormData {
@@ -134,6 +161,7 @@ export interface AnnouncementFormData {
   content: string;
   cover_image: string;
   is_published: boolean;
+  is_headline: boolean;
 }
 
 export interface SliderFormData {

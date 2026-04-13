@@ -5,6 +5,30 @@ import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import ToastProvider from "@/components/ui/Toast";
 
+function hexToRgbString(hex: string): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `${r} ${g} ${b}`;
+}
+
+function darkenColorRgb(hex: string, amount: number = 0.2): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.max(0, Math.round(((num >> 16) & 255) * (1 - amount)));
+  const g = Math.max(0, Math.round(((num >> 8) & 255) * (1 - amount)));
+  const b = Math.max(0, Math.round((num & 255) * (1 - amount)));
+  return `${r} ${g} ${b}`;
+}
+
+function lightenColorRgb(hex: string, amount: number = 0.2): string {
+  const num = parseInt(hex.replace("#", ""), 16);
+  const r = Math.min(255, Math.round(((num >> 16) & 255) + (255 - ((num >> 16) & 255)) * amount));
+  const g = Math.min(255, Math.round(((num >> 8) & 255) + (255 - ((num >> 8) & 255)) * amount));
+  const b = Math.min(255, Math.round((num & 255) + (255 - (num & 255)) * amount));
+  return `${r} ${g} ${b}`;
+}
+
 async function getSettings() {
   const supabase = createClient();
   const { data } = await supabase.from("site_settings").select("key, value");
@@ -28,8 +52,16 @@ async function getMenuItems() {
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   const [settings, menuItems] = await Promise.all([getSettings(), getMenuItems()]);
 
+  const navbarColor = settings.navbar_color || "#1B3A5C";
+
   return (
-    <>
+    <div
+      style={{
+        "--color-primary": hexToRgbString(navbarColor),
+        "--color-primary-dark": darkenColorRgb(navbarColor, 0.2),
+        "--color-primary-light": lightenColorRgb(navbarColor, 0.2),
+      } as React.CSSProperties}
+    >
       <TopBar
         siteTitle={settings.site_title || "Sendika Adı"}
         phone={settings.contact_phone || ""}
@@ -55,6 +87,6 @@ export default async function PublicLayout({ children }: { children: React.React
       />
       <ToastProvider />
       <PageLoader />
-    </>
+    </div>
   );
 }

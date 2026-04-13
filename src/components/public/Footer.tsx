@@ -81,7 +81,7 @@ export default function Footer({
   ].filter((s) => s.url);
 
   return (
-    <footer className="bg-bg-dark text-white/70">
+    <footer className="bg-primary-dark text-white/70">
       <div className="container mx-auto px-4 py-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Logo + Description */}

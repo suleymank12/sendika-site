@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
 import ImageUploader from "@/components/admin/ImageUploader";
+import MediaUploader from "@/components/admin/MediaUploader";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -28,6 +29,9 @@ export default function AdminAnnouncementEditorPage() {
   const [summary, setSummary] = useState("");
   const [content, setContent] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [isHeadline, setIsHeadline] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   useEffect(() => {
@@ -51,6 +55,9 @@ export default function AdminAnnouncementEditorPage() {
         setSummary(data.summary || "");
         setContent(data.content || "");
         setCoverImage(data.cover_image || "");
+        setIsHeadline(data.is_headline || false);
+        setVideoUrl(data.video_url || "");
+        setYoutubeUrl(data.youtube_url || "");
         setSlugManuallyEdited(true);
         setLoading(false);
       };
@@ -78,21 +85,25 @@ export default function AdminAnnouncementEditorPage() {
     setSaving(true);
 
     const supabase = createClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: title.trim(),
       slug: slug.trim(),
       summary: summary.trim() || null,
       content: content || null,
       cover_image: coverImage || null,
       is_published: publish,
+      is_headline: isHeadline,
       published_at: publish ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
 
     let error;
+    let annId = params.id as string;
 
     if (isNew) {
-      ({ error } = await supabase.from("announcements").insert(payload));
+      const res = await supabase.from("announcements").insert(payload).select("id").single();
+      error = res.error;
+      if (res.data) annId = res.data.id;
     } else {
       ({ error } = await supabase.from("announcements").update(payload).eq("id", params.id));
     }
@@ -104,6 +115,33 @@ export default function AdminAnnouncementEditorPage() {
         toast.error("Kaydetme işlemi başarısız oldu.");
       }
     } else {
+      // Manşete ekle/çıkar
+      if (isHeadline && publish) {
+        const { data: existing } = await supabase
+          .from("headlines")
+          .select("id")
+          .eq("source_type", "announcement")
+          .eq("source_id", annId)
+          .maybeSingle();
+
+        if (!existing) {
+          await supabase.from("headlines").insert({
+            title: title.trim(),
+            image_url: coverImage || null,
+            link_url: `/duyurular/${slug.trim()}`,
+            source_type: "announcement",
+            source_id: annId,
+            is_active: true,
+          });
+        }
+      } else if (!isHeadline) {
+        await supabase
+          .from("headlines")
+          .delete()
+          .eq("source_type", "announcement")
+          .eq("source_id", annId);
+      }
+
       toast.success(publish ? "Duyuru yayınlandı." : "Taslak kaydedildi.");
       router.push("/admin/duyurular");
     }
@@ -184,14 +222,38 @@ export default function AdminAnnouncementEditorPage() {
             </FormField>
           </div>
 
+          {/* Video (opsiyonel) */}
+          <div className="rounded-xl bg-white border border-border p-5">
+            <FormField label="Video (opsiyonel)">
+              <MediaUploader
+                value={videoUrl}
+                onChange={setVideoUrl}
+                youtubeUrl={youtubeUrl}
+                onYoutubeChange={setYoutubeUrl}
+                folder="announcements/videos"
+              />
+            </FormField>
+          </div>
+
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 justify-end">
-            <Button variant="secondary" onClick={() => handleSave(false)} loading={saving}>
-              Taslak Kaydet
-            </Button>
-            <Button onClick={() => handleSave(true)} loading={saving}>
-              Yayınla
-            </Button>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isHeadline}
+                onChange={(e) => setIsHeadline(e.target.checked)}
+                className="rounded border-border text-primary focus:ring-primary/50 h-4 w-4"
+              />
+              <span className="text-sm font-medium text-text-dark">Manşete Ekle</span>
+            </label>
+            <div className="flex gap-3">
+              <Button variant="secondary" onClick={() => handleSave(false)} loading={saving}>
+                Taslak Kaydet
+              </Button>
+              <Button onClick={() => handleSave(true)} loading={saving}>
+                Yayınla
+              </Button>
+            </div>
           </div>
         </div>
       </div>

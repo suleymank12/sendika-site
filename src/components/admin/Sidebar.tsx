@@ -6,9 +6,10 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Menu,
-  Newspaper,
+  Newspaper as NewspaperIcon,
   Megaphone,
   Images,
+  BookOpen,
   FileText,
   GalleryHorizontal,
   Users,
@@ -24,9 +25,10 @@ import { useRouter } from "next/navigation";
 const menuItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Menü Yönetimi", href: "/admin/menu", icon: Menu },
-  { label: "Haberler", href: "/admin/haberler", icon: Newspaper },
+  { label: "Haberler", href: "/admin/haberler", icon: NewspaperIcon },
   { label: "Duyurular", href: "/admin/duyurular", icon: Megaphone },
   { label: "Slider", href: "/admin/slider", icon: Images },
+  { label: "Manşet", href: "/admin/manset", icon: BookOpen },
   { label: "Sayfalar", href: "/admin/sayfalar", icon: FileText },
   { label: "Galeri", href: "/admin/galeri", icon: GalleryHorizontal },
   { label: "Yönetim Kurulu", href: "/admin/yonetim-kurulu", icon: Users },

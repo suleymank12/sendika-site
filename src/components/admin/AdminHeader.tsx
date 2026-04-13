@@ -8,9 +8,10 @@ import { useSidebar } from "@/hooks/useAdminSidebar";
 
 interface AdminHeaderProps {
   title: string;
+  action?: React.ReactNode;
 }
 
-export default function AdminHeader({ title }: AdminHeaderProps) {
+export default function AdminHeader({ title, action }: AdminHeaderProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const { toggle } = useSidebar();
@@ -42,6 +43,7 @@ export default function AdminHeader({ title }: AdminHeaderProps) {
       </div>
 
       <div className="flex items-center gap-3">
+        {action && <div className="mr-2">{action}</div>}
         <span className="hidden text-sm text-text-muted sm:block">{email}</span>
         <button
           onClick={handleLogout}
