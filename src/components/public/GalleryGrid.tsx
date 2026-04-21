@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { GalleryImage } from "@/types";
 
@@ -25,10 +26,12 @@ export default function GalleryGrid({ images }: GalleryGridProps) {
             onClick={() => openLightbox(i)}
             className="group relative aspect-square rounded-lg overflow-hidden bg-bg-light"
           >
-            <img
+            <Image
               src={img.image_url}
               alt={img.caption || ""}
-              className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
           </button>
@@ -53,6 +56,8 @@ export default function GalleryGrid({ images }: GalleryGridProps) {
           >
             <ChevronRight className="h-8 w-8" />
           </button>
+          {/* Lightbox görseli: aspect ratio bilinmediği için next/image uygun değil, LCP'yi de etkilemez */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={images[lightboxIndex].image_url}
             alt={images[lightboxIndex].caption || ""}

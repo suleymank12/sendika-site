@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { Upload, X, Film, Play } from "lucide-react";
+import Image from "next/image";
+import { Upload, X, Film } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
@@ -110,7 +111,15 @@ export default function MediaUploader({
               className="w-full h-48 object-cover bg-black"
             />
           ) : (
-            <img src={value} alt="Yüklenen medya" className="w-full h-48 object-cover" />
+            <div className="relative w-full h-48">
+              <Image
+                src={value}
+                alt="Yüklenen medya"
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </div>
           )}
           <button
             type="button"

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Users } from "lucide-react";
 import { BoardMember } from "@/types";
 
@@ -10,10 +11,12 @@ export default function BoardMemberCard({ member }: BoardMemberCardProps) {
     <div className="group rounded-xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
       <div className="relative h-56 bg-bg-light overflow-hidden">
         {member.photo ? (
-          <img
+          <Image
             src={member.photo}
             alt={member.name}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : (
           <div className="h-full w-full flex items-center justify-center">

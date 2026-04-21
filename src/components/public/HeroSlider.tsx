@@ -6,6 +6,7 @@ import { Autoplay, Pagination } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
 import "swiper/css";
 import "swiper/css/pagination";
+import Image from "next/image";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Slider } from "@/types";
@@ -39,13 +40,16 @@ export default function HeroSlider({ slides, siteTitle = "Sendika Adı" }: HeroS
         onSwiper={(swiper) => { swiperRef.current = swiper; }}
         className="h-[300px] sm:h-[400px] lg:h-[500px]"
       >
-        {slides.map((slide) => (
+        {slides.map((slide, idx) => (
           <SwiperSlide key={slide.id}>
             <div className="relative h-full w-full">
-              <img
+              <Image
                 src={slide.image_url}
                 alt={slide.title || ""}
-                className="h-full w-full object-cover"
+                fill
+                sizes="100vw"
+                priority={idx === 0}
+                className="object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
               {(slide.title || slide.subtitle) && (
