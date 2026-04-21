@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Breadcrumb from "@/components/public/Breadcrumb";
-import { formatDate } from "@/lib/utils";
-import { Calendar } from "lucide-react";
-import Link from "next/link";
+import DetailPageLayout from "@/components/public/DetailPageLayout";
+import NewsCard from "@/components/public/NewsCard";
+import { extractImagesFromHtml } from "@/lib/utils";
 import type { Metadata } from "next";
+import type { News } from "@/types";
 
 interface Props {
   params: { slug: string };
@@ -44,93 +44,58 @@ export default async function NewsDetailPage({ params }: Props) {
 
   if (!news) notFound();
 
-  const { data: otherNews } = await supabase
+  const item = news as News;
+
+  const { data: related } = await supabase
     .from("news")
-    .select("id, title, slug, published_at")
+    .select("*")
     .eq("is_published", true)
-    .neq("id", news.id)
+    .neq("id", item.id)
     .order("published_at", { ascending: false })
     .limit(5);
 
+  const relatedNews = ((related as News[]) || []).slice(0, 3);
+  const editorImages = extractImagesFromHtml(item.content);
+
+  const { data: mediaData } = await supabase
+    .from("content_media")
+    .select("url")
+    .eq("content_type", "news")
+    .eq("content_id", item.id)
+    .eq("media_type", "image")
+    .order("order", { ascending: true });
+
+  const galleryUrls = (mediaData || []).map((m) => m.url as string);
+  const contentImages: string[] = [];
+  for (const url of [...galleryUrls, ...editorImages]) {
+    if (!contentImages.includes(url)) contentImages.push(url);
+  }
+
   return (
-    <>
-      <Breadcrumb
-        items={[
-          { label: "Haberler", href: "/haberler" },
-          { label: news.title },
-        ]}
-      />
-
-      <article className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main content */}
-          <div className="lg:col-span-2">
-            <div className="relative w-full aspect-video overflow-hidden rounded-xl mb-6 bg-bg-light">
-              {news.cover_image ? (
-                <img src={news.cover_image} alt={news.title} className="w-full h-full object-cover" />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center bg-primary/5">
-                  <span className="text-6xl font-bold text-primary/20">H</span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center gap-1.5 text-sm text-text-muted">
-                <Calendar className="h-4 w-4" />
-                <time>{formatDate(news.published_at || news.created_at)}</time>
-              </div>
-              {news.category && (
-                <span className="rounded-full bg-primary/10 px-3 py-0.5 text-xs font-medium text-primary">
-                  {news.category}
-                </span>
-              )}
-            </div>
-
-            <h1 className="text-3xl font-bold text-text-dark tracking-tight mb-6">
-              {news.title}
-            </h1>
-
-            {news.summary && (
-              <p className="text-lg text-text-muted leading-relaxed mb-6 border-l-4 border-primary pl-4">
-                {news.summary}
-              </p>
-            )}
-
-            {news.content && (
-              <div
-                className="prose prose-lg max-w-none text-text-dark"
-                dangerouslySetInnerHTML={{ __html: news.content }}
-              />
-            )}
+    <DetailPageLayout
+      breadcrumbs={[
+        { label: "Anasayfa", href: "/" },
+        { label: "Haberler", href: "/haberler" },
+        { label: item.title },
+      ]}
+      title={item.title}
+      date={item.published_at || item.created_at}
+      category={item.category}
+      coverImage={item.cover_image}
+      videoUrl={item.video_url}
+      youtubeUrl={item.youtube_url}
+      content={item.content}
+      contentImages={contentImages}
+      relatedTitle={relatedNews.length > 0 ? "İlgili Haberler" : undefined}
+      relatedSection={
+        relatedNews.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {relatedNews.map((n) => (
+              <NewsCard key={n.id} news={n} />
+            ))}
           </div>
-
-          {/* Sidebar */}
-          <aside>
-            <div className="rounded-xl border border-border bg-white p-5 sticky top-20">
-              <h3 className="font-semibold text-text-dark mb-4">Diğer Haberler</h3>
-              {(otherNews || []).length === 0 ? (
-                <p className="text-sm text-text-muted">Başka haber bulunmuyor.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {(otherNews || []).map((item) => (
-                    <li key={item.id}>
-                      <Link href={`/haberler/${item.slug}`} className="group block">
-                        <h4 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2">
-                          {item.title}
-                        </h4>
-                        <p className="text-xs text-text-muted mt-0.5">
-                          {formatDate(item.published_at)}
-                        </p>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </aside>
-        </div>
-      </article>
-    </>
+        ) : undefined
+      }
+    />
   );
 }

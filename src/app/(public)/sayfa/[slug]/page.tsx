@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Breadcrumb from "@/components/public/Breadcrumb";
+import DetailPageLayout from "@/components/public/DetailPageLayout";
+import { extractImagesFromHtml } from "@/lib/utils";
 import type { Metadata } from "next";
 
 interface Props {
@@ -30,17 +31,34 @@ export default async function DynamicPage({ params }: Props) {
 
   if (!page) notFound();
 
+  const editorImages = extractImagesFromHtml(page.content);
+
+  const { data: mediaData } = await supabase
+    .from("content_media")
+    .select("url")
+    .eq("content_type", "page")
+    .eq("content_id", page.id)
+    .eq("media_type", "image")
+    .order("order", { ascending: true });
+
+  const galleryUrls = (mediaData || []).map((m) => m.url as string);
+  const contentImages: string[] = [];
+  for (const url of [...galleryUrls, ...editorImages]) {
+    if (!contentImages.includes(url)) contentImages.push(url);
+  }
+
   return (
-    <>
-      <Breadcrumb items={[{ label: page.title }]} />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-text-dark tracking-tight mb-8">{page.title}</h1>
-        {page.content ? (
-          <div className="prose prose-lg max-w-none text-text-dark" dangerouslySetInnerHTML={{ __html: page.content }} />
-        ) : (
-          <p className="text-text-muted">Bu sayfada henüz içerik bulunmuyor.</p>
-        )}
-      </div>
-    </>
+    <DetailPageLayout
+      breadcrumbs={[
+        { label: "Anasayfa", href: "/" },
+        { label: page.title },
+      ]}
+      title={page.title}
+      coverImage={page.cover_image}
+      videoUrl={page.video_url}
+      youtubeUrl={page.youtube_url}
+      content={page.content}
+      contentImages={contentImages}
+    />
   );
 }

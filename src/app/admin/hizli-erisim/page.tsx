@@ -1,3 +1,10 @@
+// Supabase SQL Editor'de çalıştırın (kolonlar yoksa ekler):
+// ALTER TABLE quick_access ADD COLUMN IF NOT EXISTS content TEXT;
+// ALTER TABLE quick_access ADD COLUMN IF NOT EXISTS slug TEXT;
+// ALTER TABLE quick_access ADD COLUMN IF NOT EXISTS video_url TEXT;
+// ALTER TABLE quick_access ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+// ALTER TABLE quick_access ADD COLUMN IF NOT EXISTS image_url TEXT;
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -10,8 +17,13 @@ import Input from "@/components/ui/Input";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
+import ImageUploader from "@/components/admin/ImageUploader";
+import MediaUploader from "@/components/admin/MediaUploader";
+import RichTextEditor from "@/components/admin/RichTextEditor";
+import FormField from "@/components/admin/FormField";
 import { Plus, Zap } from "lucide-react";
 import { QuickAccess } from "@/types";
+import { createSlug } from "@/lib/utils";
 import toast from "react-hot-toast";
 import * as LucideIcons from "lucide-react";
 
@@ -19,7 +31,12 @@ interface QuickAccessFormData {
   id?: string;
   title: string;
   icon: string;
+  image_url: string;
   url: string;
+  slug: string;
+  content: string;
+  video_url: string;
+  youtube_url: string;
   order: number;
   is_active: boolean;
 }
@@ -27,12 +44,16 @@ interface QuickAccessFormData {
 const emptyForm: QuickAccessFormData = {
   title: "",
   icon: "",
+  image_url: "",
   url: "",
+  slug: "",
+  content: "",
+  video_url: "",
+  youtube_url: "",
   order: 0,
   is_active: true,
 };
 
-// Sık kullanılan ikon önerileri
 const iconSuggestions = [
   "FileText", "Phone", "Mail", "MapPin", "Calendar", "Users",
   "Briefcase", "BookOpen", "Shield", "Scale", "Gavel", "Heart",
@@ -52,6 +73,7 @@ export default function AdminQuickAccessPage() {
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<QuickAccess | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   const fetchItems = useCallback(async () => {
     const supabase = createClient();
@@ -64,15 +86,33 @@ export default function AdminQuickAccessPage() {
     fetchItems();
   }, [fetchItems]);
 
+  useEffect(() => {
+    if (!slugManuallyEdited && form.title && !form.id) {
+      setForm((prev) => ({ ...prev, slug: createSlug(prev.title) }));
+    }
+  }, [form.title, form.id, slugManuallyEdited]);
+
+  const openNew = () => {
+    setForm(emptyForm);
+    setSlugManuallyEdited(false);
+    setModalOpen(true);
+  };
+
   const handleEdit = (item: QuickAccess) => {
     setForm({
       id: item.id,
       title: item.title,
       icon: item.icon || "",
-      url: item.url,
+      image_url: item.image_url || "",
+      url: item.url || "",
+      slug: item.slug || "",
+      content: item.content || "",
+      video_url: item.video_url || "",
+      youtube_url: item.youtube_url || "",
       order: item.order,
       is_active: item.is_active,
     });
+    setSlugManuallyEdited(true);
     setModalOpen(true);
   };
 
@@ -81,8 +121,10 @@ export default function AdminQuickAccessPage() {
       toast.error("Başlık zorunludur.");
       return;
     }
-    if (!form.url.trim()) {
-      toast.error("URL zorunludur.");
+
+    const finalSlug = form.slug.trim() || createSlug(form.title);
+    if (!finalSlug) {
+      toast.error("Slug oluşturulamadı. Başlığı kontrol edin.");
       return;
     }
 
@@ -91,7 +133,12 @@ export default function AdminQuickAccessPage() {
     const payload = {
       title: form.title.trim(),
       icon: form.icon.trim() || null,
-      url: form.url.trim(),
+      image_url: form.image_url.trim() || null,
+      url: form.url.trim() || `/hizli-erisim/${finalSlug}`,
+      slug: finalSlug,
+      content: form.content || null,
+      video_url: form.video_url.trim() || null,
+      youtube_url: form.youtube_url.trim() || null,
       order: form.order,
       is_active: form.is_active,
     };
@@ -104,11 +151,16 @@ export default function AdminQuickAccessPage() {
     }
 
     if (error) {
-      toast.error("Kaydetme başarısız oldu.");
+      if (error.code === "23505") {
+        toast.error("Bu slug zaten kullanılıyor. Farklı bir slug deneyin.");
+      } else {
+        toast.error("Kaydetme başarısız oldu.");
+      }
     } else {
       toast.success(form.id ? "Buton güncellendi." : "Buton eklendi.");
       setModalOpen(false);
       setForm(emptyForm);
+      setSlugManuallyEdited(false);
       fetchItems();
     }
     setSaving(false);
@@ -131,10 +183,14 @@ export default function AdminQuickAccessPage() {
 
   const columns: Column<QuickAccess>[] = [
     {
-      key: "icon",
-      label: "İkon",
-      className: "w-16",
+      key: "preview",
+      label: "Önizleme",
+      className: "w-20",
       render: (item) => {
+        if (item.image_url) {
+          // eslint-disable-next-line @next/next/no-img-element
+          return <img src={item.image_url} alt={item.title} className="h-10 w-14 rounded object-cover" />;
+        }
         const Icon = item.icon ? getIconComponent(item.icon) : null;
         return Icon ? <Icon className="h-5 w-5 text-primary" /> : <span className="text-text-muted">-</span>;
       },
@@ -145,10 +201,10 @@ export default function AdminQuickAccessPage() {
       render: (item) => <span className="font-medium text-text-dark">{item.title}</span>,
     },
     {
-      key: "url",
-      label: "URL",
+      key: "slug",
+      label: "Slug",
       className: "hidden md:table-cell",
-      render: (item) => <span className="text-text-muted text-xs">{item.url}</span>,
+      render: (item) => <span className="text-text-muted text-xs">{item.slug || "-"}</span>,
     },
     {
       key: "order",
@@ -174,7 +230,7 @@ export default function AdminQuickAccessPage() {
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-text-muted">Anasayfadaki hızlı erişim butonlarını yönetin.</p>
-            <Button onClick={() => { setForm(emptyForm); setModalOpen(true); }}>
+            <Button onClick={openNew}>
               <Plus className="h-4 w-4" />
               Yeni Buton Ekle
             </Button>
@@ -188,7 +244,7 @@ export default function AdminQuickAccessPage() {
               title="Henüz hızlı erişim butonu yok"
               description="Anasayfada görünecek hızlı erişim butonları ekleyin."
               actionLabel="Yeni Buton Ekle"
-              onAction={() => { setForm(emptyForm); setModalOpen(true); }}
+              onAction={openNew}
             />
           ) : (
             <DataTable
@@ -201,8 +257,13 @@ export default function AdminQuickAccessPage() {
         </div>
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Buton Düzenle" : "Yeni Buton Ekle"}>
-        <div className="space-y-4">
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={form.id ? "Buton Düzenle" : "Yeni Buton Ekle"}
+        className="max-w-2xl"
+      >
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
           <Input
             id="qa-title"
             label="Başlık"
@@ -211,14 +272,49 @@ export default function AdminQuickAccessPage() {
             placeholder="Toplu Sözleşme"
             required
           />
+
           <Input
-            id="qa-url"
-            label="URL"
-            value={form.url}
-            onChange={(e) => setForm({ ...form, url: e.target.value })}
-            placeholder="/sayfa/toplu-sozlesme"
-            required
+            id="qa-slug"
+            label="Slug (URL)"
+            value={form.slug}
+            onChange={(e) => {
+              setForm({ ...form, slug: e.target.value });
+              setSlugManuallyEdited(true);
+            }}
+            placeholder="toplu-sozlesme"
+            helperText="/hizli-erisim/slug-buraya-gelecek — başlıktan otomatik oluşturulur"
           />
+
+          <FormField label="Kapak Görseli (opsiyonel)">
+            <ImageUploader
+              value={form.image_url}
+              onChange={(url) => setForm({ ...form, image_url: url })}
+              folder="quick-access"
+              maxWidth={800}
+              maxHeight={500}
+            />
+            <p className="text-xs text-text-muted mt-1.5">
+              Görsel yüklenirse ikon yerine görsel gösterilir. Görsel yoksa ikon kullanılır.
+            </p>
+          </FormField>
+
+          <FormField label="İçerik">
+            <RichTextEditor
+              content={form.content}
+              onChange={(html) => setForm({ ...form, content: html })}
+            />
+          </FormField>
+
+          <FormField label="Video (opsiyonel)">
+            <MediaUploader
+              value={form.video_url}
+              onChange={(url) => setForm({ ...form, video_url: url })}
+              youtubeUrl={form.youtube_url}
+              onYoutubeChange={(url) => setForm({ ...form, youtube_url: url })}
+              folder="quick-access/videos"
+            />
+          </FormField>
+
           <div>
             <Input
               id="qa-icon"
@@ -226,7 +322,7 @@ export default function AdminQuickAccessPage() {
               value={form.icon}
               onChange={(e) => setForm({ ...form, icon: e.target.value })}
               placeholder="FileText"
-              helperText="Lucide ikon adı (ör: FileText, Phone, Mail)"
+              helperText="Görsel yoksa kullanılır (ör: FileText, Phone, Mail)"
             />
             <div className="flex flex-wrap gap-1.5 mt-2">
               {iconSuggestions.map((name) => {
@@ -247,6 +343,7 @@ export default function AdminQuickAccessPage() {
               })}
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <Input
               id="qa-order"
@@ -267,6 +364,7 @@ export default function AdminQuickAccessPage() {
               </select>
             </div>
           </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
             <Button onClick={handleSave} loading={saving}>Kaydet</Button>

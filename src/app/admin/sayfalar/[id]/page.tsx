@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
+import MediaSection from "@/components/admin/MediaSection";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -24,6 +25,11 @@ export default function AdminPageEditorPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [content, setContent] = useState("");
+  const [coverImage, setCoverImage] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [initialGallery, setInitialGallery] = useState<string[]>([]);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   useEffect(() => {
@@ -39,6 +45,22 @@ export default function AdminPageEditorPage() {
         setTitle(data.title);
         setSlug(data.slug);
         setContent(data.content || "");
+        setCoverImage(data.cover_image || "");
+        setVideoUrl(data.video_url || "");
+        setYoutubeUrl(data.youtube_url || "");
+
+        const { data: mediaData } = await supabase
+          .from("content_media")
+          .select("url")
+          .eq("content_type", "page")
+          .eq("content_id", params.id)
+          .eq("media_type", "image")
+          .order("order", { ascending: true });
+
+        const urls = (mediaData || []).map((m) => m.url as string);
+        setGalleryImages(urls);
+        setInitialGallery(urls);
+
         setSlugManuallyEdited(true);
         setLoading(false);
       };
@@ -68,13 +90,19 @@ export default function AdminPageEditorPage() {
       title: title.trim(),
       slug: slug.trim(),
       content: content || null,
+      cover_image: coverImage || null,
+      video_url: videoUrl || null,
+      youtube_url: youtubeUrl || null,
       is_published: publish,
       updated_at: new Date().toISOString(),
     };
 
     let error;
+    let pageId = params.id as string;
     if (isNew) {
-      ({ error } = await supabase.from("pages").insert(payload));
+      const res = await supabase.from("pages").insert(payload).select("id").single();
+      error = res.error;
+      if (res.data) pageId = res.data.id;
     } else {
       ({ error } = await supabase.from("pages").update(payload).eq("id", params.id));
     }
@@ -86,6 +114,39 @@ export default function AdminPageEditorPage() {
         toast.error("Kaydetme işlemi başarısız oldu.");
       }
     } else {
+      // Galeri görsellerini senkronize et
+      const removed = initialGallery.filter((u) => !galleryImages.includes(u));
+      if (removed.length > 0) {
+        await supabase
+          .from("content_media")
+          .delete()
+          .eq("content_type", "page")
+          .eq("content_id", pageId)
+          .in("url", removed);
+      }
+
+      const added = galleryImages.filter((u) => !initialGallery.includes(u));
+      if (added.length > 0) {
+        const rows = added.map((url) => ({
+          content_type: "page",
+          content_id: pageId,
+          media_type: "image",
+          url,
+          order: galleryImages.indexOf(url),
+        }));
+        await supabase.from("content_media").insert(rows);
+      }
+
+      const kept = galleryImages.filter((u) => initialGallery.includes(u));
+      for (const url of kept) {
+        await supabase
+          .from("content_media")
+          .update({ order: galleryImages.indexOf(url) })
+          .eq("content_type", "page")
+          .eq("content_id", pageId)
+          .eq("url", url);
+      }
+
       toast.success(publish ? "Sayfa yayınlandı." : "Taslak kaydedildi.");
       router.push("/admin/sayfalar");
     }
@@ -113,6 +174,7 @@ export default function AdminPageEditorPage() {
         </Link>
 
         <div className="space-y-6">
+          {/* Başlık + Slug */}
           <div className="rounded-xl bg-white border border-border p-5 space-y-4">
             <Input
               id="title"
@@ -131,11 +193,27 @@ export default function AdminPageEditorPage() {
             />
           </div>
 
+          {/* İçerik */}
           <div className="rounded-xl bg-white border border-border p-5">
             <FormField label="İçerik">
               <RichTextEditor content={content} onChange={setContent} />
             </FormField>
           </div>
+
+          {/* Medya */}
+          <MediaSection
+            folder="pages"
+            coverImage={coverImage}
+            onCoverImageChange={setCoverImage}
+            videoUrl={videoUrl}
+            onVideoChange={setVideoUrl}
+            youtubeUrl={youtubeUrl}
+            onYoutubeChange={setYoutubeUrl}
+            contentType="page"
+            contentId={isNew ? null : (params.id as string)}
+            galleryImages={galleryImages}
+            onGalleryChange={setGalleryImages}
+          />
 
           <div className="flex flex-col sm:flex-row gap-3 justify-end">
             <Button variant="secondary" onClick={() => handleSave(false)} loading={saving}>

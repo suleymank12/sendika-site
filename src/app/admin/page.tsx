@@ -6,6 +6,7 @@ import { Newspaper, Megaphone, FileText, GalleryHorizontal } from "lucide-react"
 import AdminHeader from "@/components/admin/AdminHeader";
 import Loading from "@/components/ui/Loading";
 import { formatDate } from "@/lib/utils";
+import { useSiteTitle } from "@/hooks/useSiteTitle";
 import Link from "next/link";
 
 interface Stats {
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
   const [recentNews, setRecentNews] = useState<RecentItem[]>([]);
   const [recentAnnouncements, setRecentAnnouncements] = useState<RecentItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const siteTitle = useSiteTitle();
   
   useEffect(() => {
     const fetchData = async () => {
@@ -89,7 +91,7 @@ export default function AdminDashboard() {
         {/* Welcome */}
         <div className="rounded-xl bg-primary p-6 text-white">
           <h2 className="text-xl font-bold">Hoş Geldiniz!</h2>
-          <p className="text-white/70 text-sm mt-1">Sendika Adı Yönetim Paneli</p>
+          <p className="text-white/70 text-sm mt-1">{siteTitle} Yönetim Paneli</p>
         </div>
 
         {/* Stats */}

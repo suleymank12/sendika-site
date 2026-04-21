@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Calendar } from "lucide-react";
+import { Calendar, Newspaper } from "lucide-react";
 import { News } from "@/types";
 import { formatDate, truncateText } from "@/lib/utils";
 
@@ -21,7 +21,7 @@ export default function NewsCard({ news }: NewsCardProps) {
             />
           ) : (
             <div className="h-full w-full flex items-center justify-center bg-primary/5">
-              <span className="text-4xl font-bold text-primary/20">H</span>
+              <Newspaper className="h-10 w-10 text-primary/30" />
             </div>
           )}
           {news.category && (

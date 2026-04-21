@@ -12,16 +12,17 @@ import { Slider } from "@/types";
 
 interface HeroSliderProps {
   slides: Slider[];
+  siteTitle?: string;
 }
 
-export default function HeroSlider({ slides }: HeroSliderProps) {
+export default function HeroSlider({ slides, siteTitle = "Sendika Adı" }: HeroSliderProps) {
   const swiperRef = useRef<SwiperType | null>(null);
 
   if (slides.length === 0) {
     return (
       <div className="relative h-[300px] sm:h-[400px] lg:h-[500px] bg-primary flex items-center justify-center">
         <div className="text-center text-white">
-          <h2 className="text-3xl font-bold">Sendika Adı</h2>
+          <h2 className="text-3xl font-bold">{siteTitle}</h2>
           <p className="mt-2 text-white/70">Kurumsal Web Sitesi</p>
         </div>
       </div>

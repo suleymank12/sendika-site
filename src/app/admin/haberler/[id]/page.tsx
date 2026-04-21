@@ -5,8 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
-import ImageUploader from "@/components/admin/ImageUploader";
-import MediaUploader from "@/components/admin/MediaUploader";
+import MediaSection from "@/components/admin/MediaSection";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -33,6 +32,8 @@ export default function AdminNewsEditorPage() {
   const [isHeadline, setIsHeadline] = useState(false);
   const [videoUrl, setVideoUrl] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [initialGallery, setInitialGallery] = useState<string[]>([]);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,19 @@ export default function AdminNewsEditorPage() {
         setIsHeadline(data.is_headline || false);
         setVideoUrl(data.video_url || "");
         setYoutubeUrl(data.youtube_url || "");
+
+        const { data: mediaData } = await supabase
+          .from("content_media")
+          .select("url")
+          .eq("content_type", "news")
+          .eq("content_id", params.id)
+          .eq("media_type", "image")
+          .order("order", { ascending: true });
+
+        const urls = (mediaData || []).map((m) => m.url as string);
+        setGalleryImages(urls);
+        setInitialGallery(urls);
+
         setSlugManuallyEdited(true);
         setLoading(false);
       };
@@ -93,6 +107,8 @@ export default function AdminNewsEditorPage() {
       summary: summary.trim() || null,
       content: content || null,
       cover_image: coverImage || null,
+      video_url: videoUrl || null,
+      youtube_url: youtubeUrl || null,
       category: category.trim() || null,
       is_published: publish,
       is_headline: isHeadline,
@@ -118,6 +134,40 @@ export default function AdminNewsEditorPage() {
         toast.error("Kaydetme işlemi başarısız oldu.");
       }
     } else {
+      // Galeri görsellerini senkronize et
+      const removed = initialGallery.filter((u) => !galleryImages.includes(u));
+      if (removed.length > 0) {
+        await supabase
+          .from("content_media")
+          .delete()
+          .eq("content_type", "news")
+          .eq("content_id", newsId)
+          .in("url", removed);
+      }
+
+      const added = galleryImages.filter((u) => !initialGallery.includes(u));
+      if (added.length > 0) {
+        const rows = added.map((url) => ({
+          content_type: "news",
+          content_id: newsId,
+          media_type: "image",
+          url,
+          order: galleryImages.indexOf(url),
+        }));
+        await supabase.from("content_media").insert(rows);
+      }
+
+      // Sıralama güncellemesi (mevcut kayıtlar için)
+      const kept = galleryImages.filter((u) => initialGallery.includes(u));
+      for (const url of kept) {
+        await supabase
+          .from("content_media")
+          .update({ order: galleryImages.indexOf(url) })
+          .eq("content_type", "news")
+          .eq("content_id", newsId)
+          .eq("url", url);
+      }
+
       // Manşete ekle/çıkar
       if (isHeadline && publish) {
         const { data: existing } = await supabase
@@ -234,25 +284,20 @@ export default function AdminNewsEditorPage() {
             </FormField>
           </div>
 
-          {/* Cover Image */}
-          <div className="rounded-xl bg-white border border-border p-5">
-            <FormField label="Kapak Görseli">
-              <ImageUploader value={coverImage} onChange={setCoverImage} folder="news" maxWidth={1200} maxHeight={675} />
-            </FormField>
-          </div>
-
-          {/* Video (opsiyonel) */}
-          <div className="rounded-xl bg-white border border-border p-5">
-            <FormField label="Video (opsiyonel)">
-              <MediaUploader
-                value={videoUrl}
-                onChange={setVideoUrl}
-                youtubeUrl={youtubeUrl}
-                onYoutubeChange={setYoutubeUrl}
-                folder="news/videos"
-              />
-            </FormField>
-          </div>
+          {/* Medya */}
+          <MediaSection
+            folder="news"
+            coverImage={coverImage}
+            onCoverImageChange={setCoverImage}
+            videoUrl={videoUrl}
+            onVideoChange={setVideoUrl}
+            youtubeUrl={youtubeUrl}
+            onYoutubeChange={setYoutubeUrl}
+            contentType="news"
+            contentId={isNew ? null : (params.id as string)}
+            galleryImages={galleryImages}
+            onGalleryChange={setGalleryImages}
+          />
 
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">

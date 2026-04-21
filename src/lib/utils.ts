@@ -36,3 +36,17 @@ export function truncateText(text: string, maxLength: number): string {
 export function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(" ");
 }
+
+/**
+ * HTML icerigindeki <img src="..."> adreslerini cikarir
+ */
+export function extractImagesFromHtml(html: string | null | undefined): string[] {
+  if (!html) return [];
+  const re = /<img[^>]+src=["']([^"']+)["']/gi;
+  const urls: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    if (m[1] && !urls.includes(m[1])) urls.push(m[1]);
+  }
+  return urls;
+}

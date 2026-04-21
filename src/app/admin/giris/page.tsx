@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { useSiteTitle } from "@/hooks/useSiteTitle";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const siteTitle = useSiteTitle();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -45,7 +47,7 @@ export default function AdminLoginPage() {
         <div className="rounded-xl bg-white p-8 shadow-sm border border-border">
           {/* Header */}
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-primary tracking-tight">Sendika Adı</h1>
+            <h1 className="text-2xl font-bold text-primary tracking-tight">{siteTitle}</h1>
             <p className="text-sm text-text-muted mt-1">Yönetim Paneli</p>
           </div>
 

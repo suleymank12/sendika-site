@@ -15,12 +15,14 @@ import {
   Users,
   Building2,
   Zap,
+  LayoutGrid,
   Settings,
   LogOut,
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useSiteTitle } from "@/hooks/useSiteTitle";
 
 const menuItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
@@ -34,6 +36,7 @@ const menuItems = [
   { label: "Yönetim Kurulu", href: "/admin/yonetim-kurulu", icon: Users },
   { label: "Şubeler", href: "/admin/subeler", icon: Building2 },
   { label: "Hızlı Erişim", href: "/admin/hizli-erisim", icon: Zap },
+  { label: "Anasayfa Bölümleri", href: "/admin/anasayfa-bolumleri", icon: LayoutGrid },
   { label: "Site Ayarları", href: "/admin/ayarlar", icon: Settings },
 ];
 
@@ -45,6 +48,7 @@ interface SidebarProps {
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const siteTitle = useSiteTitle();
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -72,8 +76,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         {/* Logo / Title */}
         <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
-          <Link href="/admin" className="text-white font-bold text-lg tracking-tight">
-            Sendika Adı
+          <Link href="/admin" className="text-white font-bold text-lg tracking-tight truncate">
+            {siteTitle}
           </Link>
           <button onClick={onClose} className="lg:hidden text-white/60 hover:text-white">
             <X className="h-5 w-5" />

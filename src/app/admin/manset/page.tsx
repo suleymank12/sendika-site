@@ -1,3 +1,8 @@
+// Supabase SQL Editor'de çalıştırın (kolon yoksa ekler):
+// ALTER TABLE headlines ADD COLUMN IF NOT EXISTS content TEXT;
+// ALTER TABLE headlines ADD COLUMN IF NOT EXISTS video_url TEXT;
+// ALTER TABLE headlines ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
@@ -7,6 +12,8 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Modal from "@/components/ui/Modal";
 import ImageUploader from "@/components/admin/ImageUploader";
+import MediaUploader from "@/components/admin/MediaUploader";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 import FormField from "@/components/admin/FormField";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
@@ -23,6 +30,9 @@ interface HeadlineForm {
   link_url: string;
   source_type: SourceType;
   source_id: string;
+  content: string;
+  video_url: string;
+  youtube_url: string;
   order: number;
   is_active: boolean;
 }
@@ -34,6 +44,9 @@ const emptyForm: HeadlineForm = {
   link_url: "",
   source_type: "custom",
   source_id: "",
+  content: "",
+  video_url: "",
+  youtube_url: "",
   order: 0,
   is_active: true,
 };
@@ -111,6 +124,9 @@ export default function AdminHeadlinePage() {
       link_url: h.link_url || "",
       source_type: (h.source_type as SourceType) || "custom",
       source_id: h.source_id || "",
+      content: h.content || "",
+      video_url: h.video_url || "",
+      youtube_url: h.youtube_url || "",
       order: h.order,
       is_active: h.is_active,
     });
@@ -154,6 +170,9 @@ export default function AdminHeadlinePage() {
       link_url: form.link_url.trim() || null,
       source_type: form.source_type,
       source_id: form.source_id || null,
+      content: form.source_type === "custom" ? form.content || null : null,
+      video_url: form.source_type === "custom" ? form.video_url || null : null,
+      youtube_url: form.source_type === "custom" ? form.youtube_url || null : null,
       order: form.order,
       is_active: form.is_active,
     };
@@ -434,7 +453,35 @@ export default function AdminHeadlinePage() {
             value={form.link_url}
             onChange={(e) => setForm((p) => ({ ...p, link_url: e.target.value }))}
             placeholder="/haberler/ornek-haber"
+            helperText={
+              form.source_type === "custom"
+                ? "Boş bırakılırsa manşet kendi detay sayfasında açılır."
+                : undefined
+            }
           />
+
+          {/* İçerik — yalnızca custom kaynakta */}
+          {form.source_type === "custom" && (
+            <>
+              <FormField label="İçerik (opsiyonel)">
+                <RichTextEditor
+                  content={form.content}
+                  onChange={(html) => setForm((p) => ({ ...p, content: html }))}
+                />
+              </FormField>
+
+              <div className="border-t border-gray-200 pt-4 mt-2">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">Medya (Opsiyonel)</h4>
+                <MediaUploader
+                  value={form.video_url}
+                  onChange={(url) => setForm((p) => ({ ...p, video_url: url }))}
+                  youtubeUrl={form.youtube_url}
+                  onYoutubeChange={(url) => setForm((p) => ({ ...p, youtube_url: url }))}
+                  folder="headlines/videos"
+                />
+              </div>
+            </>
+          )}
 
           {/* Sıra */}
           <Input

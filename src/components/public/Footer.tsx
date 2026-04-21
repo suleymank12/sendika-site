@@ -110,6 +110,20 @@ export default function Footer({
             )}
           </div>
 
+          {/* Quick Links as compact list */}
+          <div>
+            <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider">Hızlı Bağlantılar</h4>
+            <ul className="space-y-1.5">
+              {quickLinks.map((link) => (
+                <li key={link.href}>
+                  <Link href={link.href} className="text-sm hover:text-white transition-colors">
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Contact */}
           <div>
             <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider">İletişim</h4>
@@ -136,20 +150,6 @@ export default function Footer({
                   </a>
                 </li>
               )}
-            </ul>
-          </div>
-
-          {/* Quick Links as compact list */}
-          <div>
-            <h4 className="text-white font-semibold text-sm mb-3 uppercase tracking-wider">Hızlı Bağlantılar</h4>
-            <ul className="space-y-1.5">
-              {quickLinks.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} className="text-sm hover:text-white transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
             </ul>
           </div>
         </div>

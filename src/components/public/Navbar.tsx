@@ -57,10 +57,10 @@ function DesktopItem({ item, isNested = false }: { item: MenuItem; isNested?: bo
       <Link
         href={item.url || "#"}
         className={cn(
-          "block transition-colors",
+          "block transition-colors rounded-md",
           isNested
             ? "px-4 py-2 text-sm text-text-dark hover:bg-bg-light hover:text-primary"
-            : "px-4 py-2 text-base font-medium text-white/90 hover:text-white"
+            : "px-4 py-2 text-base font-medium text-white/90 hover:text-white hover:bg-white/10"
         )}
       >
         {item.title}
@@ -72,7 +72,7 @@ function DesktopItem({ item, isNested = false }: { item: MenuItem; isNested?: bo
   if (!isNested) {
     return (
       <div className="relative" onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-        <button className="flex items-center gap-1 px-4 py-2 text-base font-medium text-white/90 hover:text-white transition-colors">
+        <button className="flex items-center gap-1 px-4 py-2 text-base font-medium text-white/90 hover:text-white hover:bg-white/10 transition-colors rounded-md">
           {item.title}
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
         </button>
@@ -131,7 +131,7 @@ function MobileItem({
       <Link
         href={item.url || "#"}
         onClick={onClose}
-        className="block py-3 text-sm font-medium text-text-dark border-b border-border hover:bg-bg-light"
+        className="block py-3 text-sm font-medium text-text-dark border-b border-border hover:bg-bg-light transition-colors"
         style={{ paddingLeft, paddingRight: 16 }}
       >
         {item.title}
@@ -143,7 +143,7 @@ function MobileItem({
     <div className="border-b border-border">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between py-3 text-sm font-medium text-text-dark hover:bg-bg-light"
+        className="flex w-full items-center justify-between py-3 text-sm font-medium text-text-dark hover:bg-bg-light transition-colors"
         style={{ paddingLeft, paddingRight: 16 }}
       >
         {item.title}
@@ -250,7 +250,11 @@ export default function Navbar({ menuItems, logoUrl, siteTitle }: NavbarProps) {
             </button>
           </div>
           {tree.map((item) => (
-            <MobileItem key={item.id} item={item} onClose={() => setMobileOpen(false)} />
+            <MobileItem
+              key={item.id}
+              item={item}
+              onClose={() => setMobileOpen(false)}
+            />
           ))}
         </div>
       </div>

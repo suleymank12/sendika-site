@@ -167,3 +167,12 @@ body.hydrated #initial-loading-bar {
 .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; }
 .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .line-clamp-3 { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+
+/* Print */
+@media print {
+  nav, footer, .no-print { display: none !important; }
+  .prose { font-size: 14px !important; }
+  img { max-height: 300px; }
+  body { background: white !important; }
+  article { box-shadow: none !important; border: none !important; }
+}

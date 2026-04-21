@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -9,8 +10,9 @@ import Input from "@/components/ui/Input";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
-import { Plus, GripVertical, Edit, Trash2, Menu as MenuIcon } from "lucide-react";
+import { Plus, GripVertical, Edit, Trash2, Menu as MenuIcon, FileText, FilePlus } from "lucide-react";
 import { MenuItem } from "@/types";
+import { createSlug } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
   DndContext,
@@ -48,70 +50,154 @@ const emptyForm: MenuFormData = {
   is_active: true,
 };
 
-function SortableMenuItem({
+function buildTree(items: MenuItem[]): MenuItem[] {
+  const map = new Map<string, MenuItem>();
+  const roots: MenuItem[] = [];
+  items.forEach((i) => map.set(i.id, { ...i, children: [] }));
+  map.forEach((i) => {
+    if (i.parent_id && map.has(i.parent_id)) {
+      map.get(i.parent_id)!.children!.push(i);
+    } else {
+      roots.push(i);
+    }
+  });
+  const sort = (arr: MenuItem[]) => {
+    arr.sort((a, b) => a.order - b.order);
+    arr.forEach((x) => x.children && sort(x.children));
+  };
+  sort(roots);
+  return roots;
+}
+
+function collectDescendantIds(items: MenuItem[], rootId: string): Set<string> {
+  const result = new Set<string>([rootId]);
+  const queue = [rootId];
+  while (queue.length) {
+    const current = queue.shift()!;
+    items
+      .filter((i) => i.parent_id === current)
+      .forEach((child) => {
+        if (!result.has(child.id)) {
+          result.add(child.id);
+          queue.push(child.id);
+        }
+      });
+  }
+  return result;
+}
+
+function SortableRow({
   item,
-  children: subItems,
+  depth,
   onEdit,
   onDelete,
+  onAddChild,
 }: {
   item: MenuItem;
-  children: MenuItem[];
+  depth: number;
   onEdit: (item: MenuItem) => void;
   onDelete: (item: MenuItem) => void;
+  onAddChild: (parent: MenuItem) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const children = item.children || [];
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   return (
     <div ref={setNodeRef} style={style}>
       <div className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2.5 mb-1.5">
-        <button {...attributes} {...listeners} className="cursor-grab text-text-muted hover:text-text-dark">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab text-text-muted hover:text-text-dark"
+        >
           <GripVertical className="h-4 w-4" />
         </button>
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium text-text-dark">{item.title}</span>
           {item.url && <span className="ml-2 text-xs text-text-muted">{item.url}</span>}
         </div>
-        <span className={cn("text-xs px-2 py-0.5 rounded-full", item.is_active ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
+        <span
+          className={cn(
+            "text-xs px-2 py-0.5 rounded-full",
+            item.is_active ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+          )}
+        >
           {item.is_active ? "Aktif" : "Pasif"}
         </span>
-        <button onClick={() => onEdit(item)} className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10">
+        <button
+          onClick={() => onAddChild(item)}
+          title="Alt menü ekle"
+          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => onEdit(item)}
+          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10"
+        >
           <Edit className="h-4 w-4" />
         </button>
-        <button onClick={() => onDelete(item)} className="p-1.5 text-text-muted hover:text-error rounded-lg hover:bg-error/10">
+        <button
+          onClick={() => onDelete(item)}
+          className="p-1.5 text-text-muted hover:text-error rounded-lg hover:bg-error/10"
+        >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
-      {subItems.length > 0 && (
+      {children.length > 0 && (
         <div className="ml-8 border-l-2 border-border pl-2">
-          {subItems.map((sub) => (
-            <div key={sub.id} className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 mb-1.5">
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-medium text-text-dark">{sub.title}</span>
-                {sub.url && <span className="ml-2 text-xs text-text-muted">{sub.url}</span>}
-              </div>
-              <span className={cn("text-xs px-2 py-0.5 rounded-full", sub.is_active ? "bg-success/10 text-success" : "bg-warning/10 text-warning")}>
-                {sub.is_active ? "Aktif" : "Pasif"}
-              </span>
-              <button onClick={() => onEdit(sub)} className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10">
-                <Edit className="h-4 w-4" />
-              </button>
-              <button onClick={() => onDelete(sub)} className="p-1.5 text-text-muted hover:text-error rounded-lg hover:bg-error/10">
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+          <SortableBranch
+            items={children}
+            depth={depth + 1}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onAddChild={onAddChild}
+          />
         </div>
       )}
     </div>
   );
 }
 
+function SortableBranch({
+  items,
+  depth,
+  onEdit,
+  onDelete,
+  onAddChild,
+}: {
+  items: MenuItem[];
+  depth: number;
+  onEdit: (item: MenuItem) => void;
+  onDelete: (item: MenuItem) => void;
+  onAddChild: (parent: MenuItem) => void;
+}) {
+  return (
+    <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+      {items.map((item) => (
+        <SortableRow
+          key={item.id}
+          item={item}
+          depth={depth}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onAddChild={onAddChild}
+        />
+      ))}
+    </SortableContext>
+  );
+}
+
 export default function AdminMenuPage() {
+  const router = useRouter();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -119,9 +205,11 @@ export default function AdminMenuPage() {
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<MenuItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [linkedPageId, setLinkedPageId] = useState<string | null>(null);
+  const [pageActionLoading, setPageActionLoading] = useState(false);
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -139,8 +227,42 @@ export default function AdminMenuPage() {
     fetchItems();
   }, [fetchItems]);
 
-  const parentItems = items.filter((i) => !i.parent_id);
-  const getChildren = (parentId: string) => items.filter((i) => i.parent_id === parentId).sort((a, b) => a.order - b.order);
+  useEffect(() => {
+    if (!modalOpen) {
+      setLinkedPageId(null);
+      return;
+    }
+    const match = form.url.match(/^\/sayfa\/(.+)$/);
+    if (!match) {
+      setLinkedPageId(null);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from("pages")
+      .select("id")
+      .eq("slug", match[1])
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setLinkedPageId(data?.id || null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modalOpen, form.url]);
+
+  const tree = useMemo(() => buildTree(items), [items]);
+
+  const forbiddenParentIds = useMemo(() => {
+    if (!form.id) return new Set<string>();
+    return collectDescendantIds(items, form.id);
+  }, [items, form.id]);
+
+  const parentOptions = useMemo(
+    () => items.filter((i) => !forbiddenParentIds.has(i.id)).sort((a, b) => a.title.localeCompare(b.title, "tr")),
+    [items, forbiddenParentIds]
+  );
 
   const handleEdit = (item: MenuItem) => {
     setForm({
@@ -151,6 +273,18 @@ export default function AdminMenuPage() {
       order: item.order,
       is_active: item.is_active,
     });
+    setModalOpen(true);
+  };
+
+  const handleAddChild = (parent: MenuItem) => {
+    const siblingCount = items.filter((i) => i.parent_id === parent.id).length;
+    setForm({ ...emptyForm, parent_id: parent.id, order: siblingCount });
+    setModalOpen(true);
+  };
+
+  const handleNew = () => {
+    const siblingCount = items.filter((i) => !i.parent_id).length;
+    setForm({ ...emptyForm, order: siblingCount });
     setModalOpen(true);
   };
 
@@ -188,18 +322,83 @@ export default function AdminMenuPage() {
     setSaving(false);
   };
 
+  const handlePageAction = async () => {
+    if (linkedPageId) {
+      router.push(`/admin/sayfalar/${linkedPageId}`);
+      return;
+    }
+    if (!form.title.trim()) {
+      toast.error("Önce başlık girin.");
+      return;
+    }
+
+    setPageActionLoading(true);
+    const supabase = createClient();
+
+    const match = form.url.match(/^\/sayfa\/(.+)$/);
+    const slug = match ? match[1] : createSlug(form.title);
+
+    if (!slug) {
+      toast.error("Başlıktan geçerli bir slug üretilemedi.");
+      setPageActionLoading(false);
+      return;
+    }
+
+    const { data: existing } = await supabase
+      .from("pages")
+      .select("id")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    let pageId = existing?.id || null;
+
+    if (!pageId) {
+      const { data: created, error } = await supabase
+        .from("pages")
+        .insert({ title: form.title.trim(), slug, is_published: false })
+        .select("id")
+        .single();
+      if (error || !created) {
+        toast.error("Sayfa oluşturulamadı.");
+        setPageActionLoading(false);
+        return;
+      }
+      pageId = created.id;
+    }
+
+    const targetUrl = `/sayfa/${slug}`;
+    const payload = {
+      title: form.title.trim(),
+      url: targetUrl,
+      parent_id: form.parent_id || null,
+      order: form.order,
+      is_active: form.is_active,
+    };
+
+    const { error: menuError } = form.id
+      ? await supabase.from("menu_items").update(payload).eq("id", form.id)
+      : await supabase.from("menu_items").insert(payload);
+
+    if (menuError) {
+      toast.error("Menü kaydedilemedi.");
+      setPageActionLoading(false);
+      return;
+    }
+
+    toast.success("Sayfa hazır. İçeriği düzenleyebilirsiniz.");
+    setModalOpen(false);
+    setForm(emptyForm);
+    router.push(`/admin/sayfalar/${pageId}`);
+  };
+
   const handleDelete = async () => {
     if (!deleteItem) return;
     setDeleting(true);
     const supabase = createClient();
 
-    // Alt menüleri de sil
-    const children = items.filter((i) => i.parent_id === deleteItem.id);
-    if (children.length > 0) {
-      await supabase.from("menu_items").delete().eq("parent_id", deleteItem.id);
-    }
+    const descendantIds = Array.from(collectDescendantIds(items, deleteItem.id));
+    const { error } = await supabase.from("menu_items").delete().in("id", descendantIds);
 
-    const { error } = await supabase.from("menu_items").delete().eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -214,20 +413,27 @@ export default function AdminMenuPage() {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
 
-    const oldIndex = parentItems.findIndex((i) => i.id === active.id);
-    const newIndex = parentItems.findIndex((i) => i.id === over.id);
+    const activeItem = items.find((i) => i.id === active.id);
+    const overItem = items.find((i) => i.id === over.id);
+    if (!activeItem || !overItem) return;
+    if (activeItem.parent_id !== overItem.parent_id) return;
+
+    const siblings = items
+      .filter((i) => i.parent_id === activeItem.parent_id)
+      .sort((a, b) => a.order - b.order);
+    const oldIndex = siblings.findIndex((i) => i.id === active.id);
+    const newIndex = siblings.findIndex((i) => i.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
 
-    const reordered = arrayMove(parentItems, oldIndex, newIndex);
-    // Optimistic update
-    const updatedItems = items.map((item) => {
-      const idx = reordered.findIndex((r) => r.id === item.id);
-      if (idx !== -1) return { ...item, order: idx };
-      return item;
-    });
-    setItems(updatedItems);
+    const reordered = arrayMove(siblings, oldIndex, newIndex);
 
-    // Persist
+    const reorderedMap = new Map(reordered.map((item, idx) => [item.id, idx]));
+    setItems((prev) =>
+      prev.map((item) =>
+        reorderedMap.has(item.id) ? { ...item, order: reorderedMap.get(item.id)! } : item
+      )
+    );
+
     const supabase = createClient();
     const updates = reordered.map((item, idx) =>
       supabase.from("menu_items").update({ order: idx }).eq("id", item.id)
@@ -236,14 +442,27 @@ export default function AdminMenuPage() {
     toast.success("Sıralama kaydedildi.");
   };
 
+  const parentLabel = (id: string | null): string => {
+    if (!id) return "—";
+    const path: string[] = [];
+    let cursor = items.find((i) => i.id === id);
+    while (cursor) {
+      path.unshift(cursor.title);
+      cursor = cursor.parent_id ? items.find((i) => i.id === cursor!.parent_id) : undefined;
+    }
+    return path.join(" › ");
+  };
+
   return (
     <>
       <AdminHeader title="Menü Yönetimi" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-text-muted">Menü öğelerini sürükleyerek sıralayabilirsiniz.</p>
-            <Button onClick={() => { setForm(emptyForm); setModalOpen(true); }}>
+            <p className="text-sm text-text-muted">
+              Menü öğelerini sürükleyerek sıralayabilir, + ile sınırsız alt menü ekleyebilirsiniz.
+            </p>
+            <Button onClick={handleNew}>
               <Plus className="h-4 w-4" />
               Yeni Menü Öğesi
             </Button>
@@ -251,35 +470,33 @@ export default function AdminMenuPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
-          ) : parentItems.length === 0 ? (
+          ) : tree.length === 0 ? (
             <EmptyState
               icon={MenuIcon}
               title="Henüz menü öğesi yok"
               description="Yeni menü öğesi ekleyerek başlayın."
               actionLabel="Yeni Menü Öğesi"
-              onAction={() => { setForm(emptyForm); setModalOpen(true); }}
+              onAction={handleNew}
             />
           ) : (
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={parentItems.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-                {parentItems.map((item) => (
-                  <SortableMenuItem
-                    key={item.id}
-                    item={item}
-                    onEdit={handleEdit}
-                    onDelete={setDeleteItem}
-                  >
-                    {getChildren(item.id)}
-                  </SortableMenuItem>
-                ))}
-              </SortableContext>
+              <SortableBranch
+                items={tree}
+                depth={0}
+                onEdit={handleEdit}
+                onDelete={setDeleteItem}
+                onAddChild={handleAddChild}
+              />
             </DndContext>
           )}
         </div>
       </div>
 
-      {/* Add/Edit Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Menü Öğesi Düzenle" : "Yeni Menü Öğesi"}>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={form.id ? "Menü Öğesi Düzenle" : "Yeni Menü Öğesi"}
+      >
         <div className="space-y-4">
           <Input
             id="menu-title"
@@ -305,10 +522,17 @@ export default function AdminMenuPage() {
               className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               <option value="">Ana Menü (Üst seviye)</option>
-              {parentItems.filter((i) => i.id !== form.id).map((item) => (
-                <option key={item.id} value={item.id}>{item.title}</option>
+              {parentOptions.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {parentLabel(item.id)}
+                </option>
               ))}
             </select>
+            {form.id && forbiddenParentIds.size > 1 && (
+              <p className="mt-1 text-xs text-text-muted">
+                Kendi alt menüleri üst menü olarak seçilemez (döngü önlenir).
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <Input
@@ -330,9 +554,41 @@ export default function AdminMenuPage() {
               </select>
             </div>
           </div>
+          <div className="rounded-lg border border-dashed border-border bg-bg-light p-3">
+            <div className="flex items-start gap-2">
+              {linkedPageId ? (
+                <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              ) : (
+                <FilePlus className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-text-dark">
+                  {linkedPageId ? "Bu menüye bağlı bir sayfa var" : "Bu menüye sayfa ekle"}
+                </p>
+                <p className="text-xs text-text-muted mt-0.5">
+                  {linkedPageId
+                    ? "İçeriği düzenlemek için editöre gidin."
+                    : "Başlıktan otomatik sayfa oluşturulur, URL bağlanır ve editör açılır."}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handlePageAction}
+                loading={pageActionLoading}
+              >
+                {linkedPageId ? "İçeriği Düzenle" : "Sayfa Oluştur"}
+              </Button>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
-            <Button onClick={handleSave} loading={saving}>Kaydet</Button>
+            <Button variant="secondary" onClick={() => setModalOpen(false)}>
+              İptal
+            </Button>
+            <Button onClick={handleSave} loading={saving}>
+              Kaydet
+            </Button>
           </div>
         </div>
       </Modal>
@@ -342,7 +598,11 @@ export default function AdminMenuPage() {
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
         loading={deleting}
-        description={`"${deleteItem?.title}" menü öğesini silmek istediğinize emin misiniz?${items.some((i) => i.parent_id === deleteItem?.id) ? " Alt menü öğeleri de silinecektir." : ""}`}
+        description={`"${deleteItem?.title}" menü öğesini silmek istediğinize emin misiniz?${
+          deleteItem && items.some((i) => i.parent_id === deleteItem.id)
+            ? " Tüm alt menü öğeleri de silinecektir."
+            : ""
+        }`}
       />
     </>
   );
