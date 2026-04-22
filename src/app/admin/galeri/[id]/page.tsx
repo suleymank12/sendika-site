@@ -10,10 +10,9 @@ import ImageUploader from "@/components/admin/ImageUploader";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import FormField from "@/components/admin/FormField";
-import { ArrowLeft, Upload, Trash2, GripVertical } from "lucide-react";
+import { Upload, Trash2, GripVertical } from "lucide-react";
 import { GalleryAlbum, GalleryImage } from "@/types";
 import toast from "react-hot-toast";
-import Link from "next/link";
 import {
   DndContext,
   closestCenter,
@@ -194,7 +193,10 @@ export default function AdminGalleryDetailPage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Albüm Detay" />
+        <AdminHeader
+          title="Albüm Detay"
+          breadcrumbs={[{ label: "Galeri", href: "/admin/galeri" }, { label: "Detay" }]}
+        />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -204,12 +206,14 @@ export default function AdminGalleryDetailPage() {
 
   return (
     <>
-      <AdminHeader title={album?.title || "Albüm"} />
+      <AdminHeader
+        title={album?.title || "Albüm"}
+        breadcrumbs={[
+          { label: "Galeri", href: "/admin/galeri" },
+          { label: album?.title || "Detay" },
+        ]}
+      />
       <div className="p-4 lg:p-6 max-w-5xl">
-        <Link href="/admin/galeri" className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary mb-4">
-          <ArrowLeft className="h-4 w-4" />
-          Galeriye Dön
-        </Link>
 
         {/* Album info */}
         <div className="rounded-xl bg-white border border-border p-5 mb-6 space-y-4">

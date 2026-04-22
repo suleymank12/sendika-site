@@ -2,11 +2,22 @@ import slugifyLib from "slugify";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 
+const TR_CHAR_MAP: Record<string, string> = {
+  ç: "c", Ç: "c",
+  ğ: "g", Ğ: "g",
+  ı: "i", İ: "i", I: "i",
+  ö: "o", Ö: "o",
+  ş: "s", Ş: "s",
+  ü: "u", Ü: "u",
+};
+
 /**
  * Turkce karakter destekli slug olusturma
+ * Turkce karakterler ASCII'ye donusturulur, sonra slugify uygulanir
  */
 export function createSlug(text: string): string {
-  return slugifyLib(text, {
+  const asciified = text.replace(/[çÇğĞıİIöÖşŞüÜ]/g, (ch) => TR_CHAR_MAP[ch] || ch);
+  return slugifyLib(asciified, {
     lower: true,
     strict: true,
     locale: "tr",

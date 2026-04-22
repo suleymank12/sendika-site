@@ -2,12 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Newspaper, Megaphone, FileText, GalleryHorizontal } from "lucide-react";
+import {
+  Newspaper,
+  Megaphone,
+  FileText,
+  GalleryHorizontal,
+  BookOpen,
+  Plus,
+  ArrowRight,
+} from "lucide-react";
 import AdminHeader from "@/components/admin/AdminHeader";
+import StatusBadge from "@/components/admin/StatusBadge";
 import Loading from "@/components/ui/Loading";
 import { formatDate } from "@/lib/utils";
 import { useSiteTitle } from "@/hooks/useSiteTitle";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface Stats {
   news: number;
@@ -23,12 +33,82 @@ interface RecentItem {
   is_published: boolean;
 }
 
-function StatCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
+const quickActions = [
+  {
+    label: "Yeni Haber",
+    href: "/admin/haberler/yeni",
+    icon: Newspaper,
+    iconBg: "bg-blue-50",
+    iconColor: "text-blue-600",
+  },
+  {
+    label: "Yeni Duyuru",
+    href: "/admin/duyurular/yeni",
+    icon: Megaphone,
+    iconBg: "bg-amber-50",
+    iconColor: "text-amber-600",
+  },
+  {
+    label: "Yeni Manşet",
+    href: "/admin/manset",
+    icon: BookOpen,
+    iconBg: "bg-rose-50",
+    iconColor: "text-rose-600",
+  },
+  {
+    label: "Yeni Sayfa",
+    href: "/admin/sayfalar/yeni",
+    icon: FileText,
+    iconBg: "bg-purple-50",
+    iconColor: "text-purple-600",
+  },
+];
+
+function QuickActionCard({
+  label,
+  href,
+  icon: Icon,
+  iconBg,
+  iconColor,
+}: (typeof quickActions)[number]) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-xl bg-white border border-border p-4 hover:shadow-md hover:border-primary/30 transition-all"
+    >
+      <div className={cn("rounded-lg p-2.5 shrink-0", iconBg)}>
+        <Icon className={cn("h-5 w-5", iconColor)} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-text-dark">{label}</p>
+        <p className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
+          Ekle
+          <Plus className="h-3 w-3" />
+        </p>
+      </div>
+      <ArrowRight className="h-4 w-4 text-text-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+    </Link>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  iconBg,
+  iconColor,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: number;
+  iconBg: string;
+  iconColor: string;
+}) {
   return (
     <div className="rounded-xl bg-white p-5 border border-border">
       <div className="flex items-center gap-3">
-        <div className="rounded-lg bg-primary/10 p-2.5">
-          <Icon className="h-5 w-5 text-primary" />
+        <div className={cn("rounded-lg p-2.5", iconBg)}>
+          <Icon className={cn("h-5 w-5", iconColor)} />
         </div>
         <div>
           <p className="text-2xl font-bold text-text-dark">{value}</p>
@@ -45,7 +125,7 @@ export default function AdminDashboard() {
   const [recentAnnouncements, setRecentAnnouncements] = useState<RecentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const siteTitle = useSiteTitle();
-  
+
   useEffect(() => {
     const fetchData = async () => {
       const supabase = createClient();
@@ -94,12 +174,53 @@ export default function AdminDashboard() {
           <p className="text-white/70 text-sm mt-1">{siteTitle} Yönetim Paneli</p>
         </div>
 
+        {/* Quick Actions */}
+        <div>
+          <h3 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+            Hızlı İşlemler
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {quickActions.map((action) => (
+              <QuickActionCard key={action.href} {...action} />
+            ))}
+          </div>
+        </div>
+
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Newspaper} label="Toplam Haber" value={stats.news} />
-          <StatCard icon={Megaphone} label="Toplam Duyuru" value={stats.announcements} />
-          <StatCard icon={FileText} label="Toplam Sayfa" value={stats.pages} />
-          <StatCard icon={GalleryHorizontal} label="Galeri Albümü" value={stats.albums} />
+        <div>
+          <h3 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+            Genel Bakış
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard
+              icon={Newspaper}
+              label="Toplam Haber"
+              value={stats.news}
+              iconBg="bg-blue-50"
+              iconColor="text-blue-600"
+            />
+            <StatCard
+              icon={Megaphone}
+              label="Toplam Duyuru"
+              value={stats.announcements}
+              iconBg="bg-amber-50"
+              iconColor="text-amber-600"
+            />
+            <StatCard
+              icon={FileText}
+              label="Toplam Sayfa"
+              value={stats.pages}
+              iconBg="bg-purple-50"
+              iconColor="text-purple-600"
+            />
+            <StatCard
+              icon={GalleryHorizontal}
+              label="Galeri Albümü"
+              value={stats.albums}
+              iconBg="bg-emerald-50"
+              iconColor="text-emerald-600"
+            />
+          </div>
         </div>
 
         {/* Recent items */}
@@ -120,11 +241,14 @@ export default function AdminDashboard() {
                   <li key={item.id} className="flex items-center justify-between gap-3">
                     <Link
                       href={`/admin/haberler/${item.id}`}
-                      className="text-sm text-text-dark hover:text-primary truncate"
+                      className="flex-1 min-w-0 text-sm text-text-dark hover:text-primary truncate"
                     >
                       {item.title}
                     </Link>
-                    <span className="text-xs text-text-muted shrink-0">{formatDate(item.created_at)}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge published={item.is_published} />
+                      <span className="text-xs text-text-muted">{formatDate(item.created_at)}</span>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -147,11 +271,14 @@ export default function AdminDashboard() {
                   <li key={item.id} className="flex items-center justify-between gap-3">
                     <Link
                       href={`/admin/duyurular/${item.id}`}
-                      className="text-sm text-text-dark hover:text-primary truncate"
+                      className="flex-1 min-w-0 text-sm text-text-dark hover:text-primary truncate"
                     >
                       {item.title}
                     </Link>
-                    <span className="text-xs text-text-muted shrink-0">{formatDate(item.created_at)}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusBadge published={item.is_published} />
+                      <span className="text-xs text-text-muted">{formatDate(item.created_at)}</span>
+                    </div>
                   </li>
                 ))}
               </ul>

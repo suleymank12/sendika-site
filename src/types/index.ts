@@ -90,6 +90,10 @@ export interface BoardMember {
   name: string;
   title: string | null;
   photo: string | null;
+  slug?: string | null;
+  bio?: string | null;
+  phone?: string | null;
+  email?: string | null;
   order: number;
   is_active: boolean;
   created_at: string;
@@ -98,10 +102,21 @@ export interface BoardMember {
 export interface Branch {
   id: string;
   name: string;
+  slug?: string | null;
   city: string | null;
   address: string | null;
   phone: string | null;
   email: string | null;
+  manager_id?: string | null;
+  manager_name?: string | null;
+  manager_title?: string | null;
+  manager_photo?: string | null;
+  manager_bio?: string | null;
+  manager_phone?: string | null;
+  manager_email?: string | null;
+  map_url?: string | null;
+  working_hours?: string | null;
+  description?: string | null;
   is_active: boolean;
   order: number;
   created_at: string;
@@ -162,6 +177,15 @@ export interface HomepageSectionItem {
   description: string | null;
   image_url: string | null;
   link_url: string | null;
+  order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface NewsCategory {
+  id: string;
+  name: string;
+  slug: string | null;
   order: number;
   is_active: boolean;
   created_at: string;
@@ -233,18 +257,32 @@ export interface BoardMemberFormData {
   name: string;
   title: string;
   photo: string;
+  slug: string;
+  bio: string;
+  phone: string;
+  email: string;
   order: number;
   is_active: boolean;
 }
 
 export interface BranchFormData {
   name: string;
+  slug: string;
   city: string;
   address: string;
   phone: string;
   email: string;
+  manager_id: string | null;
+  manager_name: string;
+  manager_title: string;
+  manager_photo: string;
+  manager_bio: string;
+  manager_phone: string;
+  manager_email: string;
+  map_url: string;
+  working_hours: string;
+  description: string;
   is_active: boolean;
-  order: number;
 }
 
 export interface MenuItemFormData {

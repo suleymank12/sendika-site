@@ -11,8 +11,10 @@ import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import FormField from "@/components/admin/FormField";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 import { Plus, Edit, Trash2, GripVertical, Users } from "lucide-react";
 import { BoardMember } from "@/types";
+import { createSlug } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
   DndContext,
@@ -37,7 +39,10 @@ interface MemberFormData {
   name: string;
   title: string;
   photo: string;
-  order: number;
+  slug: string;
+  bio: string;
+  phone: string;
+  email: string;
   is_active: boolean;
 }
 
@@ -45,7 +50,10 @@ const emptyForm: MemberFormData = {
   name: "",
   title: "",
   photo: "",
-  order: 0,
+  slug: "",
+  bio: "",
+  phone: "",
+  email: "",
   is_active: true,
 };
 
@@ -126,7 +134,10 @@ export default function AdminBoardMembersPage() {
       name: item.name,
       title: item.title || "",
       photo: item.photo || "",
-      order: item.order,
+      slug: item.slug || "",
+      bio: item.bio || "",
+      phone: item.phone || "",
+      email: item.email || "",
       is_active: item.is_active,
     });
     setModalOpen(true);
@@ -138,13 +149,18 @@ export default function AdminBoardMembersPage() {
       return;
     }
 
+    const finalSlug = form.slug.trim() || createSlug(form.name);
+
     setSaving(true);
     const supabase = createClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: form.name.trim(),
       title: form.title.trim() || null,
       photo: form.photo || null,
-      order: form.order,
+      slug: finalSlug || null,
+      bio: form.bio || null,
+      phone: form.phone.trim() || null,
+      email: form.email.trim() || null,
       is_active: form.is_active,
     };
 
@@ -152,11 +168,16 @@ export default function AdminBoardMembersPage() {
     if (form.id) {
       ({ error } = await supabase.from("board_members").update(payload).eq("id", form.id));
     } else {
+      payload.order = members.length;
       ({ error } = await supabase.from("board_members").insert(payload));
     }
 
     if (error) {
-      toast.error("Kaydetme başarısız oldu.");
+      if ((error as { code?: string }).code === "23505") {
+        toast.error("Bu slug zaten kullanılıyor. Farklı bir slug deneyin.");
+      } else {
+        toast.error("Kaydetme başarısız oldu.");
+      }
     } else {
       toast.success(form.id ? "Üye güncellendi." : "Üye eklendi.");
       setModalOpen(false);
@@ -233,8 +254,8 @@ export default function AdminBoardMembersPage() {
         </div>
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Üye Düzenle" : "Yeni Üye Ekle"}>
-        <div className="space-y-4">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Üye Düzenle" : "Yeni Üye Ekle"} className="max-w-2xl">
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
           <Input
             id="member-name"
             label="Ad Soyad"
@@ -254,12 +275,39 @@ export default function AdminBoardMembersPage() {
             <ImageUploader value={form.photo} onChange={(url) => setForm({ ...form, photo: url })} folder="board-members" maxWidth={400} maxHeight={500} />
           </FormField>
           <Input
-            id="member-order"
-            label="Sıra"
-            type="number"
-            value={String(form.order)}
-            onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
+            id="member-slug"
+            label="URL Kısa Adı"
+            value={form.slug}
+            onChange={(e) => setForm({ ...form, slug: e.target.value })}
+            placeholder="ahmet-yilmaz"
+            helperText="Ad soyaddan otomatik oluşur. Üyenin adresi: /yonetim-kurulu/bu-ad"
           />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input
+              id="member-phone"
+              label="Telefon (opsiyonel)"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="+90 (312) 000 00 00"
+            />
+            <Input
+              id="member-email"
+              label="E-posta (opsiyonel)"
+              type="email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="uye@sendika.tr"
+            />
+          </div>
+          <FormField label="Hakkında">
+            <RichTextEditor
+              content={form.bio}
+              onChange={(html) => setForm({ ...form, bio: html })}
+            />
+          </FormField>
+          <p className="text-xs text-text-muted">
+            Sıralama liste sayfasında sürükle-bırak ile yapılır.
+          </p>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
             <Button onClick={handleSave} loading={saving}>Kaydet</Button>

@@ -81,6 +81,7 @@ export default async function AnnouncementDetailPage({ params }: Props) {
       ]}
       title={item.title}
       date={item.published_at || item.created_at}
+      updatedAt={item.updated_at}
       coverImage={item.cover_image}
       videoUrl={item.video_url}
       youtubeUrl={item.youtube_url}

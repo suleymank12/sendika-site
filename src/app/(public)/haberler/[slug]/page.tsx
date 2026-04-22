@@ -80,6 +80,7 @@ export default async function NewsDetailPage({ params }: Props) {
       ]}
       title={item.title}
       date={item.published_at || item.created_at}
+      updatedAt={item.updated_at}
       category={item.category}
       coverImage={item.cover_image}
       videoUrl={item.video_url}

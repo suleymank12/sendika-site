@@ -133,8 +133,8 @@ export default function MediaSection({
 
     for (const file of Array.from(files)) {
       if (!file.type.startsWith("image/")) continue;
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} 5MB'dan büyük, atlandı.`);
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error(`${file.name} 50MB'dan büyük, atlandı.`);
         continue;
       }
 
@@ -174,25 +174,34 @@ export default function MediaSection({
   };
 
   return (
-    <div className="rounded-xl bg-white border border-border p-5">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">Medya (Opsiyonel)</h3>
-
-      <div className="space-y-4">
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-text-dark mb-1.5">
-            Kapak Görseli
-          </label>
-          <div className="max-w-lg">
-            <ImageUploader
-              value={coverImage}
-              onChange={onCoverImageChange}
-              folder={folder}
-              maxWidth={coverMaxWidth}
-              maxHeight={coverMaxHeight}
-            />
-          </div>
+    <div className="space-y-6">
+      {/* Kapak Görseli */}
+      <div className="rounded-xl bg-white border border-border p-5 lg:p-6">
+        <div className="mb-3">
+          <h4 className="text-sm font-semibold text-text-dark">Kapak Görseli</h4>
+          <p className="text-xs text-text-muted mt-0.5">
+            Liste sayfalarında ve sosyal medya paylaşımlarında görünür. Zorunlu değil.
+          </p>
         </div>
+        <div className="max-w-lg">
+          <ImageUploader
+            value={coverImage}
+            onChange={onCoverImageChange}
+            folder={folder}
+            maxWidth={coverMaxWidth}
+            maxHeight={coverMaxHeight}
+          />
+        </div>
+      </div>
 
+      {/* Video */}
+      <div className="rounded-xl bg-white border border-border p-5 lg:p-6">
+        <div className="mb-3">
+          <h4 className="text-sm font-semibold text-text-dark">Video</h4>
+          <p className="text-xs text-text-muted mt-0.5">
+            Dosya yükle veya YouTube bağlantısı yapıştır. İçerikte oynatılır. Zorunlu değil.
+          </p>
+        </div>
         <div className="max-w-lg">
           <MediaUploader
             value={videoUrl}
@@ -202,64 +211,68 @@ export default function MediaSection({
             folder={`${folder}/videos`}
           />
         </div>
-
-        {galleryEnabled && (
-          <div className="pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-text-dark">
-                Fotoğraf Galerisi
-              </label>
-              <label
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors ${
-                  uploading
-                    ? "bg-primary/50 text-white pointer-events-none"
-                    : "bg-primary text-white hover:bg-primary-dark"
-                }`}
-              >
-                {uploading ? (
-                  <>
-                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    Yükleniyor...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-3.5 w-3.5" />
-                    Fotoğraf Ekle
-                  </>
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleGalleryUpload}
-                  disabled={uploading}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {gallery.length === 0 ? (
-              <p className="text-xs text-text-muted text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                Henüz fotoğraf eklenmedi. Birden fazla fotoğraf seçebilirsiniz.
-              </p>
-            ) : (
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext items={gallery} strategy={rectSortingStrategy}>
-                  <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                    {gallery.map((url) => (
-                      <SortableGalleryItem key={url} url={url} onRemove={handleRemove} />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            )}
-          </div>
-        )}
       </div>
+
+      {/* Fotoğraf Galerisi */}
+      {galleryEnabled && (
+        <div className="rounded-xl bg-white border border-border p-5 lg:p-6">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <h4 className="text-sm font-semibold text-text-dark">Fotoğraf Galerisi</h4>
+              <p className="text-xs text-text-muted mt-0.5">
+                Detay sayfasında slayt olarak gösterilir. Birden fazla seçebilirsiniz. Zorunlu değil.
+              </p>
+            </div>
+            <label
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors shrink-0 ${
+                uploading
+                  ? "bg-primary/50 text-white pointer-events-none"
+                  : "bg-primary text-white hover:bg-primary-dark"
+              }`}
+            >
+              {uploading ? (
+                <>
+                  <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Yükleniyor...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-3.5 w-3.5" />
+                  Fotoğraf Ekle
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleGalleryUpload}
+                disabled={uploading}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {gallery.length === 0 ? (
+            <p className="text-xs text-text-muted text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+              Henüz fotoğraf eklenmedi.
+            </p>
+          ) : (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext items={gallery} strategy={rectSortingStrategy}>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                  {gallery.map((url) => (
+                    <SortableGalleryItem key={url} url={url} onRemove={handleRemove} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
+        </div>
+      )}
     </div>
   );
 }

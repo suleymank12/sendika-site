@@ -10,7 +10,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
-import DataTable, { Column } from "@/components/admin/DataTable";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -21,11 +20,29 @@ import ImageUploader from "@/components/admin/ImageUploader";
 import MediaUploader from "@/components/admin/MediaUploader";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import FormField from "@/components/admin/FormField";
-import { Plus, Zap } from "lucide-react";
+import { Plus, Zap, GripVertical, Edit, Trash2 } from "lucide-react";
 import { QuickAccess } from "@/types";
 import { createSlug } from "@/lib/utils";
 import toast from "react-hot-toast";
 import * as LucideIcons from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { cn } from "@/lib/utils";
 
 interface QuickAccessFormData {
   id?: string;
@@ -65,6 +82,61 @@ function getIconComponent(iconName: string) {
   return icons[iconName] || null;
 }
 
+function SortableQuickAccessCard({
+  item,
+  onEdit,
+  onDelete,
+  onToggle,
+}: {
+  item: QuickAccess;
+  onEdit: (item: QuickAccess) => void;
+  onDelete: (item: QuickAccess) => void;
+  onToggle: (item: QuickAccess) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const Icon = item.icon ? getIconComponent(item.icon) : null;
+
+  return (
+    <div ref={setNodeRef} style={style} className="rounded-xl border border-border bg-white p-4 flex items-center gap-3">
+      <button {...attributes} {...listeners} className="text-text-muted hover:text-text-dark cursor-grab touch-none">
+        <GripVertical className="h-5 w-5" />
+      </button>
+      <div className="w-12 h-12 flex items-center justify-center shrink-0 rounded-lg bg-primary/5">
+        {item.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={item.image_url} alt={item.title} className="w-full h-full object-cover rounded-lg" />
+        ) : Icon ? (
+          <Icon className="h-6 w-6 text-primary" />
+        ) : (
+          <Zap className="h-5 w-5 text-text-muted" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-text-dark truncate">{item.title}</p>
+        {item.slug && <p className="text-xs text-text-muted truncate">/{item.slug}</p>}
+      </div>
+      <button
+        onClick={() => onToggle(item)}
+        className={cn(
+          "text-xs px-2.5 py-1 rounded-full font-medium transition-colors",
+          item.is_active ? "bg-success/10 text-success hover:bg-success/20" : "bg-warning/10 text-warning hover:bg-warning/20"
+        )}
+      >
+        {item.is_active ? "Aktif" : "Pasif"}
+      </button>
+      <div className="flex items-center gap-1">
+        <button onClick={() => onEdit(item)} className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10">
+          <Edit className="h-4 w-4" />
+        </button>
+        <button onClick={() => onDelete(item)} className="p-1.5 text-text-muted hover:text-error rounded-lg hover:bg-error/10">
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminQuickAccessPage() {
   const [items, setItems] = useState<QuickAccess[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +146,11 @@ export default function AdminQuickAccessPage() {
   const [deleteItem, setDeleteItem] = useState<QuickAccess | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const fetchItems = useCallback(async () => {
     const supabase = createClient();
@@ -130,7 +207,7 @@ export default function AdminQuickAccessPage() {
 
     setSaving(true);
     const supabase = createClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       icon: form.icon.trim() || null,
       image_url: form.image_url.trim() || null,
@@ -139,7 +216,6 @@ export default function AdminQuickAccessPage() {
       content: form.content || null,
       video_url: form.video_url.trim() || null,
       youtube_url: form.youtube_url.trim() || null,
-      order: form.order,
       is_active: form.is_active,
     };
 
@@ -147,6 +223,7 @@ export default function AdminQuickAccessPage() {
     if (form.id) {
       ({ error } = await supabase.from("quick_access").update(payload).eq("id", form.id));
     } else {
+      payload.order = items.length;
       ({ error } = await supabase.from("quick_access").insert(payload));
     }
 
@@ -181,47 +258,35 @@ export default function AdminQuickAccessPage() {
     setDeleting(false);
   };
 
-  const columns: Column<QuickAccess>[] = [
-    {
-      key: "preview",
-      label: "Önizleme",
-      className: "w-20",
-      render: (item) => {
-        if (item.image_url) {
-          // eslint-disable-next-line @next/next/no-img-element
-          return <img src={item.image_url} alt={item.title} className="h-10 w-14 rounded object-cover" />;
-        }
-        const Icon = item.icon ? getIconComponent(item.icon) : null;
-        return Icon ? <Icon className="h-5 w-5 text-primary" /> : <span className="text-text-muted">-</span>;
-      },
-    },
-    {
-      key: "title",
-      label: "Başlık",
-      render: (item) => <span className="font-medium text-text-dark">{item.title}</span>,
-    },
-    {
-      key: "slug",
-      label: "Slug",
-      className: "hidden md:table-cell",
-      render: (item) => <span className="text-text-muted text-xs">{item.slug || "-"}</span>,
-    },
-    {
-      key: "order",
-      label: "Sıra",
-      className: "w-16",
-      render: (item) => <span className="text-text-muted">{item.order}</span>,
-    },
-    {
-      key: "is_active",
-      label: "Durum",
-      render: (item) => (
-        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${item.is_active ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
-          {item.is_active ? "Aktif" : "Pasif"}
-        </span>
-      ),
-    },
-  ];
+  const handleToggle = async (item: QuickAccess) => {
+    const supabase = createClient();
+    const { error } = await supabase.from("quick_access").update({ is_active: !item.is_active }).eq("id", item.id);
+    if (error) {
+      toast.error("Güncelleme başarısız.");
+    } else {
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, is_active: !i.is_active } : i)));
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = items.findIndex((i) => i.id === active.id);
+    const newIndex = items.findIndex((i) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = arrayMove(items, oldIndex, newIndex);
+    setItems(reordered);
+
+    const supabase = createClient();
+    await Promise.all(
+      reordered.map((i, idx) =>
+        supabase.from("quick_access").update({ order: idx }).eq("id", i.id)
+      )
+    );
+    toast.success("Sıralama kaydedildi.");
+  };
 
   return (
     <>
@@ -247,12 +312,21 @@ export default function AdminQuickAccessPage() {
               onAction={openNew}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={items}
-              onEdit={handleEdit}
-              onDelete={(item) => setDeleteItem(item)}
-            />
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <SortableQuickAccessCard
+                      key={item.id}
+                      item={item}
+                      onEdit={handleEdit}
+                      onDelete={setDeleteItem}
+                      onToggle={handleToggle}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
         </div>
       </div>
@@ -275,14 +349,14 @@ export default function AdminQuickAccessPage() {
 
           <Input
             id="qa-slug"
-            label="Slug (URL)"
+            label="URL Kısa Adı"
             value={form.slug}
             onChange={(e) => {
               setForm({ ...form, slug: e.target.value });
               setSlugManuallyEdited(true);
             }}
             placeholder="toplu-sozlesme"
-            helperText="/hizli-erisim/slug-buraya-gelecek — başlıktan otomatik oluşturulur"
+            helperText="Başlıktan otomatik oluşur. Adresi: /hizli-erisim/bu-ad"
           />
 
           <FormField label="Kapak Görseli (opsiyonel)">
@@ -344,26 +418,20 @@ export default function AdminQuickAccessPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              id="qa-order"
-              label="Sıra"
-              type="number"
-              value={String(form.order)}
-              onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-            />
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-              <select
-                value={form.is_active ? "true" : "false"}
-                onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="true">Aktif</option>
-                <option value="false">Pasif</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
+            <select
+              value={form.is_active ? "true" : "false"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="true">Aktif</option>
+              <option value="false">Pasif</option>
+            </select>
           </div>
+          <p className="text-xs text-text-muted">
+            Sıralama liste sayfasında sürükle-bırak ile yapılır.
+          </p>
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>

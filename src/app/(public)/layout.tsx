@@ -67,12 +67,15 @@ export default async function PublicLayout({ children }: { children: React.React
         phone={settings.contact_phone || ""}
         email={settings.contact_email || ""}
       />
-      <Navbar
-        menuItems={menuItems}
-        logoUrl={settings.logo_url || "/placeholder-logo.png"}
-        siteTitle={settings.site_title || "Sendika Adı"}
-      />
-      <main className="min-h-[60vh]">{children}</main>
+      <div className="relative">
+        <Navbar
+          menuItems={menuItems}
+          logoUrl={settings.logo_url || "/placeholder-logo.png"}
+          siteTitle={settings.site_title || "Sendika Adı"}
+          layoutType={settings.layout_type || "layout1"}
+        />
+        <main className="min-h-[60vh]">{children}</main>
+      </div>
       <Footer
         siteTitle={settings.site_title || "Sendika Adı"}
         siteDescription={settings.site_description || ""}

@@ -15,6 +15,7 @@ interface DetailPageLayoutProps {
   breadcrumbs: BreadcrumbItem[];
   title: string;
   date?: string | null;
+  updatedAt?: string | null;
   category?: string | null;
   coverImage?: string | null;
   videoUrl?: string | null;
@@ -71,6 +72,7 @@ export default function DetailPageLayout({
   breadcrumbs,
   title,
   date,
+  updatedAt,
   category,
   coverImage,
   videoUrl,
@@ -150,18 +152,31 @@ export default function DetailPageLayout({
           </div>
 
           {/* Meta */}
-          {(date || category) && (
-            <div className="flex items-center gap-3 mb-6">
-              {date && (
-                <time className="text-sm text-gray-400">{formatDate(date)}</time>
-              )}
-              {category && (
-                <span className="text-xs text-gray-500 border border-gray-200 px-2 py-0.5">
-                  {category}
-                </span>
-              )}
-            </div>
-          )}
+          {(() => {
+            const formattedDate = date ? formatDate(date) : null;
+            const formattedUpdated = updatedAt ? formatDate(updatedAt) : null;
+            const showUpdated =
+              formattedUpdated && formattedUpdated !== formattedDate;
+            const hasMeta = formattedDate || category || showUpdated;
+            if (!hasMeta) return null;
+            return (
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                {formattedDate && (
+                  <time className="text-sm text-gray-400">{formattedDate}</time>
+                )}
+                {category && (
+                  <span className="text-xs text-gray-500 border border-gray-200 px-2 py-0.5">
+                    {category}
+                  </span>
+                )}
+                {showUpdated && (
+                  <span className="text-xs text-gray-400 italic">
+                    Son güncelleme: {formattedUpdated}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Article text */}
           <div>
@@ -211,7 +226,6 @@ export default function DetailPageLayout({
         <ImageLightbox
           images={photos}
           initialIndex={lightboxIndex}
-          title={title}
           onClose={() => setLightboxIndex(null)}
         />
       )}
@@ -229,19 +243,22 @@ function PhotoGrid({
   startIndex?: number;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
-      {photos.map((src, i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={() => onClick(startIndex + i)}
-          className="aspect-square w-full cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-          aria-label={`Görsel ${i + 1}`}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt="" className="w-full h-full object-cover" />
-        </button>
-      ))}
+    <div>
+      <h3 className="text-base font-semibold text-gray-800 mb-4">Resimler</h3>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
+        {photos.map((src, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => onClick(startIndex + i)}
+            className="aspect-square w-full cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            aria-label={`Görsel ${i + 1}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={src} alt="" className="w-full h-full object-cover" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -289,7 +306,7 @@ function MediaArea({
   if (p === 0) {
     if (v === 1) {
       return (
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-2xl mx-auto">
           <VideoPlayer video={videos[0]} title={title} />
         </div>
       );

@@ -75,8 +75,8 @@ export default function ImageUploader({
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Dosya boyutu 5MB'dan küçük olmalıdır.");
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error("Dosya boyutu 50MB'dan küçük olmalıdır.");
         return;
       }
 
@@ -175,7 +175,7 @@ export default function ImageUploader({
             <p className="text-sm font-medium text-text-dark">
               Görsel yüklemek için tıklayın veya sürükleyin
             </p>
-            <p className="text-xs text-text-muted mt-1">PNG, JPG, WEBP (maks. 5MB)</p>
+            <p className="text-xs text-text-muted mt-1">PNG, JPG, WEBP (maks. 50MB)</p>
           </div>
         </>
       )}

@@ -10,22 +10,32 @@ import { cn } from "@/lib/utils";
 interface NewsAnnouncementTabsProps {
   news: News[];
   announcements: Announcement[];
+  fullHeight?: boolean;
 }
 
 type TabKey = "announcements" | "news";
 
-export default function NewsAnnouncementTabs({ news, announcements }: NewsAnnouncementTabsProps) {
+export default function NewsAnnouncementTabs({ news, announcements, fullHeight }: NewsAnnouncementTabsProps) {
   const [tab, setTab] = useState<TabKey>("news");
+  const tabBtnPad = fullHeight ? "px-4 py-4" : "px-4 py-3";
+  const itemPad = fullHeight ? "px-5 py-4" : "px-4 py-2.5";
+  const footerPad = fullHeight ? "py-4" : "py-3";
 
   return (
-    <div className="flex flex-col h-[350px] lg:h-[450px] rounded-xl border border-border bg-white overflow-hidden">
+    <div
+      className={cn(
+        "flex flex-col rounded-xl border border-border bg-white overflow-hidden",
+        fullHeight ? "h-[350px] lg:h-full" : "h-[350px] lg:h-[450px]"
+      )}
+    >
       {/* Tab header */}
       <div className="flex shrink-0 border-b border-border">
         <button
           type="button"
           onClick={() => setTab("news")}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors",
+            "flex-1 flex items-center justify-center gap-2 text-sm font-semibold transition-colors",
+            tabBtnPad,
             tab === "news"
               ? "bg-primary text-white"
               : "bg-bg-light text-text-dark hover:bg-border/50"
@@ -38,7 +48,8 @@ export default function NewsAnnouncementTabs({ news, announcements }: NewsAnnoun
           type="button"
           onClick={() => setTab("announcements")}
           className={cn(
-            "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition-colors",
+            "flex-1 flex items-center justify-center gap-2 text-sm font-semibold transition-colors",
+            tabBtnPad,
             tab === "announcements"
               ? "bg-primary text-white"
               : "bg-bg-light text-text-dark hover:bg-border/50"
@@ -65,7 +76,10 @@ export default function NewsAnnouncementTabs({ news, announcements }: NewsAnnoun
                 <li key={a.id}>
                   <Link
                     href={`/duyurular/${a.slug}`}
-                    className="group block px-4 py-3 hover:bg-bg-light transition-colors"
+                    className={cn(
+                      "group block hover:bg-bg-light transition-colors",
+                      itemPad
+                    )}
                   >
                     <time className="text-xs text-text-muted">
                       {formatDate(a.published_at || a.created_at)}
@@ -91,7 +105,10 @@ export default function NewsAnnouncementTabs({ news, announcements }: NewsAnnoun
               <li key={n.id}>
                 <Link
                   href={`/haberler/${n.slug}`}
-                  className="group flex items-start gap-3 px-4 py-3 hover:bg-bg-light transition-colors"
+                  className={cn(
+                    "group flex items-start gap-3 hover:bg-bg-light transition-colors",
+                    itemPad
+                  )}
                 >
                   <div className="w-16 h-12 shrink-0 rounded-lg overflow-hidden bg-primary/5 flex items-center justify-center">
                     {n.cover_image ? (
@@ -124,7 +141,10 @@ export default function NewsAnnouncementTabs({ news, announcements }: NewsAnnoun
       <div className="shrink-0 border-t border-border">
         <Link
           href={tab === "announcements" ? "/duyurular" : "/haberler"}
-          className="flex items-center justify-center gap-1 py-3 text-sm font-medium text-primary hover:bg-bg-light transition-colors"
+          className={cn(
+            "flex items-center justify-center gap-1 text-sm font-medium text-primary hover:bg-bg-light transition-colors",
+            footerPad
+          )}
         >
           Tümünü Gör
           <ChevronRight className="h-4 w-4" />

@@ -448,25 +448,16 @@ export default function AdminHomepageSectionsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              id="section-order"
-              label="Sıra"
-              type="number"
-              value={String(form.order)}
-              onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-            />
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-              <select
-                value={form.is_active ? "true" : "false"}
-                onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="true">Aktif</option>
-                <option value="false">Pasif</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
+            <select
+              value={form.is_active ? "true" : "false"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="true">Aktif</option>
+              <option value="false">Pasif</option>
+            </select>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

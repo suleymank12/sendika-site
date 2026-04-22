@@ -296,11 +296,10 @@ export default function AdminMenuPage() {
 
     setSaving(true);
     const supabase = createClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       url: form.url.trim() || null,
       parent_id: form.parent_id || null,
-      order: form.order,
       is_active: form.is_active,
     };
 
@@ -308,6 +307,10 @@ export default function AdminMenuPage() {
     if (form.id) {
       ({ error } = await supabase.from("menu_items").update(payload).eq("id", form.id));
     } else {
+      const siblingCount = items.filter(
+        (i) => (i.parent_id || null) === (form.parent_id || null)
+      ).length;
+      payload.order = siblingCount;
       ({ error } = await supabase.from("menu_items").insert(payload));
     }
 
@@ -367,13 +370,19 @@ export default function AdminMenuPage() {
     }
 
     const targetUrl = `/sayfa/${slug}`;
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       url: targetUrl,
       parent_id: form.parent_id || null,
-      order: form.order,
       is_active: form.is_active,
     };
+
+    if (!form.id) {
+      const siblingCount = items.filter(
+        (i) => (i.parent_id || null) === (form.parent_id || null)
+      ).length;
+      payload.order = siblingCount;
+    }
 
     const { error: menuError } = form.id
       ? await supabase.from("menu_items").update(payload).eq("id", form.id)
@@ -534,25 +543,16 @@ export default function AdminMenuPage() {
               </p>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              id="menu-order"
-              label="Sıra"
-              type="number"
-              value={String(form.order)}
-              onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-            />
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-              <select
-                value={form.is_active ? "true" : "false"}
-                onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="true">Aktif</option>
-                <option value="false">Pasif</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
+            <select
+              value={form.is_active ? "true" : "false"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="true">Aktif</option>
+              <option value="false">Pasif</option>
+            </select>
           </div>
           <div className="rounded-lg border border-dashed border-border bg-bg-light p-3">
             <div className="flex items-start gap-2">

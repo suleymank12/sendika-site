@@ -159,12 +159,11 @@ export default function AdminSliderPage() {
 
     setSaving(true);
     const supabase = createClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim() || null,
       subtitle: form.subtitle.trim() || null,
       image_url: form.image_url,
       link_url: form.link_url.trim() || null,
-      order: form.order,
       is_active: form.is_active,
     };
 
@@ -172,6 +171,7 @@ export default function AdminSliderPage() {
     if (form.id) {
       ({ error } = await supabase.from("sliders").update(payload).eq("id", form.id));
     } else {
+      payload.order = sliders.length;
       ({ error } = await supabase.from("sliders").insert(payload));
     }
 
@@ -287,26 +287,20 @@ export default function AdminSliderPage() {
             onChange={(e) => setForm({ ...form, link_url: e.target.value })}
             placeholder="https://... (opsiyonel)"
           />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              id="slider-order"
-              label="Sıra"
-              type="number"
-              value={String(form.order)}
-              onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-            />
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-              <select
-                value={form.is_active ? "true" : "false"}
-                onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="true">Aktif</option>
-                <option value="false">Pasif</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
+            <select
+              value={form.is_active ? "true" : "false"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="true">Aktif</option>
+              <option value="false">Pasif</option>
+            </select>
           </div>
+          <p className="text-xs text-text-muted">
+            Sıralama liste sayfasında sürükle-bırak ile yapılır.
+          </p>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
             <Button onClick={handleSave} loading={saving}>Kaydet</Button>

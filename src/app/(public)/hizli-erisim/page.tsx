@@ -13,7 +13,10 @@ export const metadata: Metadata = {
 
 function getLucideIcon(name: string | null | undefined) {
   if (!name) return null;
-  const icons = LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
+  const icons = LucideIcons as unknown as Record<
+    string,
+    React.ComponentType<{ className?: string }>
+  >;
   return icons[name] || null;
 }
 
@@ -28,58 +31,62 @@ export default async function QuickAccessListPage() {
   const items = (data as QuickAccess[]) || [];
 
   return (
-    <>
+    <div className="bg-gray-50 min-h-screen">
       <Breadcrumb items={[{ label: "Hızlı Erişim" }]} />
 
-      <section className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-text-dark tracking-tight mb-6">Hızlı Erişim</h1>
+      <section className="max-w-7xl mx-auto py-8 px-4">
+        <h1 className="text-2xl font-bold text-text-dark tracking-tight mb-6">
+          Hızlı Erişim
+        </h1>
 
         {items.length === 0 ? (
-          <p className="text-text-muted text-sm">Henüz hızlı erişim öğesi bulunmuyor.</p>
+          <p className="text-text-muted text-sm">
+            Henüz hızlı erişim öğesi eklenmemiş.
+          </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {items.map((item) => (
               <Tile key={item.id} item={item} />
             ))}
           </div>
         )}
       </section>
-    </>
+    </div>
   );
 }
 
 function Tile({ item }: { item: QuickAccess }) {
   const Icon = getLucideIcon(item.icon);
-  const href = item.slug ? `/hizli-erisim/${item.slug}` : item.url || "#";
+  const href = item.url
+    ? item.url
+    : item.slug
+    ? `/hizli-erisim/${item.slug}`
+    : "#";
 
   return (
     <Link
       href={href}
-      className="group rounded-xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+      className="bg-white border border-gray-200 rounded-lg p-6 text-center hover:shadow-md transition cursor-pointer block"
     >
-      <div className="relative aspect-video bg-primary/5 overflow-hidden">
-        {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={item.image_url}
-            alt={item.title}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : Icon ? (
-          <div className="h-full w-full flex items-center justify-center">
-            <Icon className="h-10 w-10 text-primary/60" />
-          </div>
-        ) : (
-          <div className="h-full w-full flex items-center justify-center">
-            <Building2 className="h-10 w-10 text-primary/40" />
-          </div>
-        )}
-      </div>
-      <div className="p-3 text-center">
-        <span className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2">
-          {item.title}
-        </span>
-      </div>
+      {item.image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.image_url}
+          alt={item.title}
+          className="w-16 h-16 object-contain mx-auto mb-3"
+        />
+      ) : Icon ? (
+        <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+          <Icon className="h-12 w-12 text-primary" />
+        </div>
+      ) : (
+        <div className="w-16 h-16 mx-auto mb-3 flex items-center justify-center">
+          <Building2 className="h-12 w-12 text-primary/60" />
+        </div>
+      )}
+      <span className="block text-base font-medium text-gray-700">
+        {item.title}
+      </span>
     </Link>
   );
 }

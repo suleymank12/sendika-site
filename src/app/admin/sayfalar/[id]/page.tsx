@@ -11,9 +11,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Loading from "@/components/ui/Loading";
 import { createSlug } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
 import toast from "react-hot-toast";
-import Link from "next/link";
 
 export default function AdminPageEditorPage() {
   const params = useParams();
@@ -153,10 +151,15 @@ export default function AdminPageEditorPage() {
     setSaving(false);
   };
 
+  const breadcrumbs = [
+    { label: "Sayfalar", href: "/admin/sayfalar" },
+    { label: isNew ? "Yeni Sayfa" : "Düzenle" },
+  ];
+
   if (loading) {
     return (
       <>
-        <AdminHeader title="Sayfa Düzenle" />
+        <AdminHeader title="Sayfa Düzenle" breadcrumbs={breadcrumbs} />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -166,63 +169,92 @@ export default function AdminPageEditorPage() {
 
   return (
     <>
-      <AdminHeader title={isNew ? "Yeni Sayfa" : "Sayfa Düzenle"} />
-      <div className="p-4 lg:p-6 max-w-4xl">
-        <Link href="/admin/sayfalar" className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary mb-4">
-          <ArrowLeft className="h-4 w-4" />
-          Sayfalara Dön
-        </Link>
+      <AdminHeader
+        title={isNew ? "Yeni Sayfa" : title || "Sayfa Düzenle"}
+        breadcrumbs={breadcrumbs}
+      />
+      <div className="p-4 lg:p-6 max-w-7xl mx-auto pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(340px,400px)] gap-8 lg:gap-6">
+          {/* Sol sütun */}
+          <div className="space-y-8 min-w-0">
+            {/* Temel Bilgiler */}
+            <section>
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+                Temel Bilgiler
+              </p>
+              <div className="rounded-xl bg-white border border-border p-5 lg:p-6 space-y-4">
+                <Input
+                  id="title"
+                  label="Başlık"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Sayfa başlığını girin"
+                  required
+                />
+                <Input
+                  id="slug"
+                  label="URL Kısa Adı"
+                  value={slug}
+                  onChange={(e) => { setSlug(e.target.value); setSlugManuallyEdited(true); }}
+                  helperText="Başlıktan otomatik oluşur. Sayfanın adresi: /sayfa/bu-ad"
+                />
+              </div>
+            </section>
 
-        <div className="space-y-6">
-          {/* Başlık + Slug */}
-          <div className="rounded-xl bg-white border border-border p-5 space-y-4">
-            <Input
-              id="title"
-              label="Başlık"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Sayfa başlığını girin"
-              required
-            />
-            <Input
-              id="slug"
-              label="Slug (URL)"
-              value={slug}
-              onChange={(e) => { setSlug(e.target.value); setSlugManuallyEdited(true); }}
-              helperText="/sayfa/slug-buraya-gelecek"
-            />
+            {/* İçerik */}
+            <section>
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+                İçerik
+              </p>
+              <div className="rounded-xl bg-white border border-border p-5 lg:p-6">
+                <FormField label="İçerik">
+                  <RichTextEditor content={content} onChange={setContent} />
+                </FormField>
+              </div>
+            </section>
           </div>
 
-          {/* İçerik */}
-          <div className="rounded-xl bg-white border border-border p-5">
-            <FormField label="İçerik">
-              <RichTextEditor content={content} onChange={setContent} />
-            </FormField>
-          </div>
+          {/* Sağ sütun — Medya */}
+          <aside className="min-w-0">
+            <section>
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+                Medya
+              </p>
+              <MediaSection
+                folder="pages"
+                coverImage={coverImage}
+                onCoverImageChange={setCoverImage}
+                videoUrl={videoUrl}
+                onVideoChange={setVideoUrl}
+                youtubeUrl={youtubeUrl}
+                onYoutubeChange={setYoutubeUrl}
+                contentType="page"
+                contentId={isNew ? null : (params.id as string)}
+                galleryImages={galleryImages}
+                onGalleryChange={setGalleryImages}
+              />
+            </section>
+          </aside>
+        </div>
+      </div>
 
-          {/* Medya */}
-          <MediaSection
-            folder="pages"
-            coverImage={coverImage}
-            onCoverImageChange={setCoverImage}
-            videoUrl={videoUrl}
-            onVideoChange={setVideoUrl}
-            youtubeUrl={youtubeUrl}
-            onYoutubeChange={setYoutubeUrl}
-            contentType="page"
-            contentId={isNew ? null : (params.id as string)}
-            galleryImages={galleryImages}
-            onGalleryChange={setGalleryImages}
-          />
-
-          <div className="flex flex-col sm:flex-row gap-3 justify-end">
-            <Button variant="secondary" onClick={() => handleSave(false)} loading={saving}>
-              Taslak Kaydet
-            </Button>
-            <Button onClick={() => handleSave(true)} loading={saving}>
-              Yayınla
-            </Button>
-          </div>
+      {/* Sticky Save Bar */}
+      <div className="sticky bottom-0 z-20 border-t border-border bg-white px-4 lg:px-6 py-3 flex flex-col sm:flex-row gap-3 justify-end shadow-[0_-2px_8px_rgba(0,0,0,0.03)]">
+        <div className="relative group">
+          <Button variant="secondary" onClick={() => handleSave(false)} loading={saving} className="w-full sm:w-auto">
+            Taslak Kaydet
+          </Button>
+          <span className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-56 rounded-lg bg-text-dark text-white text-xs p-2.5 shadow-lg z-30 pointer-events-none">
+            Sadece sen görürsün, site ziyaretçilerine gözükmez.
+          </span>
+        </div>
+        <div className="relative group">
+          <Button onClick={() => handleSave(true)} loading={saving} className="w-full sm:w-auto">
+            Yayınla
+          </Button>
+          <span className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-56 rounded-lg bg-text-dark text-white text-xs p-2.5 shadow-lg z-30 pointer-events-none">
+            Site ziyaretçilerine hemen açık olur.
+          </span>
         </div>
       </div>
     </>

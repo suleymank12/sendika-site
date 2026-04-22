@@ -483,14 +483,9 @@ export default function AdminHeadlinePage() {
             </>
           )}
 
-          {/* Sıra */}
-          <Input
-            id="headline-order"
-            label="Sıra Numarası"
-            type="number"
-            value={String(form.order)}
-            onChange={(e) => setForm((p) => ({ ...p, order: parseInt(e.target.value) || 0 }))}
-          />
+          <p className="text-xs text-text-muted">
+            Sıralama liste sayfasında sürükle-bırak ile yapılır.
+          </p>
         </div>
 
         <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-border">

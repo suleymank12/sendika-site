@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, ChevronRight } from "lucide-react";
 import { MenuItem } from "@/types";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,7 @@ interface NavbarProps {
   menuItems: MenuItem[];
   logoUrl: string;
   siteTitle: string;
+  layoutType?: string;
 }
 
 // ─── Build tree from flat list ────────────────────────────
@@ -124,15 +126,15 @@ function MobileItem({
   const [open, setOpen] = useState(false);
   const children = item.children || [];
   const hasChildren = children.length > 0;
-  const paddingLeft = 16 + depth * 16;
+  const paddingLeft = 24 + depth * 16;
 
   if (!hasChildren) {
     return (
       <Link
         href={item.url || "#"}
         onClick={onClose}
-        className="block py-3 text-sm font-medium text-text-dark border-b border-border hover:bg-bg-light transition-colors"
-        style={{ paddingLeft, paddingRight: 16 }}
+        className="block py-3 text-base font-medium text-white border-b border-white/10 hover:bg-white/10 transition-colors"
+        style={{ paddingLeft, paddingRight: 24 }}
       >
         {item.title}
       </Link>
@@ -140,19 +142,19 @@ function MobileItem({
   }
 
   return (
-    <div className="border-b border-border">
+    <div className="border-b border-white/10">
       <button
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between py-3 text-sm font-medium text-text-dark hover:bg-bg-light transition-colors"
-        style={{ paddingLeft, paddingRight: 16 }}
+        className="flex w-full items-center justify-between py-3 text-base font-medium text-white hover:bg-white/10 transition-colors"
+        style={{ paddingLeft, paddingRight: 24 }}
       >
         {item.title}
         <ChevronRight
-          className={cn("h-4 w-4 text-text-muted transition-transform", open && "rotate-90")}
+          className={cn("h-4 w-4 text-white/70 transition-transform", open && "rotate-90")}
         />
       </button>
       {open && (
-        <div className="bg-bg-light/50">
+        <div className="bg-black/20">
           {children.map((sub) => (
             <MobileItem key={sub.id} item={sub} onClose={onClose} depth={depth + 1} />
           ))}
@@ -163,9 +165,11 @@ function MobileItem({
 }
 
 // ─── Main Navbar ──────────────────────────────────────────
-export default function Navbar({ menuItems, logoUrl, siteTitle }: NavbarProps) {
+export default function Navbar({ menuItems, logoUrl, siteTitle, layoutType }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
+  const isOverlayHome = pathname === "/" && layoutType === "layout2";
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 10);
@@ -183,9 +187,13 @@ export default function Navbar({ menuItems, logoUrl, siteTitle }: NavbarProps) {
   const tree = buildTree(menuItems);
 
   return (
+    <>
     <nav
       className={cn(
-        "sticky top-0 z-50 bg-primary transition-shadow",
+        "top-0 z-50 transition-all w-full",
+        isOverlayHome
+          ? "absolute left-0 right-0 bg-black/20 backdrop-blur-sm"
+          : "sticky bg-primary",
         scrolled && "shadow-lg"
       )}
     >
@@ -219,36 +227,22 @@ export default function Navbar({ menuItems, logoUrl, siteTitle }: NavbarProps) {
           <Menu className="h-6 w-6" />
         </button>
       </div>
+    </nav>
 
-      {/* Mobile overlay */}
-      <div
-        className={cn(
-          "fixed inset-0 z-50 lg:hidden",
-          mobileOpen ? "pointer-events-auto" : "pointer-events-none"
-        )}
-      >
-        <div
-          className={cn(
-            "fixed inset-0 bg-black/50 transition-opacity duration-300",
-            mobileOpen ? "opacity-100" : "opacity-0"
-          )}
-          onClick={() => setMobileOpen(false)}
-        />
-        <div
-          className={cn(
-            "fixed top-0 right-0 h-full w-72 bg-white shadow-xl overflow-y-auto transition-transform duration-300 ease-in-out",
-            mobileOpen ? "translate-x-0" : "translate-x-full"
-          )}
-        >
-          <div className="flex items-center justify-between px-4 py-4 border-b border-border">
-            <span className="font-bold text-primary">{siteTitle}</span>
-            <button
-              onClick={() => setMobileOpen(false)}
-              className="p-1 text-text-muted hover:text-text-dark"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
+    {/* Mobile overlay — nav dışında, viewport'a göre konumlanır */}
+    {mobileOpen && (
+      <div className="fixed inset-0 z-[100] lg:hidden bg-primary-dark flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+          <span className="font-bold text-white text-lg tracking-tight">{siteTitle}</span>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1 text-white/80 hover:text-white"
+            aria-label="Menüyü kapat"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+        <div className="flex flex-col overflow-y-auto flex-1">
           {tree.map((item) => (
             <MobileItem
               key={item.id}
@@ -258,6 +252,7 @@ export default function Navbar({ menuItems, logoUrl, siteTitle }: NavbarProps) {
           ))}
         </div>
       </div>
-    </nav>
+    )}
+    </>
   );
 }

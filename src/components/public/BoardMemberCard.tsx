@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Users } from "lucide-react";
 import { BoardMember } from "@/types";
 
@@ -7,8 +8,10 @@ interface BoardMemberCardProps {
 }
 
 export default function BoardMemberCard({ member }: BoardMemberCardProps) {
-  return (
-    <div className="group rounded-xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
+  const hasDetail = !!member.slug;
+
+  const cardContent = (
+    <>
       <div className="relative h-56 bg-bg-light overflow-hidden">
         {member.photo ? (
           <Image
@@ -25,11 +28,26 @@ export default function BoardMemberCard({ member }: BoardMemberCardProps) {
         )}
       </div>
       <div className="p-4 text-center">
-        <h3 className="font-semibold text-text-dark">{member.name}</h3>
+        <h3 className="font-semibold text-text-dark group-hover:text-primary transition-colors">
+          {member.name}
+        </h3>
         {member.title && (
           <p className="text-sm text-primary-light mt-0.5">{member.title}</p>
         )}
       </div>
-    </div>
+    </>
   );
+
+  const className =
+    "group rounded-xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 block";
+
+  if (hasDetail) {
+    return (
+      <Link href={`/yonetim-kurulu/${member.slug}`} className={className}>
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return <div className={className}>{cardContent}</div>;
 }

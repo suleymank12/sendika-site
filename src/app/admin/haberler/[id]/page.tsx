@@ -11,9 +11,9 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Loading from "@/components/ui/Loading";
 import { createSlug } from "@/lib/utils";
-import { ArrowLeft } from "lucide-react";
+import { HelpCircle } from "lucide-react";
+import { NewsCategory } from "@/types";
 import toast from "react-hot-toast";
-import Link from "next/link";
 
 export default function AdminNewsEditorPage() {
   const params = useParams();
@@ -35,6 +35,21 @@ export default function AdminNewsEditorPage() {
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [initialGallery, setInitialGallery] = useState<string[]>([]);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  const [categories, setCategories] = useState<NewsCategory[]>([]);
+  const [existingPublishedAt, setExistingPublishedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("news_categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("order", { ascending: true });
+      setCategories(data || []);
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     if (!isNew) {
@@ -61,6 +76,7 @@ export default function AdminNewsEditorPage() {
         setIsHeadline(data.is_headline || false);
         setVideoUrl(data.video_url || "");
         setYoutubeUrl(data.youtube_url || "");
+        setExistingPublishedAt(data.published_at || null);
 
         const { data: mediaData } = await supabase
           .from("content_media")
@@ -112,9 +128,16 @@ export default function AdminNewsEditorPage() {
       category: category.trim() || null,
       is_published: publish,
       is_headline: isHeadline,
-      published_at: publish ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     };
+
+    // Yayın tarihi sadece ilk yayınlamada atanır, sonra korunur
+    if (isNew) {
+      payload.published_at = publish ? new Date().toISOString() : null;
+    } else if (publish && !existingPublishedAt) {
+      payload.published_at = new Date().toISOString();
+    }
+    // Aksi halde published_at payload'a eklenmez ve veritabanındaki eski değer korunur
 
     let error;
     let newsId = params.id as string;
@@ -202,10 +225,15 @@ export default function AdminNewsEditorPage() {
     setSaving(false);
   };
 
+  const breadcrumbs = [
+    { label: "Haberler", href: "/admin/haberler" },
+    { label: isNew ? "Yeni Haber" : "Düzenle" },
+  ];
+
   if (loading) {
     return (
       <>
-        <AdminHeader title="Haber Düzenle" />
+        <AdminHeader title="Haber Düzenle" breadcrumbs={breadcrumbs} />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -215,109 +243,139 @@ export default function AdminNewsEditorPage() {
 
   return (
     <>
-      <AdminHeader title={isNew ? "Yeni Haber" : "Haber Düzenle"} />
-      <div className="p-4 lg:p-6 max-w-4xl">
-        <Link
-          href="/admin/haberler"
-          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Haberlere Dön
-        </Link>
-
-        <div className="space-y-6">
-          {/* Title + Slug */}
-          <div className="rounded-xl bg-white border border-border p-5 space-y-4">
-            <Input
-              id="title"
-              label="Başlık"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Haber başlığını girin"
-              required
-            />
-            <Input
-              id="slug"
-              label="Slug (URL)"
-              value={slug}
-              onChange={(e) => {
-                setSlug(e.target.value);
-                setSlugManuallyEdited(true);
-              }}
-              helperText="/haberler/slug-buraya-gelecek"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-text-dark mb-1">Kategori</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                >
-                  <option value="">Seçiniz</option>
-                  <option value="Genel">Genel</option>
-                  <option value="Toplu Sözleşme">Toplu Sözleşme</option>
-                  <option value="Eğitim">Eğitim</option>
-                  <option value="Basından">Basından</option>
-                </select>
+      <AdminHeader
+        title={isNew ? "Yeni Haber" : title || "Haber Düzenle"}
+        breadcrumbs={breadcrumbs}
+      />
+      <div className="p-4 lg:p-6 max-w-7xl mx-auto pb-24">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(340px,400px)] gap-8 lg:gap-6">
+          {/* Sol sütun — Yazı ağırlıklı */}
+          <div className="space-y-8 min-w-0">
+            {/* Temel Bilgiler */}
+            <section>
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+                Temel Bilgiler
+              </p>
+              <div className="rounded-xl bg-white border border-border p-5 lg:p-6 space-y-4">
+                <Input
+                  id="title"
+                  label="Başlık"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Haber başlığını girin"
+                  required
+                />
+                <Input
+                  id="slug"
+                  label="URL Kısa Adı"
+                  value={slug}
+                  onChange={(e) => {
+                    setSlug(e.target.value);
+                    setSlugManuallyEdited(true);
+                  }}
+                  helperText="Başlıktan otomatik oluşur. Haberin adresi: /haberler/bu-ad"
+                />
+                <div>
+                  <label className="block text-sm font-medium text-text-dark mb-1">Kategori</label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  >
+                    <option value="">Seçiniz</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                    {category && !categories.some((c) => c.name === category) && (
+                      <option value={category}>{category} (pasif)</option>
+                    )}
+                  </select>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-text-muted mt-1">
+                      Henüz kategori yok. <a href="/admin/kategoriler" className="text-primary hover:underline">Kategoriler sayfasından</a> ekleyebilirsin.
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
+            </section>
+
+            {/* İçerik */}
+            <section>
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+                İçerik
+              </p>
+              <div className="rounded-xl bg-white border border-border p-5 lg:p-6 space-y-5">
+                <FormField label="Özet">
+                  <textarea
+                    value={summary}
+                    onChange={(e) => setSummary(e.target.value)}
+                    rows={3}
+                    placeholder="Haberin kısa özeti..."
+                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                  />
+                </FormField>
+                <FormField label="İçerik">
+                  <RichTextEditor content={content} onChange={setContent} />
+                </FormField>
+              </div>
+            </section>
           </div>
 
-          {/* Summary */}
-          <div className="rounded-xl bg-white border border-border p-5">
-            <FormField label="Özet">
-              <textarea
-                value={summary}
-                onChange={(e) => setSummary(e.target.value)}
-                rows={3}
-                placeholder="Haberin kısa özeti..."
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+          {/* Sağ sütun — Medya */}
+          <aside className="min-w-0">
+            <section>
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+                Medya
+              </p>
+              <MediaSection
+                folder="news"
+                coverImage={coverImage}
+                onCoverImageChange={setCoverImage}
+                videoUrl={videoUrl}
+                onVideoChange={setVideoUrl}
+                youtubeUrl={youtubeUrl}
+                onYoutubeChange={setYoutubeUrl}
+                contentType="news"
+                contentId={isNew ? null : (params.id as string)}
+                galleryImages={galleryImages}
+                onGalleryChange={setGalleryImages}
               />
-            </FormField>
-          </div>
+            </section>
+          </aside>
+        </div>
+      </div>
 
-          {/* Content */}
-          <div className="rounded-xl bg-white border border-border p-5">
-            <FormField label="İçerik">
-              <RichTextEditor content={content} onChange={setContent} />
-            </FormField>
-          </div>
-
-          {/* Medya */}
-          <MediaSection
-            folder="news"
-            coverImage={coverImage}
-            onCoverImageChange={setCoverImage}
-            videoUrl={videoUrl}
-            onVideoChange={setVideoUrl}
-            youtubeUrl={youtubeUrl}
-            onYoutubeChange={setYoutubeUrl}
-            contentType="news"
-            contentId={isNew ? null : (params.id as string)}
-            galleryImages={galleryImages}
-            onGalleryChange={setGalleryImages}
+      {/* Sticky Save Bar */}
+      <div className="sticky bottom-0 z-20 border-t border-border bg-white px-4 lg:px-6 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between shadow-[0_-2px_8px_rgba(0,0,0,0.03)]">
+        <label className="flex items-center gap-2 cursor-pointer group relative">
+          <input
+            type="checkbox"
+            checked={isHeadline}
+            onChange={(e) => setIsHeadline(e.target.checked)}
+            className="rounded border-border text-primary focus:ring-primary/50 h-4 w-4"
           />
-
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isHeadline}
-                onChange={(e) => setIsHeadline(e.target.checked)}
-                className="rounded border-border text-primary focus:ring-primary/50 h-4 w-4"
-              />
-              <span className="text-sm font-medium text-text-dark">Manşete Ekle</span>
-            </label>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => handleSave(false)} loading={saving}>
-                Taslak Kaydet
-              </Button>
-              <Button onClick={() => handleSave(true)} loading={saving}>
-                Yayınla
-              </Button>
-            </div>
+          <span className="text-sm font-medium text-text-dark">Manşete Ekle</span>
+          <HelpCircle className="h-3.5 w-3.5 text-text-muted" />
+          <span className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 rounded-lg bg-text-dark text-white text-xs p-2.5 shadow-lg z-30 pointer-events-none">
+            İşaretlersen anasayfadaki manşet slider'ında büyük olarak görünür.
+          </span>
+        </label>
+        <div className="flex gap-3 w-full sm:w-auto">
+          <div className="relative group flex-1 sm:flex-none">
+            <Button variant="secondary" onClick={() => handleSave(false)} loading={saving} className="w-full">
+              Taslak Kaydet
+            </Button>
+            <span className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-56 rounded-lg bg-text-dark text-white text-xs p-2.5 shadow-lg z-30 pointer-events-none">
+              Sadece sen görürsün, site ziyaretçilerine gözükmez.
+            </span>
+          </div>
+          <div className="relative group flex-1 sm:flex-none">
+            <Button onClick={() => handleSave(true)} loading={saving} className="w-full">
+              Yayınla
+            </Button>
+            <span className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-56 rounded-lg bg-text-dark text-white text-xs p-2.5 shadow-lg z-30 pointer-events-none">
+              Site ziyaretçilerine hemen açık olur.
+            </span>
           </div>
         </div>
       </div>

@@ -44,19 +44,13 @@ export default function MediaUploader({
 
   const uploadFile = useCallback(
     async (file: File) => {
-      const isImage = file.type.startsWith("image/");
-      const isVid = file.type.startsWith("video/");
-
-      if (!isImage && !isVid) {
-        toast.error("Sadece görsel veya video dosyaları yüklenebilir.");
+      if (!file.type.startsWith("video/")) {
+        toast.error("Sadece video dosyaları yüklenebilir.");
         return;
       }
 
-      const maxSize = isVid ? 400 * 1024 * 1024 : 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        toast.error(
-          isVid ? "Video boyutu 400MB'dan küçük olmalıdır." : "Görsel boyutu 5MB'dan küçük olmalıdır."
-        );
+      if (file.size > 400 * 1024 * 1024) {
+        toast.error("Video boyutu 400MB'dan küçük olmalıdır.");
         return;
       }
 
@@ -72,9 +66,9 @@ export default function MediaUploader({
 
         const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
         onChange(urlData.publicUrl);
-        toast.success(isVid ? "Video yüklendi." : "Görsel yüklendi.");
+        toast.success("Video yüklendi.");
       } catch {
-        toast.error("Dosya yüklenirken hata oluştu.");
+        toast.error("Video yüklenirken hata oluştu.");
       } finally {
         setUploading(false);
       }
@@ -159,17 +153,17 @@ export default function MediaUploader({
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-text-dark">
-                  Video veya görsel yüklemek için tıklayın veya sürükleyin
+                  Video yüklemek için tıklayın veya sürükleyin
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Görsel: PNG, JPG, WEBP (maks. 5MB) — Video: MP4, WEBM, MOV (maks. 400MB)
+                  MP4, WEBM, MOV (maks. 400MB)
                 </p>
               </div>
             </>
           )}
           <input
             type="file"
-            accept="image/*,video/*"
+            accept="video/*"
             onChange={handleChange}
             className="hidden"
           />

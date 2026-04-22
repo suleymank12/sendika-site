@@ -12,10 +12,9 @@ import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import FormField from "@/components/admin/FormField";
 import ImageUploader from "@/components/admin/ImageUploader";
-import { ArrowLeft, Plus, GripVertical, Edit, Trash2, LayoutGrid } from "lucide-react";
+import { Plus, GripVertical, Edit, Trash2, LayoutGrid } from "lucide-react";
 import { HomepageSection, HomepageSectionItem } from "@/types";
 import toast from "react-hot-toast";
-import Link from "next/link";
 import {
   DndContext,
   closestCenter,
@@ -274,10 +273,15 @@ export default function AdminSectionItemsPage() {
     toast.success("Sıralama kaydedildi.");
   };
 
+  const breadcrumbs = [
+    { label: "Anasayfa Bölümleri", href: "/admin/anasayfa-bolumleri" },
+    { label: section?.title || "Detay" },
+  ];
+
   if (loading) {
     return (
       <>
-        <AdminHeader title="Bölüm Öğeleri" />
+        <AdminHeader title="Bölüm Öğeleri" breadcrumbs={breadcrumbs} />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -288,15 +292,8 @@ export default function AdminSectionItemsPage() {
   if (section && section.source !== "custom") {
     return (
       <>
-        <AdminHeader title={section.title} />
+        <AdminHeader title={section.title} breadcrumbs={breadcrumbs} />
         <div className="p-4 lg:p-6 max-w-3xl">
-          <Link
-            href="/admin/anasayfa-bolumleri"
-            className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary mb-4"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Bölümlere Dön
-          </Link>
           <div className="rounded-xl bg-white border border-border p-6 text-center">
             <p className="text-text-muted">
               Bu bölüm <strong>{section.source === "news" ? "Haberler" : "Duyurular"}</strong>{" "}
@@ -310,15 +307,11 @@ export default function AdminSectionItemsPage() {
 
   return (
     <>
-      <AdminHeader title={section ? `${section.title} — Öğeler` : "Bölüm Öğeleri"} />
+      <AdminHeader
+        title={section ? `${section.title} — Öğeler` : "Bölüm Öğeleri"}
+        breadcrumbs={breadcrumbs}
+      />
       <div className="p-4 lg:p-6 max-w-4xl">
-        <Link
-          href="/admin/anasayfa-bolumleri"
-          className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-primary mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Bölümlere Dön
-        </Link>
 
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">
@@ -406,25 +399,16 @@ export default function AdminSectionItemsPage() {
             placeholder="/sayfa/ornek veya https://..."
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              id="item-order"
-              label="Sıra"
-              type="number"
-              value={String(form.order)}
-              onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-            />
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-              <select
-                value={form.is_active ? "true" : "false"}
-                onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="true">Aktif</option>
-                <option value="false">Pasif</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
+            <select
+              value={form.is_active ? "true" : "false"}
+              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="true">Aktif</option>
+              <option value="false">Pasif</option>
+            </select>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
