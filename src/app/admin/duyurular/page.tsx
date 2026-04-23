@@ -8,6 +8,7 @@ import DataTable, { Column } from "@/components/admin/DataTable";
 import StatusBadge from "@/components/admin/StatusBadge";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Button from "@/components/ui/Button";
+import Select from "@/components/ui/Select";
 import Loading from "@/components/ui/Loading";
 import { Plus, Megaphone } from "lucide-react";
 import EmptyState from "@/components/ui/EmptyState";
@@ -98,16 +99,15 @@ export default function AdminAnnouncementsListPage() {
         <div className="rounded-xl bg-white border border-border p-5">
           {/* Top bar */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2">
-              <select
+            <div className="flex items-center gap-2 w-40">
+              <Select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value as typeof filter)}
-                className="rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 <option value="all">Tümü</option>
                 <option value="published">Yayında</option>
                 <option value="draft">Taslak</option>
-              </select>
+              </Select>
             </div>
             <Button onClick={() => router.push("/admin/duyurular/yeni")}>
               <Plus className="h-4 w-4" />

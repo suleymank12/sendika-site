@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import Modal from "@/components/ui/Modal";
 import ImageUploader from "@/components/admin/ImageUploader";
 import MediaUploader from "@/components/admin/MediaUploader";
@@ -268,15 +269,7 @@ export default function AdminHeadlinePage() {
 
   return (
     <>
-      <AdminHeader
-        title="Manşet Yönetimi"
-        action={
-          <Button onClick={openNew} size="sm">
-            <Plus className="h-4 w-4" />
-            Yeni Manşet Ekle
-          </Button>
-        }
-      />
+      <AdminHeader title="Manşet Yönetimi" />
 
       <div className="p-4 lg:p-6">
         {headlines.length >= 10 && (
@@ -285,11 +278,23 @@ export default function AdminHeadlinePage() {
           </div>
         )}
 
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-text-muted">
+            Anasayfada büyük olarak gösterilen manşetleri yönetin. Sürükleyerek sıralayabilirsiniz.
+          </p>
+          {headlines.length > 0 && headlines.length < 10 && (
+            <Button onClick={openNew}>
+              <Plus className="h-4 w-4" />
+              Yeni Manşet Ekle
+            </Button>
+          )}
+        </div>
+
         {headlines.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-text-muted">
+          <div className="flex flex-col items-center justify-center py-16 text-text-muted rounded-xl bg-white border border-border">
             <p className="text-lg font-medium mb-1">Henüz manşet eklenmemiş</p>
             <p className="text-sm mb-4">Yeni bir manşet ekleyerek başlayın.</p>
-            <Button onClick={openNew} size="sm">
+            <Button onClick={openNew}>
               <Plus className="h-4 w-4" />
               Manşet Ekle
             </Button>
@@ -371,129 +376,150 @@ export default function AdminHeadlinePage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingId ? "Manşet Düzenle" : "Yeni Manşet Ekle"}
-        className="max-w-xl"
+        className="max-w-7xl w-[92vw]"
       >
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-          {/* Kaynak Seçimi */}
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-2">Kaynak</label>
-            <div className="flex gap-2">
-              {(["custom", "news", "announcement"] as SourceType[]).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => handleSourceChange(type)}
-                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                    form.source_type === type
-                      ? "border-primary bg-primary/10 text-primary font-medium"
-                      : "border-border text-text-muted hover:border-primary/30"
-                  }`}
-                >
-                  {type === "custom" ? "Özel" : type === "news" ? "Haberden" : "Duyurudan"}
-                </button>
-              ))}
+        <div className="max-h-[70vh] overflow-y-auto -mx-1 px-1">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
+            {/* Sol sütun — Metinler ve ayarlar */}
+            <div className="space-y-6 min-w-0">
+              {/* Kaynak */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Kaynak</p>
+                <FormField label="Manşet Türü">
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["custom", "news", "announcement"] as SourceType[]).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleSourceChange(type)}
+                        className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                          form.source_type === type
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border bg-white text-text-muted hover:bg-bg-light"
+                        }`}
+                      >
+                        {type === "custom" ? "Özel Manşet" : type === "news" ? "Haberden" : "Duyurudan"}
+                      </button>
+                    ))}
+                  </div>
+                </FormField>
+
+                {form.source_type !== "custom" && (
+                  <FormField
+                    label={form.source_type === "news" ? "Haber Seç" : "Duyuru Seç"}
+                    required
+                  >
+                    <Select
+                      value={form.source_id}
+                      onChange={(e) => handleSourceSelect(e.target.value)}
+                    >
+                      <option value="">Seçiniz...</option>
+                      {(form.source_type === "news" ? newsList : announcementList).map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.title}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+                )}
+              </section>
+
+              {/* Metinler */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Metinler</p>
+                <Input
+                  id="headline-title"
+                  label="Başlık"
+                  value={form.title}
+                  onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                  placeholder="Manşet başlığı"
+                  required
+                />
+                <Input
+                  id="headline-subtitle"
+                  label="Alt Başlık"
+                  value={form.subtitle}
+                  onChange={(e) => setForm((p) => ({ ...p, subtitle: e.target.value }))}
+                  placeholder="Opsiyonel alt başlık"
+                />
+              </section>
+
+              {/* Bağlantı */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Bağlantı</p>
+                <Input
+                  id="headline-link"
+                  label="Bağlantı Adresi"
+                  value={form.link_url}
+                  onChange={(e) => setForm((p) => ({ ...p, link_url: e.target.value }))}
+                  placeholder="/haberler/ornek-haber"
+                  helperText={
+                    form.source_type === "custom"
+                      ? "Boş bırakılırsa manşet kendi detay sayfasında açılır."
+                      : "Kaynak seçilince otomatik doldurulur."
+                  }
+                />
+              </section>
+
+              {/* İçerik — yalnızca özel manşette */}
+              {form.source_type === "custom" && (
+                <section className="space-y-3">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">İçerik</p>
+                  <FormField label="Detay İçeriği (opsiyonel)">
+                    <RichTextEditor
+                      content={form.content}
+                      onChange={(html) => setForm((p) => ({ ...p, content: html }))}
+                    />
+                  </FormField>
+                </section>
+              )}
+            </div>
+
+            {/* Sağ sütun — Medya */}
+            <div className="space-y-6 min-w-0">
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Manşet Görseli</p>
+                <FormField label="Kapak Görseli">
+                  <ImageUploader
+                    value={form.image_url}
+                    onChange={(url) => setForm((p) => ({ ...p, image_url: url }))}
+                    folder="headlines"
+                    maxWidth={1400}
+                    maxHeight={600}
+                  />
+                </FormField>
+                <p className="text-xs text-text-muted">
+                  Önerilen boyut: 1400 × 600 piksel.
+                </p>
+              </section>
+
+              {/* Ek Medya — yalnızca özel manşette */}
+              {form.source_type === "custom" && (
+                <section className="space-y-3">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Ek Medya</p>
+                  <MediaUploader
+                    value={form.video_url}
+                    onChange={(url) => setForm((p) => ({ ...p, video_url: url }))}
+                    youtubeUrl={form.youtube_url}
+                    onYoutubeChange={(url) => setForm((p) => ({ ...p, youtube_url: url }))}
+                    folder="headlines/videos"
+                  />
+                </section>
+              )}
+
+              <p className="text-xs text-text-muted pt-2">
+                Sıralama liste sayfasında sürükle-bırak ile yapılır.
+              </p>
             </div>
           </div>
-
-          {/* Haber/Duyuru Seçimi */}
-          {form.source_type !== "custom" && (
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">
-                {form.source_type === "news" ? "Haber Seç" : "Duyuru Seç"}
-              </label>
-              <select
-                value={form.source_id}
-                onChange={(e) => handleSourceSelect(e.target.value)}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="">Seçiniz...</option>
-                {(form.source_type === "news" ? newsList : announcementList).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Başlık */}
-          <Input
-            id="headline-title"
-            label="Başlık"
-            value={form.title}
-            onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-            placeholder="Manşet başlığı"
-            required
-          />
-
-          {/* Alt Başlık */}
-          <Input
-            id="headline-subtitle"
-            label="Alt Başlık"
-            value={form.subtitle}
-            onChange={(e) => setForm((p) => ({ ...p, subtitle: e.target.value }))}
-            placeholder="Opsiyonel alt başlık"
-          />
-
-          {/* Görsel */}
-          <FormField label="Görsel">
-            <ImageUploader
-              value={form.image_url}
-              onChange={(url) => setForm((p) => ({ ...p, image_url: url }))}
-              folder="headlines"
-              maxWidth={1400}
-              maxHeight={600}
-            />
-          </FormField>
-
-          {/* Link URL */}
-          <Input
-            id="headline-link"
-            label="Link URL"
-            value={form.link_url}
-            onChange={(e) => setForm((p) => ({ ...p, link_url: e.target.value }))}
-            placeholder="/haberler/ornek-haber"
-            helperText={
-              form.source_type === "custom"
-                ? "Boş bırakılırsa manşet kendi detay sayfasında açılır."
-                : undefined
-            }
-          />
-
-          {/* İçerik — yalnızca custom kaynakta */}
-          {form.source_type === "custom" && (
-            <>
-              <FormField label="İçerik (opsiyonel)">
-                <RichTextEditor
-                  content={form.content}
-                  onChange={(html) => setForm((p) => ({ ...p, content: html }))}
-                />
-              </FormField>
-
-              <div className="border-t border-gray-200 pt-4 mt-2">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Medya (Opsiyonel)</h4>
-                <MediaUploader
-                  value={form.video_url}
-                  onChange={(url) => setForm((p) => ({ ...p, video_url: url }))}
-                  youtubeUrl={form.youtube_url}
-                  onYoutubeChange={(url) => setForm((p) => ({ ...p, youtube_url: url }))}
-                  folder="headlines/videos"
-                />
-              </div>
-            </>
-          )}
-
-          <p className="text-xs text-text-muted">
-            Sıralama liste sayfasında sürükle-bırak ile yapılır.
-          </p>
         </div>
 
-        <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-border">
+        <div className="flex justify-end gap-3 pt-5 mt-6 border-t border-border">
           <Button variant="secondary" onClick={() => setModalOpen(false)}>
             İptal
           </Button>
           <Button onClick={handleSave} loading={saving}>
-            {editingId ? "Güncelle" : "Ekle"}
+            {editingId ? "Değişiklikleri Kaydet" : "Manşet Ekle"}
           </Button>
         </div>
       </Modal>

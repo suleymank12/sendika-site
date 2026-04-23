@@ -358,67 +358,92 @@ export default function AdminSectionItemsPage() {
         title={form.id ? "Öğe Düzenle" : "Yeni Öğe"}
         className="max-w-xl"
       >
-        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-          <Input
-            id="item-title"
-            label="Başlık"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Öğe başlığı"
-            required
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">
-              Açıklama (opsiyonel)
-            </label>
-            <textarea
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={2}
-              placeholder="Kısa açıklama (2 satır)"
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+        <div className="space-y-6 max-h-[70vh] overflow-y-auto -mx-1 px-1">
+          {/* Temel Bilgiler */}
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Temel Bilgiler</p>
+            <Input
+              id="item-title"
+              label="Başlık"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="Öğe başlığı"
+              required
             />
-          </div>
+            <FormField label="Açıklama (opsiyonel)">
+              <textarea
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={2}
+                placeholder="Kısa açıklama (1-2 satır)"
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+              />
+            </FormField>
+          </section>
 
-          <FormField label="Görsel (opsiyonel)">
-            <ImageUploader
-              value={form.image_url}
-              onChange={(url) => setForm({ ...form, image_url: url })}
-              folder="homepage-sections"
-              maxWidth={1200}
-              maxHeight={800}
+          {/* Görsel ve Bağlantı */}
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Görsel ve Bağlantı</p>
+            <FormField label="Görsel (opsiyonel)">
+              <ImageUploader
+                value={form.image_url}
+                onChange={(url) => setForm({ ...form, image_url: url })}
+                folder="homepage-sections"
+                maxWidth={1200}
+                maxHeight={800}
+              />
+            </FormField>
+            <Input
+              id="item-link"
+              label="Bağlantı Adresi"
+              value={form.link_url}
+              onChange={(e) => setForm({ ...form, link_url: e.target.value })}
+              placeholder="/sayfa/ornek veya https://..."
+              helperText="Tıklanınca gidilecek adres (opsiyonel)"
             />
-          </FormField>
+          </section>
 
-          <Input
-            id="item-link"
-            label="Link URL"
-            value={form.link_url}
-            onChange={(e) => setForm({ ...form, link_url: e.target.value })}
-            placeholder="/sayfa/ornek veya https://..."
-          />
+          {/* Durum */}
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
+            <FormField label="Yayın Durumu">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_active: true })}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    form.is_active
+                      ? "border-success bg-success/10 text-success"
+                      : "border-border bg-white text-text-muted hover:bg-bg-light"
+                  )}
+                >
+                  Aktif (görünür)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_active: false })}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    !form.is_active
+                      ? "border-warning bg-warning/10 text-warning"
+                      : "border-border bg-white text-text-muted hover:bg-bg-light"
+                  )}
+                >
+                  Pasif (gizli)
+                </button>
+              </div>
+            </FormField>
+          </section>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-            <select
-              value={form.is_active ? "true" : "false"}
-              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="true">Aktif</option>
-              <option value="false">Pasif</option>
-            </select>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>
-              İptal
-            </Button>
-            <Button onClick={handleSave} loading={saving}>
-              Kaydet
-            </Button>
-          </div>
+        <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-border">
+          <Button variant="secondary" onClick={() => setModalOpen(false)}>
+            İptal
+          </Button>
+          <Button onClick={handleSave} loading={saving}>
+            {form.id ? "Değişiklikleri Kaydet" : "Öğe Ekle"}
+          </Button>
         </div>
       </Modal>
 

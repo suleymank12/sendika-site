@@ -254,64 +254,107 @@ export default function AdminBoardMembersPage() {
         </div>
       </div>
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Üye Düzenle" : "Yeni Üye Ekle"} className="max-w-2xl">
-        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-          <Input
-            id="member-name"
-            label="Ad Soyad"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Ad Soyad"
-            required
-          />
-          <Input
-            id="member-title"
-            label="Unvan"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Genel Başkan, Genel Sekreter vb."
-          />
-          <FormField label="Fotoğraf">
-            <ImageUploader value={form.photo} onChange={(url) => setForm({ ...form, photo: url })} folder="board-members" maxWidth={400} maxHeight={500} />
-          </FormField>
-          <Input
-            id="member-slug"
-            label="URL Kısa Adı"
-            value={form.slug}
-            onChange={(e) => setForm({ ...form, slug: e.target.value })}
-            placeholder="ahmet-yilmaz"
-            helperText="Ad soyaddan otomatik oluşur. Üyenin adresi: /yonetim-kurulu/bu-ad"
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              id="member-phone"
-              label="Telefon (opsiyonel)"
-              value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              placeholder="+90 (312) 000 00 00"
-            />
-            <Input
-              id="member-email"
-              label="E-posta (opsiyonel)"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              placeholder="uye@sendika.tr"
-            />
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={form.id ? "Üye Düzenle" : "Yeni Üye Ekle"}
+        className="max-w-7xl w-[92vw]"
+      >
+        <div className="max-h-[70vh] overflow-y-auto -mx-1 px-1">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
+            {/* Sol sütun — Bilgiler ve özgeçmiş */}
+            <div className="space-y-6 min-w-0">
+              {/* Kişisel Bilgiler */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Kişisel Bilgiler</p>
+                <Input
+                  id="member-name"
+                  label="Ad Soyad"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Ad Soyad"
+                  required
+                />
+                <Input
+                  id="member-title"
+                  label="Unvan / Görev"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="Genel Başkan, Genel Sekreter vb."
+                />
+                <Input
+                  id="member-slug"
+                  label="URL Kısa Adı"
+                  value={form.slug}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  placeholder="ahmet-yilmaz"
+                  helperText="Ad soyaddan otomatik oluşur. Üyenin adresi: /yonetim-kurulu/bu-ad"
+                />
+              </section>
+
+              {/* Hakkında */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Hakkında</p>
+                <FormField label="Özgeçmiş / Biyografi">
+                  <RichTextEditor
+                    content={form.bio}
+                    onChange={(html) => setForm({ ...form, bio: html })}
+                  />
+                </FormField>
+              </section>
+            </div>
+
+            {/* Sağ sütun — Fotoğraf ve iletişim */}
+            <div className="space-y-6 min-w-0">
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Fotoğraf</p>
+                <FormField label="Üye Fotoğrafı">
+                  <ImageUploader
+                    value={form.photo}
+                    onChange={(url) => setForm({ ...form, photo: url })}
+                    folder="board-members"
+                    maxWidth={400}
+                    maxHeight={500}
+                  />
+                </FormField>
+                <p className="text-xs text-text-muted">
+                  Önerilen: portre (dikey) oran, 400 × 500 piksel.
+                </p>
+              </section>
+
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">İletişim</p>
+                <Input
+                  id="member-phone"
+                  label="Telefon"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="+90 (312) 000 00 00"
+                  helperText="Opsiyonel"
+                />
+                <Input
+                  id="member-email"
+                  label="E-posta"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="uye@sendika.tr"
+                  helperText="Opsiyonel"
+                />
+              </section>
+
+              <p className="text-xs text-text-muted pt-2">
+                Sıralama liste sayfasında sürükle-bırak ile yapılır.
+              </p>
+            </div>
           </div>
-          <FormField label="Hakkında">
-            <RichTextEditor
-              content={form.bio}
-              onChange={(html) => setForm({ ...form, bio: html })}
-            />
-          </FormField>
-          <p className="text-xs text-text-muted">
-            Sıralama liste sayfasında sürükle-bırak ile yapılır.
-          </p>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
-            <Button onClick={handleSave} loading={saving}>Kaydet</Button>
-          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-5 mt-6 border-t border-border">
+          <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
+          <Button onClick={handleSave} loading={saving}>
+            {form.id ? "Değişiklikleri Kaydet" : "Üye Ekle"}
+          </Button>
         </div>
       </Modal>
 

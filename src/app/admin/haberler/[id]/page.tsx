@@ -9,6 +9,7 @@ import MediaSection from "@/components/admin/MediaSection";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import Loading from "@/components/ui/Loading";
 import { createSlug } from "@/lib/utils";
 import { HelpCircle } from "lucide-react";
@@ -276,11 +277,11 @@ export default function AdminNewsEditorPage() {
                   helperText="Başlıktan otomatik oluşur. Haberin adresi: /haberler/bu-ad"
                 />
                 <div>
-                  <label className="block text-sm font-medium text-text-dark mb-1">Kategori</label>
-                  <select
+                  <Select
+                    id="news-category"
+                    label="Kategori"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                   >
                     <option value="">Seçiniz</option>
                     {categories.map((c) => (
@@ -289,7 +290,7 @@ export default function AdminNewsEditorPage() {
                     {category && !categories.some((c) => c.name === category) && (
                       <option value={category}>{category} (pasif)</option>
                     )}
-                  </select>
+                  </Select>
                   {categories.length === 0 && (
                     <p className="text-xs text-text-muted mt-1">
                       Henüz kategori yok. <a href="/admin/kategoriler" className="text-primary hover:underline">Kategoriler sayfasından</a> ekleyebilirsin.

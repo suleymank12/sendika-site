@@ -6,6 +6,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
@@ -374,10 +375,10 @@ export default function AdminBranchesPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={form.id ? "Şube Düzenle" : "Yeni Şube Ekle"}
-        className="max-w-2xl"
+        className="max-w-7xl w-[92vw]"
       >
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-border mb-4 -mx-1 px-1">
+        <div className="flex gap-1 border-b border-border mb-6 -mx-1 px-1">
           <button
             type="button"
             onClick={() => setActiveTab("info")}
@@ -406,224 +407,271 @@ export default function AdminBranchesPage() {
           </button>
         </div>
 
-        <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+        <div className="max-h-[70vh] overflow-y-auto -mx-1 px-1">
           {activeTab === "info" && (
-            <>
-              <Input
-                id="branch-name"
-                label="Şube Adı"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Ankara 1 No'lu Şube"
-                required
-              />
-              <Input
-                id="branch-slug"
-                label="URL Kısa Adı"
-                value={form.slug}
-                onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                placeholder="ankara-merkez-subesi"
-                helperText="Şube adından otomatik oluşur. Şubenin adresi: /subeler/bu-ad"
-              />
-              <Input
-                id="branch-city"
-                label="Şehir"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-                placeholder="Ankara"
-              />
-              <div>
-                <label className="block text-sm font-medium text-text-dark mb-1">Adres</label>
-                <textarea
-                  value={form.address}
-                  onChange={(e) => setForm({ ...form, address: e.target.value })}
-                  rows={2}
-                  placeholder="Açık adres"
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                />
+            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
+              {/* Sol sütun */}
+              <div className="space-y-6 min-w-0">
+                <section className="space-y-3">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Temel Bilgiler</p>
+                  <Input
+                    id="branch-name"
+                    label="Şube Adı"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="Ankara 1 No'lu Şube"
+                    required
+                  />
+                  <Input
+                    id="branch-slug"
+                    label="URL Kısa Adı"
+                    value={form.slug}
+                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                    placeholder="ankara-merkez-subesi"
+                    helperText="Şube adından otomatik oluşur. Şubenin adresi: /subeler/bu-ad"
+                  />
+                </section>
+
+                <section className="space-y-3">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Hakkında</p>
+                  <FormField label="Şube Tanıtımı (opsiyonel)">
+                    <RichTextEditor
+                      content={form.description}
+                      onChange={(html) => setForm({ ...form, description: html })}
+                    />
+                  </FormField>
+                </section>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input
-                  id="branch-phone"
-                  label="Telefon"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="+90 (312) 000 00 00"
-                />
-                <Input
-                  id="branch-email"
-                  label="E-posta"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="sube@sendika.org.tr"
-                />
+
+              {/* Sağ sütun */}
+              <div className="space-y-6 min-w-0">
+                <section className="space-y-3">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Konum</p>
+                  <Input
+                    id="branch-city"
+                    label="Şehir"
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    placeholder="Ankara"
+                  />
+                  <FormField label="Adres">
+                    <textarea
+                      value={form.address}
+                      onChange={(e) => setForm({ ...form, address: e.target.value })}
+                      rows={2}
+                      placeholder="Açık adres"
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                    />
+                  </FormField>
+                  <FormField label="Google Maps Harita Adresi (opsiyonel)">
+                    <textarea
+                      value={form.map_url}
+                      onChange={(e) => setForm({ ...form, map_url: e.target.value })}
+                      rows={2}
+                      placeholder="https://www.google.com/maps/embed?pb=..."
+                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none font-mono"
+                    />
+                    <p className="text-xs text-text-muted mt-1">
+                      Google Maps&apos;te konumu aç → Paylaş → Haritayı yerleştir → src=&quot;...&quot; içindeki URL&apos;yi kopyala. Boş bırakılırsa adresten otomatik harita oluşturulur.
+                    </p>
+                  </FormField>
+                </section>
+
+                <section className="space-y-3">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">İletişim</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      id="branch-phone"
+                      label="Telefon"
+                      value={form.phone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      placeholder="+90 (312) 000 00 00"
+                    />
+                    <Input
+                      id="branch-email"
+                      label="E-posta"
+                      type="email"
+                      value={form.email}
+                      onChange={(e) => setForm({ ...form, email: e.target.value })}
+                      placeholder="sube@sendika.org.tr"
+                    />
+                  </div>
+                  <Input
+                    id="branch-working-hours"
+                    label="Çalışma Saatleri"
+                    value={form.working_hours}
+                    onChange={(e) => setForm({ ...form, working_hours: e.target.value })}
+                    placeholder="Pazartesi - Cuma, 09:00 - 17:00"
+                  />
+                </section>
               </div>
-              <Input
-                id="branch-working-hours"
-                label="Çalışma Saatleri"
-                value={form.working_hours}
-                onChange={(e) => setForm({ ...form, working_hours: e.target.value })}
-                placeholder="Pazartesi - Cuma, 09:00 - 17:00"
-              />
-              <div>
-                <label className="block text-sm font-medium text-text-dark mb-1">
-                  Google Maps Embed URL (opsiyonel)
-                </label>
-                <textarea
-                  value={form.map_url}
-                  onChange={(e) => setForm({ ...form, map_url: e.target.value })}
-                  rows={2}
-                  placeholder="https://www.google.com/maps/embed?pb=..."
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none font-mono"
-                />
-                <p className="text-xs text-text-muted mt-1">
-                  Google Maps'te konumu aç → Paylaş → Haritayı yerleştir → src=&quot;...&quot; içindeki URL'yi kopyala. Boş bırakılırsa adresten otomatik harita oluşturulur.
-                </p>
-              </div>
-              <FormField label="Şube Hakkında (opsiyonel)">
-                <RichTextEditor
-                  content={form.description}
-                  onChange={(html) => setForm({ ...form, description: html })}
-                />
-              </FormField>
-            </>
+            </div>
           )}
 
           {activeTab === "manager" && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-text-dark mb-2">Yönetici Kaynağı</label>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setManagerMode("none")}
-                    className={cn(
-                      "rounded-lg border-2 p-3 text-left transition-all text-sm",
-                      managerMode === "none"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border text-text-muted hover:border-primary/30"
-                    )}
-                  >
-                    <div className="font-medium">Yok</div>
-                    <p className="text-xs text-text-muted mt-0.5">Yönetici gösterilmesin</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setManagerMode("board")}
-                    className={cn(
-                      "rounded-lg border-2 p-3 text-left transition-all text-sm",
-                      managerMode === "board"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border text-text-muted hover:border-primary/30"
-                    )}
-                  >
-                    <div className="font-medium">Yönetim Kurulundan</div>
-                    <p className="text-xs text-text-muted mt-0.5">Mevcut üye seç</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setManagerMode("manual")}
-                    className={cn(
-                      "rounded-lg border-2 p-3 text-left transition-all text-sm",
-                      managerMode === "manual"
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-border text-text-muted hover:border-primary/30"
-                    )}
-                  >
-                    <div className="font-medium">Manuel Gir</div>
-                    <p className="text-xs text-text-muted mt-0.5">Şubeye özel yönetici</p>
-                  </button>
-                </div>
-              </div>
+            <div className="space-y-6">
+              {/* Yönetici Kaynağı — tam genişlik */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Yönetici Kaynağı</p>
+                <FormField label="Yönetici nasıl gösterilsin?">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setManagerMode("none")}
+                      className={cn(
+                        "rounded-lg border-2 p-4 text-left transition-all text-sm",
+                        managerMode === "none"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-text-muted hover:border-primary/30"
+                      )}
+                    >
+                      <div className="font-medium">Yok</div>
+                      <p className="text-xs text-text-muted mt-0.5">Yönetici gösterilmesin</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setManagerMode("board")}
+                      className={cn(
+                        "rounded-lg border-2 p-4 text-left transition-all text-sm",
+                        managerMode === "board"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-text-muted hover:border-primary/30"
+                      )}
+                    >
+                      <div className="font-medium">Yönetim Kurulundan</div>
+                      <p className="text-xs text-text-muted mt-0.5">Mevcut üye seç</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setManagerMode("manual")}
+                      className={cn(
+                        "rounded-lg border-2 p-4 text-left transition-all text-sm",
+                        managerMode === "manual"
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border text-text-muted hover:border-primary/30"
+                      )}
+                    >
+                      <div className="font-medium">Manuel Gir</div>
+                      <p className="text-xs text-text-muted mt-0.5">Şubeye özel yönetici</p>
+                    </button>
+                  </div>
+                </FormField>
+              </section>
 
               {managerMode === "board" && (
-                <div>
-                  <label className="block text-sm font-medium text-text-dark mb-1">Yönetim Kurulu Üyesi</label>
-                  {boardMembers.length === 0 ? (
-                    <p className="text-sm text-text-muted rounded-lg border border-dashed border-border p-4 text-center">
-                      Önce Yönetim Kurulu sayfasından üye eklemelisiniz.
-                    </p>
-                  ) : (
-                    <select
-                      value={form.manager_id || ""}
-                      onChange={(e) => setForm({ ...form, manager_id: e.target.value || null })}
-                      className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-                    >
-                      <option value="">Üye seçin...</option>
-                      {boardMembers.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}{m.title ? ` — ${m.title}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
+                <section className="space-y-3 max-w-2xl">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Üye Seçimi</p>
+                  <FormField label="Yönetim Kurulu Üyesi">
+                    {boardMembers.length === 0 ? (
+                      <p className="text-sm text-text-muted rounded-lg border border-dashed border-border p-4 text-center">
+                        Önce Yönetim Kurulu sayfasından üye eklemelisiniz.
+                      </p>
+                    ) : (
+                      <Select
+                        value={form.manager_id || ""}
+                        onChange={(e) => setForm({ ...form, manager_id: e.target.value || null })}
+                      >
+                        <option value="">Üye seçin...</option>
+                        {boardMembers.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}{m.title ? ` — ${m.title}` : ""}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
+                  </FormField>
+                </section>
               )}
 
               {managerMode === "manual" && (
-                <>
-                  <Input
-                    id="manager-name"
-                    label="Ad Soyad"
-                    value={form.manager_name}
-                    onChange={(e) => setForm({ ...form, manager_name: e.target.value })}
-                    placeholder="Ahmet Yılmaz"
-                  />
-                  <Input
-                    id="manager-title"
-                    label="Unvan"
-                    value={form.manager_title}
-                    onChange={(e) => setForm({ ...form, manager_title: e.target.value })}
-                    placeholder="Şube Başkanı"
-                  />
-                  <FormField label="Fotoğraf">
-                    <ImageUploader
-                      value={form.manager_photo}
-                      onChange={(url) => setForm({ ...form, manager_photo: url })}
-                      folder="branch-managers"
-                      maxWidth={400}
-                      maxHeight={500}
-                    />
-                  </FormField>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Input
-                      id="manager-phone"
-                      label="Telefon (opsiyonel)"
-                      value={form.manager_phone}
-                      onChange={(e) => setForm({ ...form, manager_phone: e.target.value })}
-                      placeholder="+90 (532) 000 00 00"
-                    />
-                    <Input
-                      id="manager-email"
-                      label="E-posta (opsiyonel)"
-                      type="email"
-                      value={form.manager_email}
-                      onChange={(e) => setForm({ ...form, manager_email: e.target.value })}
-                      placeholder="yonetici@sendika.tr"
-                    />
+                <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
+                  {/* Sol sütun */}
+                  <div className="space-y-6 min-w-0">
+                    <section className="space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Kişisel Bilgiler</p>
+                      <Input
+                        id="manager-name"
+                        label="Ad Soyad"
+                        value={form.manager_name}
+                        onChange={(e) => setForm({ ...form, manager_name: e.target.value })}
+                        placeholder="Ahmet Yılmaz"
+                      />
+                      <Input
+                        id="manager-title"
+                        label="Unvan"
+                        value={form.manager_title}
+                        onChange={(e) => setForm({ ...form, manager_title: e.target.value })}
+                        placeholder="Şube Başkanı"
+                      />
+                    </section>
+
+                    <section className="space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Hakkında</p>
+                      <FormField label="Özgeçmiş / Biyografi">
+                        <RichTextEditor
+                          content={form.manager_bio}
+                          onChange={(html) => setForm({ ...form, manager_bio: html })}
+                        />
+                      </FormField>
+                    </section>
                   </div>
-                  <FormField label="Hakkında">
-                    <RichTextEditor
-                      content={form.manager_bio}
-                      onChange={(html) => setForm({ ...form, manager_bio: html })}
-                    />
-                  </FormField>
-                </>
+
+                  {/* Sağ sütun */}
+                  <div className="space-y-6 min-w-0">
+                    <section className="space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Fotoğraf</p>
+                      <FormField label="Yönetici Fotoğrafı">
+                        <ImageUploader
+                          value={form.manager_photo}
+                          onChange={(url) => setForm({ ...form, manager_photo: url })}
+                          folder="branch-managers"
+                          maxWidth={400}
+                          maxHeight={500}
+                        />
+                      </FormField>
+                      <p className="text-xs text-text-muted">
+                        Önerilen: portre (dikey) oran, 400 × 500 piksel.
+                      </p>
+                    </section>
+
+                    <section className="space-y-3">
+                      <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">İletişim</p>
+                      <Input
+                        id="manager-phone"
+                        label="Telefon"
+                        value={form.manager_phone}
+                        onChange={(e) => setForm({ ...form, manager_phone: e.target.value })}
+                        placeholder="+90 (532) 000 00 00"
+                        helperText="Opsiyonel"
+                      />
+                      <Input
+                        id="manager-email"
+                        label="E-posta"
+                        type="email"
+                        value={form.manager_email}
+                        onChange={(e) => setForm({ ...form, manager_email: e.target.value })}
+                        placeholder="yonetici@sendika.tr"
+                        helperText="Opsiyonel"
+                      />
+                    </section>
+                  </div>
+                </div>
               )}
 
               {managerMode === "none" && (
-                <p className="text-sm text-text-muted rounded-lg border border-dashed border-border p-4 text-center">
+                <p className="text-sm text-text-muted rounded-lg border border-dashed border-border p-6 text-center">
                   Bu şube için yönetici bilgisi gösterilmeyecek.
                 </p>
               )}
-            </>
+            </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-3 pt-4 border-t border-border mt-4">
+        <div className="flex justify-end gap-3 pt-5 mt-6 border-t border-border">
           <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
-          <Button onClick={handleSave} loading={saving}>Kaydet</Button>
+          <Button onClick={handleSave} loading={saving}>
+            {form.id ? "Değişiklikleri Kaydet" : "Şube Ekle"}
+          </Button>
         </div>
       </Modal>
 

@@ -5,21 +5,21 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Menu,
-  Newspaper as NewspaperIcon,
+  Newspaper,
   Megaphone,
-  Images,
-  BookOpen,
   FileText,
-  GalleryHorizontal,
+  Camera,
+  Folders,
+  Presentation,
+  Star,
+  MousePointerClick,
+  LayoutGrid,
+  ListTree,
   Users,
   Building2,
-  Zap,
-  LayoutGrid,
   Settings,
   LogOut,
   X,
-  Tag,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -40,37 +40,37 @@ interface MenuGroup {
 const menuGroups: MenuGroup[] = [
   {
     label: null,
-    items: [{ label: "Dashboard", href: "/admin", icon: LayoutDashboard }],
+    items: [{ label: "Özet", href: "/admin", icon: LayoutDashboard }],
   },
   {
-    label: "İçerik",
+    label: "İçerik Yönetimi",
     items: [
-      { label: "Haberler", href: "/admin/haberler", icon: NewspaperIcon },
-      { label: "Kategoriler", href: "/admin/kategoriler", icon: Tag },
+      { label: "Haberler", href: "/admin/haberler", icon: Newspaper },
+      { label: "Haber Kategorileri", href: "/admin/kategoriler", icon: Folders },
       { label: "Duyurular", href: "/admin/duyurular", icon: Megaphone },
-      { label: "Sayfalar", href: "/admin/sayfalar", icon: FileText },
-      { label: "Galeri", href: "/admin/galeri", icon: GalleryHorizontal },
+      { label: "Sabit Sayfalar", href: "/admin/sayfalar", icon: FileText },
+      { label: "Foto Galeri", href: "/admin/galeri", icon: Camera },
     ],
   },
   {
-    label: "Anasayfa",
+    label: "Anasayfa Düzeni",
     items: [
-      { label: "Slider", href: "/admin/slider", icon: Images },
-      { label: "Manşet", href: "/admin/manset", icon: BookOpen },
-      { label: "Hızlı Erişim", href: "/admin/hizli-erisim", icon: Zap },
+      { label: "Anasayfa Slider", href: "/admin/slider", icon: Presentation },
+      { label: "Manşet Haber", href: "/admin/manset", icon: Star },
+      { label: "Hızlı Erişim Butonları", href: "/admin/hizli-erisim", icon: MousePointerClick },
       { label: "Anasayfa Bölümleri", href: "/admin/anasayfa-bolumleri", icon: LayoutGrid },
     ],
   },
   {
     label: "Kurumsal",
     items: [
-      { label: "Menü Yönetimi", href: "/admin/menu", icon: Menu },
+      { label: "Site Menüsü", href: "/admin/menu", icon: ListTree },
       { label: "Yönetim Kurulu", href: "/admin/yonetim-kurulu", icon: Users },
-      { label: "Şubeler", href: "/admin/subeler", icon: Building2 },
+      { label: "Şubelerimiz", href: "/admin/subeler", icon: Building2 },
     ],
   },
   {
-    label: "Sistem",
+    label: "Ayarlar",
     items: [{ label: "Site Ayarları", href: "/admin/ayarlar", icon: Settings }],
   },
 ];

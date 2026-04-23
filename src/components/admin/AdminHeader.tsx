@@ -1,6 +1,7 @@
 "use client";
 
-import { Menu, LogOut, User, ChevronDown } from "lucide-react";
+import { Menu, LogOut, User, ChevronDown, ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -55,6 +56,9 @@ export default function AdminHeader({ title, action, breadcrumbs }: AdminHeaderP
         .toUpperCase()
     : "?";
 
+  const backHref = breadcrumbs?.find((b) => b.href)?.href;
+  const backLabel = breadcrumbs?.find((b) => b.href)?.label;
+
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-white px-4 py-3 lg:px-6">
       <div className="flex items-center gap-3 min-w-0">
@@ -65,6 +69,17 @@ export default function AdminHeader({ title, action, breadcrumbs }: AdminHeaderP
         >
           <Menu className="h-5 w-5" />
         </button>
+        {backHref && (
+          <Link
+            href={backHref}
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-text-muted hover:text-text-dark hover:bg-bg-light transition-colors shrink-0"
+            aria-label={`${backLabel} sayfasına dön`}
+            title={`${backLabel} sayfasına dön`}
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Geri
+          </Link>
+        )}
         <div className="min-w-0">
           {breadcrumbs && breadcrumbs.length > 0 && (
             <div className="flex items-center gap-1 text-xs text-text-muted mb-0.5">
@@ -72,9 +87,12 @@ export default function AdminHeader({ title, action, breadcrumbs }: AdminHeaderP
                 <span key={i} className="flex items-center gap-1">
                   {i > 0 && <span className="text-text-muted/50">/</span>}
                   {b.href ? (
-                    <a href={b.href} className="hover:text-primary transition-colors">
+                    <Link
+                      href={b.href}
+                      className="text-primary hover:underline underline-offset-2 transition-colors"
+                    >
                       {b.label}
-                    </a>
+                    </Link>
                   ) : (
                     <span>{b.label}</span>
                   )}

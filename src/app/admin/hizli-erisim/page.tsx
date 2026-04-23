@@ -335,108 +335,146 @@ export default function AdminQuickAccessPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={form.id ? "Buton Düzenle" : "Yeni Buton Ekle"}
-        className="max-w-2xl"
+        className="max-w-7xl w-[92vw]"
       >
-        <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
-          <Input
-            id="qa-title"
-            label="Başlık"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Toplu Sözleşme"
-            required
-          />
+        <div className="max-h-[70vh] overflow-y-auto -mx-1 px-1">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-10">
+            {/* Sol sütun — Metin ve içerik */}
+            <div className="space-y-6 min-w-0">
+              {/* Temel Bilgiler */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Temel Bilgiler</p>
+                <Input
+                  id="qa-title"
+                  label="Başlık"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="Toplu Sözleşme"
+                  required
+                />
+                <Input
+                  id="qa-slug"
+                  label="URL Kısa Adı"
+                  value={form.slug}
+                  onChange={(e) => {
+                    setForm({ ...form, slug: e.target.value });
+                    setSlugManuallyEdited(true);
+                  }}
+                  placeholder="toplu-sozlesme"
+                  helperText="Başlıktan otomatik oluşur. Adresi: /hizli-erisim/bu-ad"
+                />
+              </section>
 
-          <Input
-            id="qa-slug"
-            label="URL Kısa Adı"
-            value={form.slug}
-            onChange={(e) => {
-              setForm({ ...form, slug: e.target.value });
-              setSlugManuallyEdited(true);
-            }}
-            placeholder="toplu-sozlesme"
-            helperText="Başlıktan otomatik oluşur. Adresi: /hizli-erisim/bu-ad"
-          />
+              {/* İçerik */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Detay İçeriği</p>
+                <FormField label="İçerik">
+                  <RichTextEditor
+                    content={form.content}
+                    onChange={(html) => setForm({ ...form, content: html })}
+                  />
+                </FormField>
+                <FormField label="Video (opsiyonel)">
+                  <MediaUploader
+                    value={form.video_url}
+                    onChange={(url) => setForm({ ...form, video_url: url })}
+                    youtubeUrl={form.youtube_url}
+                    onYoutubeChange={(url) => setForm({ ...form, youtube_url: url })}
+                    folder="quick-access/videos"
+                  />
+                </FormField>
+              </section>
+            </div>
 
-          <FormField label="Kapak Görseli (opsiyonel)">
-            <ImageUploader
-              value={form.image_url}
-              onChange={(url) => setForm({ ...form, image_url: url })}
-              folder="quick-access"
-              maxWidth={800}
-              maxHeight={500}
-            />
-            <p className="text-xs text-text-muted mt-1.5">
-              Görsel yüklenirse ikon yerine görsel gösterilir. Görsel yoksa ikon kullanılır.
-            </p>
-          </FormField>
+            {/* Sağ sütun — Görsel/ikon ve durum */}
+            <div className="space-y-6 min-w-0">
+              {/* Görsel / İkon */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Görsel veya İkon</p>
+                <FormField label="Kapak Görseli (opsiyonel)">
+                  <ImageUploader
+                    value={form.image_url}
+                    onChange={(url) => setForm({ ...form, image_url: url })}
+                    folder="quick-access"
+                    maxWidth={800}
+                    maxHeight={500}
+                  />
+                  <p className="text-xs text-text-muted mt-1.5">
+                    Görsel yüklenirse ikon yerine görsel gösterilir. Görsel yoksa ikon kullanılır.
+                  </p>
+                </FormField>
+                <Input
+                  id="qa-icon"
+                  label="İkon Adı"
+                  value={form.icon}
+                  onChange={(e) => setForm({ ...form, icon: e.target.value })}
+                  placeholder="FileText"
+                  helperText="Görsel yoksa kullanılır. Aşağıdan hazır ikonlardan seçebilirsin."
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {iconSuggestions.map((name) => {
+                    const Icon = getIconComponent(name);
+                    if (!Icon) return null;
+                    return (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => setForm({ ...form, icon: name })}
+                        className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors ${form.icon === name ? "border-primary bg-primary/10 text-primary" : "border-border text-text-muted hover:border-primary/50"}`}
+                        title={name}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
 
-          <FormField label="İçerik">
-            <RichTextEditor
-              content={form.content}
-              onChange={(html) => setForm({ ...form, content: html })}
-            />
-          </FormField>
-
-          <FormField label="Video (opsiyonel)">
-            <MediaUploader
-              value={form.video_url}
-              onChange={(url) => setForm({ ...form, video_url: url })}
-              youtubeUrl={form.youtube_url}
-              onYoutubeChange={(url) => setForm({ ...form, youtube_url: url })}
-              folder="quick-access/videos"
-            />
-          </FormField>
-
-          <div>
-            <Input
-              id="qa-icon"
-              label="Lucide İkon Adı"
-              value={form.icon}
-              onChange={(e) => setForm({ ...form, icon: e.target.value })}
-              placeholder="FileText"
-              helperText="Görsel yoksa kullanılır (ör: FileText, Phone, Mail)"
-            />
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {iconSuggestions.map((name) => {
-                const Icon = getIconComponent(name);
-                if (!Icon) return null;
-                return (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => setForm({ ...form, icon: name })}
-                    className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors ${form.icon === name ? "border-primary bg-primary/10 text-primary" : "border-border text-text-muted hover:border-primary/50"}`}
-                    title={name}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {name}
-                  </button>
-                );
-              })}
+              {/* Durum */}
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
+                <FormField label="Yayın Durumu">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, is_active: true })}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        form.is_active
+                          ? "border-success bg-success/10 text-success"
+                          : "border-border bg-white text-text-muted hover:bg-bg-light"
+                      )}
+                    >
+                      Aktif
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, is_active: false })}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        !form.is_active
+                          ? "border-warning bg-warning/10 text-warning"
+                          : "border-border bg-white text-text-muted hover:bg-bg-light"
+                      )}
+                    >
+                      Pasif
+                    </button>
+                  </div>
+                  <p className="text-xs text-text-muted mt-1.5">
+                    Pasif butonlar anasayfada görünmez. Sıralama liste sayfasında sürükle-bırak ile yapılır.
+                  </p>
+                </FormField>
+              </section>
             </div>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-            <select
-              value={form.is_active ? "true" : "false"}
-              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="true">Aktif</option>
-              <option value="false">Pasif</option>
-            </select>
-          </div>
-          <p className="text-xs text-text-muted">
-            Sıralama liste sayfasında sürükle-bırak ile yapılır.
-          </p>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
-            <Button onClick={handleSave} loading={saving}>Kaydet</Button>
-          </div>
+        <div className="flex justify-end gap-3 pt-5 mt-6 border-t border-border">
+          <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
+          <Button onClick={handleSave} loading={saving}>
+            {form.id ? "Değişiklikleri Kaydet" : "Buton Ekle"}
+          </Button>
         </div>
       </Modal>
 

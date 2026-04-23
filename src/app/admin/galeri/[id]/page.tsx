@@ -213,59 +213,76 @@ export default function AdminGalleryDetailPage() {
           { label: album?.title || "Detay" },
         ]}
       />
-      <div className="p-4 lg:p-6 max-w-5xl">
-
-        {/* Album info */}
-        <div className="rounded-xl bg-white border border-border p-5 mb-6 space-y-4">
-          <h3 className="font-semibold text-text-dark">Albüm Bilgileri</h3>
-          <Input
-            id="album-title"
-            label="Albüm Adı"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <FormField label="Kapak Görseli">
-            <ImageUploader value={coverImage} onChange={setCoverImage} folder="gallery" />
-          </FormField>
-          <div className="flex justify-end">
-            <Button onClick={handleSaveAlbum} loading={saving}>Albümü Kaydet</Button>
-          </div>
-        </div>
-
-        {/* Photos */}
-        <div className="rounded-xl bg-white border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-text-dark">Fotoğraflar ({images.length})</h3>
-            <label className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium cursor-pointer transition-colors ${uploading ? "bg-primary/50 text-white" : "bg-primary text-white hover:bg-primary-dark"}`}>
-              <Upload className="h-4 w-4" />
-              {uploading ? "Yükleniyor..." : "Fotoğraf Yükle"}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileUpload}
-                disabled={uploading}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {images.length === 0 ? (
-            <p className="text-sm text-text-muted text-center py-8">
-              Henüz fotoğraf yüklenmemiş. Yukarıdaki butonu kullanarak fotoğraf ekleyin.
+      <div className="p-4 lg:p-6 max-w-5xl mx-auto pb-24">
+        <div className="space-y-8">
+          {/* Album info */}
+          <section>
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-3">
+              Albüm Bilgileri
             </p>
-          ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={images.map((i) => i.id)} strategy={rectSortingStrategy}>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {images.map((image) => (
-                    <SortableImage key={image.id} image={image} onDelete={setDeleteImage} />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
-          )}
+            <div className="rounded-xl bg-white border border-border p-5 lg:p-6 space-y-4">
+              <Input
+                id="album-title"
+                label="Albüm Adı"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Albümün adı"
+                required
+              />
+              <FormField label="Kapak Görseli">
+                <ImageUploader value={coverImage} onChange={setCoverImage} folder="gallery" />
+              </FormField>
+            </div>
+          </section>
+
+          {/* Photos */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">
+                Fotoğraflar <span className="text-text-muted/70 normal-case tracking-normal">({images.length})</span>
+              </p>
+              <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors ${uploading ? "bg-primary/50 text-white" : "bg-primary text-white hover:bg-primary-dark"}`}>
+                <Upload className="h-4 w-4" />
+                {uploading ? "Yükleniyor..." : "Fotoğraf Ekle"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleFileUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            <div className="rounded-xl bg-white border border-border p-5 lg:p-6">
+              {images.length === 0 ? (
+                <p className="text-sm text-text-muted text-center py-8">
+                  Henüz fotoğraf yüklenmemiş. Yukarıdaki butonu kullanarak fotoğraf ekleyin.
+                </p>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={images.map((i) => i.id)} strategy={rectSortingStrategy}>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {images.map((image) => (
+                        <SortableImage key={image.id} image={image} onDelete={setDeleteImage} />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+          </section>
         </div>
+      </div>
+
+      {/* Sticky Save Bar */}
+      <div className="sticky bottom-0 z-20 border-t border-border bg-white px-4 lg:px-6 py-3 flex items-center gap-3 justify-end shadow-[0_-2px_8px_rgba(0,0,0,0.03)]">
+        <Button variant="secondary" onClick={() => router.push("/admin/galeri")}>
+          Geri Dön
+        </Button>
+        <Button onClick={handleSaveAlbum} loading={saving}>
+          Albümü Kaydet
+        </Button>
       </div>
 
       <DeleteModal

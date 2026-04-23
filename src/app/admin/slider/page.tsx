@@ -261,50 +261,106 @@ export default function AdminSliderPage() {
       </div>
 
       {/* Add/Edit Modal */}
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={form.id ? "Slide Düzenle" : "Yeni Slide Ekle"}>
-        <div className="space-y-4">
-          <FormField label="Görsel" required>
-            <ImageUploader value={form.image_url} onChange={(url) => setForm({ ...form, image_url: url })} folder="sliders" maxWidth={1200} maxHeight={600} />
-          </FormField>
-          <Input
-            id="slider-title"
-            label="Başlık"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Slide başlığı (opsiyonel)"
-          />
-          <Input
-            id="slider-subtitle"
-            label="Alt Başlık"
-            value={form.subtitle}
-            onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
-            placeholder="Alt başlık (opsiyonel)"
-          />
-          <Input
-            id="slider-link"
-            label="Link URL"
-            value={form.link_url}
-            onChange={(e) => setForm({ ...form, link_url: e.target.value })}
-            placeholder="https://... (opsiyonel)"
-          />
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-            <select
-              value={form.is_active ? "true" : "false"}
-              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="true">Aktif</option>
-              <option value="false">Pasif</option>
-            </select>
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={form.id ? "Slide Düzenle" : "Yeni Slide Ekle"}
+        className="max-w-7xl w-[92vw]"
+      >
+        <div className="max-h-[70vh] overflow-y-auto -mx-1 px-1">
+          <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1fr] gap-10">
+            {/* Sol sütun — Görsel */}
+            <section className="space-y-3">
+              <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Görsel</p>
+              <FormField label="Slide Görseli" required>
+                <ImageUploader
+                  value={form.image_url}
+                  onChange={(url) => setForm({ ...form, image_url: url })}
+                  folder="sliders"
+                  maxWidth={1200}
+                  maxHeight={600}
+                />
+              </FormField>
+              <p className="text-xs text-text-muted">
+                Önerilen boyut: 1200 × 600 piksel. Büyük görseller otomatik küçültülür.
+              </p>
+            </section>
+
+            {/* Sağ sütun — Metinler + Ayarlar */}
+            <div className="space-y-6">
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Metinler</p>
+                <Input
+                  id="slider-title"
+                  label="Başlık"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="Slide başlığı (opsiyonel)"
+                />
+                <Input
+                  id="slider-subtitle"
+                  label="Alt Başlık"
+                  value={form.subtitle}
+                  onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+                  placeholder="Alt başlık (opsiyonel)"
+                />
+              </section>
+
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Bağlantı</p>
+                <Input
+                  id="slider-link"
+                  label="Bağlantı Adresi"
+                  value={form.link_url}
+                  onChange={(e) => setForm({ ...form, link_url: e.target.value })}
+                  placeholder="https://... (opsiyonel)"
+                  helperText="Slide'a tıklayınca gidilecek adres"
+                />
+              </section>
+
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
+                <FormField label="Yayın Durumu">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, is_active: true })}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        form.is_active
+                          ? "border-success bg-success/10 text-success"
+                          : "border-border bg-white text-text-muted hover:bg-bg-light"
+                      )}
+                    >
+                      Aktif
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, is_active: false })}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        !form.is_active
+                          ? "border-warning bg-warning/10 text-warning"
+                          : "border-border bg-white text-text-muted hover:bg-bg-light"
+                      )}
+                    >
+                      Pasif
+                    </button>
+                  </div>
+                  <p className="text-xs text-text-muted mt-1.5">
+                    Pasif slide'lar sitede görünmez. Sıralama liste sayfasında sürükle-bırak ile yapılır.
+                  </p>
+                </FormField>
+              </section>
+            </div>
           </div>
-          <p className="text-xs text-text-muted">
-            Sıralama liste sayfasında sürükle-bırak ile yapılır.
-          </p>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
-            <Button onClick={handleSave} loading={saving}>Kaydet</Button>
-          </div>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-5 mt-6 border-t border-border">
+          <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
+          <Button onClick={handleSave} loading={saving}>
+            {form.id ? "Değişiklikleri Kaydet" : "Slide Ekle"}
+          </Button>
         </div>
       </Modal>
 

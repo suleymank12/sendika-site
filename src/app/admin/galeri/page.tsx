@@ -7,6 +7,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import ImageUploader from "@/components/admin/ImageUploader";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
@@ -285,17 +286,14 @@ export default function AdminGalleryPage() {
           <FormField label="Kapak Görseli">
             <ImageUploader value={form.cover_image} onChange={(url) => setForm({ ...form, cover_image: url })} folder="gallery" />
           </FormField>
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-            <select
-              value={form.is_published ? "true" : "false"}
-              onChange={(e) => setForm({ ...form, is_published: e.target.value === "true" })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="true">Yayında</option>
-              <option value="false">Taslak</option>
-            </select>
-          </div>
+          <Select
+            label="Durum"
+            value={form.is_published ? "true" : "false"}
+            onChange={(e) => setForm({ ...form, is_published: e.target.value === "true" })}
+          >
+            <option value="true">Yayında</option>
+            <option value="false">Taslak</option>
+          </Select>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
             <Button onClick={handleSave} loading={saving}>Kaydet</Button>

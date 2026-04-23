@@ -41,6 +41,7 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
@@ -406,59 +407,47 @@ export default function AdminHomepageSectionsPage() {
             required
           />
 
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Kaynak</label>
-            <select
-              value={form.source}
-              onChange={(e) =>
-                setForm({ ...form, source: e.target.value as SectionFormData["source"] })
-              }
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="custom">Özel — öğeleri elle ekliyorum</option>
-              <option value="news">Haberler — son haberleri otomatik çek</option>
-              <option value="announcements">Duyurular — son duyuruları otomatik çek</option>
-            </select>
-          </div>
+          <Select
+            label="Kaynak"
+            value={form.source}
+            onChange={(e) =>
+              setForm({ ...form, source: e.target.value as SectionFormData["source"] })
+            }
+          >
+            <option value="custom">Özel — öğeleri elle ekliyorum</option>
+            <option value="news">Haberler — son haberleri otomatik çek</option>
+            <option value="announcements">Duyurular — son duyuruları otomatik çek</option>
+          </Select>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">Öğe Sayısı</label>
-              <select
-                value={String(form.item_count)}
-                onChange={(e) => setForm({ ...form, item_count: parseInt(e.target.value) })}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="4">4</option>
-                <option value="8">8</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-text-dark mb-1">Düzen</label>
-              <select
-                value={form.layout}
-                onChange={(e) =>
-                  setForm({ ...form, layout: e.target.value as SectionFormData["layout"] })
-                }
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              >
-                <option value="grid-4">{`4'lü grid (1 satır)`}</option>
-                <option value="grid-8">{`4x2 grid (2 satır)`}</option>
-              </select>
-            </div>
+            <Select
+              label="Öğe Sayısı"
+              value={String(form.item_count)}
+              onChange={(e) => setForm({ ...form, item_count: parseInt(e.target.value) })}
+            >
+              <option value="4">4</option>
+              <option value="8">8</option>
+            </Select>
+            <Select
+              label="Düzen"
+              value={form.layout}
+              onChange={(e) =>
+                setForm({ ...form, layout: e.target.value as SectionFormData["layout"] })
+              }
+            >
+              <option value="grid-4">{`4'lü grid (1 satır)`}</option>
+              <option value="grid-8">{`4x2 grid (2 satır)`}</option>
+            </Select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-            <select
-              value={form.is_active ? "true" : "false"}
-              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="true">Aktif</option>
-              <option value="false">Pasif</option>
-            </select>
-          </div>
+          <Select
+            label="Durum"
+            value={form.is_active ? "true" : "false"}
+            onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
+          >
+            <option value="true">Aktif</option>
+            <option value="false">Pasif</option>
+          </Select>
 
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setModalOpen(false)}>

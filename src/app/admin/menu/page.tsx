@@ -7,7 +7,9 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import DeleteModal from "@/components/admin/DeleteModal";
+import FormField from "@/components/admin/FormField";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, GripVertical, Edit, Trash2, Menu as MenuIcon, FileText, FilePlus } from "lucide-react";
@@ -505,91 +507,124 @@ export default function AdminMenuPage() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title={form.id ? "Menü Öğesi Düzenle" : "Yeni Menü Öğesi"}
+        className="max-w-xl"
       >
-        <div className="space-y-4">
-          <Input
-            id="menu-title"
-            label="Başlık"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="Menü başlığı"
-            required
-          />
-          <Input
-            id="menu-url"
-            label="URL"
-            value={form.url}
-            onChange={(e) => setForm({ ...form, url: e.target.value })}
-            placeholder="/sayfa-yolu"
-            helperText="Boş bırakılırsa sadece dropdown parent olur"
-          />
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Üst Menü</label>
-            <select
-              value={form.parent_id || ""}
-              onChange={(e) => setForm({ ...form, parent_id: e.target.value || null })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="">Ana Menü (Üst seviye)</option>
-              {parentOptions.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {parentLabel(item.id)}
-                </option>
-              ))}
-            </select>
-            {form.id && forbiddenParentIds.size > 1 && (
-              <p className="mt-1 text-xs text-text-muted">
-                Kendi alt menüleri üst menü olarak seçilemez (döngü önlenir).
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-            <select
-              value={form.is_active ? "true" : "false"}
-              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="true">Aktif</option>
-              <option value="false">Pasif</option>
-            </select>
-          </div>
-          <div className="rounded-lg border border-dashed border-border bg-bg-light p-3">
-            <div className="flex items-start gap-2">
-              {linkedPageId ? (
-                <FileText className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-              ) : (
-                <FilePlus className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-text-dark">
-                  {linkedPageId ? "Bu menüye bağlı bir sayfa var" : "Bu menüye sayfa ekle"}
-                </p>
-                <p className="text-xs text-text-muted mt-0.5">
-                  {linkedPageId
-                    ? "İçeriği düzenlemek için editöre gidin."
-                    : "Başlıktan otomatik sayfa oluşturulur, URL bağlanır ve editör açılır."}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={handlePageAction}
-                loading={pageActionLoading}
-              >
-                {linkedPageId ? "İçeriği Düzenle" : "Sayfa Oluştur"}
-              </Button>
-            </div>
-          </div>
+        <div className="space-y-6 max-h-[70vh] overflow-y-auto -mx-1 px-1">
+          {/* Temel Bilgiler */}
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Temel Bilgiler</p>
+            <Input
+              id="menu-title"
+              label="Başlık"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="Örn: Hakkımızda"
+              required
+            />
+            <Input
+              id="menu-url"
+              label="Bağlantı Adresi"
+              value={form.url}
+              onChange={(e) => setForm({ ...form, url: e.target.value })}
+              placeholder="/sayfa-yolu"
+              helperText="Boş bırakılırsa üst menü (dropdown başlık) olur."
+            />
+          </section>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>
-              İptal
-            </Button>
-            <Button onClick={handleSave} loading={saving}>
-              Kaydet
-            </Button>
-          </div>
+          {/* Konum ve Durum */}
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Konum ve Durum</p>
+            <FormField label="Üst Menü">
+              <Select
+                value={form.parent_id || ""}
+                onChange={(e) => setForm({ ...form, parent_id: e.target.value || null })}
+              >
+                <option value="">Ana Menü (Üst seviye)</option>
+                {parentOptions.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {parentLabel(item.id)}
+                  </option>
+                ))}
+              </Select>
+              {form.id && forbiddenParentIds.size > 1 && (
+                <p className="mt-1 text-xs text-text-muted">
+                  Kendi alt menüleri üst menü olarak seçilemez (döngü önlenir).
+                </p>
+              )}
+            </FormField>
+            <FormField label="Durum">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_active: true })}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    form.is_active
+                      ? "border-success bg-success/10 text-success"
+                      : "border-border bg-white text-text-muted hover:bg-bg-light"
+                  )}
+                >
+                  Aktif (menüde görünür)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_active: false })}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    !form.is_active
+                      ? "border-warning bg-warning/10 text-warning"
+                      : "border-border bg-white text-text-muted hover:bg-bg-light"
+                  )}
+                >
+                  Pasif (gizli)
+                </button>
+              </div>
+            </FormField>
+          </section>
+
+          {/* Sayfa Bağlantısı */}
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Sayfa İçeriği</p>
+            <div className="rounded-lg border border-dashed border-border bg-bg-light p-4">
+              <div className="flex items-start gap-3">
+                <div className="rounded-lg bg-primary/10 p-2 shrink-0">
+                  {linkedPageId ? (
+                    <FileText className="h-5 w-5 text-primary" />
+                  ) : (
+                    <FilePlus className="h-5 w-5 text-primary" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-text-dark">
+                    {linkedPageId ? "Bu menüye bağlı bir sayfa var" : "Bu menüye sayfa ekle"}
+                  </p>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    {linkedPageId
+                      ? "İçeriği düzenlemek için editöre gidebilirsin."
+                      : "Başlıktan otomatik sayfa oluşturulur, bağlantı kurulur ve editör açılır."}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handlePageAction}
+                  loading={pageActionLoading}
+                >
+                  {linkedPageId ? "İçeriği Düzenle" : "Sayfa Oluştur"}
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-border">
+          <Button variant="secondary" onClick={() => setModalOpen(false)}>
+            İptal
+          </Button>
+          <Button onClick={handleSave} loading={saving}>
+            {form.id ? "Değişiklikleri Kaydet" : "Menü Ekle"}
+          </Button>
         </div>
       </Modal>
 

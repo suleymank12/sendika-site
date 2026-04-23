@@ -7,6 +7,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import DeleteModal from "@/components/admin/DeleteModal";
+import FormField from "@/components/admin/FormField";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Tag, GripVertical, Edit, Trash2 } from "lucide-react";
@@ -277,44 +278,71 @@ export default function AdminNewsCategoriesPage() {
         onClose={() => setModalOpen(false)}
         title={form.id ? "Kategori Düzenle" : "Yeni Kategori"}
       >
-        <div className="space-y-4">
-          <Input
-            id="category-name"
-            label="Kategori Adı"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Toplu Sözleşme"
-            required
-          />
-          <Input
-            id="category-slug"
-            label="URL Kısa Adı"
-            value={form.slug}
-            onChange={(e) => {
-              setForm({ ...form, slug: e.target.value });
-              setSlugManuallyEdited(true);
-            }}
-            placeholder="toplu-sozlesme"
-            helperText="Kategori adından otomatik oluşur. Sadece küçük harf ve tire kullan."
-          />
-          <div>
-            <label className="block text-sm font-medium text-text-dark mb-1">Durum</label>
-            <select
-              value={form.is_active ? "true" : "false"}
-              onChange={(e) => setForm({ ...form, is_active: e.target.value === "true" })}
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="true">Aktif</option>
-              <option value="false">Pasif</option>
-            </select>
-            <p className="text-xs text-text-muted mt-1">
-              Pasif kategoriler haber formundaki listede görünmez ama mevcut haberler korunur.
-            </p>
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
-            <Button onClick={handleSave} loading={saving}>Kaydet</Button>
-          </div>
+        <div className="space-y-6 max-h-[70vh] overflow-y-auto -mx-1 px-1">
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Temel Bilgiler</p>
+            <Input
+              id="category-name"
+              label="Kategori Adı"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Toplu Sözleşme"
+              required
+            />
+            <Input
+              id="category-slug"
+              label="URL Kısa Adı"
+              value={form.slug}
+              onChange={(e) => {
+                setForm({ ...form, slug: e.target.value });
+                setSlugManuallyEdited(true);
+              }}
+              placeholder="toplu-sozlesme"
+              helperText="Kategori adından otomatik oluşur. Sadece küçük harf ve tire kullan."
+            />
+          </section>
+
+          <section className="space-y-3">
+            <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
+            <FormField label="Yayın Durumu">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_active: true })}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    form.is_active
+                      ? "border-success bg-success/10 text-success"
+                      : "border-border bg-white text-text-muted hover:bg-bg-light"
+                  )}
+                >
+                  Aktif
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, is_active: false })}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    !form.is_active
+                      ? "border-warning bg-warning/10 text-warning"
+                      : "border-border bg-white text-text-muted hover:bg-bg-light"
+                  )}
+                >
+                  Pasif
+                </button>
+              </div>
+              <p className="text-xs text-text-muted mt-1">
+                Pasif kategoriler haber formundaki listede görünmez ama mevcut haberler korunur.
+              </p>
+            </FormField>
+          </section>
+        </div>
+
+        <div className="flex justify-end gap-3 pt-5 mt-5 border-t border-border">
+          <Button variant="secondary" onClick={() => setModalOpen(false)}>İptal</Button>
+          <Button onClick={handleSave} loading={saving}>
+            {form.id ? "Değişiklikleri Kaydet" : "Kategori Ekle"}
+          </Button>
         </div>
       </Modal>
 
