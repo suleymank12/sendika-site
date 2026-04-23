@@ -348,7 +348,7 @@ export default function AdminSliderPage() {
                     </button>
                   </div>
                   <p className="text-xs text-text-muted mt-1.5">
-                    Pasif slide'lar sitede görünmez. Sıralama liste sayfasında sürükle-bırak ile yapılır.
+                    Pasif slide&apos;lar sitede görünmez. Sıralama liste sayfasında sürükle-bırak ile yapılır.
                   </p>
                 </FormField>
               </section>

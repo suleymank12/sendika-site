@@ -234,7 +234,7 @@ export default async function BranchDetailPage({ params }: Props) {
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 py-3 text-sm font-medium text-primary hover:bg-primary/5 transition-colors border-t border-border"
               >
-                Google Maps'te Aç
+                Google Maps&apos;te Aç
                 <ExternalLink className="h-4 w-4" />
               </a>
             </div>

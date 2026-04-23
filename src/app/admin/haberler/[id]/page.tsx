@@ -358,7 +358,7 @@ export default function AdminNewsEditorPage() {
           <span className="text-sm font-medium text-text-dark">Manşete Ekle</span>
           <HelpCircle className="h-3.5 w-3.5 text-text-muted" />
           <span className="absolute bottom-full left-0 mb-2 hidden group-hover:block w-64 rounded-lg bg-text-dark text-white text-xs p-2.5 shadow-lg z-30 pointer-events-none">
-            İşaretlersen anasayfadaki manşet slider'ında büyük olarak görünür.
+            İşaretlersen anasayfadaki manşet slider&apos;ında büyük olarak görünür.
           </span>
         </label>
         <div className="flex gap-3 w-full sm:w-auto">
