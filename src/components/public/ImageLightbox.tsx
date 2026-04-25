@@ -18,13 +18,14 @@ export default function ImageLightbox({
   const [imgLoaded, setImgLoaded] = useState(false);
   const thumbsRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
+  const swipedRef = useRef(false);
 
   const goPrev = useCallback(() => {
-    setIndex((i) => (i > 0 ? i - 1 : i));
-  }, []);
+    setIndex((i) => (i > 0 ? i - 1 : images.length - 1));
+  }, [images.length]);
 
   const goNext = useCallback(() => {
-    setIndex((i) => (i < images.length - 1 ? i + 1 : i));
+    setIndex((i) => (i < images.length - 1 ? i + 1 : 0));
   }, [images.length]);
 
   useEffect(() => {
@@ -59,24 +60,33 @@ export default function ImageLightbox({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    swipedRef.current = false;
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return;
     const diff = e.changedTouches[0].clientX - touchStartX.current;
     if (Math.abs(diff) > 50) {
+      swipedRef.current = true;
       if (diff > 0) goPrev();
       else goNext();
     }
     touchStartX.current = null;
   };
 
-  const hasPrev = index > 0;
-  const hasNext = index < images.length - 1;
+  const handleOverlayClick = () => {
+    if (swipedRef.current) {
+      swipedRef.current = false;
+      return;
+    }
+    onClose();
+  };
+
+  const hasMultiple = images.length > 1;
 
   return (
     <div
-      onClick={onClose}
+      onClick={handleOverlayClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       role="dialog"
@@ -116,7 +126,7 @@ export default function ImageLightbox({
 
       {/* Image area */}
       <div className="flex-1 flex items-center justify-center relative px-4">
-        {hasPrev && (
+        {hasMultiple && (
           <button
             type="button"
             onClick={(e) => {
@@ -152,7 +162,7 @@ export default function ImageLightbox({
           }`}
         />
 
-        {hasNext && (
+        {hasMultiple && (
           <button
             type="button"
             onClick={(e) => {
