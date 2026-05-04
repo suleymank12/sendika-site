@@ -5,6 +5,7 @@ interface FooterProps {
   siteTitle: string;
   siteDescription: string;
   footerText: string;
+  showCredit: boolean;
   phone: string;
   email: string;
   address: string;
@@ -13,6 +14,8 @@ interface FooterProps {
   instagramUrl: string;
   youtubeUrl: string;
 }
+
+const CREDIT_TEXT = "XYZ Yazılım tarafından geliştirilmiştir.";
 
 function FacebookIcon({ className }: { className?: string }) {
   return (
@@ -65,6 +68,7 @@ export default function Footer({
   siteTitle,
   siteDescription,
   footerText,
+  showCredit,
   phone,
   email,
   address,
@@ -158,9 +162,19 @@ export default function Footer({
       {/* Copyright */}
       <div className="border-t border-white/10">
         <div className="container mx-auto px-4 py-4">
-          <p className="text-center text-xs text-white/50">
-            {footerText || `© ${new Date().getFullYear()} ${siteTitle}. Tüm hakları saklıdır.`}
-          </p>
+          {showCredit ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 items-center gap-1 text-xs text-white/50">
+              <span className="hidden sm:block" aria-hidden />
+              <p className="text-center">
+                {footerText || `© ${new Date().getFullYear()} ${siteTitle}. Tüm hakları saklıdır.`}
+              </p>
+              <p className="text-center sm:text-right">{CREDIT_TEXT}</p>
+            </div>
+          ) : (
+            <p className="text-center text-xs text-white/50">
+              {footerText || `© ${new Date().getFullYear()} ${siteTitle}. Tüm hakları saklıdır.`}
+            </p>
+          )}
         </div>
       </div>
     </footer>

@@ -7,14 +7,16 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSidebar } from "@/hooks/useAdminSidebar";
 import { cn } from "@/lib/utils";
+import HelpButton from "@/components/admin/HelpButton";
 
 interface AdminHeaderProps {
   title: string;
   action?: React.ReactNode;
   breadcrumbs?: { label: string; href?: string }[];
+  helpTopic?: string;
 }
 
-export default function AdminHeader({ title, action, breadcrumbs }: AdminHeaderProps) {
+export default function AdminHeader({ title, action, breadcrumbs, helpTopic }: AdminHeaderProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -100,7 +102,10 @@ export default function AdminHeader({ title, action, breadcrumbs }: AdminHeaderP
               ))}
             </div>
           )}
-          <h1 className="text-lg font-bold text-text-dark tracking-tight truncate">{title}</h1>
+          <div className="flex items-center gap-3 min-w-0">
+            <h1 className="text-lg font-bold text-text-dark tracking-tight truncate">{title}</h1>
+            {helpTopic && <HelpButton topic={helpTopic} />}
+          </div>
         </div>
       </div>
 

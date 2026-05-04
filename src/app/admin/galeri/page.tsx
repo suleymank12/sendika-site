@@ -233,7 +233,7 @@ export default function AdminGalleryPage() {
 
   return (
     <>
-      <AdminHeader title="Galeri Yönetimi" />
+      <AdminHeader title="Galeri Yönetimi" helpTopic="galeri" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-end mb-4">

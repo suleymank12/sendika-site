@@ -219,7 +219,7 @@ export default function AdminSliderPage() {
 
   return (
     <>
-      <AdminHeader title="Slider Yönetimi" />
+      <AdminHeader title="Slider Yönetimi" helpTopic="slider" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">

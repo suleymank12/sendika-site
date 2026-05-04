@@ -290,7 +290,7 @@ export default function AdminQuickAccessPage() {
 
   return (
     <>
-      <AdminHeader title="Hızlı Erişim Butonları" />
+      <AdminHeader title="Hızlı Erişim Butonları" helpTopic="hizli-erisim" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">

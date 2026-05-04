@@ -345,7 +345,7 @@ export default function AdminHomepageSectionsPage() {
 
   return (
     <>
-      <AdminHeader title="Anasayfa Bölümleri" />
+      <AdminHeader title="Anasayfa Bölümleri" helpTopic="anasayfa-bolumleri" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">

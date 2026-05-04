@@ -230,7 +230,7 @@ export default function AdminNewsCategoriesPage() {
 
   return (
     <>
-      <AdminHeader title="Haber Kategorileri" />
+      <AdminHeader title="Haber Kategorileri" helpTopic="kategoriler" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4 gap-3">

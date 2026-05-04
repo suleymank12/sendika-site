@@ -94,7 +94,7 @@ export default function AdminAnnouncementsListPage() {
 
   return (
     <>
-      <AdminHeader title="Duyurular" />
+      <AdminHeader title="Duyurular" helpTopic="duyurular" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {/* Top bar */}

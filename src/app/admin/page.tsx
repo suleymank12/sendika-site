@@ -156,7 +156,7 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Dashboard" />
+        <AdminHeader title="Dashboard" helpTopic="dashboard" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -166,7 +166,7 @@ export default function AdminDashboard() {
 
   return (
     <>
-      <AdminHeader title="Dashboard" />
+      <AdminHeader title="Dashboard" helpTopic="dashboard" />
       <div className="p-4 lg:p-6 space-y-6">
         {/* Welcome */}
         <div className="rounded-xl bg-primary p-6 text-white">

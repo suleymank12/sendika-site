@@ -466,7 +466,7 @@ export default function AdminMenuPage() {
 
   return (
     <>
-      <AdminHeader title="Menü Yönetimi" />
+      <AdminHeader title="Menü Yönetimi" helpTopic="menu" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">

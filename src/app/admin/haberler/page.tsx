@@ -102,7 +102,7 @@ export default function AdminNewsListPage() {
 
   return (
     <>
-      <AdminHeader title="Haberler" />
+      <AdminHeader title="Haberler" helpTopic="haberler" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {/* Top bar */}

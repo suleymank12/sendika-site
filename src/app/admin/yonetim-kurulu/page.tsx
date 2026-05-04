@@ -219,7 +219,7 @@ export default function AdminBoardMembersPage() {
 
   return (
     <>
-      <AdminHeader title="Yönetim Kurulu" />
+      <AdminHeader title="Yönetim Kurulu" helpTopic="yonetim-kurulu" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">

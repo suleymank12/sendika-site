@@ -32,6 +32,7 @@ interface Settings {
   instagram_url: string;
   youtube_url: string;
   footer_text: string;
+  footer_credit_enabled: string;
   navbar_color: string;
   layout_type: string;
 }
@@ -48,6 +49,7 @@ const defaultSettings: Settings = {
   instagram_url: "",
   youtube_url: "",
   footer_text: "",
+  footer_credit_enabled: "true",
   navbar_color: "#1B3A5C",
   layout_type: "layout1",
 };
@@ -153,7 +155,7 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Site Ayarları" />
+        <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -163,7 +165,7 @@ export default function AdminSettingsPage() {
 
   return (
     <>
-      <AdminHeader title="Site Ayarları" />
+      <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
       <div className="p-4 lg:p-6 pb-24">
         <div className="space-y-6">
           {/* Genel */}
@@ -338,7 +340,7 @@ export default function AdminSettingsPage() {
           <SettingsSection
             icon={PanelBottom}
             title="Footer"
-            description="Sitenin en altında görünecek telif hakkı yazısı."
+            description="Sitenin en altında görünecek telif hakkı yazısı ve yapımcı bilgisi."
           >
             <Input
               id="footer-text"
@@ -348,6 +350,26 @@ export default function AdminSettingsPage() {
               placeholder="© 2026 Sendika Adı. Tüm hakları saklıdır."
               helperText="Her sayfanın en altında görünür."
             />
+            <FormField label="Yapımcı Bilgisi">
+              <label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-bg-light/40 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={settings.footer_credit_enabled !== "false"}
+                  onChange={(e) =>
+                    update("footer_credit_enabled", e.target.checked ? "true" : "false")
+                  }
+                  className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary/50"
+                />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-text-dark">
+                    Footer&apos;da yapımcı yazısı görünsün
+                  </span>
+                  <p className="text-xs text-text-muted mt-0.5">
+                    İşaretli olduğunda telif yazısının yanında küçük bir yapımcı kredisi görünür.
+                  </p>
+                </div>
+              </label>
+            </FormField>
           </SettingsSection>
         </div>
       </div>

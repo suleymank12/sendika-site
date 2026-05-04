@@ -80,6 +80,7 @@ export default async function PublicLayout({ children }: { children: React.React
         siteTitle={settings.site_title || "Sendika Adı"}
         siteDescription={settings.site_description || ""}
         footerText={settings.footer_text || ""}
+        showCredit={settings.footer_credit_enabled !== "false"}
         phone={settings.contact_phone || ""}
         email={settings.contact_email || ""}
         address={settings.contact_address || ""}
