@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Building2, ChevronRight } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import NewsCard from "./NewsCard";
 import { formatDate, truncateText } from "@/lib/utils";
 import {
@@ -9,11 +10,21 @@ import {
   Announcement,
 } from "@/types";
 
+function getLucideIcon(name: string | null | undefined) {
+  if (!name) return null;
+  const icons = LucideIcons as unknown as Record<
+    string,
+    React.ComponentType<{ className?: string }>
+  >;
+  return icons[name] || null;
+}
+
 interface HomepageSectionProps {
   section: HomepageSectionType;
   items: HomepageSectionItem[];
   news: News[];
   announcements: Announcement[];
+  totalItems?: number;
 }
 
 function gridClass(layout: string) {
@@ -21,7 +32,7 @@ function gridClass(layout: string) {
   return "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6";
 }
 
-function viewAllHref(source: string): string | null {
+function topViewAllHref(source: string): string | null {
   if (source === "news") return "/haberler";
   if (source === "announcements") return "/duyurular";
   return null;
@@ -32,15 +43,16 @@ export default function HomepageSection({
   items,
   news,
   announcements,
+  totalItems,
 }: HomepageSectionProps) {
-  const viewAll = viewAllHref(section.source);
+  const topViewAll = topViewAllHref(section.source);
 
   const header = (
     <div className="flex items-center justify-between mb-6">
       <h2 className="text-xl font-bold text-text-dark tracking-tight">{section.title}</h2>
-      {viewAll && (
+      {topViewAll && (
         <Link
-          href={viewAll}
+          href={topViewAll}
           className="flex items-center gap-1 text-sm font-medium text-primary-light hover:text-primary transition-colors"
         >
           Tümünü Gör
@@ -80,6 +92,8 @@ export default function HomepageSection({
 
   // custom
   if (items.length === 0) return null;
+  const hasMore = typeof totalItems === "number" && totalItems > items.length;
+
   return (
     <section className="container mx-auto px-4 py-8">
       {header}
@@ -88,6 +102,17 @@ export default function HomepageSection({
           <CustomItemCard key={item.id} item={item} />
         ))}
       </div>
+      {hasMore && (
+        <div className="flex justify-end mt-4">
+          <Link
+            href={`/bolum/${section.id}`}
+            className="flex items-center gap-1 text-sm font-medium text-primary-light hover:text-primary transition-colors"
+          >
+            Tümünü Gör
+            <ChevronRight className="h-4 w-4" />
+          </Link>
+        </div>
+      )}
     </section>
   );
 }
@@ -95,6 +120,7 @@ export default function HomepageSection({
 function CustomItemCard({ item }: { item: HomepageSectionItem }) {
   const href = item.link_url || "#";
   const isExternal = /^https?:\/\//i.test(href);
+  const Icon = getLucideIcon(item.icon);
 
   const content = (
     <div className="group rounded-lg border border-border bg-white overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col">
@@ -106,6 +132,10 @@ function CustomItemCard({ item }: { item: HomepageSectionItem }) {
             alt={item.title}
             className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
+        ) : Icon ? (
+          <div className="h-full w-full flex items-center justify-center">
+            <Icon className="h-10 w-10 text-primary/60" />
+          </div>
         ) : (
           <div className="h-full w-full flex items-center justify-center">
             <Building2 className="h-10 w-10 text-primary/40" />

@@ -5,7 +5,6 @@ import {
   Headline,
   News,
   Announcement,
-  QuickAccess,
   Slider,
   HomepageSection as HomepageSectionType,
   HomepageSectionItem,
@@ -18,7 +17,6 @@ export default async function HomePage() {
     headlinesRes,
     newsRes,
     announcementsRes,
-    quickAccessRes,
     slidersRes,
     settingsRes,
     sectionsRes,
@@ -40,12 +38,6 @@ export default async function HomePage() {
       .eq("is_published", true)
       .order("published_at", { ascending: false })
       .limit(8),
-    supabase
-      .from("quick_access")
-      .select("*", { count: "exact" })
-      .eq("is_active", true)
-      .order("order", { ascending: true })
-      .limit(9),
     supabase
       .from("sliders")
       .select("*")
@@ -92,9 +84,6 @@ export default async function HomePage() {
 
   const news = (newsRes.data as News[]) || [];
   const announcements = (announcementsRes.data as Announcement[]) || [];
-  const quickAccessAll = (quickAccessRes.data as QuickAccess[]) || [];
-  const quickAccess = quickAccessAll.slice(0, 8);
-  const quickAccessTotal = quickAccessRes.count ?? quickAccessAll.length;
   const sliders = (slidersRes.data as Slider[]) || [];
   const layoutType = (settingsRes.data?.value as string) || "layout1";
 
@@ -155,8 +144,6 @@ export default async function HomePage() {
     headlines,
     news,
     announcements,
-    quickAccess,
-    hasMoreQuickAccess: quickAccessTotal > 8,
     sliders,
     sections,
     customItemsBySection,

@@ -322,28 +322,6 @@ export const helpContent: Record<string, HelpTopic> = {
     ],
   },
 
-  "hizli-erisim": {
-    title: "Hızlı Erişim",
-    intro: "Anasayfada gözüken önemli bağlantı butonları (Üye Girişi, Tüzük, İletişim vb.).",
-    sections: [
-      {
-        id: "yeni",
-        title: "Yeni Buton Ekle",
-        steps: [
-          { text: "'Yeni Buton'a bas." },
-          { text: "Başlık yaz." },
-          { text: "İkon seç.", outcome: "Lucide ikon kütüphanesinden seçilir." },
-          { text: "URL gir." },
-          { text: "'Aktif' olarak kaydet." },
-        ],
-        tips: [
-          "4-6 buton ideal, fazlası anasayfayı kalabalıklaştırır.",
-          "Sürükle-bırak ile sıralayabilirsin.",
-        ],
-      },
-    ],
-  },
-
   "anasayfa-bolumleri": {
     title: "Anasayfa Bölümleri",
     intro: "Anasayfada özel içerik bölümleri oluşturursun (Yaklaşan Etkinlikler, Öne Çıkan Belgeler vb.).",

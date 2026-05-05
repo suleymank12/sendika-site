@@ -12,7 +12,6 @@ import {
   Folders,
   Presentation,
   Star,
-  MousePointerClick,
   LayoutGrid,
   ListTree,
   Users,
@@ -57,7 +56,6 @@ const menuGroups: MenuGroup[] = [
     items: [
       { label: "Anasayfa Slider", href: "/admin/slider", icon: Presentation },
       { label: "Manşet Haber", href: "/admin/manset", icon: Star },
-      { label: "Hızlı Erişim Butonları", href: "/admin/hizli-erisim", icon: MousePointerClick },
       { label: "Anasayfa Bölümleri", href: "/admin/anasayfa-bolumleri", icon: LayoutGrid },
     ],
   },

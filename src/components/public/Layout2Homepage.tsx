@@ -8,7 +8,6 @@ import {
   Headline,
   News,
   Announcement,
-  QuickAccess,
   Slider,
   HomepageSection as HomepageSectionType,
   HomepageSectionItem,
@@ -27,8 +26,6 @@ interface Layout2HomepageProps {
   headlines: Headline[];
   news: News[];
   announcements: Announcement[];
-  quickAccess: QuickAccess[];
-  hasMoreQuickAccess: boolean;
   sliders: Slider[];
   sections: HomepageSectionType[];
   customItemsBySection: Map<string, HomepageSectionItem[]>;
@@ -40,14 +37,23 @@ export default function Layout2Homepage({
   headlines,
   news,
   announcements,
-  quickAccess,
   sliders,
   sections,
   customItemsBySection,
   sectionNewsPool,
   sectionAnnPool,
 }: Layout2HomepageProps) {
-  const tiles = quickAccess.slice(0, 8);
+  // Sağdaki 4×2 alana yerleştirilecek tile'lar:
+  // İlk "custom" kaynaklı homepage_section'ın item'larından gelir.
+  const tileSection = sections.find((s) => s.source === "custom");
+  const tiles = tileSection
+    ? (customItemsBySection.get(tileSection.id) || []).slice(0, 8)
+    : [];
+
+  // Tile slot'unda kullanılan section'ı dynamic sections render'ında atla
+  const remainingSections = sections.filter(
+    (s) => !tileSection || s.id !== tileSection.id
+  );
 
   return (
     <>
@@ -71,27 +77,27 @@ export default function Layout2Homepage({
           {/* Kutucuklar — mobil/md'de ayrı grid, lg'de parent grid'e katılır */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:contents">
             {tiles.map((item) => (
-              <QuickAccessBox key={item.id} item={item} />
+              <TileBox key={item.id} item={item} />
             ))}
           </div>
         </div>
       </section>
 
-      {/* C) Dinamik bölümler */}
-      {sections.map((section) => {
+      {/* C) Dinamik bölümler (tile slot'unda kullanılan section hariç) */}
+      {remainingSections.map((section) => {
         let sectionNews: News[] = [];
         let sectionAnnouncements: Announcement[] = [];
         let items: HomepageSectionItem[] = [];
+        let totalItems: number | undefined;
 
         if (section.source === "news") {
           sectionNews = sectionNewsPool.slice(0, section.item_count);
         } else if (section.source === "announcements") {
           sectionAnnouncements = sectionAnnPool.slice(0, section.item_count);
         } else {
-          items = (customItemsBySection.get(section.id) || []).slice(
-            0,
-            section.item_count
-          );
+          const allItems = customItemsBySection.get(section.id) || [];
+          items = allItems.slice(0, section.item_count);
+          totalItems = allItems.length;
         }
 
         return (
@@ -101,6 +107,7 @@ export default function Layout2Homepage({
             items={items}
             news={sectionNews}
             announcements={sectionAnnouncements}
+            totalItems={totalItems}
           />
         );
       })}
@@ -108,15 +115,13 @@ export default function Layout2Homepage({
   );
 }
 
-function QuickAccessBox({ item }: { item: QuickAccess }) {
+function TileBox({ item }: { item: HomepageSectionItem }) {
   const Icon = getLucideIcon(item.icon);
-  const href = item.slug ? `/hizli-erisim/${item.slug}` : item.url || "#";
+  const href = item.link_url || "#";
+  const isExternal = /^https?:\/\//i.test(href);
 
-  return (
-    <Link
-      href={href}
-      className="group flex flex-col items-center justify-center bg-white border border-gray-200 rounded-lg p-6 lg:p-8 text-center min-h-[180px] hover:shadow-lg transition"
-    >
+  const content = (
+    <div className="group flex flex-col items-center justify-center bg-white border border-gray-200 rounded-lg p-6 lg:p-8 text-center min-h-[180px] hover:shadow-lg transition h-full">
       <div className="w-14 h-14 mb-3 flex items-center justify-center">
         {item.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -134,6 +139,20 @@ function QuickAccessBox({ item }: { item: QuickAccess }) {
       <span className="text-base font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2">
         {item.title}
       </span>
+    </div>
+  );
+
+  if (isExternal) {
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="block h-full">
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <Link href={href} className="block h-full">
+      {content}
     </Link>
   );
 }

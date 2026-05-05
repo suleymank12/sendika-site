@@ -13,8 +13,20 @@ import EmptyState from "@/components/ui/EmptyState";
 import FormField from "@/components/admin/FormField";
 import ImageUploader from "@/components/admin/ImageUploader";
 import { Plus, GripVertical, Edit, Trash2, LayoutGrid } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { HomepageSection, HomepageSectionItem } from "@/types";
 import toast from "react-hot-toast";
+
+const iconSuggestions = [
+  "FileText", "Phone", "Mail", "MapPin", "Calendar", "Users",
+  "Briefcase", "BookOpen", "Shield", "Scale", "Gavel", "Heart",
+  "Award", "ClipboardList", "Download", "ExternalLink",
+];
+
+function getIconComponent(iconName: string) {
+  const icons = LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>;
+  return icons[iconName] || null;
+}
 import {
   DndContext,
   closestCenter,
@@ -40,6 +52,7 @@ interface ItemFormData {
   description: string;
   image_url: string;
   link_url: string;
+  icon: string;
   order: number;
   is_active: boolean;
 }
@@ -49,6 +62,7 @@ const emptyForm: ItemFormData = {
   description: "",
   image_url: "",
   link_url: "",
+  icon: "",
   order: 0,
   is_active: true,
 };
@@ -187,6 +201,7 @@ export default function AdminSectionItemsPage() {
       description: item.description || "",
       image_url: item.image_url || "",
       link_url: item.link_url || "",
+      icon: item.icon || "",
       order: item.order,
       is_active: item.is_active,
     });
@@ -207,6 +222,7 @@ export default function AdminSectionItemsPage() {
       description: form.description.trim() || null,
       image_url: form.image_url.trim() || null,
       link_url: form.link_url.trim() || null,
+      icon: form.icon.trim() || null,
       order: form.order,
       is_active: form.is_active,
     };
@@ -392,7 +408,41 @@ export default function AdminSectionItemsPage() {
                 maxWidth={1200}
                 maxHeight={800}
               />
+              <p className="text-xs text-text-muted mt-1.5">
+                Görsel yüklenirse ikon yerine görsel gösterilir. Görsel yoksa ikon kullanılır.
+              </p>
             </FormField>
+            <Input
+              id="item-icon"
+              label="İkon Adı (opsiyonel)"
+              value={form.icon}
+              onChange={(e) => setForm({ ...form, icon: e.target.value })}
+              placeholder="FileText"
+              helperText="Görsel yoksa kullanılır. Aşağıdan hazır ikonlardan seçebilirsin."
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {iconSuggestions.map((name) => {
+                const Icon = getIconComponent(name);
+                if (!Icon) return null;
+                return (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setForm({ ...form, icon: name })}
+                    className={cn(
+                      "flex items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors",
+                      form.icon === name
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-text-muted hover:border-primary/50"
+                    )}
+                    title={name}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {name}
+                  </button>
+                );
+              })}
+            </div>
             <Input
               id="item-link"
               label="Bağlantı Adresi"
