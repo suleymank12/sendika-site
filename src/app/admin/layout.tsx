@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import ToastProvider from "@/components/ui/Toast";
 import { SidebarProvider, useSidebar } from "@/hooks/useAdminSidebar";
+import { TenantProvider } from "@/hooks/useTenant";
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -31,8 +32,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider>
-      <AdminLayoutInner>{children}</AdminLayoutInner>
-    </SidebarProvider>
+    <TenantProvider>
+      <SidebarProvider>
+        <AdminLayoutInner>{children}</AdminLayoutInner>
+      </SidebarProvider>
+    </TenantProvider>
   );
 }

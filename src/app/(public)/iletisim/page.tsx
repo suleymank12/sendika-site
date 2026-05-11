@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import ContactForm from "@/components/public/ContactForm";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
@@ -12,7 +13,11 @@ export const metadata: Metadata = {
 
 export default async function ContactPage() {
   const supabase = createClient();
-  const { data } = await supabase.from("site_settings").select("key, value");
+  const tenant = await getCurrentTenant();
+  const { data } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .eq("tenant_id", tenant.id);
   const settings: Record<string, string> = {};
   data?.forEach((item: { key: string; value: string | null }) => {
     settings[item.key] = item.value || "";

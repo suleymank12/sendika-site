@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -22,6 +23,7 @@ import toast from "react-hot-toast";
 
 interface Settings {
   logo_url: string;
+  favicon_url: string;
   site_title: string;
   site_description: string;
   contact_phone: string;
@@ -31,6 +33,13 @@ interface Settings {
   twitter_url: string;
   instagram_url: string;
   youtube_url: string;
+  linkedin_url: string;
+  whatsapp_url: string;
+  telegram_url: string;
+  tiktok_url: string;
+  threads_url: string;
+  bluesky_url: string;
+  spotify_url: string;
   footer_text: string;
   footer_credit_enabled: string;
   navbar_color: string;
@@ -39,6 +48,7 @@ interface Settings {
 
 const defaultSettings: Settings = {
   logo_url: "",
+  favicon_url: "",
   site_title: "",
   site_description: "",
   contact_phone: "",
@@ -48,6 +58,13 @@ const defaultSettings: Settings = {
   twitter_url: "",
   instagram_url: "",
   youtube_url: "",
+  linkedin_url: "",
+  whatsapp_url: "",
+  telegram_url: "",
+  tiktok_url: "",
+  threads_url: "",
+  bluesky_url: "",
+  spotify_url: "",
   footer_text: "",
   footer_credit_enabled: "true",
   navbar_color: "#1B3A5C",
@@ -105,14 +122,19 @@ function SettingsSection({ icon: Icon, title, description, children }: SectionPr
 }
 
 export default function AdminSettingsPage() {
+  const { tenant } = useTenant();
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (!tenant) return;
     const fetchSettings = async () => {
       const supabase = createClient();
-      const { data } = await supabase.from("site_settings").select("key, value");
+      const { data } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .eq("tenant_id", tenant.id);
       if (data) {
         const obj = { ...defaultSettings };
         data.forEach((item: { key: string; value: string | null }) => {
@@ -125,16 +147,23 @@ export default function AdminSettingsPage() {
       setLoading(false);
     };
     fetchSettings();
-  }, []);
+  }, [tenant]);
 
   const handleSave = async () => {
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
 
     const updates = Object.entries(settings).map(([key, value]) =>
       supabase
         .from("site_settings")
-        .upsert({ key, value: value || null, updated_at: new Date().toISOString() }, { onConflict: "key" })
+        .upsert(
+          { tenant_id: tenant.id, key, value: value || null, updated_at: new Date().toISOString() },
+          { onConflict: "tenant_id,key" }
+        )
     );
 
     const results = await Promise.all(updates);
@@ -204,6 +233,19 @@ export default function AdminSettingsPage() {
                 Önerilen: PNG formatı, şeffaf arka plan, en az 200 piksel yükseklik.
               </p>
             </FormField>
+            <FormField label="Favicon (Tarayıcı Sekmesi İkonu)">
+              <ImageUploader
+                value={settings.favicon_url}
+                onChange={(url) => update("favicon_url", url)}
+                folder="branding"
+                maxWidth={256}
+                maxHeight={256}
+              />
+              <p className="text-xs text-text-muted mt-1">
+                Tarayıcı sekmesinde ve yer imlerinde görünür. Önerilen: kare PNG, 256x256 piksel.
+                Yüklenmediğinde varsayılan ikon gösterilir.
+              </p>
+            </FormField>
           </SettingsSection>
 
           {/* İletişim */}
@@ -244,8 +286,12 @@ export default function AdminSettingsPage() {
           <SettingsSection
             icon={AtSign}
             title="Sosyal Medya"
-            description="Sosyal medya hesaplarınızın adresleri. Boş bırakılan hesaplar footer'da görünmez."
+            description="Sosyal medya hesaplarınızın adresleri. Doldurmadığınız hesaplar sitede görünmez — yalnızca kullandıklarınızı eklemeniz yeterli."
           >
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 mb-2">
+              <strong>Not:</strong> Boş bıraktığınız sosyal medya alanları anasayfa ve footer&apos;da gösterilmez.
+              Yalnızca kullandığınız hesapların URL&apos;sini girin.
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {(
                 [
@@ -253,6 +299,13 @@ export default function AdminSettingsPage() {
                   { key: "twitter_url", label: "Twitter (X)", placeholder: "https://twitter.com/sendika" },
                   { key: "instagram_url", label: "Instagram", placeholder: "https://instagram.com/sendika" },
                   { key: "youtube_url", label: "YouTube", placeholder: "https://youtube.com/@sendika" },
+                  { key: "linkedin_url", label: "LinkedIn", placeholder: "https://linkedin.com/company/sendika" },
+                  { key: "whatsapp_url", label: "WhatsApp Kanalı", placeholder: "https://whatsapp.com/channel/..." },
+                  { key: "telegram_url", label: "Telegram", placeholder: "https://t.me/sendika" },
+                  { key: "tiktok_url", label: "TikTok", placeholder: "https://tiktok.com/@sendika" },
+                  { key: "threads_url", label: "Threads", placeholder: "https://threads.net/@sendika" },
+                  { key: "bluesky_url", label: "Bluesky", placeholder: "https://bsky.app/profile/sendika.bsky.social" },
+                  { key: "spotify_url", label: "Spotify", placeholder: "https://open.spotify.com/show/..." },
                 ] as const
               ).map((field) => (
                 <FormField key={field.key} label={field.label}>

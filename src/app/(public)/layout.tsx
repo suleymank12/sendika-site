@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import PageLoader from "@/components/public/PageLoader";
 import TopBar from "@/components/public/TopBar";
 import Navbar from "@/components/public/Navbar";
@@ -29,9 +30,12 @@ function lightenColorRgb(hex: string, amount: number = 0.2): string {
   return `${r} ${g} ${b}`;
 }
 
-async function getSettings() {
+async function getSettings(tenantId: string) {
   const supabase = createClient();
-  const { data } = await supabase.from("site_settings").select("key, value");
+  const { data } = await supabase
+    .from("site_settings")
+    .select("key, value")
+    .eq("tenant_id", tenantId);
   const settings: Record<string, string> = {};
   data?.forEach((item: { key: string; value: string | null }) => {
     settings[item.key] = item.value || "";
@@ -39,18 +43,26 @@ async function getSettings() {
   return settings;
 }
 
-async function getMenuItems() {
+async function getMenuItems(tenantId: string) {
   const supabase = createClient();
   const { data } = await supabase
     .from("menu_items")
     .select("*")
+    .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .order("order", { ascending: true });
   return data || [];
 }
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
-  const [settings, menuItems] = await Promise.all([getSettings(), getMenuItems()]);
+  const tenant = await getCurrentTenant();
+  const [settings, menuItems] = await Promise.all([
+    getSettings(tenant.id),
+    getMenuItems(tenant.id),
+  ]);
+
+  // Tenant'ın kendi logo/favicon'u varsa onları kullan (site_settings'ten önce)
+  const logoUrl = tenant.logo_url || settings.logo_url || "/placeholder-logo.png";
 
   const navbarColor = settings.navbar_color || "#1B3A5C";
 
@@ -63,21 +75,21 @@ export default async function PublicLayout({ children }: { children: React.React
       } as React.CSSProperties}
     >
       <TopBar
-        siteTitle={settings.site_title || "Sendika Adı"}
+        siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
         phone={settings.contact_phone || ""}
         email={settings.contact_email || ""}
       />
       <div className="relative">
         <Navbar
           menuItems={menuItems}
-          logoUrl={settings.logo_url || "/placeholder-logo.png"}
-          siteTitle={settings.site_title || "Sendika Adı"}
+          logoUrl={logoUrl}
+          siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
           layoutType={settings.layout_type || "layout1"}
         />
         <main className="min-h-[60vh]">{children}</main>
       </div>
       <Footer
-        siteTitle={settings.site_title || "Sendika Adı"}
+        siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
         siteDescription={settings.site_description || ""}
         footerText={settings.footer_text || ""}
         showCredit={settings.footer_credit_enabled !== "false"}
@@ -88,6 +100,13 @@ export default async function PublicLayout({ children }: { children: React.React
         twitterUrl={settings.twitter_url || ""}
         instagramUrl={settings.instagram_url || ""}
         youtubeUrl={settings.youtube_url || ""}
+        linkedinUrl={settings.linkedin_url || ""}
+        whatsappUrl={settings.whatsapp_url || ""}
+        telegramUrl={settings.telegram_url || ""}
+        tiktokUrl={settings.tiktok_url || ""}
+        threadsUrl={settings.threads_url || ""}
+        blueskyUrl={settings.bluesky_url || ""}
+        spotifyUrl={settings.spotify_url || ""}
       />
       <ToastProvider />
       <PageLoader />

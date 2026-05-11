@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
 import StatusBadge from "@/components/admin/StatusBadge";
@@ -17,6 +18,7 @@ import toast from "react-hot-toast";
 
 export default function AdminPagesListPage() {
   const router = useRouter();
+  const { tenant } = useTenant();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -24,8 +26,13 @@ export default function AdminPagesListPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchPages = async () => {
+    if (!tenant) return;
     const supabase = createClient();
-    let query = supabase.from("pages").select("*").order("created_at", { ascending: false });
+    let query = supabase
+      .from("pages")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .order("created_at", { ascending: false });
     if (search) {
       query = query.ilike("title", `%${search}%`);
     }
@@ -36,13 +43,18 @@ export default function AdminPagesListPage() {
 
   useEffect(() => {
     fetchPages();
-  }, [search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, tenant]);
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("pages").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("pages")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme işlemi başarısız oldu.");
     } else {

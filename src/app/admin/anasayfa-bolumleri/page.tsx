@@ -37,6 +37,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -187,6 +188,7 @@ function SortableSectionCard({
 
 export default function AdminHomepageSectionsPage() {
   const router = useRouter();
+  const { tenant } = useTenant();
   const [sections, setSections] = useState<HomepageSection[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -202,10 +204,12 @@ export default function AdminHomepageSectionsPage() {
   );
 
   const fetchSections = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
     const { data } = await supabase
       .from("homepage_sections")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
     const list = (data as HomepageSection[]) || [];
     setSections(list);
@@ -215,6 +219,7 @@ export default function AdminHomepageSectionsPage() {
       const { data: items } = await supabase
         .from("homepage_section_items")
         .select("section_id")
+        .eq("tenant_id", tenant.id)
         .in("section_id", customIds);
       const counts: Record<string, number> = {};
       (items || []).forEach((it: { section_id: string }) => {
@@ -226,7 +231,7 @@ export default function AdminHomepageSectionsPage() {
     }
 
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchSections();
@@ -255,10 +260,14 @@ export default function AdminHomepageSectionsPage() {
       toast.error("Başlık zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     setSaving(true);
     const supabase = createClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       section_type: "custom",
       source: form.source,
@@ -270,8 +279,13 @@ export default function AdminHomepageSectionsPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase.from("homepage_sections").update(payload).eq("id", form.id));
+      ({ error } = await supabase
+        .from("homepage_sections")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", form.id));
     } else {
+      payload.tenant_id = tenant.id;
       ({ error } = await supabase.from("homepage_sections").insert(payload));
     }
 
@@ -287,10 +301,14 @@ export default function AdminHomepageSectionsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("homepage_sections").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("homepage_sections")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -302,10 +320,12 @@ export default function AdminHomepageSectionsPage() {
   };
 
   const handleToggleActive = async (section: HomepageSection) => {
+    if (!tenant) return;
     const supabase = createClient();
     const { error } = await supabase
       .from("homepage_sections")
       .update({ is_active: !section.is_active })
+      .eq("tenant_id", tenant.id)
       .eq("id", section.id);
     if (error) {
       toast.error("Durum değiştirilemedi.");
@@ -322,7 +342,7 @@ export default function AdminHomepageSectionsPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
 
     const oldIndex = sections.findIndex((s) => s.id === active.id);
     const newIndex = sections.findIndex((s) => s.id === over.id);
@@ -337,7 +357,11 @@ export default function AdminHomepageSectionsPage() {
     const supabase = createClient();
     await Promise.all(
       reordered.map((s, idx) =>
-        supabase.from("homepage_sections").update({ order: idx }).eq("id", s.id)
+        supabase
+          .from("homepage_sections")
+          .update({ order: idx })
+          .eq("tenant_id", tenant.id)
+          .eq("id", s.id)
       )
     );
     toast.success("Sıralama kaydedildi.");

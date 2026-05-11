@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 
 import type { Metadata } from "next";
@@ -10,9 +11,11 @@ export const metadata: Metadata = {
 
 export default async function MisyonVizyonPage() {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data: page } = await supabase
     .from("pages")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("slug", "misyon-vizyon")
     .eq("is_published", true)
     .single();

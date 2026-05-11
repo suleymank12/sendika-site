@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -200,6 +201,7 @@ function SortableBranch({
 
 export default function AdminMenuPage() {
   const router = useRouter();
+  const { tenant } = useTenant();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -216,21 +218,23 @@ export default function AdminMenuPage() {
   );
 
   const fetchItems = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
     const { data } = await supabase
       .from("menu_items")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
     setItems(data || []);
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
 
   useEffect(() => {
-    if (!modalOpen) {
+    if (!modalOpen || !tenant) {
       setLinkedPageId(null);
       return;
     }
@@ -244,6 +248,7 @@ export default function AdminMenuPage() {
     supabase
       .from("pages")
       .select("id")
+      .eq("tenant_id", tenant.id)
       .eq("slug", match[1])
       .maybeSingle()
       .then(({ data }) => {
@@ -252,7 +257,7 @@ export default function AdminMenuPage() {
     return () => {
       cancelled = true;
     };
-  }, [modalOpen, form.url]);
+  }, [modalOpen, form.url, tenant]);
 
   const tree = useMemo(() => buildTree(items), [items]);
 
@@ -295,6 +300,10 @@ export default function AdminMenuPage() {
       toast.error("Başlık zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     setSaving(true);
     const supabase = createClient();
@@ -307,12 +316,17 @@ export default function AdminMenuPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase.from("menu_items").update(payload).eq("id", form.id));
+      ({ error } = await supabase
+        .from("menu_items")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", form.id));
     } else {
       const siblingCount = items.filter(
         (i) => (i.parent_id || null) === (form.parent_id || null)
       ).length;
       payload.order = siblingCount;
+      payload.tenant_id = tenant.id;
       ({ error } = await supabase.from("menu_items").insert(payload));
     }
 
@@ -336,6 +350,10 @@ export default function AdminMenuPage() {
       toast.error("Önce başlık girin.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     setPageActionLoading(true);
     const supabase = createClient();
@@ -352,6 +370,7 @@ export default function AdminMenuPage() {
     const { data: existing } = await supabase
       .from("pages")
       .select("id")
+      .eq("tenant_id", tenant.id)
       .eq("slug", slug)
       .maybeSingle();
 
@@ -360,7 +379,7 @@ export default function AdminMenuPage() {
     if (!pageId) {
       const { data: created, error } = await supabase
         .from("pages")
-        .insert({ title: form.title.trim(), slug, is_published: false })
+        .insert({ tenant_id: tenant.id, title: form.title.trim(), slug, is_published: false })
         .select("id")
         .single();
       if (error || !created) {
@@ -384,10 +403,15 @@ export default function AdminMenuPage() {
         (i) => (i.parent_id || null) === (form.parent_id || null)
       ).length;
       payload.order = siblingCount;
+      payload.tenant_id = tenant.id;
     }
 
     const { error: menuError } = form.id
-      ? await supabase.from("menu_items").update(payload).eq("id", form.id)
+      ? await supabase
+          .from("menu_items")
+          .update(payload)
+          .eq("tenant_id", tenant.id)
+          .eq("id", form.id)
       : await supabase.from("menu_items").insert(payload);
 
     if (menuError) {
@@ -403,12 +427,16 @@ export default function AdminMenuPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
 
     const descendantIds = Array.from(collectDescendantIds(items, deleteItem.id));
-    const { error } = await supabase.from("menu_items").delete().in("id", descendantIds);
+    const { error } = await supabase
+      .from("menu_items")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .in("id", descendantIds);
 
     if (error) {
       toast.error("Silme başarısız oldu.");
@@ -422,7 +450,7 @@ export default function AdminMenuPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
 
     const activeItem = items.find((i) => i.id === active.id);
     const overItem = items.find((i) => i.id === over.id);
@@ -447,7 +475,11 @@ export default function AdminMenuPage() {
 
     const supabase = createClient();
     const updates = reordered.map((item, idx) =>
-      supabase.from("menu_items").update({ order: idx }).eq("id", item.id)
+      supabase
+        .from("menu_items")
+        .update({ order: idx })
+        .eq("tenant_id", tenant.id)
+        .eq("id", item.id)
     );
     await Promise.all(updates);
     toast.success("Sıralama kaydedildi.");

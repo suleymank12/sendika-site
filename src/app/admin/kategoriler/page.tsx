@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -96,6 +97,7 @@ function SortableCategoryRow({
 }
 
 export default function AdminNewsCategoriesPage() {
+  const { tenant } = useTenant();
   const [categories, setCategories] = useState<NewsCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -111,11 +113,16 @@ export default function AdminNewsCategoriesPage() {
   );
 
   const fetchCategories = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase.from("news_categories").select("*").order("order", { ascending: true });
+    const { data } = await supabase
+      .from("news_categories")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .order("order", { ascending: true });
     setCategories(data || []);
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchCategories();
@@ -149,6 +156,10 @@ export default function AdminNewsCategoriesPage() {
       toast.error("Kategori adı zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     const finalSlug = form.slug.trim() || createSlug(form.name);
 
@@ -162,8 +173,13 @@ export default function AdminNewsCategoriesPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase.from("news_categories").update(payload).eq("id", form.id));
+      ({ error } = await supabase
+        .from("news_categories")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", form.id));
     } else {
+      payload.tenant_id = tenant.id;
       payload.order = categories.length;
       ({ error } = await supabase.from("news_categories").insert(payload));
     }
@@ -185,10 +201,14 @@ export default function AdminNewsCategoriesPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("news_categories").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("news_categories")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -200,8 +220,13 @@ export default function AdminNewsCategoriesPage() {
   };
 
   const handleToggle = async (item: NewsCategory) => {
+    if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase.from("news_categories").update({ is_active: !item.is_active }).eq("id", item.id);
+    const { error } = await supabase
+      .from("news_categories")
+      .update({ is_active: !item.is_active })
+      .eq("tenant_id", tenant.id)
+      .eq("id", item.id);
     if (error) {
       toast.error("Güncelleme başarısız.");
     } else {
@@ -211,7 +236,7 @@ export default function AdminNewsCategoriesPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
     const oldIndex = categories.findIndex((c) => c.id === active.id);
     const newIndex = categories.findIndex((c) => c.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
@@ -222,7 +247,11 @@ export default function AdminNewsCategoriesPage() {
     const supabase = createClient();
     await Promise.all(
       reordered.map((c, idx) =>
-        supabase.from("news_categories").update({ order: idx }).eq("id", c.id)
+        supabase
+          .from("news_categories")
+          .update({ order: idx })
+          .eq("tenant_id", tenant.id)
+          .eq("id", c.id)
       )
     );
     toast.success("Sıralama kaydedildi.");

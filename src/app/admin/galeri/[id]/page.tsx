@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -59,6 +60,7 @@ function SortableImage({
 export default function AdminGalleryDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { tenant } = useTenant();
   const albumId = params.id as string;
 
   const [album, setAlbum] = useState<GalleryAlbum | null>(null);
@@ -77,10 +79,21 @@ export default function AdminGalleryDetailPage() {
   );
 
   const fetchData = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
     const [albumRes, imagesRes] = await Promise.all([
-      supabase.from("gallery_albums").select("*").eq("id", albumId).single(),
-      supabase.from("gallery_images").select("*").eq("album_id", albumId).order("order", { ascending: true }),
+      supabase
+        .from("gallery_albums")
+        .select("*")
+        .eq("tenant_id", tenant.id)
+        .eq("id", albumId)
+        .single(),
+      supabase
+        .from("gallery_images")
+        .select("*")
+        .eq("tenant_id", tenant.id)
+        .eq("album_id", albumId)
+        .order("order", { ascending: true }),
     ]);
 
     if (albumRes.error || !albumRes.data) {
@@ -94,7 +107,7 @@ export default function AdminGalleryDetailPage() {
     setCoverImage(albumRes.data.cover_image || "");
     setImages(imagesRes.data || []);
     setLoading(false);
-  }, [albumId, router]);
+  }, [albumId, router, tenant]);
 
   useEffect(() => {
     fetchData();
@@ -105,11 +118,16 @@ export default function AdminGalleryDetailPage() {
       toast.error("Albüm adı zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
     const { error } = await supabase
       .from("gallery_albums")
       .update({ title: title.trim(), cover_image: coverImage || null })
+      .eq("tenant_id", tenant.id)
       .eq("id", albumId);
 
     if (error) {
@@ -122,7 +140,7 @@ export default function AdminGalleryDetailPage() {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
-    if (!files || files.length === 0) return;
+    if (!files || files.length === 0 || !tenant) return;
 
     setUploading(true);
     const supabase = createClient();
@@ -140,6 +158,7 @@ export default function AdminGalleryDetailPage() {
       const { data: urlData } = supabase.storage.from("images").getPublicUrl(fileName);
 
       const { error: insertError } = await supabase.from("gallery_images").insert({
+        tenant_id: tenant.id,
         album_id: albumId,
         image_url: urlData.publicUrl,
         order: images.length + successCount,
@@ -160,10 +179,14 @@ export default function AdminGalleryDetailPage() {
   };
 
   const handleDeleteImage = async () => {
-    if (!deleteImage) return;
+    if (!deleteImage || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("gallery_images").delete().eq("id", deleteImage.id);
+    const { error } = await supabase
+      .from("gallery_images")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteImage.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -176,7 +199,7 @@ export default function AdminGalleryDetailPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
 
     const oldIndex = images.findIndex((i) => i.id === active.id);
     const newIndex = images.findIndex((i) => i.id === over.id);
@@ -185,7 +208,13 @@ export default function AdminGalleryDetailPage() {
 
     const supabase = createClient();
     await Promise.all(
-      reordered.map((img, idx) => supabase.from("gallery_images").update({ order: idx }).eq("id", img.id))
+      reordered.map((img, idx) =>
+        supabase
+          .from("gallery_images")
+          .update({ order: idx })
+          .eq("tenant_id", tenant.id)
+          .eq("id", img.id)
+      )
     );
     toast.success("Sıralama kaydedildi.");
   };

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import NewsCard from "@/components/public/NewsCard";
@@ -12,9 +13,11 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("news")
     .select("title, summary, cover_image")
+    .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_published", true)
     .single();
@@ -34,10 +37,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function NewsDetailPage({ params }: Props) {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   const { data: news } = await supabase
     .from("news")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_published", true)
     .single();
@@ -49,6 +54,7 @@ export default async function NewsDetailPage({ params }: Props) {
   const { data: related } = await supabase
     .from("news")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("is_published", true)
     .neq("id", item.id)
     .order("published_at", { ascending: false })
@@ -60,6 +66,7 @@ export default async function NewsDetailPage({ params }: Props) {
   const { data: mediaData } = await supabase
     .from("content_media")
     .select("url")
+    .eq("tenant_id", tenant.id)
     .eq("content_type", "news")
     .eq("content_id", item.id)
     .eq("media_type", "image")

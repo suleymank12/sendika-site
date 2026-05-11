@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import Breadcrumb from "@/components/public/Breadcrumb";
@@ -12,9 +13,11 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("branches")
     .select("name, manager_name, manager_title")
+    .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_active", true)
     .single();
@@ -29,10 +32,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BranchManagerPage({ params }: Props) {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   const { data: branchData } = await supabase
     .from("branches")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_active", true)
     .single();
@@ -46,6 +51,7 @@ export default async function BranchManagerPage({ params }: Props) {
     const { data: bm } = await supabase
       .from("board_members")
       .select("slug")
+      .eq("tenant_id", tenant.id)
       .eq("id", branch.manager_id)
       .single();
     if (bm?.slug) {

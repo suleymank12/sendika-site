@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import { extractImagesFromHtml } from "@/lib/utils";
@@ -10,9 +11,11 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("pages")
     .select("title")
+    .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_published", true)
     .single();
@@ -22,9 +25,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function DynamicPage({ params }: Props) {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data: page } = await supabase
     .from("pages")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_published", true)
     .single();
@@ -36,6 +41,7 @@ export default async function DynamicPage({ params }: Props) {
   const { data: mediaData } = await supabase
     .from("content_media")
     .select("url")
+    .eq("tenant_id", tenant.id)
     .eq("content_type", "page")
     .eq("content_id", page.id)
     .eq("media_type", "image")

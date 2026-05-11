@@ -5,7 +5,8 @@
       "PowerShell(npx tsc --noEmit 2>&1 | Select-Object -First 50)",
       "Bash(Remove-Item -Force \"src/app/admin/hizli-erisim/page.tsx\" \"src/app/\\(public\\)/hizli-erisim/page.tsx\" \"src/app/\\(public\\)/hizli-erisim/[slug]/page.tsx\" \"src/components/public/QuickAccessGrid.tsx\")",
       "Bash(Remove-Item -Force -Recurse \"src/app/admin/hizli-erisim\", \"src/app/\\(public\\)/hizli-erisim\")",
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(echo \"EXIT_CODE=$?\")"
     ]
   }
 }

@@ -7,6 +7,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -53,6 +54,7 @@ const emptyForm: HeadlineForm = {
 };
 
 export default function AdminHeadlinePage() {
+  const { tenant } = useTenant();
   const [headlines, setHeadlines] = useState<Headline[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -74,32 +76,37 @@ export default function AdminHeadlinePage() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const fetchHeadlines = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
     const { data } = await supabase
       .from("headlines")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
     setHeadlines(data || []);
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   const fetchSources = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
     const [newsRes, annRes] = await Promise.all([
       supabase
         .from("news")
         .select("id, title, slug, cover_image, is_published")
+        .eq("tenant_id", tenant.id)
         .eq("is_published", true)
         .order("published_at", { ascending: false }),
       supabase
         .from("announcements")
         .select("id, title, slug, cover_image, is_published")
+        .eq("tenant_id", tenant.id)
         .eq("is_published", true)
         .order("published_at", { ascending: false }),
     ]);
     setNewsList((newsRes.data as News[]) || []);
     setAnnouncementList((annRes.data as Announcement[]) || []);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchHeadlines();
@@ -160,11 +167,15 @@ export default function AdminHeadlinePage() {
       toast.error("Başlık zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     setSaving(true);
     const supabase = createClient();
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       title: form.title.trim(),
       subtitle: form.subtitle.trim() || null,
       image_url: form.image_url || null,
@@ -180,8 +191,13 @@ export default function AdminHeadlinePage() {
 
     let error;
     if (editingId) {
-      ({ error } = await supabase.from("headlines").update(payload).eq("id", editingId));
+      ({ error } = await supabase
+        .from("headlines")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", editingId));
     } else {
+      payload.tenant_id = tenant.id;
       ({ error } = await supabase.from("headlines").insert(payload));
     }
 
@@ -196,10 +212,14 @@ export default function AdminHeadlinePage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("headlines").delete().eq("id", deleteId);
+    const { error } = await supabase
+      .from("headlines")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteId);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -211,10 +231,12 @@ export default function AdminHeadlinePage() {
   };
 
   const toggleActive = async (h: Headline) => {
+    if (!tenant) return;
     const supabase = createClient();
     const { error } = await supabase
       .from("headlines")
       .update({ is_active: !h.is_active })
+      .eq("tenant_id", tenant.id)
       .eq("id", h.id);
     if (error) {
       toast.error("Güncelleme başarısız.");
@@ -243,9 +265,14 @@ export default function AdminHeadlinePage() {
 
   const handleDragEnd = async () => {
     setDragIndex(null);
+    if (!tenant) return;
     const supabase = createClient();
     const updates = headlines.map((h, i) =>
-      supabase.from("headlines").update({ order: i }).eq("id", h.id)
+      supabase
+        .from("headlines")
+        .update({ order: i })
+        .eq("tenant_id", tenant.id)
+        .eq("id", h.id)
     );
     const results = await Promise.all(updates);
     if (results.some((r) => r.error)) {

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -118,6 +119,7 @@ function SortableAlbumCard({
 
 export default function AdminGalleryPage() {
   const router = useRouter();
+  const { tenant } = useTenant();
   const [albums, setAlbums] = useState<AlbumWithCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -132,10 +134,12 @@ export default function AdminGalleryPage() {
   );
 
   const fetchAlbums = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
     const { data: albumsData } = await supabase
       .from("gallery_albums")
       .select("*, gallery_images(count)")
+      .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
 
     const albums = (albumsData || []).map((album: Record<string, unknown>) => ({
@@ -147,7 +151,7 @@ export default function AdminGalleryPage() {
 
     setAlbums(albums);
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchAlbums();
@@ -156,6 +160,10 @@ export default function AdminGalleryPage() {
   const handleSave = async () => {
     if (!form.title.trim()) {
       toast.error("Albüm adı zorunludur.");
+      return;
+    }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
       return;
     }
 
@@ -169,8 +177,13 @@ export default function AdminGalleryPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase.from("gallery_albums").update(payload).eq("id", form.id));
+      ({ error } = await supabase
+        .from("gallery_albums")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", form.id));
     } else {
+      payload.tenant_id = tenant.id;
       payload.order = albums.length;
       ({ error } = await supabase.from("gallery_albums").insert(payload));
     }
@@ -187,10 +200,14 @@ export default function AdminGalleryPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("gallery_albums").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("gallery_albums")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -203,7 +220,7 @@ export default function AdminGalleryPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
 
     const oldIndex = albums.findIndex((a) => a.id === active.id);
     const newIndex = albums.findIndex((a) => a.id === over.id);
@@ -215,7 +232,11 @@ export default function AdminGalleryPage() {
     const supabase = createClient();
     await Promise.all(
       reordered.map((a, idx) =>
-        supabase.from("gallery_albums").update({ order: idx }).eq("id", a.id)
+        supabase
+          .from("gallery_albums")
+          .update({ order: idx })
+          .eq("tenant_id", tenant.id)
+          .eq("id", a.id)
       )
     );
     toast.success("Sıralama kaydedildi.");

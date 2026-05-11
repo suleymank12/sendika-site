@@ -348,13 +348,14 @@ export const helpContent: Record<string, HelpTopic> = {
 
   ayarlar: {
     title: "Site Ayarları",
-    intro: "Logo, sendika adı, iletişim, sosyal medya, renk gibi genel ayarları yönetirsin. Değişiklikler tüm sitede aynı anda yansır.",
+    intro: "Logo, favicon, sendika adı, iletişim, sosyal medya, renk gibi genel ayarları yönetirsin. Değişiklikler tüm sitede aynı anda yansır.",
     sections: [
       {
         id: "site",
         title: "Site Bilgileri",
         fields: [
           { name: "Logo", description: "Sol üst köşede görünür. Şeffaf arkaplanlı PNG önerilir." },
+          { name: "Favicon", description: "Tarayıcı sekmesinde ve yer imlerinde görünen küçük ikon. Kare PNG (256x256 piksel) yüklenmesi önerilir. Boş bırakılırsa varsayılan ikon kullanılır." },
           { name: "Site Başlığı", description: "Tarayıcı sekmesinde ve footer'da görünen tam ad." },
           { name: "Site Açıklaması", description: "Google aramalarında altta gösterilen açıklama (SEO için önemli)." },
         ],
@@ -372,8 +373,12 @@ export const helpContent: Record<string, HelpTopic> = {
       {
         id: "sosyal",
         title: "Sosyal Medya",
-        body: "Hesapların tam URL'lerini gir. Boş bıraktıklarının ikonu sitede gösterilmez.",
-        tips: ["Tam URL yaz: https://facebook.com/sendika gibi, sadece kullanıcı adı değil."],
+        body: "Sendikanın kullandığı sosyal medya hesaplarının tam URL'lerini gir. 11 farklı platform için alan var: Facebook, Twitter (X), Instagram, YouTube, LinkedIn, WhatsApp Kanalı, Telegram, TikTok, Threads, Bluesky, Spotify. Boş bıraktığın platformların ikonu footer'da görünmez — yalnızca kullandıklarını doldur.",
+        tips: [
+          "Tam URL yaz: https://facebook.com/sendika gibi, sadece kullanıcı adı değil.",
+          "Hangi platformları kullanmıyorsan boş bırak; sitede sadece doldurduğun ikonlar görünecek.",
+          "WhatsApp için kanal linkini kullan (https://whatsapp.com/channel/...), kişisel telefon numarası değil.",
+        ],
       },
       {
         id: "tasarim",

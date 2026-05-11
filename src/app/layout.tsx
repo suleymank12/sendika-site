@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("site_settings")
     .select("key, value")
-    .in("key", ["site_title", "site_description"]);
+    .eq("tenant_id", tenant.id)
+    .in("key", ["site_title", "site_description", "favicon_url"]);
 
   const map: Record<string, string> = {};
   data?.forEach((row: { key: string; value: string | null }) => {
     if (row.value) map[row.key] = row.value;
   });
 
-  const title = map.site_title || "Sendika Adı";
+  const title = map.site_title || tenant.name || "Sendika Adı";
   const description = map.site_description || `${title} Kurumsal Web Sitesi`;
+  // Önce site_settings'teki favicon, sonra tenant.favicon_url
+  const faviconUrl = map.favicon_url || tenant.favicon_url || undefined;
 
   return {
     title: {
@@ -29,6 +34,13 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: "tr_TR",
       siteName: title,
     },
+    ...(faviconUrl && {
+      icons: {
+        icon: faviconUrl,
+        shortcut: faviconUrl,
+        apple: faviconUrl,
+      },
+    }),
   };
 }
 

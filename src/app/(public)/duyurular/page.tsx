@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import { formatDate, truncateText } from "@/lib/utils";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -19,6 +20,7 @@ interface Props {
 export default async function AnnouncementsListPage({ searchParams }: Props) {
   const page = parseInt(searchParams.sayfa || "1");
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   const from = (page - 1) * PAGE_SIZE.ANNOUNCEMENTS;
   const to = from + PAGE_SIZE.ANNOUNCEMENTS - 1;
@@ -26,6 +28,7 @@ export default async function AnnouncementsListPage({ searchParams }: Props) {
   const { data, count } = await supabase
     .from("announcements")
     .select("*", { count: "exact" })
+    .eq("tenant_id", tenant.id)
     .eq("is_published", true)
     .order("published_at", { ascending: false })
     .range(from, to);

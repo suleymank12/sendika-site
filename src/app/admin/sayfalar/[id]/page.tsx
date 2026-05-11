@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
 import MediaSection from "@/components/admin/MediaSection";
@@ -16,6 +17,7 @@ import toast from "react-hot-toast";
 export default function AdminPageEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const { tenant } = useTenant();
   const isNew = params.id === "yeni";
 
   const [loading, setLoading] = useState(!isNew);
@@ -31,10 +33,15 @@ export default function AdminPageEditorPage() {
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   useEffect(() => {
-    if (!isNew) {
+    if (!isNew && tenant) {
       const fetchPage = async () => {
         const supabase = createClient();
-        const { data, error } = await supabase.from("pages").select("*").eq("id", params.id).single();
+        const { data, error } = await supabase
+          .from("pages")
+          .select("*")
+          .eq("tenant_id", tenant.id)
+          .eq("id", params.id)
+          .single();
         if (error || !data) {
           toast.error("Sayfa bulunamadı.");
           router.push("/admin/sayfalar");
@@ -50,6 +57,7 @@ export default function AdminPageEditorPage() {
         const { data: mediaData } = await supabase
           .from("content_media")
           .select("url")
+          .eq("tenant_id", tenant.id)
           .eq("content_type", "page")
           .eq("content_id", params.id)
           .eq("media_type", "image")
@@ -64,7 +72,7 @@ export default function AdminPageEditorPage() {
       };
       fetchPage();
     }
-  }, [isNew, params.id, router]);
+  }, [isNew, params.id, router, tenant]);
 
   useEffect(() => {
     if (!slugManuallyEdited && title) {
@@ -81,10 +89,15 @@ export default function AdminPageEditorPage() {
       toast.error("Slug alanı zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     setSaving(true);
     const supabase = createClient();
-    const payload = {
+    const payload: Record<string, unknown> = {
+      tenant_id: tenant.id,
       title: title.trim(),
       slug: slug.trim(),
       content: content || null,
@@ -102,7 +115,11 @@ export default function AdminPageEditorPage() {
       error = res.error;
       if (res.data) pageId = res.data.id;
     } else {
-      ({ error } = await supabase.from("pages").update(payload).eq("id", params.id));
+      ({ error } = await supabase
+        .from("pages")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", params.id));
     }
 
     if (error) {
@@ -118,6 +135,7 @@ export default function AdminPageEditorPage() {
         await supabase
           .from("content_media")
           .delete()
+          .eq("tenant_id", tenant.id)
           .eq("content_type", "page")
           .eq("content_id", pageId)
           .in("url", removed);
@@ -126,6 +144,7 @@ export default function AdminPageEditorPage() {
       const added = galleryImages.filter((u) => !initialGallery.includes(u));
       if (added.length > 0) {
         const rows = added.map((url) => ({
+          tenant_id: tenant.id,
           content_type: "page",
           content_id: pageId,
           media_type: "image",
@@ -140,6 +159,7 @@ export default function AdminPageEditorPage() {
         await supabase
           .from("content_media")
           .update({ order: galleryImages.indexOf(url) })
+          .eq("tenant_id", tenant.id)
           .eq("content_type", "page")
           .eq("content_id", pageId)
           .eq("url", url);

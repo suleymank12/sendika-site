@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
 import StatusBadge from "@/components/admin/StatusBadge";
@@ -18,6 +19,7 @@ import toast from "react-hot-toast";
 
 export default function AdminAnnouncementsListPage() {
   const router = useRouter();
+  const { tenant } = useTenant();
   const [items, setItems] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -26,10 +28,12 @@ export default function AdminAnnouncementsListPage() {
   const [deleting, setDeleting] = useState(false);
 
   const fetchData = async () => {
+    if (!tenant) return;
     const supabase = createClient();
     let query = supabase
       .from("announcements")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .order("created_at", { ascending: false });
 
     if (search) {
@@ -49,14 +53,19 @@ export default function AdminAnnouncementsListPage() {
 
   useEffect(() => {
     fetchData();
-  }, [search, filter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, filter, tenant]);
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
 
     const supabase = createClient();
-    const { error } = await supabase.from("announcements").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("announcements")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
 
     if (error) {
       toast.error("Silme işlemi başarısız oldu.");

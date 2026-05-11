@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
 import MediaSection from "@/components/admin/MediaSection";
@@ -17,6 +18,7 @@ import toast from "react-hot-toast";
 export default function AdminAnnouncementEditorPage() {
   const params = useParams();
   const router = useRouter();
+  const { tenant } = useTenant();
   const isNew = params.id === "yeni";
 
   const [loading, setLoading] = useState(!isNew);
@@ -36,12 +38,13 @@ export default function AdminAnnouncementEditorPage() {
   const [existingPublishedAt, setExistingPublishedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isNew) {
+    if (!isNew && tenant) {
       const fetchData = async () => {
         const supabase = createClient();
         const { data, error } = await supabase
           .from("announcements")
           .select("*")
+          .eq("tenant_id", tenant.id)
           .eq("id", params.id)
           .single();
 
@@ -64,6 +67,7 @@ export default function AdminAnnouncementEditorPage() {
         const { data: mediaData } = await supabase
           .from("content_media")
           .select("url")
+          .eq("tenant_id", tenant.id)
           .eq("content_type", "announcement")
           .eq("content_id", params.id)
           .eq("media_type", "image")
@@ -78,7 +82,7 @@ export default function AdminAnnouncementEditorPage() {
       };
       fetchData();
     }
-  }, [isNew, params.id, router]);
+  }, [isNew, params.id, router, tenant]);
 
   useEffect(() => {
     if (!slugManuallyEdited && title) {
@@ -97,10 +101,16 @@ export default function AdminAnnouncementEditorPage() {
       return;
     }
 
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
+
     setSaving(true);
 
     const supabase = createClient();
     const payload: Record<string, unknown> = {
+      tenant_id: tenant.id,
       title: title.trim(),
       slug: slug.trim(),
       summary: summary.trim() || null,
@@ -129,7 +139,11 @@ export default function AdminAnnouncementEditorPage() {
       error = res.error;
       if (res.data) annId = res.data.id;
     } else {
-      ({ error } = await supabase.from("announcements").update(payload).eq("id", params.id));
+      ({ error } = await supabase
+        .from("announcements")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", params.id));
     }
 
     if (error) {
@@ -145,6 +159,7 @@ export default function AdminAnnouncementEditorPage() {
         await supabase
           .from("content_media")
           .delete()
+          .eq("tenant_id", tenant.id)
           .eq("content_type", "announcement")
           .eq("content_id", annId)
           .in("url", removed);
@@ -153,6 +168,7 @@ export default function AdminAnnouncementEditorPage() {
       const added = galleryImages.filter((u) => !initialGallery.includes(u));
       if (added.length > 0) {
         const rows = added.map((url) => ({
+          tenant_id: tenant.id,
           content_type: "announcement",
           content_id: annId,
           media_type: "image",
@@ -167,6 +183,7 @@ export default function AdminAnnouncementEditorPage() {
         await supabase
           .from("content_media")
           .update({ order: galleryImages.indexOf(url) })
+          .eq("tenant_id", tenant.id)
           .eq("content_type", "announcement")
           .eq("content_id", annId)
           .eq("url", url);
@@ -177,12 +194,14 @@ export default function AdminAnnouncementEditorPage() {
         const { data: existing } = await supabase
           .from("headlines")
           .select("id")
+          .eq("tenant_id", tenant.id)
           .eq("source_type", "announcement")
           .eq("source_id", annId)
           .maybeSingle();
 
         if (!existing) {
           await supabase.from("headlines").insert({
+            tenant_id: tenant.id,
             title: title.trim(),
             image_url: coverImage || null,
             link_url: `/duyurular/${slug.trim()}`,
@@ -195,6 +214,7 @@ export default function AdminAnnouncementEditorPage() {
         await supabase
           .from("headlines")
           .delete()
+          .eq("tenant_id", tenant.id)
           .eq("source_type", "announcement")
           .eq("source_id", annId);
       }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -104,6 +105,7 @@ function SortableMemberCard({
 }
 
 export default function AdminBoardMembersPage() {
+  const { tenant } = useTenant();
   const [members, setMembers] = useState<BoardMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -118,11 +120,16 @@ export default function AdminBoardMembersPage() {
   );
 
   const fetchMembers = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase.from("board_members").select("*").order("order", { ascending: true });
+    const { data } = await supabase
+      .from("board_members")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .order("order", { ascending: true });
     setMembers(data || []);
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchMembers();
@@ -148,6 +155,10 @@ export default function AdminBoardMembersPage() {
       toast.error("Ad alanı zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     const finalSlug = form.slug.trim() || createSlug(form.name);
 
@@ -166,8 +177,13 @@ export default function AdminBoardMembersPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase.from("board_members").update(payload).eq("id", form.id));
+      ({ error } = await supabase
+        .from("board_members")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", form.id));
     } else {
+      payload.tenant_id = tenant.id;
       payload.order = members.length;
       ({ error } = await supabase.from("board_members").insert(payload));
     }
@@ -188,10 +204,14 @@ export default function AdminBoardMembersPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("board_members").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("board_members")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -204,7 +224,7 @@ export default function AdminBoardMembersPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
     const oldIndex = members.findIndex((i) => i.id === active.id);
     const newIndex = members.findIndex((i) => i.id === over.id);
     const reordered = arrayMove(members, oldIndex, newIndex);
@@ -212,7 +232,13 @@ export default function AdminBoardMembersPage() {
 
     const supabase = createClient();
     await Promise.all(
-      reordered.map((item, idx) => supabase.from("board_members").update({ order: idx }).eq("id", item.id))
+      reordered.map((item, idx) =>
+        supabase
+          .from("board_members")
+          .update({ order: idx })
+          .eq("tenant_id", tenant.id)
+          .eq("id", item.id)
+      )
     );
     toast.success("Sıralama kaydedildi.");
   };

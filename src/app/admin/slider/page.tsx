@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -104,6 +105,7 @@ function SortableSliderCard({
 }
 
 export default function AdminSliderPage() {
+  const { tenant } = useTenant();
   const [sliders, setSliders] = useState<Slider[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -118,11 +120,16 @@ export default function AdminSliderPage() {
   );
 
   const fetchSliders = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase.from("sliders").select("*").order("order", { ascending: true });
+    const { data } = await supabase
+      .from("sliders")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .order("order", { ascending: true });
     setSliders(data || []);
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchSliders();
@@ -142,8 +149,13 @@ export default function AdminSliderPage() {
   };
 
   const handleToggle = async (item: Slider) => {
+    if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase.from("sliders").update({ is_active: !item.is_active }).eq("id", item.id);
+    const { error } = await supabase
+      .from("sliders")
+      .update({ is_active: !item.is_active })
+      .eq("tenant_id", tenant.id)
+      .eq("id", item.id);
     if (error) {
       toast.error("Güncelleme başarısız.");
     } else {
@@ -154,6 +166,10 @@ export default function AdminSliderPage() {
   const handleSave = async () => {
     if (!form.image_url) {
       toast.error("Görsel yüklemek zorunludur.");
+      return;
+    }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
       return;
     }
 
@@ -169,8 +185,13 @@ export default function AdminSliderPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase.from("sliders").update(payload).eq("id", form.id));
+      ({ error } = await supabase
+        .from("sliders")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", form.id));
     } else {
+      payload.tenant_id = tenant.id;
       payload.order = sliders.length;
       ({ error } = await supabase.from("sliders").insert(payload));
     }
@@ -187,10 +208,14 @@ export default function AdminSliderPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("sliders").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("sliders")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -203,7 +228,7 @@ export default function AdminSliderPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
 
     const oldIndex = sliders.findIndex((i) => i.id === active.id);
     const newIndex = sliders.findIndex((i) => i.id === over.id);
@@ -212,7 +237,13 @@ export default function AdminSliderPage() {
 
     const supabase = createClient();
     await Promise.all(
-      reordered.map((item, idx) => supabase.from("sliders").update({ order: idx }).eq("id", item.id))
+      reordered.map((item, idx) =>
+        supabase
+          .from("sliders")
+          .update({ order: idx })
+          .eq("tenant_id", tenant.id)
+          .eq("id", item.id)
+      )
     );
     toast.success("Sıralama kaydedildi.");
   };

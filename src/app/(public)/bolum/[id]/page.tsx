@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
@@ -23,9 +24,11 @@ function getLucideIcon(name: string | null | undefined) {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("homepage_sections")
     .select("title")
+    .eq("tenant_id", tenant.id)
     .eq("id", params.id)
     .eq("is_active", true)
     .maybeSingle();
@@ -36,10 +39,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SectionPage({ params }: Props) {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   const { data: sectionData } = await supabase
     .from("homepage_sections")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("id", params.id)
     .eq("is_active", true)
     .maybeSingle();
@@ -52,6 +57,7 @@ export default async function SectionPage({ params }: Props) {
   const { data: itemsData } = await supabase
     .from("homepage_section_items")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("section_id", section.id)
     .eq("is_active", true)
     .order("order", { ascending: true });

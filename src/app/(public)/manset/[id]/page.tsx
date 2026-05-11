@@ -2,6 +2,7 @@
 // ALTER TABLE headlines ADD COLUMN IF NOT EXISTS content TEXT;
 
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound, redirect } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import { extractImagesFromHtml } from "@/lib/utils";
@@ -14,9 +15,11 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("headlines")
     .select("title, subtitle, image_url")
+    .eq("tenant_id", tenant.id)
     .eq("id", params.id)
     .maybeSingle();
 
@@ -35,11 +38,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function MansetDetailPage({ params }: Props) {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   // is_active filtresi yok — pasif manşetlere de direkt URL ile erişilebilsin
   const { data, error } = await supabase
     .from("headlines")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("id", params.id)
     .maybeSingle();
 
@@ -59,6 +64,7 @@ export default async function MansetDetailPage({ params }: Props) {
     const { data: news } = await supabase
       .from("news")
       .select("slug")
+      .eq("tenant_id", tenant.id)
       .eq("id", item.source_id)
       .maybeSingle();
     if (news?.slug) redirect(`/haberler/${news.slug}`);
@@ -67,6 +73,7 @@ export default async function MansetDetailPage({ params }: Props) {
     const { data: ann } = await supabase
       .from("announcements")
       .select("slug")
+      .eq("tenant_id", tenant.id)
       .eq("id", item.source_id)
       .maybeSingle();
     if (ann?.slug) redirect(`/duyurular/${ann.slug}`);

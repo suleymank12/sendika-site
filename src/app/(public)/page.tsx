@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import Layout1Homepage from "@/components/public/Layout1Homepage";
 import Layout2Homepage from "@/components/public/Layout2Homepage";
 import {
@@ -12,6 +13,7 @@ import {
 
 export default async function HomePage() {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   const [
     headlinesRes,
@@ -24,29 +26,39 @@ export default async function HomePage() {
     supabase
       .from("headlines")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("order", { ascending: true }),
     supabase
       .from("news")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .eq("is_published", true)
       .order("published_at", { ascending: false })
       .limit(6),
     supabase
       .from("announcements")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .eq("is_published", true)
       .order("published_at", { ascending: false })
       .limit(8),
     supabase
       .from("sliders")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("order", { ascending: true }),
-    supabase.from("site_settings").select("key, value").eq("key", "layout_type").maybeSingle(),
+    supabase
+      .from("site_settings")
+      .select("key, value")
+      .eq("tenant_id", tenant.id)
+      .eq("key", "layout_type")
+      .maybeSingle(),
     supabase
       .from("homepage_sections")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("order", { ascending: true }),
   ]);
@@ -63,10 +75,18 @@ export default async function HomePage() {
 
   const [newsSlugsRes, annSlugsRes] = await Promise.all([
     newsIds.length > 0
-      ? supabase.from("news").select("id, slug").in("id", newsIds)
+      ? supabase
+          .from("news")
+          .select("id, slug")
+          .eq("tenant_id", tenant.id)
+          .in("id", newsIds)
       : Promise.resolve({ data: [] as { id: string; slug: string }[] }),
     announcementIds.length > 0
-      ? supabase.from("announcements").select("id, slug").in("id", announcementIds)
+      ? supabase
+          .from("announcements")
+          .select("id, slug")
+          .eq("tenant_id", tenant.id)
+          .in("id", announcementIds)
       : Promise.resolve({ data: [] as { id: string; slug: string }[] }),
   ]);
 
@@ -108,6 +128,7 @@ export default async function HomePage() {
       ? supabase
           .from("homepage_section_items")
           .select("*")
+          .eq("tenant_id", tenant.id)
           .in("section_id", customSectionIds)
           .eq("is_active", true)
           .order("order", { ascending: true })
@@ -116,6 +137,7 @@ export default async function HomePage() {
       ? supabase
           .from("news")
           .select("*")
+          .eq("tenant_id", tenant.id)
           .eq("is_published", true)
           .order("published_at", { ascending: false })
           .limit(maxNewsCount)
@@ -124,6 +146,7 @@ export default async function HomePage() {
       ? supabase
           .from("announcements")
           .select("*")
+          .eq("tenant_id", tenant.id)
           .eq("is_published", true)
           .order("published_at", { ascending: false })
           .limit(Math.max(maxAnnCount, announcements.length))

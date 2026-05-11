@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import {
   Newspaper,
   Megaphone,
@@ -125,18 +126,20 @@ export default function AdminDashboard() {
   const [recentAnnouncements, setRecentAnnouncements] = useState<RecentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const siteTitle = useSiteTitle();
+  const { tenant } = useTenant();
 
   useEffect(() => {
+    if (!tenant) return;
     const fetchData = async () => {
       const supabase = createClient();
 
       const [newsCount, annCount, pagesCount, albumsCount, newsRecent, annRecent] = await Promise.all([
-        supabase.from("news").select("*", { count: "exact", head: true }),
-        supabase.from("announcements").select("*", { count: "exact", head: true }),
-        supabase.from("pages").select("*", { count: "exact", head: true }),
-        supabase.from("gallery_albums").select("*", { count: "exact", head: true }),
-        supabase.from("news").select("id, title, created_at, is_published").order("created_at", { ascending: false }).limit(5),
-        supabase.from("announcements").select("id, title, created_at, is_published").order("created_at", { ascending: false }).limit(5),
+        supabase.from("news").select("*", { count: "exact", head: true }).eq("tenant_id", tenant.id),
+        supabase.from("announcements").select("*", { count: "exact", head: true }).eq("tenant_id", tenant.id),
+        supabase.from("pages").select("*", { count: "exact", head: true }).eq("tenant_id", tenant.id),
+        supabase.from("gallery_albums").select("*", { count: "exact", head: true }).eq("tenant_id", tenant.id),
+        supabase.from("news").select("id, title, created_at, is_published").eq("tenant_id", tenant.id).order("created_at", { ascending: false }).limit(5),
+        supabase.from("announcements").select("id, title, created_at, is_published").eq("tenant_id", tenant.id).order("created_at", { ascending: false }).limit(5),
       ]);
 
       setStats({
@@ -151,7 +154,7 @@ export default function AdminDashboard() {
     };
 
     fetchData();
-  }, []);
+  }, [tenant]);
 
   if (loading) {
     return (

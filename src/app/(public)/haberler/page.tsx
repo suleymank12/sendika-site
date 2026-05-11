@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import NewsCard from "@/components/public/NewsCard";
 import Link from "next/link";
@@ -20,6 +21,7 @@ interface Props {
 export default async function NewsListPage({ searchParams }: Props) {
   const page = parseInt(searchParams.sayfa || "1");
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   const from = (page - 1) * PER_PAGE;
   const to = from + PER_PAGE - 1;
@@ -27,6 +29,7 @@ export default async function NewsListPage({ searchParams }: Props) {
   const { data, count } = await supabase
     .from("news")
     .select("*", { count: "exact" })
+    .eq("tenant_id", tenant.id)
     .eq("is_published", true)
     .order("published_at", { ascending: false })
     .range(from, to);

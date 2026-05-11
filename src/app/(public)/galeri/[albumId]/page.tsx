@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import GalleryGrid from "@/components/public/GalleryGrid";
@@ -10,9 +11,11 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("gallery_albums")
     .select("title")
+    .eq("tenant_id", tenant.id)
     .eq("id", params.albumId)
     .eq("is_published", true)
     .single();
@@ -22,10 +25,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function GalleryAlbumPage({ params }: Props) {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
 
   const { data: album } = await supabase
     .from("gallery_albums")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("id", params.albumId)
     .eq("is_published", true)
     .single();
@@ -35,6 +40,7 @@ export default async function GalleryAlbumPage({ params }: Props) {
   const { data: images } = await supabase
     .from("gallery_images")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("album_id", params.albumId)
     .order("order", { ascending: true });
 

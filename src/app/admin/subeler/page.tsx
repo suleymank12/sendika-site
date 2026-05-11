@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -134,6 +135,7 @@ function SortableBranchRow({
 }
 
 export default function AdminBranchesPage() {
+  const { tenant } = useTenant();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [boardMembers, setBoardMembers] = useState<BoardMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,21 +153,28 @@ export default function AdminBranchesPage() {
   );
 
   const fetchBranches = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase.from("branches").select("*").order("order", { ascending: true });
+    const { data } = await supabase
+      .from("branches")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .order("order", { ascending: true });
     setBranches(data || []);
     setLoading(false);
-  }, []);
+  }, [tenant]);
 
   const fetchBoardMembers = useCallback(async () => {
+    if (!tenant) return;
     const supabase = createClient();
     const { data } = await supabase
       .from("board_members")
       .select("*")
+      .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("order", { ascending: true });
     setBoardMembers(data || []);
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     fetchBranches();
@@ -216,6 +225,10 @@ export default function AdminBranchesPage() {
       toast.error("Şube adı zorunludur.");
       return;
     }
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
 
     const finalSlug = form.slug.trim() || createSlug(form.name);
 
@@ -263,8 +276,13 @@ export default function AdminBranchesPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase.from("branches").update(payload).eq("id", form.id));
+      ({ error } = await supabase
+        .from("branches")
+        .update(payload)
+        .eq("tenant_id", tenant.id)
+        .eq("id", form.id));
     } else {
+      payload.tenant_id = tenant.id;
       payload.order = branches.length;
       ({ error } = await supabase.from("branches").insert(payload));
     }
@@ -285,10 +303,14 @@ export default function AdminBranchesPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteItem) return;
+    if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase.from("branches").delete().eq("id", deleteItem.id);
+    const { error } = await supabase
+      .from("branches")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -300,8 +322,13 @@ export default function AdminBranchesPage() {
   };
 
   const handleToggle = async (item: Branch) => {
+    if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase.from("branches").update({ is_active: !item.is_active }).eq("id", item.id);
+    const { error } = await supabase
+      .from("branches")
+      .update({ is_active: !item.is_active })
+      .eq("tenant_id", tenant.id)
+      .eq("id", item.id);
     if (error) {
       toast.error("Güncelleme başarısız.");
     } else {
@@ -311,7 +338,7 @@ export default function AdminBranchesPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    if (!over || active.id === over.id || !tenant) return;
 
     const oldIndex = branches.findIndex((i) => i.id === active.id);
     const newIndex = branches.findIndex((i) => i.id === over.id);
@@ -323,7 +350,11 @@ export default function AdminBranchesPage() {
     const supabase = createClient();
     await Promise.all(
       reordered.map((i, idx) =>
-        supabase.from("branches").update({ order: idx }).eq("id", i.id)
+        supabase
+          .from("branches")
+          .update({ order: idx })
+          .eq("tenant_id", tenant.id)
+          .eq("id", i.id)
       )
     );
     toast.success("Sıralama kaydedildi.");

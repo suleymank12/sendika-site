@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import BranchCard from "@/components/public/BranchCard";
 
@@ -11,9 +12,11 @@ export const metadata: Metadata = {
 
 export default async function BranchesPage() {
   const supabase = createClient();
+  const tenant = await getCurrentTenant();
   const { data: branches } = await supabase
     .from("branches")
     .select("*")
+    .eq("tenant_id", tenant.id)
     .eq("is_active", true)
     .order("order", { ascending: true });
 
