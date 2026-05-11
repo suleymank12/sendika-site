@@ -2,6 +2,7 @@
 
 import { useState, ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import ArticleTools from "./ArticleTools";
 import ImageLightbox from "./ImageLightbox";
 import { formatDate } from "@/lib/utils";
@@ -251,11 +252,16 @@ function PhotoGrid({
             key={i}
             type="button"
             onClick={() => onClick(startIndex + i)}
-            className="aspect-square w-full cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            className="relative aspect-square w-full cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             aria-label={`Görsel ${i + 1}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={src} alt="" className="w-full h-full object-cover" />
+            <Image
+              src={src}
+              alt=""
+              fill
+              sizes="(max-width: 768px) 33vw, 150px"
+              className="object-cover"
+            />
           </button>
         ))}
       </div>
@@ -276,11 +282,16 @@ function PhotoSidebar({
     <button
       type="button"
       onClick={() => onClick(index)}
-      className="w-full aspect-video overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow"
+      className="relative w-full aspect-video overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow"
       aria-label="Görsel"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="w-full h-full object-cover" />
+      <Image
+        src={src}
+        alt=""
+        fill
+        sizes="(max-width: 1024px) 100vw, 300px"
+        className="object-cover"
+      />
     </button>
   );
 }

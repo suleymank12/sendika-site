@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -82,8 +83,13 @@ function SortableAlbumCard({
       </button>
       <div className="relative h-40">
         {album.cover_image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={album.cover_image} alt={album.title} className="w-full h-full object-cover" />
+          <Image
+            src={album.cover_image}
+            alt={`${album.title} albümü kapağı`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover"
+          />
         ) : (
           <div className="w-full h-full bg-bg-light flex items-center justify-center">
             <ImageIcon className="h-12 w-12 text-text-muted/30" />

@@ -8,7 +8,6 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
-import FormField from "@/components/admin/FormField";
 import Loading from "@/components/ui/Loading";
 import DeleteModal from "@/components/admin/DeleteModal";
 import { formatDate } from "@/lib/utils";
@@ -243,7 +242,7 @@ export default function TenantDetailPage() {
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="text-xs text-amber-900">
-                Subdomain değişiyor. Mevcut kullanıcıların eski URL'leri çalışmaz olur,
+                Subdomain değişiyor. Mevcut kullanıcıların eski URL&apos;leri çalışmaz olur,
                 arama motoru indeksleri sıfırlanır. Kaçınılmazsa devam edin.
               </p>
             </div>

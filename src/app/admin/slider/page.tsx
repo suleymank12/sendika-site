@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -70,7 +71,13 @@ function SortableSliderCard({
   return (
     <div ref={setNodeRef} style={style} className="rounded-xl border border-border bg-white overflow-hidden">
       <div className="relative h-40">
-        <img src={item.image_url} alt={item.title || "Slider"} className="w-full h-full object-cover" />
+        <Image
+          src={item.image_url}
+          alt={item.title || "Slider görseli"}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover"
+        />
         <div className="absolute top-2 left-2">
           <button {...attributes} {...listeners} className="rounded-lg bg-black/50 p-1.5 text-white cursor-grab">
             <GripVertical className="h-4 w-4" />

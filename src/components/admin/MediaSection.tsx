@@ -16,6 +16,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Upload, X, GripVertical } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
@@ -75,8 +76,13 @@ function SortableGalleryItem({
       style={style}
       className="relative group aspect-square rounded border border-gray-200 overflow-hidden bg-gray-50"
     >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt="" className="w-full h-full object-cover" />
+      <Image
+        src={url}
+        alt=""
+        fill
+        sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
+        className="object-cover"
+      />
       <button
         type="button"
         {...attributes}

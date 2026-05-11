@@ -38,7 +38,7 @@ export default async function SuperAdminDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-text-dark tracking-tight">Platform Özeti</h1>
           <p className="text-sm text-text-muted mt-1">
-            Tüm tenant'lara ve platform durumuna genel bakış.
+            Tüm tenant&apos;lara ve platform durumuna genel bakış.
           </p>
         </div>
         <Link
@@ -78,7 +78,7 @@ export default async function SuperAdminDashboard() {
       {/* Recent tenants */}
       <div className="rounded-xl bg-white border border-border p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-semibold text-text-dark">Son Eklenen Tenant'lar</h2>
+          <h2 className="font-semibold text-text-dark">Son Eklenen Tenant&apos;lar</h2>
           <Link
             href="/super-admin/tenants"
             className="inline-flex items-center gap-1 text-sm text-primary hover:underline"

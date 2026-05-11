@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 
 interface RequestBody {
   name: string;
@@ -148,22 +149,8 @@ export async function POST(req: NextRequest) {
   );
 
   // 8) Admin kullanıcıyı bul veya oluştur
-  let adminUserId: string | null = null;
-
-  // Mevcut kullanıcıyı listOrSearch — auth.admin.listUsers ile email filtreleyemiyoruz
-  // doğrudan, o yüzden listeyi alıp manuel filtreliyoruz (küçük platformlar için OK).
-  // Daha verimli: admin.auth.admin.getUserByEmail (yeni Supabase sürümlerinde var)
-  try {
-    // Bu API @supabase/supabase-js v2.45+ ile geliyor; yoksa catch'e düşer.
-    // @ts-expect-error — getUserByEmail bazı sürümlerde tipte yok
-    const { data: byEmail } = await admin.auth.admin.getUserByEmail(adminEmail);
-    if (byEmail?.user?.id) adminUserId = byEmail.user.id;
-  } catch {
-    // Fallback: listeden ara (büyük listelerde sayfalama gerekir)
-    const { data: list } = await admin.auth.admin.listUsers();
-    const found = list?.users.find((u) => u.email?.toLowerCase() === adminEmail);
-    if (found) adminUserId = found.id;
-  }
+  const existingUser = await findUserByEmail(admin, adminEmail);
+  let adminUserId: string | null = existingUser?.id ?? null;
 
   if (!adminUserId) {
     // Kullanıcı yok — oluştur (davet maili ile)

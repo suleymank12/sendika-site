@@ -6,6 +6,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -344,9 +345,11 @@ export default function AdminHeadlinePage() {
                 </div>
 
                 {h.image_url ? (
-                  <img
+                  <Image
                     src={h.image_url}
                     alt={h.title}
+                    width={80}
+                    height={56}
                     className="w-20 h-14 object-cover rounded-lg shrink-0"
                   />
                 ) : (

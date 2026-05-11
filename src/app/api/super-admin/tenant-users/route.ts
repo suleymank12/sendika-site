@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 
 async function requireSuperAdmin() {
   const supabase = createClient();
@@ -57,16 +58,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Kullanıcıyı bul, yoksa davet et
-  let userId: string | null = null;
-  try {
-    // @ts-expect-error — getUserByEmail bazı sürümlerde tipte yok
-    const { data: byEmail } = await admin.auth.admin.getUserByEmail(email);
-    if (byEmail?.user?.id) userId = byEmail.user.id;
-  } catch {
-    const { data: list } = await admin.auth.admin.listUsers();
-    const found = list?.users.find((u) => u.email?.toLowerCase() === email);
-    if (found) userId = found.id;
-  }
+  const existingUser = await findUserByEmail(admin, email);
+  let userId: string | null = existingUser?.id ?? null;
 
   if (!userId) {
     const { data: invited, error: inviteError } =

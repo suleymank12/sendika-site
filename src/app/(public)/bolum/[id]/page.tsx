@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Building2 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import Breadcrumb from "@/components/public/Breadcrumb";
@@ -96,11 +97,12 @@ function ItemCard({ item }: { item: HomepageSectionItem }) {
     <div className="group rounded-lg border border-border bg-white overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col">
       <div className="relative aspect-video bg-primary/5 overflow-hidden">
         {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={item.image_url}
             alt={item.title}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
           />
         ) : Icon ? (
           <div className="h-full w-full flex items-center justify-center">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -72,9 +73,15 @@ function SortableMemberCard({
 
   return (
     <div ref={setNodeRef} style={style} className="rounded-xl border border-border bg-white overflow-hidden">
-      <div className="relative">
+      <div className="relative h-48">
         {item.photo ? (
-          <img src={item.photo} alt={item.name} className="w-full h-48 object-cover" />
+          <Image
+            src={item.photo}
+            alt={`Yönetim kurulu üyesi: ${item.name}`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 25vw"
+            className="object-cover"
+          />
         ) : (
           <div className="w-full h-48 bg-bg-light flex items-center justify-center">
             <Users className="h-12 w-12 text-text-muted/30" />

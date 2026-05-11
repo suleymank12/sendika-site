@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -43,8 +44,14 @@ function SortableImage({
   const style = { transform: CSS.Transform.toString(transform), transition };
 
   return (
-    <div ref={setNodeRef} style={style} className="relative group rounded-lg overflow-hidden border border-border">
-      <img src={image.image_url} alt={image.caption || ""} className="w-full h-32 object-cover" />
+    <div ref={setNodeRef} style={style} className="relative group rounded-lg overflow-hidden border border-border h-32">
+      <Image
+        src={image.image_url}
+        alt={image.caption || ""}
+        fill
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+        className="object-cover"
+      />
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
         <button {...attributes} {...listeners} className="rounded-lg bg-white/90 p-1.5 text-text-dark cursor-grab">
           <GripVertical className="h-4 w-4" />

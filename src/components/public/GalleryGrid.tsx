@@ -56,12 +56,13 @@ export default function GalleryGrid({ images }: GalleryGridProps) {
           >
             <ChevronRight className="h-8 w-8" />
           </button>
-          {/* Lightbox görseli: aspect ratio bilinmediği için next/image uygun değil, LCP'yi de etkilemez */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={images[lightboxIndex].image_url}
             alt={images[lightboxIndex].caption || ""}
-            className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg"
+            width={1920}
+            height={1080}
+            unoptimized
+            className="max-h-[85vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
           {images[lightboxIndex].caption && (

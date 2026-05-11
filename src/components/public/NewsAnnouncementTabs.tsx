@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronRight, Newspaper, Megaphone } from "lucide-react";
 import { News, Announcement } from "@/types";
 import { formatDate } from "@/lib/utils";
@@ -112,10 +113,11 @@ export default function NewsAnnouncementTabs({ news, announcements, fullHeight }
                 >
                   <div className="w-16 h-12 shrink-0 rounded-lg overflow-hidden bg-primary/5 flex items-center justify-center">
                     {n.cover_image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <Image
                         src={n.cover_image}
                         alt={n.title}
+                        width={64}
+                        height={48}
                         className="h-full w-full object-cover"
                       />
                     ) : (

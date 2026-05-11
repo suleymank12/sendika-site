@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -104,8 +105,13 @@ function SortableItemRow({
 
       <div className="w-14 h-10 rounded bg-bg-light overflow-hidden shrink-0 flex items-center justify-center">
         {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
+          <Image
+            src={item.image_url}
+            alt={item.title}
+            width={56}
+            height={40}
+            className="w-full h-full object-cover"
+          />
         ) : (
           <LayoutGrid className="h-4 w-4 text-text-muted" />
         )}

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import Link from "next/link";
+import Image from "next/image";
 import { ImageIcon } from "lucide-react";
 import { GalleryAlbum } from "@/types";
 
@@ -49,10 +50,12 @@ export default async function GalleryPage() {
               >
                 <div className="relative h-52 bg-bg-light overflow-hidden">
                   {album.cover_image ? (
-                    <img
+                    <Image
                       src={album.cover_image}
-                      alt={album.title}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      alt={`${album.title} albümü kapağı`}
+                      fill
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover group-hover:scale-105 transition-transform duration-300"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center">

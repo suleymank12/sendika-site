@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
@@ -138,11 +139,13 @@ export default function FullWidthSlider({
             >
               <div className="relative h-full w-full">
                 {slide.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={slide.image_url}
-                    alt={slide.title || ""}
-                    className="h-full w-full object-cover pointer-events-none"
+                    alt={slide.title || "Slider görseli"}
+                    fill
+                    sizes="100vw"
+                    priority
+                    className="object-cover pointer-events-none"
                     draggable={false}
                   />
                 ) : (

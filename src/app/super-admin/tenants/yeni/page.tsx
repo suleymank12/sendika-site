@@ -172,7 +172,7 @@ export default function NewTenantPage() {
                 <div className="flex-1">
                   <p className="text-sm font-medium text-text-dark">Bağışlar</p>
                   <p className="text-xs text-text-muted">
-                    Tenant kendi POS'unu bağlayıp bağış toplayabilir.
+                    Tenant kendi POS&apos;unu bağlayıp bağış toplayabilir.
                   </p>
                 </div>
               </label>

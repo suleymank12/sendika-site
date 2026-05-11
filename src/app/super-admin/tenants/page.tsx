@@ -87,7 +87,7 @@ export default function SuperAdminTenantsPage() {
       {/* Header */}
       <div className="flex items-start sm:items-center justify-between gap-3 flex-col sm:flex-row">
         <div>
-          <h1 className="text-2xl font-bold text-text-dark tracking-tight">Tenant'lar</h1>
+          <h1 className="text-2xl font-bold text-text-dark tracking-tight">Tenant&apos;lar</h1>
           <p className="text-sm text-text-muted mt-1">
             Platformdaki tüm kuruluşları yönetin.
           </p>

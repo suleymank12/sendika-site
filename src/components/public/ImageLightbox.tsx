@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 interface ImageLightboxProps {
   images: string[];
@@ -151,13 +152,15 @@ export default function ImageLightbox({
           </button>
         )}
 
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src={images[index]}
           alt=""
+          width={1920}
+          height={1080}
+          unoptimized
           onClick={stop}
           onLoad={() => setImgLoaded(true)}
-          className={`max-w-[85vw] max-h-[80vh] object-contain rounded-lg shadow-2xl ring-1 ring-white/10 transition-opacity duration-200 ${
+          className={`max-w-[85vw] max-h-[80vh] w-auto h-auto object-contain rounded-lg shadow-2xl ring-1 ring-white/10 transition-opacity duration-200 ${
             imgLoaded ? "opacity-100" : "opacity-0"
           }`}
         />
@@ -211,8 +214,13 @@ export default function ImageLightbox({
                     : "opacity-60 hover:opacity-100"
                 }`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="h-full w-full object-cover" />
+                <Image
+                  src={src}
+                  alt=""
+                  width={64}
+                  height={64}
+                  className="h-full w-full object-cover"
+                />
               </button>
             ))}
           </div>
