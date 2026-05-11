@@ -80,6 +80,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Süper admin rotalarını da auth ile koru.
+  // Süper admin yetkisi kontrolü (is_super_admin) middleware'de YAPILMAZ
+  // (her request'te RPC çağırmak pahalı). Bu kontrol layout'ta yapılır.
+  if (pathname.startsWith("/super-admin")) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/giris";
+      return NextResponse.redirect(url);
+    }
+  }
+
   // Giris yapmis kullanici giris sayfasina giderse admin'e yonlendir
   if (pathname === "/admin/giris" && user) {
     const url = request.nextUrl.clone();
