@@ -1,14 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Loading from "@/components/ui/Loading";
 import { useSiteTitle } from "@/hooks/useSiteTitle";
 
-export default function AdminLoginPage() {
+function isSafeNext(next: string | null): next is string {
+  return !!next && next.startsWith("/") && !next.startsWith("//");
+}
+
+function AdminLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const siteTitle = useSiteTitle();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +38,42 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push("/admin");
+      // Süper admin kontrolü — RPC hatasında sessizce false varsay
+      let isSuperAdmin = false;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { data, error: rpcError } = await supabase.rpc("is_super_admin", {
+            user_id: user.id,
+          });
+          if (rpcError) {
+            console.error("is_super_admin RPC hatası:", rpcError);
+          } else {
+            isSuperAdmin = data === true;
+          }
+        }
+      } catch (rpcErr) {
+        console.error("is_super_admin RPC hatası:", rpcErr);
+      }
+
+      // Yönlendirme: next varsa ve güvenliyse onu kullan; yoksa role'e göre
+      const rawNext = searchParams.get("next");
+      const next = isSafeNext(rawNext) ? rawNext : null;
+
+      let target: string;
+      if (next) {
+        if (next.startsWith("/super-admin")) {
+          target = isSuperAdmin ? next : "/admin";
+        } else {
+          target = next;
+        }
+      } else {
+        target = isSuperAdmin ? "/super-admin" : "/admin";
+      }
+
+      router.push(target);
       router.refresh();
     } catch {
       setError("Bir hata oluştu. Lütfen tekrar deneyin.");
@@ -66,7 +107,7 @@ export default function AdminLoginPage() {
               id="password"
               label="Şifre"
               type="password"
-              placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+              placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -82,8 +123,20 @@ export default function AdminLoginPage() {
               Giriş Yap
             </Button>
           </form>
+
+          <p className="text-xs text-text-muted text-center mt-4">
+            Platform yönetimi için de bu sayfayı kullanabilirsiniz.
+          </p>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <AdminLoginForm />
+    </Suspense>
   );
 }

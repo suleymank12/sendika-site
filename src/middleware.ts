@@ -74,9 +74,9 @@ export async function middleware(request: NextRequest) {
   // Admin giris sayfasi haric tum admin rotalarini koru
   if (pathname.startsWith("/admin") && pathname !== "/admin/giris") {
     if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/giris";
-      return NextResponse.redirect(url);
+      const loginUrl = new URL("/admin/giris", request.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 
@@ -85,9 +85,9 @@ export async function middleware(request: NextRequest) {
   // (her request'te RPC çağırmak pahalı). Bu kontrol layout'ta yapılır.
   if (pathname.startsWith("/super-admin")) {
     if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/giris";
-      return NextResponse.redirect(url);
+      const loginUrl = new URL("/admin/giris", request.url);
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
     }
   }
 
