@@ -61,3 +61,34 @@ export function extractImagesFromHtml(html: string | null | undefined): string[]
   }
   return urls;
 }
+
+/**
+ * Tenant'in admin paneline cross-subdomain URL insa eder.
+ * Development: subdomain.lvh.me:3000/admin
+ * Production: custom_domain varsa onu, yoksa subdomain.{apex}/admin
+ */
+export function buildTenantAdminUrl(
+  slug: string,
+  customDomain?: string | null
+): string {
+  if (typeof window === "undefined") return "#";
+
+  // Custom domain varsa onu kullan (production'da oncelik)
+  if (customDomain) {
+    return `https://${customDomain}/admin`;
+  }
+
+  const host = window.location.host;
+  const protocol = window.location.protocol;
+
+  // Development: lvh.me veya localhost
+  if (host.includes("lvh.me") || host.includes("localhost")) {
+    const port = host.split(":")[1] || "3000";
+    return `${protocol}//${slug}.lvh.me:${port}/admin`;
+  }
+
+  // Production: ana domain'i cikar (parts.slice(-2).join("."))
+  const parts = host.split(".");
+  const apex = parts.slice(-2).join(".");
+  return `${protocol}//${slug}.${apex}/admin`;
+}

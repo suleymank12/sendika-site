@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   // Tenant gerçekten var mı?
   const { data: tenant } = await admin
     .from("tenants")
-    .select("id")
+    .select("id, slug")
     .eq("id", tenantId)
     .maybeSingle();
   if (!tenant) {
@@ -62,9 +62,17 @@ export async function POST(req: NextRequest) {
   let userId: string | null = existingUser?.id ?? null;
 
   if (!userId) {
+    const inviteRedirectUrl =
+      process.env.NODE_ENV === "production"
+        ? `${process.env.NEXT_PUBLIC_SITE_URL}/admin/davet-kabul`
+        : `http://${tenant.slug}.lvh.me:3000/admin/davet-kabul`;
+
     const { data: invited, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(email);
+      await admin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: inviteRedirectUrl,
+      });
     if (inviteError || !invited?.user) {
+      console.error("[TenantUsers] inviteUserByEmail hatası:", inviteError);
       return NextResponse.json(
         { error: "Kullanıcı davet edilemedi: " + (inviteError?.message || "") },
         { status: 500 }

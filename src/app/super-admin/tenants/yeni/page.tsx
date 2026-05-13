@@ -6,8 +6,6 @@ import Link from "next/link";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import Select from "@/components/ui/Select";
-import FormField from "@/components/admin/FormField";
 import { createSlug } from "@/lib/utils";
 import toast from "react-hot-toast";
 
@@ -18,7 +16,6 @@ export default function NewTenantPage() {
   const [slug, setSlug] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [adminEmail, setAdminEmail] = useState("");
-  const [plan, setPlan] = useState("basic");
   const [donations, setDonations] = useState(false);
   const [membership, setMembership] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,7 +54,6 @@ export default function NewTenantPage() {
         name: name.trim(),
         slug: slug.trim(),
         adminEmail: adminEmail.trim(),
-        plan,
         enabledModules: { donations, membership },
       }),
     });
@@ -145,53 +141,41 @@ export default function NewTenantPage() {
           />
         </section>
 
-        {/* Plan ve Modüller */}
+        {/* Aktif Modüller */}
         <section className="space-y-3">
           <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">
-            Plan ve Modüller
+            Aktif Modüller
           </p>
-          <Select
-            label="Plan"
-            value={plan}
-            onChange={(e) => setPlan(e.target.value)}
-          >
-            <option value="basic">Basic</option>
-            <option value="pro">Pro</option>
-            <option value="enterprise">Enterprise</option>
-          </Select>
-
-          <FormField label="Aktif Modüller">
-            <div className="space-y-2">
-              <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer hover:bg-bg-light/40 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={donations}
-                  onChange={(e) => setDonations(e.target.checked)}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-text-dark">Bağışlar</p>
-                  <p className="text-xs text-text-muted">
-                    Tenant kendi POS&apos;unu bağlayıp bağış toplayabilir.
-                  </p>
-                </div>
-              </label>
-              <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer hover:bg-bg-light/40 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={membership}
-                  onChange={(e) => setMembership(e.target.checked)}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-text-dark">Üyelik / Aidat</p>
-                  <p className="text-xs text-text-muted">
-                    Üye kayıt ve aidat takip sistemi (V3 — yakında).
-                  </p>
-                </div>
-              </label>
-            </div>
-          </FormField>
+          <div className="space-y-2">
+            <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer hover:bg-bg-light/40 transition-colors">
+              <input
+                type="checkbox"
+                checked={donations}
+                onChange={(e) => setDonations(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-text-dark">Bağışlar</p>
+                <p className="text-xs text-text-muted">
+                  Tenant kendi POS&apos;unu bağlayıp bağış toplayabilir.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5 cursor-pointer hover:bg-bg-light/40 transition-colors">
+              <input
+                type="checkbox"
+                checked={membership}
+                onChange={(e) => setMembership(e.target.checked)}
+                className="h-4 w-4 rounded border-border text-primary focus:ring-primary/50"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-text-dark">Üyelik / Aidat</p>
+                <p className="text-xs text-text-muted">
+                  Üye kayıt ve aidat takip sistemi (V3 — yakında).
+                </p>
+              </div>
+            </label>
+          </div>
         </section>
 
         {/* Info */}

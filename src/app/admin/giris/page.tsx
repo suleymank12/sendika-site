@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
@@ -112,6 +113,14 @@ function AdminLoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <div className="flex justify-end -mt-2">
+              <Link
+                href="/admin/sifremi-unuttum"
+                className="text-xs text-text-muted hover:text-primary transition-colors"
+              >
+                Şifremi Unuttum
+              </Link>
+            </div>
 
             {error && (
               <div className="rounded-lg bg-error/10 px-4 py-3 text-sm text-error">

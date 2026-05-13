@@ -18,7 +18,6 @@ interface Tenant {
   name: string;
   slug: string;
   custom_domain: string | null;
-  plan: string;
   is_active: boolean;
   enabled_modules: { donations?: boolean; membership?: boolean };
   created_at: string;
@@ -47,7 +46,6 @@ export default function TenantDetailPage() {
   const [slug, setSlug] = useState("");
   const [originalSlug, setOriginalSlug] = useState("");
   const [customDomain, setCustomDomain] = useState("");
-  const [plan, setPlan] = useState("basic");
   const [isActive, setIsActive] = useState(true);
   const [donations, setDonations] = useState(false);
   const [membership, setMembership] = useState(false);
@@ -79,7 +77,6 @@ export default function TenantDetailPage() {
     setSlug(t.slug);
     setOriginalSlug(t.slug);
     setCustomDomain(t.custom_domain || "");
-    setPlan(t.plan || "basic");
     setIsActive(t.is_active);
     setDonations(!!t.enabled_modules?.donations);
     setMembership(!!t.enabled_modules?.membership);
@@ -121,7 +118,6 @@ export default function TenantDetailPage() {
         name: name.trim(),
         slug: slug.trim().toLowerCase(),
         custom_domain: customDomain.trim().toLowerCase() || null,
-        plan,
         is_active: isActive,
         enabled_modules: { donations, membership },
         updated_at: new Date().toISOString(),
@@ -259,27 +255,16 @@ export default function TenantDetailPage() {
 
         <section className="space-y-3">
           <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">
-            Plan ve Durum
+            Durum
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select
-              label="Plan"
-              value={plan}
-              onChange={(e) => setPlan(e.target.value)}
-            >
-              <option value="basic">Basic</option>
-              <option value="pro">Pro</option>
-              <option value="enterprise">Enterprise</option>
-            </Select>
-            <Select
-              label="Durum"
-              value={isActive ? "true" : "false"}
-              onChange={(e) => setIsActive(e.target.value === "true")}
-            >
-              <option value="true">Aktif (erişilebilir)</option>
-              <option value="false">Pasif (erişim kapalı)</option>
-            </Select>
-          </div>
+          <Select
+            label="Durum"
+            value={isActive ? "true" : "false"}
+            onChange={(e) => setIsActive(e.target.value === "true")}
+          >
+            <option value="true">Aktif (erişilebilir)</option>
+            <option value="false">Pasif (erişim kapalı)</option>
+          </Select>
         </section>
 
         <section className="space-y-3">

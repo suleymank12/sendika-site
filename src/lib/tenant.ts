@@ -8,7 +8,6 @@ export interface Tenant {
   logo_url: string | null;
   favicon_url: string | null;
   is_active: boolean;
-  plan: string;
   enabled_modules: Record<string, boolean>;
 }
 

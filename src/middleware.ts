@@ -71,8 +71,15 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // Admin giris sayfasi haric tum admin rotalarini koru
-  if (pathname.startsWith("/admin") && pathname !== "/admin/giris") {
+  // Admin giris ve davet-kabul/yetkisiz sayfalari haric tum admin rotalarini koru
+  // (davet-kabul login OLMAYAN kullanici icin token ile session olusturur)
+  const ADMIN_PUBLIC_PATHS = [
+    "/admin/giris",
+    "/admin/davet-kabul",
+    "/admin/sifremi-unuttum",
+    "/admin/yetkisiz",
+  ];
+  if (pathname.startsWith("/admin") && !ADMIN_PUBLIC_PATHS.includes(pathname)) {
     if (!user) {
       const loginUrl = new URL("/admin/giris", request.url);
       loginUrl.searchParams.set("next", pathname);
@@ -91,10 +98,37 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Giris yapmis kullanici giris sayfasina giderse admin'e yonlendir
+  // Giris yapmis kullanici giris sayfasina giderse rolune gore yonlendir
   if (pathname === "/admin/giris" && user) {
+    // Super admin kontrolu icin RPC (nadir cagri, performans tolere edilir)
+    const { data: isSuperAdmin, error: rpcError } = await supabase.rpc(
+      "is_super_admin",
+      { user_id: user.id }
+    );
+
+    if (rpcError) {
+      console.error("[Middleware] is_super_admin RPC hatasi:", rpcError);
+      // Hata durumunda guvenli taraf: normal admin'e at
+    }
+
+    const rawNext = request.nextUrl.searchParams.get("next");
+    const safeNext =
+      !!rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//");
+
     const url = request.nextUrl.clone();
-    url.pathname = "/admin";
+    url.search = ""; // next param redirect URL'inden temizle
+
+    if (safeNext && rawNext!.startsWith("/super-admin")) {
+      // next /super-admin/* ise: super admin ise oraya, degilse /admin'e
+      url.pathname = isSuperAdmin ? rawNext! : "/admin";
+    } else if (safeNext) {
+      // next normal yolsa: oldugu gibi git (super admin de tenant sayfasina donebilir)
+      url.pathname = rawNext!;
+    } else {
+      // next yoksa: super admin -> /super-admin, normal -> /admin
+      url.pathname = isSuperAdmin ? "/super-admin" : "/admin";
+    }
+
     return NextResponse.redirect(url);
   }
 

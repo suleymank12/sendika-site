@@ -1,23 +1,12 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import Sidebar from "@/components/admin/Sidebar";
 import ToastProvider from "@/components/ui/Toast";
 import { SidebarProvider, useSidebar } from "@/hooks/useAdminSidebar";
 import { TenantProvider } from "@/hooks/useTenant";
 
-function AdminLayoutInner({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { isOpen, close } = useSidebar();
-
-  if (pathname === "/admin/giris") {
-    return (
-      <>
-        {children}
-        <ToastProvider />
-      </>
-    );
-  }
 
   return (
     <div className="flex h-screen bg-bg-light">
@@ -30,11 +19,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <TenantProvider>
       <SidebarProvider>
-        <AdminLayoutInner>{children}</AdminLayoutInner>
+        <AdminShellInner>{children}</AdminShellInner>
       </SidebarProvider>
     </TenantProvider>
   );

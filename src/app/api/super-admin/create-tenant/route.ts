@@ -8,7 +8,6 @@ interface RequestBody {
   slug: string;
   adminEmail: string;
   customDomain?: string;
-  plan?: string;
   enabledModules?: {
     donations?: boolean;
     membership?: boolean;
@@ -52,7 +51,6 @@ export async function POST(req: NextRequest) {
   const slug = (body.slug || "").trim().toLowerCase();
   const adminEmail = (body.adminEmail || "").trim().toLowerCase();
   const customDomain = (body.customDomain || "").trim().toLowerCase() || null;
-  const plan = (body.plan || "basic").trim();
   const enabledModules = {
     donations: !!body.enabledModules?.donations,
     membership: !!body.enabledModules?.membership,
@@ -97,7 +95,6 @@ export async function POST(req: NextRequest) {
       name,
       slug,
       custom_domain: customDomain,
-      plan,
       enabled_modules: enabledModules,
       is_active: true,
     })
@@ -154,9 +151,17 @@ export async function POST(req: NextRequest) {
 
   if (!adminUserId) {
     // Kullanıcı yok — oluştur (davet maili ile)
+    const inviteRedirectUrl =
+      process.env.NODE_ENV === "production"
+        ? `${process.env.NEXT_PUBLIC_SITE_URL}/admin/davet-kabul`
+        : `http://${slug}.lvh.me:3000/admin/davet-kabul`;
+
     const { data: created, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(adminEmail);
+      await admin.auth.admin.inviteUserByEmail(adminEmail, {
+        redirectTo: inviteRedirectUrl,
+      });
     if (inviteError || !created?.user) {
+      console.error("[CreateTenant] inviteUserByEmail hatası:", inviteError);
       return NextResponse.json(
         {
           error:

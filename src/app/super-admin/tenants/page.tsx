@@ -4,8 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Search, Edit, Trash2, Building2, Power, PowerOff } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { Plus, Search, Edit, Trash2, Building2, Power, PowerOff, ExternalLink } from "lucide-react";
+import { formatDate, buildTenantAdminUrl } from "@/lib/utils";
 import toast from "react-hot-toast";
 import DeleteModal from "@/components/admin/DeleteModal";
 
@@ -13,7 +13,6 @@ interface Tenant {
   id: string;
   name: string;
   slug: string;
-  plan: string;
   is_active: boolean;
   custom_domain: string | null;
   created_at: string;
@@ -130,7 +129,6 @@ export default function SuperAdminTenantsPage() {
                 <tr className="text-xs uppercase tracking-wider text-text-muted border-b border-border">
                   <th className="text-left font-semibold py-2.5 pr-3">İsim</th>
                   <th className="text-left font-semibold py-2.5 pr-3">Subdomain</th>
-                  <th className="text-left font-semibold py-2.5 pr-3 hidden md:table-cell">Plan</th>
                   <th className="text-left font-semibold py-2.5 pr-3">Durum</th>
                   <th className="text-left font-semibold py-2.5 pr-3 hidden lg:table-cell">
                     Oluşturulma
@@ -153,11 +151,6 @@ export default function SuperAdminTenantsPage() {
                       )}
                     </td>
                     <td className="py-3 pr-3 text-text-muted font-mono text-xs">{t.slug}</td>
-                    <td className="py-3 pr-3 hidden md:table-cell">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                        {t.plan}
-                      </span>
-                    </td>
                     <td className="py-3 pr-3">
                       <span
                         className={
@@ -175,6 +168,16 @@ export default function SuperAdminTenantsPage() {
                     </td>
                     <td className="py-3 pl-3 text-right">
                       <div className="inline-flex items-center gap-1">
+                        <a
+                          href={buildTenantAdminUrl(t.slug, t.custom_domain)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 transition-colors"
+                          title="Admin paneline gir (yeni sekmede)"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
                         <button
                           onClick={() => handleToggle(t)}
                           className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10"
