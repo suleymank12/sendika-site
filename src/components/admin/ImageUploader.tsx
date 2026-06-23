@@ -4,6 +4,8 @@ import { useState, useCallback } from "react";
 import NextImage from "next/image";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
+import { buildStoragePath, generateFileName } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
@@ -65,11 +67,18 @@ export default function ImageUploader({
   maxWidth,
   maxHeight,
 }: ImageUploaderProps) {
+  const { tenant } = useTenant();
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
   const uploadFile = useCallback(
     async (file: File) => {
+      // Tenant prefix'i olmadan yükleme yapılamaz
+      if (!tenant) {
+        toast.error("Tenant bilgisi yüklenmedi, lütfen sayfayı yenileyin.");
+        return;
+      }
+
       if (!file.type.startsWith("image/")) {
         toast.error("Sadece görsel dosyaları yüklenebilir.");
         return;
@@ -88,14 +97,14 @@ export default function ImageUploader({
         }
 
         const supabase = createClient();
-        const ext = fileToUpload.name.split(".").pop();
-        const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const fileName = generateFileName(fileToUpload.name);
+        const filePath = buildStoragePath(tenant.id, folder, fileName);
 
-        const { error } = await supabase.storage.from(bucket).upload(fileName, fileToUpload);
+        const { error } = await supabase.storage.from(bucket).upload(filePath, fileToUpload);
 
         if (error) throw error;
 
-        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(fileName);
+        const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
         onChange(urlData.publicUrl);
         toast.success("Görsel yüklendi.");
       } catch {
@@ -104,7 +113,7 @@ export default function ImageUploader({
         setUploading(false);
       }
     },
-    [bucket, folder, onChange, maxWidth, maxHeight]
+    [bucket, folder, onChange, maxWidth, maxHeight, tenant]
   );
 
   const handleDrop = useCallback(

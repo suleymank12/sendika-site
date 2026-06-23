@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import AdminShell from "@/components/admin/AdminShell";
+import AdminTenantPasifView from "../_components/AdminTenantPasifView";
 
 export default async function AuthenticatedAdminLayout({
   children,
@@ -28,6 +29,12 @@ export default async function AuthenticatedAdminLayout({
   if (!tenant) {
     console.error("[AdminLayout] Tenant resolve edilemedi");
     redirect("/admin/giris");
+  }
+
+  // 2.5) Pasif tenant: her durumda kapali (super admin de gormez,
+  // reaktivasyon super-admin panelinden yapilir)
+  if (!tenant.is_active) {
+    return <AdminTenantPasifView />;
   }
 
   // 3) Süper admin bypass

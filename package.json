@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "migrate:storage:dry": "node scripts/migrate-storage-prefix.mjs --dry-run",
+    "migrate:storage": "node scripts/migrate-storage-prefix.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

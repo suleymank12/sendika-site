@@ -53,7 +53,6 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         .from("tenants")
         .select("*")
         .eq("slug", slug)
-        .eq("is_active", true)
         .maybeSingle();
 
       // Bulunamadıysa custom_domain ile dene
@@ -63,7 +62,6 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
           .from("tenants")
           .select("*")
           .eq("custom_domain", host)
-          .eq("is_active", true)
           .maybeSingle();
         data = customRes.data;
       }
@@ -74,7 +72,6 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
           .from("tenants")
           .select("*")
           .eq("slug", "default")
-          .eq("is_active", true)
           .maybeSingle();
         data = defaultRes.data;
       }

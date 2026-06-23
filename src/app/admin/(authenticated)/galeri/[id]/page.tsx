@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
+import { buildStoragePath, generateFileName } from "@/lib/storage";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -156,13 +157,13 @@ export default function AdminGalleryDetailPage() {
     for (const file of Array.from(files)) {
       if (!file.type.startsWith("image/")) continue;
 
-      const ext = file.name.split(".").pop();
-      const fileName = `gallery/${albumId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const fileName = generateFileName(file.name);
+      const filePath = buildStoragePath(tenant.id, `gallery/${albumId}`, fileName);
 
-      const { error: uploadError } = await supabase.storage.from("images").upload(fileName, file);
+      const { error: uploadError } = await supabase.storage.from("images").upload(filePath, file);
       if (uploadError) continue;
 
-      const { data: urlData } = supabase.storage.from("images").getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage.from("images").getPublicUrl(filePath);
 
       const { error: insertError } = await supabase.from("gallery_images").insert({
         tenant_id: tenant.id,

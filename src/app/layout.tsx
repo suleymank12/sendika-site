@@ -4,8 +4,18 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const supabase = createClient();
   const tenant = await getCurrentTenant();
+
+  // Pasif tenant: notr baslik + noindex (arama motorlari indekslemesin)
+  if (!tenant.is_active) {
+    return {
+      title: "Site Kapalı",
+      description: "Bu site şu anda hizmet vermemektedir.",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const supabase = createClient();
   const { data } = await supabase
     .from("site_settings")
     .select("key, value")

@@ -168,20 +168,36 @@ export default function SuperAdminTenantsPage() {
                     </td>
                     <td className="py-3 pl-3 text-right">
                       <div className="inline-flex items-center gap-1">
-                        <a
-                          href={buildTenantAdminUrl(t.slug, t.custom_domain)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 transition-colors"
-                          title="Admin paneline gir (yeni sekmede)"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                        {t.is_active ? (
+                          <a
+                            href={buildTenantAdminUrl(t.slug, t.custom_domain)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 transition-colors"
+                            title="Admin paneline gir (yeni sekmede)"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        ) : (
+                          <span
+                            className="p-1.5 text-text-muted/30 cursor-not-allowed"
+                            title="Pasif tenant — admin paneline erişilemez"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </span>
+                        )}
                         <button
                           onClick={() => handleToggle(t)}
-                          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10"
-                          title={t.is_active ? "Pasife al" : "Aktife al"}
+                          disabled={t.slug === "default"}
+                          className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 disabled:text-text-muted/30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-muted/30"
+                          title={
+                            t.slug === "default"
+                              ? "Default tenant pasiflenemez (sistem için gerekli)"
+                              : t.is_active
+                                ? "Pasife al"
+                                : "Aktife al"
+                          }
                         >
                           {t.is_active ? (
                             <PowerOff className="h-4 w-4" />

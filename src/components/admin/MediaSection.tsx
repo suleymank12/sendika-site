@@ -19,6 +19,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { Upload, X, GripVertical } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
+import { buildStoragePath, generateFileName } from "@/lib/storage";
 import toast from "react-hot-toast";
 import ImageUploader from "./ImageUploader";
 import MediaUploader from "./MediaUploader";
@@ -118,6 +120,7 @@ export default function MediaSection({
   galleryImages,
   onGalleryChange,
 }: MediaSectionProps) {
+  const { tenant } = useTenant();
   const [uploading, setUploading] = useState(false);
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -133,6 +136,12 @@ export default function MediaSection({
     const files = e.target.files;
     if (!files || files.length === 0 || !onGalleryChange) return;
 
+    // Tenant prefix'i olmadan yükleme yapılamaz
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenmedi, lütfen sayfayı yenileyin.");
+      return;
+    }
+
     setUploading(true);
     const supabase = createClient();
     const newUrls: string[] = [];
@@ -144,13 +153,13 @@ export default function MediaSection({
         continue;
       }
 
-      const ext = file.name.split(".").pop();
-      const fileName = `${galleryFolder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const fileName = generateFileName(file.name);
+      const filePath = buildStoragePath(tenant.id, galleryFolder, fileName);
 
-      const { error: uploadError } = await supabase.storage.from("images").upload(fileName, file);
+      const { error: uploadError } = await supabase.storage.from("images").upload(filePath, file);
       if (uploadError) continue;
 
-      const { data: urlData } = supabase.storage.from("images").getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage.from("images").getPublicUrl(filePath);
       newUrls.push(urlData.publicUrl);
     }
 

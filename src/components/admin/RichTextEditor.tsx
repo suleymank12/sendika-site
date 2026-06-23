@@ -25,6 +25,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useTenant } from "@/hooks/useTenant";
+import { buildStoragePath, generateFileName } from "@/lib/storage";
 import toast from "react-hot-toast";
 
 interface RichTextEditorProps {
@@ -59,6 +61,7 @@ function ToolbarButton({
 }
 
 export default function RichTextEditor({ content, onChange }: RichTextEditorProps) {
+  const { tenant } = useTenant();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
@@ -86,6 +89,11 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
 
   const addImage = useCallback(async (file: File) => {
     if (!editor) return;
+    // Tenant prefix'i olmadan yükleme yapılamaz
+    if (!tenant) {
+      toast.error("Tenant bilgisi yüklenmedi, lütfen sayfayı yenileyin.");
+      return;
+    }
     if (!file.type.startsWith("image/")) {
       toast.error("Sadece görsel dosyaları yüklenebilir.");
       return;
@@ -93,19 +101,19 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
 
     try {
       const supabase = createClient();
-      const ext = file.name.split(".").pop();
-      const fileName = `editor/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const fileName = generateFileName(file.name);
+      const filePath = buildStoragePath(tenant.id, "editor", fileName);
 
-      const { error } = await supabase.storage.from("images").upload(fileName, file);
+      const { error } = await supabase.storage.from("images").upload(filePath, file);
       if (error) throw error;
 
-      const { data: urlData } = supabase.storage.from("images").getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage.from("images").getPublicUrl(filePath);
       editor.chain().focus().setImage({ src: urlData.publicUrl }).run();
       toast.success("Görsel eklendi.");
     } catch {
       toast.error("Görsel yüklenemedi.");
     }
-  }, [editor]);
+  }, [editor, tenant]);
 
   const handleImageClick = () => {
     fileInputRef.current?.click();

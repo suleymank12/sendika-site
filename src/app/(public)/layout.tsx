@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import SiteKapaliView from "./_components/SiteKapaliView";
 import PageLoader from "@/components/public/PageLoader";
 import TopBar from "@/components/public/TopBar";
 import Navbar from "@/components/public/Navbar";
@@ -56,6 +57,12 @@ async function getMenuItems(tenantId: string) {
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
   const tenant = await getCurrentTenant();
+
+  // Pasif tenant: public site kapali (default'a dusurmek yerine "kapali" goster)
+  if (!tenant.is_active) {
+    return <SiteKapaliView />;
+  }
+
   const [settings, menuItems] = await Promise.all([
     getSettings(tenant.id),
     getMenuItems(tenant.id),

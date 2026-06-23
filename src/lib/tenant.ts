@@ -58,7 +58,6 @@ export async function getTenant(slug: string): Promise<Tenant | null> {
     .from("tenants")
     .select("*")
     .eq("slug", slug)
-    .eq("is_active", true)
     .maybeSingle();
 
   return data as Tenant | null;
@@ -79,7 +78,6 @@ export async function getTenantFromHostname(hostname: string): Promise<Tenant | 
       .from("tenants")
       .select("*")
       .eq("custom_domain", host)
-      .eq("is_active", true)
       .maybeSingle();
     tenant = data as Tenant | null;
   }
