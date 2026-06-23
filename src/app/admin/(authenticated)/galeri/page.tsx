@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -209,6 +210,21 @@ export default function AdminGalleryPage() {
     if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
+
+    // 1) ONCE: cascade silinmeden, albumun tum gallery_images path'lerini topla
+    const { data: albumImages } = await supabase
+      .from("gallery_images")
+      .select("image_url")
+      .eq("tenant_id", tenant.id)
+      .eq("album_id", deleteItem.id);
+
+    const imagePaths = (albumImages || []).map((img) =>
+      storagePathFromUrl(img.image_url)
+    );
+    // Album kapak gorseli de eklenir
+    imagePaths.push(storagePathFromUrl(deleteItem.cover_image));
+
+    // 2) Album'u sil (cascade gallery_images satirlarini gotur)
     const { error } = await supabase
       .from("gallery_albums")
       .delete()
@@ -217,6 +233,8 @@ export default function AdminGalleryPage() {
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
+      // 3) Storage temizligi — tek cagri ile N dosya (best-effort)
+      await removeFilesFromStorage(supabase, "images", imagePaths);
       toast.success("Albüm silindi.");
       fetchAlbums();
     }

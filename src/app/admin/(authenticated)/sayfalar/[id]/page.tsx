@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
@@ -139,6 +140,13 @@ export default function AdminPageEditorPage() {
           .eq("content_type", "page")
           .eq("content_id", pageId)
           .in("url", removed);
+
+        // Cikartilan galeri fotograflarini storage'tan da temizle (best-effort)
+        await removeFilesFromStorage(
+          supabase,
+          "images",
+          removed.map((url) => storagePathFromUrl(url))
+        );
       }
 
       const added = galleryImages.filter((u) => !initialGallery.includes(u));

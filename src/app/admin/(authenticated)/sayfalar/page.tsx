@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  purgeContentMedia,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
@@ -49,7 +54,12 @@ export default function AdminPagesListPage() {
   const handleDelete = async () => {
     if (!deleteItem || !tenant) return;
     setDeleting(true);
+    // 1) Cover image path'i DB silmeden ONCE yakala
+    const coverPath = storagePathFromUrl(deleteItem.cover_image);
+
     const supabase = createClient();
+
+    // 2) Sayfayi sil
     const { error } = await supabase
       .from("pages")
       .delete()
@@ -57,10 +67,19 @@ export default function AdminPagesListPage() {
       .eq("id", deleteItem.id);
     if (error) {
       toast.error("Silme işlemi başarısız oldu.");
-    } else {
-      toast.success("Sayfa silindi.");
-      setPages((prev) => prev.filter((p) => p.id !== deleteItem.id));
+      setDeleteItem(null);
+      setDeleting(false);
+      return;
     }
+
+    // 3) content_media satırlarını ELLE sil + galeri path'lerini topla (cascade YOK)
+    const galleryPaths = await purgeContentMedia(supabase, tenant.id, "page", deleteItem.id);
+
+    // 4) Storage temizligi (cover + galeri, tek cagri, best-effort)
+    await removeFilesFromStorage(supabase, "images", [coverPath, ...galleryPaths]);
+
+    toast.success("Sayfa silindi.");
+    setPages((prev) => prev.filter((p) => p.id !== deleteItem.id));
     setDeleteItem(null);
     setDeleting(false);
   };

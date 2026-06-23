@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -305,6 +306,9 @@ export default function AdminBranchesPage() {
   const handleDelete = async () => {
     if (!deleteItem || !tenant) return;
     setDeleting(true);
+    // Storage path'i DB silmeden ONCE yakala
+    const imagePath = storagePathFromUrl(deleteItem.manager_photo);
+
     const supabase = createClient();
     const { error } = await supabase
       .from("branches")
@@ -314,6 +318,8 @@ export default function AdminBranchesPage() {
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
+      // Storage temizligi (best-effort, hata UI'a yansimaz)
+      await removeFilesFromStorage(supabase, "images", [imagePath]);
       toast.success("Şube silindi.");
       fetchBranches();
     }

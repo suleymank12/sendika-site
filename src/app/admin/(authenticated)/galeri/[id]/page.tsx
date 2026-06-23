@@ -5,7 +5,12 @@ import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
-import { buildStoragePath, generateFileName } from "@/lib/storage";
+import {
+  buildStoragePath,
+  generateFileName,
+  storagePathFromUrl,
+  removeFilesFromStorage,
+} from "@/lib/storage";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -189,6 +194,10 @@ export default function AdminGalleryDetailPage() {
   const handleDeleteImage = async () => {
     if (!deleteImage || !tenant) return;
     setDeleting(true);
+
+    // Storage path'i DB silmeden ONCE yakala
+    const imagePath = storagePathFromUrl(deleteImage.image_url);
+
     const supabase = createClient();
     const { error } = await supabase
       .from("gallery_images")
@@ -198,6 +207,8 @@ export default function AdminGalleryDetailPage() {
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
+      // Storage temizligi (best-effort, hata UI'a yansimaz)
+      await removeFilesFromStorage(supabase, "images", [imagePath]);
       toast.success("Fotoğraf silindi.");
       setImages((prev) => prev.filter((i) => i.id !== deleteImage.id));
     }

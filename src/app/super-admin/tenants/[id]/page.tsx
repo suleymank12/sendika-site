@@ -178,7 +178,19 @@ export default function TenantDetailPage() {
       setDeleteUser(null);
       return;
     }
-    toast.success("Admin kaldırıldı.");
+
+    // 200 tam başarı, 207 kısmi başarı (üyelik silindi ama hesap
+    // temizlenemedi). Mesaj server'dan gelir (kaldırıldı / kaldırıldı +
+    // hesap silindi / diğer tenant'larda aktif).
+    if (res.status === 207) {
+      toast.success(
+        data?.message ||
+          "Admin tenant'tan kaldırıldı ancak hesap tamamen temizlenemedi."
+      );
+    } else {
+      toast.success(data?.message || "Admin kaldırıldı.");
+    }
+
     setUsers((prev) => prev.filter((u) => u.id !== deleteUser.id));
     setDeleteUser(null);
   };
@@ -372,7 +384,7 @@ export default function TenantDetailPage() {
         title="Admin Kaldır"
         description={
           deleteUser
-            ? `"${deleteUser.email}" kullanıcısını bu tenant'tan kaldırmak istediğinize emin misiniz? Kullanıcı silinmez, sadece tenant ile bağlantısı kopar.`
+            ? `"${deleteUser.email || deleteUser.user_id}" kullanıcısını bu tenant'tan kaldırmak istediğinize emin misiniz? Eğer kullanıcı başka bir tenant'a bağlı değilse hesabı tamamen silinir. Bu işlem geri alınamaz.`
             : ""
         }
       />

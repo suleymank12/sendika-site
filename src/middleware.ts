@@ -1,45 +1,30 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-
-function extractSlugFromHostname(hostname: string): string {
-  const host = hostname.split(":")[0];
-
-  if (host === "localhost" || host === "127.0.0.1") {
-    return "default";
-  }
-
-  if (host.endsWith(".localhost")) {
-    const sub = host.replace(/\.localhost$/, "");
-    if (!sub || sub === "www") return "default";
-    return sub;
-  }
-
-  if (host.endsWith(".vercel.app")) {
-    const parts = host.replace(".vercel.app", "").split(".");
-    if (parts.length <= 1) return "default";
-    return parts[0];
-  }
-
-  const parts = host.split(".");
-  if (parts.length <= 2) return "default";
-  const first = parts[0];
-  if (first === "www") return "default";
-  return first;
-}
+import { parseHostname } from "@/lib/tenant-hostname";
 
 export async function middleware(request: NextRequest) {
-  // Tenant slug'ı request header'ına yaz; Server Component'ler
-  // headers() üzerinden okuyacak.
+  // Hostname'i parse et (DB'siz, senkron). Server Component'ler tenant'i
+  // x-tenant-slug header'i üzerinden okuyacak.
   const hostname = request.headers.get("host") || "localhost:3000";
-  const tenantSlug = extractSlugFromHostname(hostname);
+  const match = parseHostname(hostname);
 
+  // apex / custom_domain başlangıçta "default"; subdomain doğrudan slug.
+  // custom_domain için final slug aşağıda DB sorgusuyla belirlenir.
+  // NOT: let — closure (cookies.setAll) güncel değeri görsün diye.
+  let tenantSlug = "default";
+  if (match.type === "subdomain") {
+    tenantSlug = match.slug;
+  }
+
+  // x-tenant-slug request header'ına HENÜZ yazılmıyor: custom_domain DB
+  // sorgusu slug'i değiştirebilir. Forward edilen request header'i NextResponse.next()
+  // çağrısı anında yakalandığı için, header'i final slug belli olduktan
+  // SONRA set edip response'u yeniden kuruyoruz (aşağıda).
   const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-tenant-slug", tenantSlug);
 
   let supabaseResponse = NextResponse.next({
     request: { headers: requestHeaders },
   });
-  supabaseResponse.headers.set("x-tenant-slug", tenantSlug);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,6 +41,9 @@ export async function middleware(request: NextRequest) {
           supabaseResponse = NextResponse.next({
             request: { headers: requestHeaders },
           });
+          // tenantSlug closure'dan okunur. setAll, auth.getUser() sırasında
+          // (custom_domain DB sorgusundan SONRA) tetiklendiği için güncel
+          // slug görünür.
           supabaseResponse.headers.set("x-tenant-slug", tenantSlug);
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
@@ -64,6 +52,36 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
+
+  // KRİTİK: custom_domain DB sorgusu auth.getUser() ÖNCESİNDE yapılmalı.
+  // Böylece hem setAll closure'i hem de forward edilen request header'i
+  // güncel slug'i taşır. Sorgu yalnızca custom_domain case'inde çalışır;
+  // subdomain/apex DB'ye hiç gitmez. Anon key + tenants_public_select
+  // (USING true) yeterli — service role gerekmez.
+  if (match.type === "custom_domain") {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("slug")
+      .eq("custom_domain", match.host)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[Middleware] custom_domain lookup hatasi:", error);
+      // tenantSlug "default" kalır (graceful degradation)
+    } else if (data?.slug) {
+      tenantSlug = data.slug;
+    }
+    // data null ise (bulunamadı): tenantSlug "default" kalır
+  }
+
+  // Final slug belli. Forward edilen request header'ına yaz ve response'u
+  // güncel header'larla YENİDEN kur (setAll henüz tetiklenmemiş olabilir —
+  // bu rebuild olmadan no-cookie-refresh durumunda slug forward edilmezdi).
+  requestHeaders.set("x-tenant-slug", tenantSlug);
+  supabaseResponse = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  supabaseResponse.headers.set("x-tenant-slug", tenantSlug);
 
   const {
     data: { user },

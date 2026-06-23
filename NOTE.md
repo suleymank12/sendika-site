@@ -513,3 +513,160 @@ ona bağımlı).
 3. **Documents bucket** — Kodda kullanılmıyor, Dashboard'da yok. İleride
    PDF/belge yükleme ihtiyacı doğarsa `documents` bucket'ı ayrı policy
    ile (private + signed URL) eklenmeli.
+
+---
+
+# Sprint 3 — Tamamlandı (24 Haziran 2026)
+
+Sprint 3'ün 4 maddesi tamamlandı ve lokalde test edildi. **Sprint 3 yeni
+migration GEREKTİRMEZ** — tümü kod değişikliği. (Sadece Sprint 2.4 / Aşama 3'ün
+`017_storage_tenant_rls.sql`'i hâlâ elle uygulanmalı; Sprint 3.6 storage
+silmesi tenant-scoped DELETE izni için ona dayanır — uygulanmasa bile eski
+generic policy ile çalışır.)
+
+## Madde 3.3 + 3.4 — extractSlug Refactor + Custom Domain
+
+- Yeni helper: `src/lib/tenant-hostname.ts` (saf parse, Edge + Client + Node uyumlu)
+- 3 kopya `extractSlugFromHostname`/`extractSlug` silindi (middleware.ts, tenant.ts, useTenant.tsx)
+- Discriminated union: `HostnameMatch = apex | subdomain | custom_domain`
+- Yeni env: `NEXT_PUBLIC_ROOT_DOMAIN` (apex/subdomain ayrımı; fallback `lvh.me`).
+  `.env.local`'e elle eklenmeli; Vercel'de `sendika-site.vercel.app`.
+- 3+ parçalı custom domain parse bug'ı düzeltildi (gizli bug, dolu custom_domain yoktu)
+- **Aşama B:** Middleware'de `parseHostname` + custom_domain DB lookup eklendi
+  (yalnız `type === "custom_domain"` iken; anon key, koşullu sorgu, cache yok)
+- `supabaseResponse` final slug sonrası **yeniden kuruldu** — forward edilen request
+  header'ı (`x-tenant-slug`) `setAll` tetiklenmese bile doğru slug'ı taşısın diye kritik
+- Ölü kod `getTenantFromHostname` silindi
+- Test: test-abc tenant + `lokaltest.com` hosts dosyası → custom domain server'da hatasız çözülüyor
+
+## Madde 3.1 — Yetim auth.users Temizlemesi (3 Aşama)
+
+- **Aşama A+B:** YENİ endpoint `POST /api/super-admin/delete-tenant`
+  (server-side tenant silme + sole-tenant auth.users temizliği)
+- **Aşama C:** YENİ helper `src/lib/super-admin/cleanup-orphan-user.ts`
+  - Discriminated union `CleanupResult` (multi-tenant / super-admin / error)
+  - Optional `excludeTenantId` (delete-tenant cascade-after = omit; tenant-users decide-first = ver)
+  - 3-yönlü süper admin guard (`user_metadata`/`app_metadata` boolean + string `"true"`) — asla silinmez
+- `delete-tenant` cascade-after (memberUserIds topla → tenant sil/cascade → helper)
+- `tenant-users` DELETE decide-first (helper önce → korunduysa üyelik satırını elle sil)
+- Frontend 207 Multi-Status dalı + `userDeleted`/`cleanupError` yanıt alanları
+- DeleteModal description'ları "hesap tamamen silinir" uyarısıyla güncellendi
+- **NOT:** `requireSuperAdmin` paylaşılan export DEĞİL — her route kendi lokal guard'ını
+  tanımlıyor (`is_super_admin` RPC tabanlı), 3 route'ta birebir aynı
+- Test: T1 sole-tenant silinir, T2 multi-tenant korunur (UI ile çift tenant yaratılabilir),
+  T4 delete-tenant regression
+
+## Madde 3.8 — Super Admin Toggle API Endpoint
+
+- YENİ endpoint `POST /api/super-admin/toggle-tenant`
+- `requireSuperAdmin` lokal RPC tabanlı guard (delete-tenant/tenant-users ile birebir tutarlı —
+  prompttaki inline-metadata sürüm yerine RPC seçildi)
+- Default tenant blanket guard server-side (`slug === "default"` → 403)
+- `togglingId` state per-row loading (çift tıklama önleme); optimistic değil
+- Migration 014 trigger son savunma hattı olarak korundu (service role ile bile bypass edilmez)
+- RLS `tenants_super_admin_update` yerinde tutuldu (savunma derinliği)
+- `handleToggle` + `handleDelete` artık fetch ile server'a gidiyor; `createClient`
+  sadece `fetchTenants` için kaldı
+
+## Madde 3.6 — Orphan Storage Temizlemesi
+
+- YENİ helper'lar `src/lib/storage.ts`:
+  - `storagePathFromUrl(publicUrl, bucket?)` — public URL → bucket-göreli path (query defansif)
+  - `removeFilesFromStorage(supabase, bucket, paths)` — best-effort, idempotent,
+    tek çağrıyla N dosya, `StorageRemovalResult` discriminated union
+  - `purgeContentMedia(supabase, tenantId, contentType, contentId)` — polimorfik
+    content_media satırlarını ELLE siler + storage path'lerini döndürür
+- 9 entity-delete handler'ına storage temizliği:
+  haberler, duyurular, sayfalar, slider, manşet, yönetim-kurulu, şubeler,
+  galeri (albüm cascade-after), galeri/[id] (foto)
+- 4 entity-delete (haber/duyuru/sayfa/manşet) ek olarak `purgeContentMedia` çağırıyor
+- 3 edit-save akışına `removed` galeri storage temizliği:
+  haberler/[id], duyurular/[id], sayfalar/[id]
+- **content_media polimorfik (content_id'de FK YOK) → cascade gitmiyor** keşfedildi;
+  hem DB satırı hem storage dosyası çift-orphan oluyordu → `purgeContentMedia` ile elle silme
+- Sıra her yerde: path yakala → DB sil → storage temizle (storage hatası DB akışını bozmaz)
+
+---
+
+# Sprint 4+ Teknik Borç (Sprint 3 sonrası belgelenen)
+
+## Yüksek Öncelikli
+
+1. **Admin CRUD server endpoint migration** (Sprint 3.1/3.8 disiplini)
+   - Şu an 11+ admin sayfası client-side `supabase.from(...).delete()/update()` kullanıyor
+   - Sprint 3.1/3.8'deki server endpoint pattern'i bunlara uygulanmalı
+   - Etkilenen: haberler, duyurular, sayfalar, slider, manşet, yönetim-kurulu,
+     şubeler, galeri (albüm + foto), tenant düzenleme formu
+   - Büyük iş, ayrı sprint olabilir
+
+2. **Tenant düzenleme formu** (`super-admin/tenants/[id]` `handleSave`)
+   - Hâlâ client-side `supabase.from("tenants").update(...)` yapıyor
+   - Sprint 3.8 toggle endpoint pattern'i buna da uygulanabilir
+   - Etkilenen alanlar: name, slug, custom_domain, is_active, modüller
+
+3. **content_media tablosu migration'a alınmalı**
+   - Şu an Dashboard'da oluşturulmuş; migration'da `CREATE TABLE` yok (şema yalnız
+     `MediaSection.tsx` yorumunda)
+   - `content_id` polimorfik (FK yok) → `purgeContentMedia` bu yüzden gerekli
+   - İdeal: migration'a `CREATE TABLE IF NOT EXISTS` + FK kararı. Gerçek FK +
+     `ON DELETE CASCADE` eklenirse `purgeContentMedia`'nın DB-silme kısmı gereksizleşir
+     (idempotent kalır), storage temizliği yine gerekir
+
+## Orta Öncelikli
+
+4. **Tenant logo/favicon orphan** — Logo değişince eski dosya storage'da kalıyor.
+   Sprint 3.6 kapsamı dışı (silme değil, replacement). Çözüm: tenant edit save'de
+   eski logo path'ini yakala → sil. (Aynı desen tüm `ImageUploader` replace
+   senaryolarında geçerli: cover değiştirince eski cover orphan kalır.)
+
+5. **HTML content embed img tag'ları** — RichTextEditor'da içeriğe gömülen img'ler.
+   Entity silinince HTML parse + tüm `<img src>` toplama gerekir. Büyük scope, ayrı madde.
+
+6. **content_media `media_type='video'`** — Şema 'video'ya izin veriyor ama runtime
+   kullanımı belirsiz (video `news.video_url`'de tutuluyor gibi). `purgeContentMedia`
+   media_type filtrelemediği için video satırları da temizlenir; doğrulanmalı.
+
+## Bilgi / Mikro
+
+7. **Email rate limit (production)** — Supabase default provider saatlik ~3-4 mail.
+   Production'da Resend SMTP entegrasyonu Sprint 4+ planlandı (volume artarsa).
+
+8. **"(e-posta yok)" UI fallback** — Manuel SQL ile yaratılan auth.users için
+   `tenant-users/list` email null döner; mevcut fallback doğru. Production'da
+   `inviteUserByEmail` kullanıldığı için gerçek senaryo değil.
+
+9. **Anon SELECT all tenants — güvenlik incelemesi** — `tenants_public_select`
+   `USING (true)` ile anon tüm tenant satırlarını okuyabiliyor (subdomain/custom_domain
+   lookup için gerekli). Hangi kolonların açık olduğu ve hassas alan sızıntısı riski
+   gözden geçirilmeli.
+
+---
+
+# Mimari Notlar (Sprint 3 sonrası)
+
+## Server vs Client Pattern
+
+- **Server endpoint:** Süper admin operasyonları (tenant create/delete/toggle, tenant-users CRUD)
+- **Client direct:** İçerik CRUD (admin/haberler, admin/duyurular, vb.) — Sprint 4+ migrate edilecek
+- Server endpoint guard'ı her zaman: lokal `requireSuperAdmin` + `is_super_admin` RPC
+
+## Helper Klasör Yapısı
+
+- `src/lib/super-admin/` — Süper admin domain helper'ları (`cleanup-orphan-user`)
+- `src/lib/storage.ts` — Storage util'leri (`buildStoragePath`, `generateFileName`,
+  `storagePathFromUrl`, `removeFilesFromStorage`, `purgeContentMedia`)
+- `src/lib/tenant-hostname.ts` — Hostname parse (Edge + Client + Node, saf fonksiyon)
+
+## Cascade / Silme Pattern'leri
+
+- **Cascade-after:** Gerçek FK cascade varsa → entity sil → cascade tamamlanır → helper
+  çağır (delete-tenant, galeri albüm). Path/üye listesi cascade'den ÖNCE toplanır.
+- **Decide-first:** `excludeTenantId` gerekli durumda → helper önce çağrılır, sonuca göre
+  satır elle silinir (tenant-users DELETE)
+- **Explicit-delete:** FK yoksa elle sil (`purgeContentMedia` — content_media polimorfik)
+
+## Best-Effort Storage Cleanup
+
+- Storage temizliği DB silmeden SONRA, best-effort
+- Storage hatası DB akışını bozmaz (orphan = status quo, console'a loglanır)
+- Discriminated union sonucu ile çağıranlar 207 raporu üretebilir

@@ -25,6 +25,7 @@ export default function SuperAdminTenantsPage() {
   const [search, setSearch] = useState("");
   const [deleteItem, setDeleteItem] = useState<Tenant | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const fetchTenants = useCallback(async () => {
     const supabase = createClient();
@@ -51,32 +52,66 @@ export default function SuperAdminTenantsPage() {
   });
 
   const handleToggle = async (item: Tenant) => {
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("tenants")
-      .update({ is_active: !item.is_active })
-      .eq("id", item.id);
-    if (error) {
-      toast.error("Durum güncellenemedi.");
+    if (togglingId) return; // Çift tıklama / yarış önleme
+    setTogglingId(item.id);
+
+    // Durum değiştirme artık server endpoint'ten (Sprint 3.1 disiplini):
+    // super admin guard + default tenant guard server'da zorlanıyor.
+    const response = await fetch("/api/super-admin/toggle-tenant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId: item.id, isActive: !item.is_active }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      toast.error(data?.error || "Durum güncellenemedi.");
+      setTogglingId(null);
       return;
     }
+
     setTenants((prev) =>
       prev.map((t) => (t.id === item.id ? { ...t, is_active: !t.is_active } : t))
     );
     toast.success(item.is_active ? "Tenant pasife alındı." : "Tenant aktife alındı.");
+    setTogglingId(null);
   };
 
   const handleDelete = async () => {
     if (!deleteItem) return;
     setDeleting(true);
-    const supabase = createClient();
-    const { error } = await supabase.from("tenants").delete().eq("id", deleteItem.id);
-    if (error) {
-      toast.error("Silme başarısız. Bu tenant'a bağlı içerikler olabilir.");
+
+    // Tenant silme artik server endpoint'ten yapiliyor: hem yetim auth.users
+    // temizligi (sole-tenant kullanicilar) hem de super admin / default
+    // guard'lari server'da zorlaniyor.
+    const response = await fetch("/api/super-admin/delete-tenant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tenantId: deleteItem.id }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      toast.error(
+        data?.error || "Silme başarısız. Bu tenant'a bağlı içerikler olabilir."
+      );
+      setDeleting(false);
+      return;
+    }
+
+    // 200 tam başarı, 207 kısmi başarı (tenant silindi, bazı user'lar temizlenemedi)
+    if (response.status === 207) {
+      toast.success(
+        data?.message ||
+          "Tenant silindi ancak bazı kullanıcı hesapları temizlenemedi."
+      );
     } else {
       toast.success("Tenant silindi.");
-      setTenants((prev) => prev.filter((t) => t.id !== deleteItem.id));
     }
+
+    setTenants((prev) => prev.filter((t) => t.id !== deleteItem.id));
     setDeleteItem(null);
     setDeleting(false);
   };
@@ -189,14 +224,16 @@ export default function SuperAdminTenantsPage() {
                         )}
                         <button
                           onClick={() => handleToggle(t)}
-                          disabled={t.slug === "default"}
+                          disabled={t.slug === "default" || togglingId === t.id}
                           className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 disabled:text-text-muted/30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-muted/30"
                           title={
                             t.slug === "default"
                               ? "Default tenant pasiflenemez (sistem için gerekli)"
-                              : t.is_active
-                                ? "Pasife al"
-                                : "Aktife al"
+                              : togglingId === t.id
+                                ? "Güncelleniyor..."
+                                : t.is_active
+                                  ? "Pasife al"
+                                  : "Aktife al"
                           }
                         >
                           {t.is_active ? (
@@ -236,7 +273,7 @@ export default function SuperAdminTenantsPage() {
         loading={deleting}
         description={
           deleteItem
-            ? `"${deleteItem.name}" tenant'ını silmek üzeresiniz. Bu işlem tenant'a bağlı TÜM içerikleri (haberler, duyurular, sayfalar, ayarlar vb.) kalıcı olarak siler. Bu işlem geri alınamaz!`
+            ? `"${deleteItem.name}" tenant'ını silmek üzeresiniz. Bu işlem tenant'a bağlı TÜM içerikleri (haberler, duyurular, sayfalar, ayarlar vb.) ve YALNIZCA bu tenant'a bağlı admin kullanıcı hesaplarını kalıcı olarak siler. Bu işlem geri alınamaz!`
             : ""
         }
       />

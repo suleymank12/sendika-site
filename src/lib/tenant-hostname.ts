@@ -1,0 +1,123 @@
+/**
+ * Hostname Parse Helper'lari
+ * --------------------------
+ * Saf string fonksiyonu — Edge runtime, Server Component'ler ve
+ * Client component'lerin uchunde de guvenle calisir. DB veya
+ * next/headers gibi runtime bagimliliklari YOK.
+ *
+ * Apex domain (root domain) NEXT_PUBLIC_ROOT_DOMAIN env'inden
+ * okunur. Fallback: "lvh.me" (lokal gelistirme default'u).
+ *
+ * Production'da Vercel'e NEXT_PUBLIC_ROOT_DOMAIN=sendika-site.vercel.app
+ * eklenmelidir.
+ */
+
+const ROOT_DOMAIN_FALLBACK = "lvh.me";
+
+/**
+ * Apex domain'i env'den okur, port kismini temizler.
+ * lvh.me:3000 -> lvh.me
+ * sendika-site.vercel.app -> sendika-site.vercel.app
+ */
+function getRootDomain(): string {
+  const raw = process.env.NEXT_PUBLIC_ROOT_DOMAIN || ROOT_DOMAIN_FALLBACK;
+  return raw.split(":")[0].toLowerCase();
+}
+
+/**
+ * Hostname parse sonucu — uc kategori:
+ *  - apex: root domain'in kendisi (sendika-site.vercel.app, lvh.me)
+ *    veya localhost/127.0.0.1/www.{apex}
+ *  - subdomain: {slug}.{apex} formatinda (test-abc.lvh.me)
+ *  - custom_domain: ne apex ne subdomain — DB'de tenants.custom_domain
+ *    lookup adayi
+ */
+export type HostnameMatch =
+  | { type: "apex" }
+  | { type: "subdomain"; slug: string }
+  | { type: "custom_domain"; host: string };
+
+/**
+ * Hostname'i parse eder, hangi kategoride oldugunu belirler.
+ *
+ * Edge case'ler:
+ * - Port (lvh.me:3000) otomatik temizlenir
+ * - www. prefix'i apex sayilir
+ * - localhost/127.0.0.1 apex sayilir
+ * - .vercel.app deployment preview'lari (xxx-suleyman.vercel.app)
+ *   apex sayilir (slug parse edilmez)
+ *
+ * @param hostname Request.headers.get("host") veya window.location.hostname
+ * @returns HostnameMatch — type'a gore handle edilir
+ */
+export function parseHostname(hostname: string): HostnameMatch {
+  // 1) Port temizle, kucuk harfe cevir
+  const host = hostname.split(":")[0].toLowerCase().trim();
+
+  // 2) localhost / 127.0.0.1 → apex
+  if (host === "localhost" || host === "127.0.0.1" || host === "") {
+    return { type: "apex" };
+  }
+
+  const rootDomain = getRootDomain();
+
+  // 3) Apex'in kendisi → apex
+  if (host === rootDomain) {
+    return { type: "apex" };
+  }
+
+  // 4) www.{apex} → apex
+  if (host === `www.${rootDomain}`) {
+    return { type: "apex" };
+  }
+
+  // 5) {slug}.{apex} → subdomain
+  //    Apex'in tam endsWith kontrolu, sub kismi bos olmamali
+  const apexSuffix = `.${rootDomain}`;
+  if (host.endsWith(apexSuffix)) {
+    const sub = host.slice(0, host.length - apexSuffix.length);
+    if (sub && sub !== "www") {
+      // Coklu parca slug'lari kabul etmiyoruz (ornek: a.b.lvh.me)
+      // Sadece tek seviye subdomain
+      if (!sub.includes(".")) {
+        return { type: "subdomain", slug: sub };
+      }
+    }
+  }
+
+  // 6) Vercel preview deployment'lari (.vercel.app endsWith ama
+  //    root_domain'den farkli olabilir, ornek: pr-1-suleyman.vercel.app)
+  //    Bunlari apex say (gercek subdomain degil)
+  if (host.endsWith(".vercel.app")) {
+    return { type: "apex" };
+  }
+
+  // 7) Ne apex ne subdomain → custom_domain adayi
+  //    (Asama A'da default'a duser; Asama B'de DB lookup yapilacak)
+  return { type: "custom_domain", host };
+}
+
+/**
+ * Backward-compat wrapper.
+ * Mevcut middleware/useTenant/tenant.ts kullanim sekli aynen calismaya
+ * devam etsin diye eski imza ile slug doner.
+ *
+ * - apex / custom_domain → "default"
+ * - subdomain → slug
+ *
+ * NOT: custom_domain adaylari su an default'a duser. Asama B'de
+ * middleware bu durumu DB lookup ile cozecek (header'a tenant.slug
+ * yazilarak).
+ */
+export function extractSlugFromHostname(hostname: string): string {
+  const match = parseHostname(hostname);
+  switch (match.type) {
+    case "apex":
+      return "default";
+    case "subdomain":
+      return match.slug;
+    case "custom_domain":
+      // Asama A'da default'a duser (mevcut davranis korunur)
+      return "default";
+  }
+}

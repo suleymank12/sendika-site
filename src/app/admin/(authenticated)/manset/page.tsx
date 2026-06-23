@@ -8,6 +8,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  purgeContentMedia,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -215,6 +220,12 @@ export default function AdminHeadlinePage() {
   const handleDelete = async () => {
     if (!deleteId || !tenant) return;
     setDeleting(true);
+
+    // Storage path'i DB silmeden ONCE yakala (headlines state'inden)
+    const coverPath = storagePathFromUrl(
+      headlines.find((h) => h.id === deleteId)?.image_url
+    );
+
     const supabase = createClient();
     const { error } = await supabase
       .from("headlines")
@@ -223,11 +234,17 @@ export default function AdminHeadlinePage() {
       .eq("id", deleteId);
     if (error) {
       toast.error("Silme başarısız oldu.");
-    } else {
-      toast.success("Manşet silindi.");
-      setDeleteId(null);
-      fetchHeadlines();
+      setDeleting(false);
+      return;
     }
+
+    // content_media (defansif — manset'te galeri yoksa bos doner) + storage temizligi
+    const galleryPaths = await purgeContentMedia(supabase, tenant.id, "headline", deleteId);
+    await removeFilesFromStorage(supabase, "images", [coverPath, ...galleryPaths]);
+
+    toast.success("Manşet silindi.");
+    setDeleteId(null);
+    fetchHeadlines();
     setDeleting(false);
   };
 

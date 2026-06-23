@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
+import { cleanupOrphanUserIfNeeded } from "@/lib/super-admin/cleanup-orphan-user";
 
 async function requireSuperAdmin() {
   const supabase = createClient();
@@ -104,7 +105,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true, link }, { status: 201 });
 }
 
-// DELETE: tenant_users kaydını sil
+// DELETE: tenant_users kaydını sil. Kullanıcı bu işlemden sonra HİÇBİR
+// tenant'a bağlı kalmıyorsa (ve super admin değilse) auth.users kaydı da
+// temizlenir (yetim hesap bırakılmaz). Decide-first deseni: önce helper'a
+// "bu tenant'tan çıkarsam orphan olur mu?" sorulur (excludeTenantId), helper
+// kullanıcıyı silerse cascade üyelik satırını da götürür; silmezse satır
+// elle kaldırılır.
 export async function DELETE(req: NextRequest) {
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
@@ -116,10 +122,83 @@ export async function DELETE(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { error } = await admin.from("tenant_users").delete().eq("id", id);
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // 1) Üyelik satırını çek (user_id + tenant_id öğren)
+  const { data: membership, error: fetchError } = await admin
+    .from("tenant_users")
+    .select("user_id, tenant_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("[tenant-users:DELETE] membership fetch hatasi:", fetchError);
+    return NextResponse.json({ error: fetchError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true });
+  if (!membership) {
+    return NextResponse.json({ error: "Uyelik bulunamadi." }, { status: 404 });
+  }
+
+  // 2) Decide-first: bu tenant hariç başka tenant'a bağlı mı? Değilse (ve
+  //    super admin değilse) helper auth.users'ı siler — cascade bu üyelik
+  //    satırını da götürür.
+  const cleanupResult = await cleanupOrphanUserIfNeeded(
+    admin,
+    membership.user_id,
+    membership.tenant_id
+  );
+
+  // 3) Helper kullanıcıyı silmediyse (korundu), üyelik satırını elle sil.
+  if (!cleanupResult.deleted) {
+    const { error: rowDeleteError } = await admin
+      .from("tenant_users")
+      .delete()
+      .eq("id", id);
+
+    if (rowDeleteError) {
+      console.error("[tenant-users:DELETE] uyelik silme hatasi:", rowDeleteError);
+      return NextResponse.json({ error: rowDeleteError.message }, { status: 500 });
+    }
+  }
+  // Helper sildiyse: cascade üyelik satırını zaten götürdü.
+
+  // 4) Yanıt
+  if (cleanupResult.deleted) {
+    return NextResponse.json(
+      {
+        ok: true,
+        userDeleted: true,
+        message: "Admin tenant'tan kaldirildi ve hesap silindi.",
+      },
+      { status: 200 }
+    );
+  }
+
+  if (cleanupResult.reason === "error") {
+    // Üyelik satırı silindi ama hesap temizlenemedi → 207 Multi-Status
+    return NextResponse.json(
+      {
+        ok: true,
+        partial: true,
+        userDeleted: false,
+        cleanupError: cleanupResult.error,
+        message:
+          "Admin tenant'tan kaldirildi ancak hesap tamamen temizlenemedi.",
+      },
+      { status: 207 }
+    );
+  }
+
+  // multi-tenant veya super-admin: kullanıcı kasıtlı korundu, tam başarı.
+  return NextResponse.json(
+    {
+      ok: true,
+      userDeleted: false,
+      message:
+        cleanupResult.reason === "multi-tenant"
+          ? "Admin tenant'tan kaldirildi. Hesap diger tenant'larda aktif."
+          : "Admin tenant'tan kaldirildi.",
+    },
+    { status: 200 }
+  );
 }
