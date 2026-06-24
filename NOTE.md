@@ -729,6 +729,20 @@ Madde 5 ek migration). Migration'lar elle apply edildi (NOTE.md "elle apply" mod
    lookup için gerekli). Hangi kolonların açık olduğu ve hassas alan sızıntısı riski
    gözden geçirilmeli.
 
+## Production Deployment Sırası
+
+7. **Wildcard subdomain / production domain yapılandırması**
+   - Şu an Vercel preview URL'i kullanılıyor (sendika-site.vercel.app)
+   - "Admin paneline gir" butonu `<tenant-slug>.vercel.app` pattern'ine yönlendiriyor
+     ama bu subdomain'ler Vercel'de tanımlı değil (lokal'de lvh.me ile çalışıyor)
+   - Production'a geçişten önce gerekli:
+     - Gerçek custom domain (örn. sendika.app veya benzer)
+     - DNS wildcard (`*.domain.com` → Vercel)
+     - Vercel'de wildcard domain yapılandırması
+     - Veya alternatif: path-based tenant URL (`/admin?tenant=slug`)
+   - Kod tarafı hazır (middleware `tenant-hostname.ts` custom_domain ve subdomain çözüyor),
+     sunucu/DNS ayarı bekleniyor
+
 ---
 
 # Mimari Notlar (Sprint 3 sonrası)
