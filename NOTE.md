@@ -588,54 +588,143 @@ generic policy ile çalışır.)
 
 ---
 
-# Sprint 4+ Teknik Borç (Sprint 3 sonrası belgelenen)
+# Sprint 4 — Tamamlandı (24 Haziran 2026)
+
+Sprint 4'te 4 madde tamamlandı ve lokalde test edildi (Madde 3, 2, 4 kod/migration;
+Madde 5 ek migration). Migration'lar elle apply edildi (NOTE.md "elle apply" modeli).
+
+## Madde 3 — content_media Migration'a Alınması (Drift Kapatma)
+- YENI migration: `019_content_media.sql`
+- Mevcut Dashboard-created tablo migration'a alındı (idempotent)
+- CHECK constraint'ler eklendi (content_type + media_type) — `DO $$` + pg_constraint pattern
+- YENI bileşik index: `idx_content_media_lookup (content_type, content_id)` — sorgu performansı
+- KRİTİK: `content_media_public_read` policy İLK KEZ repo'ya alındı (anon SELECT buna bağımlıydı,
+  012 bu policy'i hiç içermiyordu — yalnız Dashboard'da vardı)
+- Eski Dashboard policy isimleri (`Public read media`, `Auth full access media`) DROP IF EXISTS ile temizlendi
+- Yeni tutarlı isimler: `content_media_public_read` + `tenant_content_media_all`
+- FK kararı: Polimorfik tasarım korundu (content_id, FK yok)
+  - Gerekçe: Rails-tarzı polymorphic associations, mevcut `purgeContentMedia` ile uyumlu
+  - CHECK constraint tipo koruması (`content_type IN ('news','announcement','page','headline')`)
+- NOT NULL kasıtlı eklenmedi (009 zaten doldurup SET NOT NULL yaptı; fresh-reset güvenliği)
+- Lokal apply: Süleyman elle SQL Editor'da uyguladı
+- Test: 5 SQL doğrulama sorgusu geçti (data sayısı değişmedi, constraint+index+policy doğru)
+- Idempotent: ikinci kez çalıştırılırsa hata vermez
+
+## Madde 2 — Tenant Düzenleme Server Endpoint
+- YENI endpoint: `/api/super-admin/update-tenant` (POST, flat body)
+- Sprint 3.8 toggle pattern adapte edildi (lokal `requireSuperAdmin` + `is_super_admin` RPC)
+- 8 güvenlik katmanı:
+  1. requireSuperAdmin guard (mevcut pattern)
+  2. Body type validation (tenantId, name, slug, isActive zorunlu + tip)
+  3. Default tenant 2'li guard:
+     - slug "default"tan değiştirilmeye çalışılırsa 403
+       (KRİTİK: 014 trigger SADECE is_active'i koruyor, slug DB'de korumasız)
+     - is_active=false denenirse 403 (trigger redundancy + Sprint 3.8 simetri)
+  4. Slug format (SLUG_REGEX) + uzunluk (2-50) + rezerve liste
+  5. Custom domain format (CUSTOM_DOMAIN_REGEX, opsiyonel)
+  6. Slug uniqueness pre-check (değişirse, 409)
+  7. Custom domain uniqueness pre-check (varsa, 409)
+  8. 23505 fallback (race condition)
+- `src/lib/constants.ts` genişletildi:
+  - RESERVED_TENANT_SLUGS (8 değer: default, www, admin, api, app, auth, static, cdn)
+  - SLUG_REGEX, SLUG_MIN_LENGTH (2), SLUG_MAX_LENGTH (50)
+  - CUSTOM_DOMAIN_REGEX (hostname formatı, en az bir nokta)
+- BONUS FIX: create-tenant API rezerve slug guard eklendi (client-only guard atlanabilirdi)
+- BONUS FIX: yeni tenant sayfası hardcoded liste → RESERVED_TENANT_SLUGS (DRY)
+- updated_at server-set (client saatine güvenme)
+- Frontend handleSave fetch'e geçti, setOriginalSlug korundu (UI banner)
+- NOT: Gerçek dosyalar `react-hot-toast` (`toast.error/success`) kullanıyor — prompt'taki
+  `setToast` örneği uyarlandı; create-tenant'ta değişken `slug` (prompt `normalizedSlug` yazıyordu)
+- Test: 7 senaryo geçti (normal, rezerve, default slug 403, default pasif 403,
+  geçersiz custom domain, yeni tenant rezerve, slug çakışma)
+
+## Madde 4 — ImageUploader Replace Orphan
+- YENI helper: `cleanupReplacedFile(supabase, oldUrl, newUrl, bucket="images")`
+  - Best-effort, idempotent (no-op kuralları: boş/eşit/parse edilemez URL)
+  - `storagePathFromUrl` + `removeFilesFromStorage` üzerine wrapper
+- 11 sayfa / 12 alan etkilendi
+- İki pattern uygulandı:
+  - **Pattern 1 (Liste-tabanlı, 6 sayfa):** Eski URL listeden okunur (`list.find`)
+    - slider/page.tsx, manset/page.tsx (+ video_url)
+    - yonetim-kurulu/page.tsx, subeler/page.tsx
+    - galeri/page.tsx (albüm listesi), anasayfa-bolumleri/[id]/page.tsx
+  - **Pattern 2 (Initial snapshot, 5 sayfa):** `initialXxx` state'leri eklendi
+    - haberler/[id]/page.tsx (cover + video)
+    - duyurular/[id]/page.tsx (cover + video)
+    - sayfalar/[id]/page.tsx (cover + video)
+    - galeri/[id]/page.tsx (albüm cover, snapshot yenileme)
+    - ayarlar/page.tsx (logo + favicon, snapshot yenileme)
+- Mimari karar: Temizlik ImageUploader İÇİNDE DEĞİL, save flow'da yapıldı
+  - Sebep: İptal senaryosunda in-component silme DB referanslı dosyayı silerdi
+- subeler: `payload.manager_photo` kullanıldı (form değil, mod değişimini de kapsıyor)
+- manset video_url orphan dahil edildi (MediaUploader "images" bucket; youtube_url harici link, temizlenmez)
+- Snapshot yenileme: galeri/[id] ve ayarlar sayfa açık kalan akışlar (ardışık kayıtlar için)
+- haberler/duyurular/sayfalar: save sonrası `router.push` ile ayrılıyor → snapshot yenileme gereksiz
+- Test: 3 senaryo geçti (Slider replace, Haber cover replace, Ayarlar 3x logo)
+- Build: 0 error / 0 warning (EXIT=0)
+
+## Madde 5 — user_has_tenant_access Super Admin Shortcut (Migration 020)
+- YENI migration: `020_super_admin_tenant_access.sql`
+- **KEŞIF (drift):** Repo'daki `user_has_tenant_access` (012:22-28 ve 017:42-48) ZATEN
+  `OR public.is_super_admin(auth.uid())` içeriyordu → fonksiyon mantıken super admin'i kapsıyor.
+  Prompt'un "fonksiyon yalnızca tenant_users'a bakıyor" teşhisi repo ile çelişiyordu.
+- Migration 020 imza-uyumlu `CREATE OR REPLACE`:
+  - Parametre adı `tenant_id_param` KORUNDU (prompt `check_tenant_id` öneriyordu →
+    apply'da "cannot change name of input parameter" ile patlardı)
+  - `SET search_path = public` KORUNDU (prompt taslağında yoktu → SECURITY DEFINER güvenlik regresyonu)
+  - LANGUAGE sql / STABLE / SECURITY DEFINER 012/017 ile birebir; super admin kontrolü ÖNE alındı
+- AMAÇ: DB'de drift etmiş (eski, super admin'siz) bir sürüm kalmışsa repo mantığına hizalar
+- KRİTİK: Eğer DB'deki fonksiyon zaten 012 sürümüyse 020 davranışı DEĞİŞTİRMEZ
+  - O durumda gerçek kök neden BAŞKA: en olası → `017_storage_tenant_rls.sql` HİÇ apply edilmemiş
+    (NOTE.md Sprint 2.4 kaydı: "017 OLUŞTURULDU ama UYGULANMADI") → storage DELETE policy eksik
+- Süleyman apply ÖNCESİ doğrulama: `SELECT pg_get_functiondef('public.user_has_tenant_access(uuid)'::regprocedure);`
+  → çıktıda `is_super_admin` geçiyor mu? Geçmiyorsa drift vardı (020 asıl çözüm); geçiyorsa 017 öncelikli kontrol.
+- NOT: `is_super_admin` (010) yalnızca `raw_user_meta_data` (user_metadata) okur; app_metadata'da
+  işaretliyse FALSE döner → Süleyman hesabında `raw_user_meta_data->>'is_super_admin' = 'true'` doğrulanmalı.
+- **APPLY DURUMU (Süleyman doğrulaması):** apply edilmedi. pg_get_functiondef çıktısı
+  fonksiyonun zaten super admin shortcut'i içerdiğini gösterdi (drift YOK). 020 dosyası
+  repo'da kaldı (gelecekte drift olursa hizalama için), davranış değişikliği yok.
+  Slider replace testi de başarıyla çalıştı — gerçek root cause initial test
+  senaryosunun yanlış yorumlanmasıymış (yeni oluşturma vs replace).
+
+---
+
+# Sprint 5+ Teknik Borç (Sprint 4 sonrası güncellenen)
 
 ## Yüksek Öncelikli
 
-1. **Admin CRUD server endpoint migration** (Sprint 3.1/3.8 disiplini)
-   - Şu an 11+ admin sayfası client-side `supabase.from(...).delete()/update()` kullanıyor
-   - Sprint 3.1/3.8'deki server endpoint pattern'i bunlara uygulanmalı
+1. **Admin CRUD server endpoint migration** (Sprint 3.1/3.8/Sprint 4 M2 disiplini)
+   - Şu an 9+ admin sayfası client-side `supabase.from(...).delete()/update()` kullanıyor
+   - Sprint 3.1/3.8/Sprint 4 Madde 2 pattern'i bunlara uygulanmalı
    - Etkilenen: haberler, duyurular, sayfalar, slider, manşet, yönetim-kurulu,
-     şubeler, galeri (albüm + foto), tenant düzenleme formu
-   - Büyük iş, ayrı sprint olabilir
-
-2. **Tenant düzenleme formu** (`super-admin/tenants/[id]` `handleSave`)
-   - Hâlâ client-side `supabase.from("tenants").update(...)` yapıyor
-   - Sprint 3.8 toggle endpoint pattern'i buna da uygulanabilir
-   - Etkilenen alanlar: name, slug, custom_domain, is_active, modüller
-
-3. **content_media tablosu migration'a alınmalı**
-   - Şu an Dashboard'da oluşturulmuş; migration'da `CREATE TABLE` yok (şema yalnız
-     `MediaSection.tsx` yorumunda)
-   - `content_id` polimorfik (FK yok) → `purgeContentMedia` bu yüzden gerekli
-   - İdeal: migration'a `CREATE TABLE IF NOT EXISTS` + FK kararı. Gerçek FK +
-     `ON DELETE CASCADE` eklenirse `purgeContentMedia`'nın DB-silme kısmı gereksizleşir
-     (idempotent kalır), storage temizliği yine gerekir
+     şubeler, galeri (albüm + foto), anasayfa-bolumleri
+   - NOT: super-admin/tenants CRUD'ları artık server'da (create/delete/toggle/**update** —
+     Sprint 4 M2'de tamamlandı). Kalan tüm admin CRUD'lar client-side.
+   - Büyük iş, ayrı sprint (1-2 hafta)
 
 ## Orta Öncelikli
 
-4. **Tenant logo/favicon orphan** — Logo değişince eski dosya storage'da kalıyor.
-   Sprint 3.6 kapsamı dışı (silme değil, replacement). Çözüm: tenant edit save'de
-   eski logo path'ini yakala → sil. (Aynı desen tüm `ImageUploader` replace
-   senaryolarında geçerli: cover değiştirince eski cover orphan kalır.)
+2. **HTML content embed img tag'ları** — RichTextEditor'da içeriğe gömülen img'ler.
+   Entity silinince HTML parse + tüm `<img src>` toplama gerekir. `cleanupReplacedFile`
+   helper'ı var ama HTML parse ayrı scope. Büyük parse karmaşıklığı, ayrı madde.
 
-5. **HTML content embed img tag'ları** — RichTextEditor'da içeriğe gömülen img'ler.
-   Entity silinince HTML parse + tüm `<img src>` toplama gerekir. Büyük scope, ayrı madde.
+3. **content_media `media_type='video'` doğrulama** — Şema 'video'ya izin veriyor
+   (CHECK constraint var, 019). Runtime'da video `news/announcements/pages/headlines.video_url`
+   ayrı kolonda tutuluyor. content_media tablosunda video tipi gerçekten kullanılıyor mu
+   belirsiz; doğrulanmalı, gerekiyorsa silme + replace akışları güncellenmeli.
 
-6. **content_media `media_type='video'`** — Şema 'video'ya izin veriyor ama runtime
-   kullanımı belirsiz (video `news.video_url`'de tutuluyor gibi). `purgeContentMedia`
-   media_type filtrelemediği için video satırları da temizlenir; doğrulanmalı.
+4. **Fresh DB Reset desteği** — Migration 009 ve 012 content_media tablosunu
+   target_tables'da arıyor ama tablo o sırada henüz yok (019'da yaratılır).
+   Production ve lokal'de "elle apply" modeli olduğu için gizli kalmış. Eğer CI/CD'de
+   `npx supabase db reset` kullanılmak istenirse 009/012/019 sıralaması (veya defansif
+   tablo varlık kontrolü) gözden geçirilmeli.
 
 ## Bilgi / Mikro
 
-7. **Email rate limit (production)** — Supabase default provider saatlik ~3-4 mail.
-   Production'da Resend SMTP entegrasyonu Sprint 4+ planlandı (volume artarsa).
+5. **Email rate limit (production)** — Supabase default provider saatlik ~3-4 mail.
+   Production'da Resend SMTP entegrasyonu planlanmalı (volume artarsa). Test sırasında gözlemlendi.
 
-8. **"(e-posta yok)" UI fallback** — Manuel SQL ile yaratılan auth.users için
-   `tenant-users/list` email null döner; mevcut fallback doğru. Production'da
-   `inviteUserByEmail` kullanıldığı için gerçek senaryo değil.
-
-9. **Anon SELECT all tenants — güvenlik incelemesi** — `tenants_public_select`
+6. **Anon SELECT all tenants — güvenlik incelemesi** — `tenants_public_select`
    `USING (true)` ile anon tüm tenant satırlarını okuyabiliyor (subdomain/custom_domain
    lookup için gerekli). Hangi kolonların açık olduğu ve hassas alan sızıntısı riski
    gözden geçirilmeli.
@@ -654,7 +743,7 @@ generic policy ile çalışır.)
 
 - `src/lib/super-admin/` — Süper admin domain helper'ları (`cleanup-orphan-user`)
 - `src/lib/storage.ts` — Storage util'leri (`buildStoragePath`, `generateFileName`,
-  `storagePathFromUrl`, `removeFilesFromStorage`, `purgeContentMedia`)
+  `storagePathFromUrl`, `removeFilesFromStorage`, `purgeContentMedia`, `cleanupReplacedFile`)
 - `src/lib/tenant-hostname.ts` — Hostname parse (Edge + Client + Node, saf fonksiyon)
 
 ## Cascade / Silme Pattern'leri
@@ -670,3 +759,42 @@ generic policy ile çalışır.)
 - Storage temizliği DB silmeden SONRA, best-effort
 - Storage hatası DB akışını bozmaz (orphan = status quo, console'a loglanır)
 - Discriminated union sonucu ile çağıranlar 207 raporu üretebilir
+
+---
+
+# Mimari Notlar (Sprint 4 sonrası yeni)
+
+## Migration Drift Yönetimi
+- Supabase'de elle Dashboard-created tablolar olabilir (content_media gibi)
+- Sprint 4 Madde 3 ile drift kapatma pattern'i belgelendi:
+  - `CREATE TABLE IF NOT EXISTS` (mevcut tabloyu bozmadan)
+  - `ADD COLUMN IF NOT EXISTS` (eksik kolonlar için)
+  - `DROP POLICY IF EXISTS` + `CREATE POLICY` (çakışmayı önleme)
+  - `DO $$` + pg_constraint kontrolü (CHECK constraint IF NOT EXISTS Postgres'te yok)
+- Tüm migration'lar IDEMPOTENT olmalı (production'da elle apply ediliyor)
+- Drift sadece tablolarda değil FONKSIYONLARDA da olabilir: Sprint 4 M5'te DB'deki
+  `user_has_tenant_access`'in repo sürümünden farklı olabileceği (super admin'siz eski
+  sürüm) keşfedildi → apply öncesi `pg_get_functiondef` ile doğrulama disiplini
+
+## Polimorfik Foreign Key (content_media)
+- content_id polimorfik (content_type='news'/'announcement'/'page'/'headline')
+- Tek bir FK hedefi tanımlanamadığı için gerçek FK YOK
+- Cascade çalışmaz, `purgeContentMedia` helper elle siliyor
+- CHECK constraint tipo koruması (Sprint 4 Madde 3, migration 019)
+
+## Replace Orphan Pattern (Sprint 4 Madde 4)
+- İki pattern: liste-tabanlı (form.id ile listede bul) ve snapshot (`initialXxx` state)
+- Snapshot yenileme: sayfa açık kalan akışlarda zorunlu (galeri/[id], ayarlar)
+  - Yenilemeden ardışık kayıtlarda orphan üretir
+  - router.push ile ayrılan sayfalarda (haberler/duyurular/sayfalar) gereksiz
+- `cleanupReplacedFile` component DIŞINDA (save flow'da) çağrılır
+  - İptal senaryosunda DB referanslı dosya silinmesin diye (ImageUploader'a dokunulmadı)
+
+## Senior Savunma / Kanıt-Temelli Debug
+- Repo, prompt'taki varsayımlarla çapraz doğrulandı; bulgular olduğu gibi raporlandı
+- Örnek (M5): `user_has_tenant_access`'in 012/017'de ZATEN super admin shortcut'lı olduğu
+  keşfedildi → migration 020 "çözüm" olarak değil, drift düzeltme + niyet açıklığı için
+  tutuldu; gerçek kök neden (017'nin apply edilmemiş olması) işaretlendi
+- Örnek (M2): prompt taslağındaki `setToast` / `check_tenant_id` / eksik search_path
+  gerçek koda ve apply güvenliğine göre düzeltildi
+- İlke: bug iddiası ve "çözüldü" sonucu apply/test ile doğrulanmadan kesin sunulmaz

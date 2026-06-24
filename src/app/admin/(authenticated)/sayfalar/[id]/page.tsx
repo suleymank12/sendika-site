@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  cleanupReplacedFile,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
@@ -31,6 +35,9 @@ export default function AdminPageEditorPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [initialGallery, setInitialGallery] = useState<string[]>([]);
+  // Replace orphan temizligi icin DB'den okunan ilk degerlerin snapshot'i
+  const [initialCoverImage, setInitialCoverImage] = useState<string | null>(null);
+  const [initialVideoUrl, setInitialVideoUrl] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   useEffect(() => {
@@ -52,7 +59,9 @@ export default function AdminPageEditorPage() {
         setSlug(data.slug);
         setContent(data.content || "");
         setCoverImage(data.cover_image || "");
+        setInitialCoverImage(data.cover_image || null);
         setVideoUrl(data.video_url || "");
+        setInitialVideoUrl(data.video_url || null);
         setYoutubeUrl(data.youtube_url || "");
 
         const { data: mediaData } = await supabase
@@ -130,6 +139,11 @@ export default function AdminPageEditorPage() {
         toast.error("Kaydetme işlemi başarısız oldu.");
       }
     } else {
+      // Replace orphan temizligi: degisen cover/video eski dosyalari (best-effort).
+      // youtube_url harici link oldugundan temizlenmez. isNew'de snapshot null -> no-op.
+      await cleanupReplacedFile(supabase, initialCoverImage, coverImage || null);
+      await cleanupReplacedFile(supabase, initialVideoUrl, videoUrl || null);
+
       // Galeri görsellerini senkronize et
       const removed = initialGallery.filter((u) => !galleryImages.includes(u));
       if (removed.length > 0) {

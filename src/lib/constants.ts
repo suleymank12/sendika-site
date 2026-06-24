@@ -19,6 +19,48 @@ export const DEFAULT_META = {
   OG_IMAGE: "/placeholder-logo.png",
 } as const;
 
+/**
+ * Tenant slug'i olarak kullanilamaz. Sebepler:
+ * - "default": sistem fallback tenant'i (014 trigger + endpoint korumasi)
+ * - "www", "admin", "api": yaygin subdomain rezervasyonlari (carpisma)
+ * - "app", "auth", "static", "cdn": teknik subdomain'ler
+ */
+export const RESERVED_TENANT_SLUGS = [
+  "default",
+  "www",
+  "admin",
+  "api",
+  "app",
+  "auth",
+  "static",
+  "cdn",
+] as const;
+
+export type ReservedTenantSlug = (typeof RESERVED_TENANT_SLUGS)[number];
+
+/**
+ * Slug formati: lowercase, alfanumeric, tire (basta/sonda olamaz).
+ */
+export const SLUG_REGEX = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
+/**
+ * Slug uzunluk sinirlari.
+ * - Min 2: tek karakter URL kalitesini bozar
+ * - Max 50: DNS subdomain limiti 63, guvenli pay birakildi
+ */
+export const SLUG_MIN_LENGTH = 2;
+export const SLUG_MAX_LENGTH = 50;
+
+/**
+ * Custom domain format regex: hostname formati.
+ * - Lowercase + rakam + tire + nokta
+ * - En az bir nokta (TLD zorunlu)
+ * - Protokol/path/port reddedilir
+ * - IDN/punycode kullaniciya birakilir (xn-- baslangicli kabul edilir)
+ */
+export const CUSTOM_DOMAIN_REGEX =
+  /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+
 // Site ayarlari anahtarlari
 export const SETTING_KEYS = {
   LOGO_URL: "logo_url",

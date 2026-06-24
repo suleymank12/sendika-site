@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
+import { RESERVED_TENANT_SLUGS } from "@/lib/constants";
 
 interface RequestBody {
   name: string;
@@ -62,6 +63,12 @@ export async function POST(req: NextRequest) {
   if (!slug || !SLUG_RE.test(slug)) {
     return NextResponse.json(
       { error: "Geçersiz subdomain. Sadece küçük harf, rakam ve tire kullanın." },
+      { status: 400 }
+    );
+  }
+  if ((RESERVED_TENANT_SLUGS as readonly string[]).includes(slug)) {
+    return NextResponse.json(
+      { error: `"${slug}" rezerve bir slug, kullanılamaz.` },
       { status: 400 }
     );
   }

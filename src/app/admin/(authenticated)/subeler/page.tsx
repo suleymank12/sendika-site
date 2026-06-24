@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  cleanupReplacedFile,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -295,6 +299,16 @@ export default function AdminBranchesPage() {
         toast.error("Kaydetme başarısız oldu.");
       }
     } else {
+      // Replace orphan temizligi: eski yonetici fotosu listeden okunur.
+      // payload.manager_photo mod degisimini de kapsar (board/none -> null).
+      if (form.id) {
+        const oldPhoto = branches.find((b) => b.id === form.id)?.manager_photo;
+        await cleanupReplacedFile(
+          supabase,
+          oldPhoto,
+          (payload.manager_photo as string | null) ?? null
+        );
+      }
       toast.success(form.id ? "Şube güncellendi." : "Şube eklendi.");
       setModalOpen(false);
       setForm(emptyForm);

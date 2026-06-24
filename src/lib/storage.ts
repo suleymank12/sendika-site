@@ -219,3 +219,46 @@ export async function purgeContentMedia(
 
   return paths;
 }
+
+/**
+ * Replace senaryosunda yetim dosya temizleme (Sprint 4 Madde 4).
+ *
+ * Senaryo: Bir entity'nin gorseli degistirildiginde (cover, photo, vb.)
+ * yeni dosya yuklendi, DB guncellendi, AMA eski dosya storage'da kaldi.
+ * Bu helper save flow'larinda kullanilir.
+ *
+ * NEDEN ImageUploader iCINDE DEGIL: Component kaydetmeden habersiz.
+ * Kullanici gorseli degistirip "vazgec" derse, in-component silme hala
+ * DB'de referansli dosyayi siler -> broken image. Dogru yer: save flow'un
+ * basarili DB update'inden SONRA.
+ *
+ * Davranis:
+ *  - oldUrl bos/null: no-op
+ *  - oldUrl === newUrl: no-op (degisiklik yok)
+ *  - oldUrl path'e cevrilemiyor: no-op (storagePathFromUrl null doner)
+ *  - oldUrl path'i var ve farkli: removeFilesFromStorage cagrilir
+ *
+ * Best-effort: hata yutulur, DB akisi etkilenmez (Sprint 3.6 disiplini).
+ *
+ * @param supabase - Client
+ * @param oldUrl - Eski URL (DB'den okunan, replace ONCE saklanan)
+ * @param newUrl - Yeni URL (DB'ye yazilan veya null/"")
+ * @param bucket - Bucket adi (default "images")
+ */
+export async function cleanupReplacedFile(
+  supabase: SupabaseClient,
+  oldUrl: string | null | undefined,
+  newUrl: string | null | undefined,
+  bucket: string = "images"
+): Promise<void> {
+  if (!oldUrl || oldUrl === newUrl) {
+    return;
+  }
+
+  const oldPath = storagePathFromUrl(oldUrl, bucket);
+  if (!oldPath) {
+    return;
+  }
+
+  await removeFilesFromStorage(supabase, bucket, [oldPath]);
+}

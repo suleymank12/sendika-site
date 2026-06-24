@@ -3,7 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  cleanupReplacedFile,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -203,6 +207,11 @@ export default function AdminBoardMembersPage() {
         toast.error("Kaydetme başarısız oldu.");
       }
     } else {
+      // Replace orphan temizligi: eski foto listeden okunur (best-effort)
+      if (form.id) {
+        const oldPhoto = members.find((m) => m.id === form.id)?.photo;
+        await cleanupReplacedFile(supabase, oldPhoto, form.photo || null);
+      }
       toast.success(form.id ? "Üye güncellendi." : "Üye eklendi.");
       setModalOpen(false);
       setForm(emptyForm);

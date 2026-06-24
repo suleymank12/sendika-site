@@ -105,37 +105,46 @@ export default function TenantDetailPage() {
       toast.error("Kuruluş adı zorunludur.");
       return;
     }
-    if (!slug.trim() || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug)) {
-      toast.error("Geçersiz subdomain.");
+    if (!slug.trim()) {
+      toast.error("Subdomain zorunludur.");
+      return;
+    }
+    // Client-side regex on koruma (server zaten kontrol ediyor, UX icin)
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(slug.trim().toLowerCase())) {
+      toast.error(
+        "Subdomain yalnızca küçük harf, rakam ve tire içerebilir (başta/sonda tire olamaz)."
+      );
       return;
     }
 
     setSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("tenants")
-      .update({
-        name: name.trim(),
-        slug: slug.trim().toLowerCase(),
-        custom_domain: customDomain.trim().toLowerCase() || null,
-        is_active: isActive,
-        enabled_modules: { donations, membership },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", tenantId);
 
-    if (error) {
-      if ((error as { code?: string }).code === "23505") {
-        toast.error("Bu subdomain veya custom domain zaten kullanılıyor.");
-      } else {
-        toast.error("Kaydetme başarısız: " + error.message);
-      }
+    const normalizedSlug = slug.trim().toLowerCase();
+    const response = await fetch("/api/super-admin/update-tenant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenantId,
+        name: name.trim(),
+        slug: normalizedSlug,
+        customDomain: customDomain.trim().toLowerCase() || null,
+        isActive,
+        enabledModules: { donations, membership },
+      }),
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      toast.error(data?.error || "Kaydetme başarısız oldu.");
       setSaving(false);
       return;
     }
 
     toast.success("Tenant güncellendi.");
-    setOriginalSlug(slug);
+    // Banner'i sifirla: kaydedilen (normalize) slug artik yeni "original"
+    setOriginalSlug(normalizedSlug);
+    setSlug(normalizedSlug);
     setSaving(false);
   };
 

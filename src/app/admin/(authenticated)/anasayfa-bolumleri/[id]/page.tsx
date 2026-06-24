@@ -14,6 +14,7 @@ import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import FormField from "@/components/admin/FormField";
 import ImageUploader from "@/components/admin/ImageUploader";
+import { cleanupReplacedFile } from "@/lib/storage";
 import { Plus, GripVertical, Edit, Trash2, LayoutGrid } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import { HomepageSection, HomepageSectionItem } from "@/types";
@@ -261,6 +262,15 @@ export default function AdminSectionItemsPage() {
     if (error) {
       toast.error("Kaydetme başarısız oldu.");
     } else {
+      // Replace orphan temizligi: eski gorsel listeden okunur
+      if (form.id) {
+        const oldImageUrl = items.find((i) => i.id === form.id)?.image_url;
+        await cleanupReplacedFile(
+          supabase,
+          oldImageUrl,
+          form.image_url.trim() || null
+        );
+      }
       toast.success(form.id ? "Öğe güncellendi." : "Öğe eklendi.");
       setModalOpen(false);
       setForm(emptyForm);

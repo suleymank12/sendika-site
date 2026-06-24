@@ -3,7 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  cleanupReplacedFile,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -207,6 +211,11 @@ export default function AdminSliderPage() {
     if (error) {
       toast.error("Kaydetme başarısız oldu.");
     } else {
+      // Replace orphan temizligi: eski gorsel listeden okunur (best-effort)
+      if (form.id) {
+        const oldImageUrl = sliders.find((s) => s.id === form.id)?.image_url;
+        await cleanupReplacedFile(supabase, oldImageUrl, form.image_url);
+      }
       toast.success(form.id ? "Slide güncellendi." : "Slide eklendi.");
       setModalOpen(false);
       setForm(emptyForm);

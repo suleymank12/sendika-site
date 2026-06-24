@@ -7,6 +7,7 @@ import { ArrowLeft, ShieldCheck } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { createSlug } from "@/lib/utils";
+import { RESERVED_TENANT_SLUGS } from "@/lib/constants";
 import toast from "react-hot-toast";
 
 export default function NewTenantPage() {
@@ -40,7 +41,7 @@ export default function NewTenantPage() {
       toast.error("Geçerli bir admin e-postası girin.");
       return;
     }
-    if (slug === "default" || slug === "www" || slug === "admin" || slug === "api") {
+    if ((RESERVED_TENANT_SLUGS as readonly string[]).includes(slug)) {
       toast.error("Bu subdomain rezerve edilmiş, başka bir tane seçin.");
       return;
     }

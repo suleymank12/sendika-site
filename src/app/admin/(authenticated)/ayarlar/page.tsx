@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { cleanupReplacedFile } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -126,6 +127,9 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Replace orphan temizligi icin DB'den okunan ilk logo/favicon snapshot'i
+  const [initialLogoUrl, setInitialLogoUrl] = useState<string | null>(null);
+  const [initialFaviconUrl, setInitialFaviconUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!tenant) return;
@@ -143,6 +147,8 @@ export default function AdminSettingsPage() {
           }
         });
         setSettings(obj);
+        setInitialLogoUrl(obj.logo_url || null);
+        setInitialFaviconUrl(obj.favicon_url || null);
       }
       setLoading(false);
     };
@@ -172,6 +178,16 @@ export default function AdminSettingsPage() {
     if (hasError) {
       toast.error("Bazı ayarlar kaydedilemedi.");
     } else {
+      // Replace orphan temizligi: degisen logo/favicon eski dosyalari (best-effort).
+      // Sayfa acik kaldigi icin snapshot'lar sonraki kayit icin yenilenir.
+      await cleanupReplacedFile(supabase, initialLogoUrl, settings.logo_url || null);
+      await cleanupReplacedFile(
+        supabase,
+        initialFaviconUrl,
+        settings.favicon_url || null
+      );
+      setInitialLogoUrl(settings.logo_url || null);
+      setInitialFaviconUrl(settings.favicon_url || null);
       toast.success("Ayarlar kaydedildi.");
     }
     setSaving(false);

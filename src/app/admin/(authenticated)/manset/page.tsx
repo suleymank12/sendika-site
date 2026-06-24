@@ -12,6 +12,7 @@ import {
   storagePathFromUrl,
   removeFilesFromStorage,
   purgeContentMedia,
+  cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
@@ -210,6 +211,13 @@ export default function AdminHeadlinePage() {
     if (error) {
       toast.error("Kaydetme başarısız oldu.");
     } else {
+      // Replace orphan temizligi: eski gorsel + video listeden okunur
+      // (youtube_url harici link, storage'da degil — temizlenmez)
+      if (editingId) {
+        const old = headlines.find((h) => h.id === editingId);
+        await cleanupReplacedFile(supabase, old?.image_url, form.image_url || null);
+        await cleanupReplacedFile(supabase, old?.video_url, form.video_url || null);
+      }
       toast.success(editingId ? "Manşet güncellendi." : "Manşet eklendi.");
       setModalOpen(false);
       fetchHeadlines();

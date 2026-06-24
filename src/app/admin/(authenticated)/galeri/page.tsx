@@ -4,7 +4,11 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
-import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  cleanupReplacedFile,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -198,6 +202,11 @@ export default function AdminGalleryPage() {
     if (error) {
       toast.error("Kaydetme başarısız oldu.");
     } else {
+      // Replace orphan temizligi: eski albüm kapagi listeden okunur
+      if (form.id) {
+        const oldCover = albums.find((a) => a.id === form.id)?.cover_image;
+        await cleanupReplacedFile(supabase, oldCover, form.cover_image || null);
+      }
       toast.success(form.id ? "Albüm güncellendi." : "Albüm oluşturuldu.");
       setModalOpen(false);
       setForm(emptyForm);

@@ -10,6 +10,7 @@ import {
   generateFileName,
   storagePathFromUrl,
   removeFilesFromStorage,
+  cleanupReplacedFile,
 } from "@/lib/storage";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
@@ -81,6 +82,8 @@ export default function AdminGalleryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  // Replace orphan temizligi icin DB'den okunan ilk kapak degerinin snapshot'i
+  const [initialCoverImage, setInitialCoverImage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleteImage, setDeleteImage] = useState<GalleryImage | null>(null);
@@ -118,6 +121,7 @@ export default function AdminGalleryDetailPage() {
     setAlbum(albumRes.data);
     setTitle(albumRes.data.title);
     setCoverImage(albumRes.data.cover_image || "");
+    setInitialCoverImage(albumRes.data.cover_image || null);
     setImages(imagesRes.data || []);
     setLoading(false);
   }, [albumId, router, tenant]);
@@ -146,6 +150,10 @@ export default function AdminGalleryDetailPage() {
     if (error) {
       toast.error("Güncelleme başarısız oldu.");
     } else {
+      // Replace orphan temizligi: degisen kapak eski dosyasi (best-effort).
+      // Sayfa acik kaldigi icin snapshot sonraki kayit icin yenilenir.
+      await cleanupReplacedFile(supabase, initialCoverImage, coverImage || null);
+      setInitialCoverImage(coverImage || null);
       toast.success("Albüm güncellendi.");
     }
     setSaving(false);

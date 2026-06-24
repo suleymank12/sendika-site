@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { storagePathFromUrl, removeFilesFromStorage } from "@/lib/storage";
+import {
+  storagePathFromUrl,
+  removeFilesFromStorage,
+  cleanupReplacedFile,
+} from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
@@ -35,6 +39,9 @@ export default function AdminAnnouncementEditorPage() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [initialGallery, setInitialGallery] = useState<string[]>([]);
+  // Replace orphan temizligi icin DB'den okunan ilk degerlerin snapshot'i
+  const [initialCoverImage, setInitialCoverImage] = useState<string | null>(null);
+  const [initialVideoUrl, setInitialVideoUrl] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [existingPublishedAt, setExistingPublishedAt] = useState<string | null>(null);
 
@@ -60,8 +67,10 @@ export default function AdminAnnouncementEditorPage() {
         setSummary(data.summary || "");
         setContent(data.content || "");
         setCoverImage(data.cover_image || "");
+        setInitialCoverImage(data.cover_image || null);
         setIsHeadline(data.is_headline || false);
         setVideoUrl(data.video_url || "");
+        setInitialVideoUrl(data.video_url || null);
         setYoutubeUrl(data.youtube_url || "");
         setExistingPublishedAt(data.published_at || null);
 
@@ -154,6 +163,11 @@ export default function AdminAnnouncementEditorPage() {
         toast.error("Kaydetme işlemi başarısız oldu.");
       }
     } else {
+      // Replace orphan temizligi: degisen cover/video eski dosyalari (best-effort).
+      // youtube_url harici link oldugundan temizlenmez. isNew'de snapshot null -> no-op.
+      await cleanupReplacedFile(supabase, initialCoverImage, coverImage || null);
+      await cleanupReplacedFile(supabase, initialVideoUrl, videoUrl || null);
+
       // Galeri görsellerini senkronize et
       const removed = initialGallery.filter((u) => !galleryImages.includes(u));
       if (removed.length > 0) {
