@@ -27,6 +27,7 @@ import { useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
+import { compressImage } from "@/lib/image-compress";
 import toast from "react-hot-toast";
 
 interface RichTextEditorProps {
@@ -100,11 +101,15 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
     }
 
     try {
+      // Sikistir + WebP'ye cevir (hata/fayda yoksa orijinal doner).
+      // Genislik cap'i; yukseklik serbest — uzun infografikler ezilmesin.
+      const compressed = await compressImage(file, { maxWidth: 1280, quality: 0.8 });
+
       const supabase = createClient();
-      const fileName = generateFileName(file.name);
+      const fileName = generateFileName(compressed.name);
       const filePath = buildStoragePath(tenant.id, "editor", fileName);
 
-      const { error } = await supabase.storage.from("images").upload(filePath, file);
+      const { error } = await supabase.storage.from("images").upload(filePath, compressed);
       if (error) throw error;
 
       const { data: urlData } = supabase.storage.from("images").getPublicUrl(filePath);

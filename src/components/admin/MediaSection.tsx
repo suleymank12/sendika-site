@@ -21,6 +21,7 @@ import { Upload, X, GripVertical } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
+import { compressImage } from "@/lib/image-compress";
 import toast from "react-hot-toast";
 import ImageUploader from "./ImageUploader";
 import MediaUploader from "./MediaUploader";
@@ -153,10 +154,18 @@ export default function MediaSection({
         continue;
       }
 
-      const fileName = generateFileName(file.name);
+      // Sikistir + WebP'ye cevir (hata/fayda yoksa orijinal doner).
+      // Sirali islenir: coklu canvas'in es zamanli bellek yukunu onler.
+      const compressed = await compressImage(file, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.8,
+      });
+
+      const fileName = generateFileName(compressed.name);
       const filePath = buildStoragePath(tenant.id, galleryFolder, fileName);
 
-      const { error: uploadError } = await supabase.storage.from("images").upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("images").upload(filePath, compressed);
       if (uploadError) continue;
 
       const { data: urlData } = supabase.storage.from("images").getPublicUrl(filePath);

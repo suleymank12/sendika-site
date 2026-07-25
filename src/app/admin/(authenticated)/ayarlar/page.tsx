@@ -256,6 +256,7 @@ export default function AdminSettingsPage() {
                 folder="branding"
                 maxWidth={256}
                 maxHeight={256}
+                toWebp={false}
               />
               <p className="text-xs text-text-muted mt-1">
                 Tarayıcı sekmesinde ve yer imlerinde görünür. Önerilen: kare PNG, 256x256 piksel.

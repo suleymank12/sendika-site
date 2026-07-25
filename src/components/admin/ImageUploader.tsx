@@ -6,6 +6,7 @@ import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
+import { compressImage } from "@/lib/image-compress";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
@@ -16,47 +17,8 @@ interface ImageUploaderProps {
   folder?: string;
   maxWidth?: number;
   maxHeight?: number;
-}
-
-function resizeImage(file: File, maxWidth: number, maxHeight: number): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      let { width, height } = img;
-
-      if (width <= maxWidth && height <= maxHeight) {
-        resolve(file);
-        return;
-      }
-
-      const ratio = Math.min(maxWidth / width, maxHeight / height);
-      width = Math.round(width * ratio);
-      height = Math.round(height * ratio);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            reject(new Error("Görsel boyutlandırma başarısız."));
-            return;
-          }
-          const resized = new File([blob], file.name.replace(/\.\w+$/, ".jpg"), {
-            type: "image/jpeg",
-          });
-          resolve(resized);
-        },
-        "image/jpeg",
-        0.85
-      );
-    };
-    img.onerror = () => reject(new Error("Görsel okunamadı."));
-    img.src = URL.createObjectURL(file);
-  });
+  /** false: WebP'ye cevirme, formati koru (logo/favicon keskinligi icin). Default true. */
+  toWebp?: boolean;
 }
 
 export default function ImageUploader({
@@ -66,6 +28,7 @@ export default function ImageUploader({
   folder = "uploads",
   maxWidth,
   maxHeight,
+  toWebp = true,
 }: ImageUploaderProps) {
   const { tenant } = useTenant();
   const [uploading, setUploading] = useState(false);
@@ -93,7 +56,9 @@ export default function ImageUploader({
       try {
         let fileToUpload = file;
         if (maxWidth || maxHeight) {
-          fileToUpload = await resizeImage(file, maxWidth ?? Infinity, maxHeight ?? Infinity);
+          // Merkezi util: boyutlandir + (toWebp ise) WebP'ye cevir.
+          // Hata/fayda yoksa orijinali doner (fallback korunur).
+          fileToUpload = await compressImage(file, { maxWidth, maxHeight, toWebp });
         }
 
         const supabase = createClient();
@@ -113,7 +78,7 @@ export default function ImageUploader({
         setUploading(false);
       }
     },
-    [bucket, folder, onChange, maxWidth, maxHeight, tenant]
+    [bucket, folder, onChange, maxWidth, maxHeight, toWebp, tenant]
   );
 
   const handleDrop = useCallback(
