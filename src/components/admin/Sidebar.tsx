@@ -17,13 +17,19 @@ import {
   Users,
   Building2,
   Settings,
+  Mail,
   LogOut,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { useSiteTitle } from "@/hooks/useSiteTitle";
+import { useTenant } from "@/hooks/useTenant";
+
+// Okunmamis mesaj badge'i bu menu item'inda gosterilir.
+const GELEN_MESAJLAR_HREF = "/admin/gelen-mesajlar";
 
 interface MenuItem {
   label: string;
@@ -39,7 +45,10 @@ interface MenuGroup {
 const menuGroups: MenuGroup[] = [
   {
     label: null,
-    items: [{ label: "Özet", href: "/admin", icon: LayoutDashboard }],
+    items: [
+      { label: "Özet", href: "/admin", icon: LayoutDashboard },
+      { label: "Gelen Mesajlar", href: GELEN_MESAJLAR_HREF, icon: Mail },
+    ],
   },
   {
     label: "İçerik Yönetimi",
@@ -82,6 +91,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const siteTitle = useSiteTitle();
+  const { tenant } = useTenant();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Okunmamis mesaj sayaci. Tenant-scoped; RLS tenant uyeligini kontrol eder.
+  const fetchUnread = useCallback(async () => {
+    if (!tenant) return;
+    const supabase = createClient();
+    const { count } = await supabase
+      .from("contact_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", tenant.id)
+      .eq("okundu", false);
+    setUnreadCount(count ?? 0);
+  }, [tenant]);
+
+  // Ilk yukleme + "contact-messages-updated" sinyalinde yenile (poll yok).
+  useEffect(() => {
+    fetchUnread();
+    const handler = () => fetchUnread();
+    window.addEventListener("contact-messages-updated", handler);
+    return () => window.removeEventListener("contact-messages-updated", handler);
+  }, [fetchUnread]);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -141,7 +172,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                         )}
                       >
                         <item.icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} />
-                        {item.label}
+                        <span className="flex-1">{item.label}</span>
+                        {item.href === GELEN_MESAJLAR_HREF && unreadCount > 0 && (
+                          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-error text-white text-[10px] font-semibold leading-none">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
                       </Link>
                     </li>
                   ))}

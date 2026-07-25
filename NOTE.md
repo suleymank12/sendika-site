@@ -5,6 +5,45 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# İletişim Formu Backend — Faz 1 (DB kaydı + admin okuma)
+
+İletişim formu artık gerçek: form → `/api/contact` (POST) → server tenant'ı
+**hostname'den** belirler → honeypot + rate limit + validation → service role
+ile `contact_messages`'a kaydeder. Admin panelde **"Gelen Mesajlar"** sayfasından
+okunur. (E-posta bildirimi **Faz 2** — domain gelince, ayrı.)
+
+## 1. Migration 021 Uygulanması (elle)
+
+`supabase/migrations/021_contact_messages.sql` Supabase SQL Editor'dan
+çalıştırılmalı (011/012/.../020 gibi). İki tablo oluşturur:
+- `contact_messages` (tenant-scoped, RLS: sadece tenant admin okur/siler;
+  **anon INSERT policy YOK** — kayıt service role ile yapılır)
+- `contact_rate_limit` (ip_hash — ham IP değil; RLS açık + policy'siz =
+  yalnız service role)
+
+İdempotent — ikinci kez çalıştırılırsa hata vermez.
+
+## 2. CONTACT_IP_SALT env (opsiyonel ama önerilir)
+
+Rate-limit IP hash'i için salt. `.env.local` ve Vercel'e eklenmeli:
+```
+CONTACT_IP_SALT=<rastgele-gizli-deger>
+```
+Eksik bırakılırsa sabit fallback kullanılır (çalışır ama production'da
+benzersiz değer önerilir). Ham IP saklanmaz; IP + salt SHA-256'lanır.
+
+## 3. Faz 1 Sonrası Notlar (Faz 2 / teknik borç)
+
+- **E-posta bildirimi (Faz 2):** Yeni mesaj gelince tenant admin'ine mail.
+  Domain + Resend SMTP gelince eklenecek. Altyapı hazır — DB satırı mevcut,
+  bildirim `/api/contact`'ın sonuna eklenebilir.
+- **contact_rate_limit temizliği:** Tablo zamanla büyür. >1 saatlik kayıtlar
+  için periyodik temizlik (cron/scheduled) ileride eklenmeli.
+- **Badge:** Sidebar okunmamış sayacı `contact-messages-updated` window
+  event'i ile yenilenir (poll yok); sekme/sayfa değişiminde de fetch eder.
+
+---
+
 # Sprint 1 Sonu Yapılacaklar
 
 Sprint 1 push'tan **ÖNCE** Supabase Dashboard'da yapılacak işler. Sırayla
