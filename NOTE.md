@@ -98,6 +98,72 @@ RPC hata verirse kullanıcı silinmez. `getUserById` çağrısı kaldırıldı
 
 ---
 
+# 🟠 GÜVENLİK — Y1 / Parça A: Taslak medya sızıntısı kapatıldı
+
+**Durum:** Migration hazır, **SQL elle apply edilmeli.** Kod değişikliği YOK.
+
+## Açık neydi?
+
+`gallery_images` ve `content_media` public SELECT politikaları `USING (true)`
+idi. Anon anahtarla (JS bundle'ında, gizli değil) REST üzerinden **tüm
+kuruluşların yayınlanmamış** içeriğinin görsel URL'leri çekilebiliyordu —
+basın öncesi duyuru, hazırlanan haber, yayınlanmamış albüm fotoğrafları.
+Storage bucket'ı public-read olduğu için URL = erişim.
+
+## Çözüm
+
+`supabase/migrations/023_public_policy_publish_scope.sql` — iki tablonun da
+kendi yayın kolonu olmadığı için politikalar **parent'ın yayın durumuna**
+bağlandı:
+
+- `gallery_images` → `gallery_albums.is_published` (gerçek FK: `album_id`)
+- `content_media` → polimorfik parent, 4 yönlü `CASE`:
+  `news`/`announcement`/`page` → `is_published`, `headline` → `is_active`,
+  tanınmayan değer → `false` (güvenli varsayılan)
+
+**Kod değişmedi** — public sayfalar zaten parent'ı yayın filtresiyle
+doğrulayıp sonra medyayı çekiyor. Yayınlanmış içerik aynen çalışır.
+
+**Tenant admin görünürlüğü değişmedi:** `tenant_gallery_images_all` ve
+`tenant_content_media_all` politikaları korundu; Postgres permissive
+politikaları OR'ladığı için admin kendi taslaklarını görmeye devam eder.
+
+## Apply + doğrulama
+
+1. `023_public_policy_publish_scope.sql` çalıştır (SQL Editor).
+2. Dosya sonundaki (a)–(e) doğrulamaları çalıştır. Özellikle **(d)**:
+   yayınlanmamış bir albümün fotoğrafları `SET LOCAL ROLE anon` altında
+   **0** dönmeli.
+3. Regresyon testi (incognito): `/galeri`, `/galeri/<id>`,
+   `/haberler/<slug>`, `/duyurular/<slug>`, `/sayfa/<slug>` — galeriler
+   geliyor mu. Admin panelde taslakların galerisi hâlâ görünmeli.
+
+Rollback: dosya sonundaki ROLLBACK bloğu (sızıntıyı geri açar).
+
+## Y1'in KALAN parçası (Parça B — henüz YAPILMADI)
+
+`board_members` ve `branches` hâlâ anon'a açık: **kişisel e-posta ve
+telefonlar** (yönetim kurulu üyeleri + şube yöneticileri) tüm kuruluşlar
+için tek istekte toplanabiliyor — Y1'in asıl KVKK riski budur.
+
+Bu tablolarda kolon kısıtlaması **mümkün değil** (e-posta/telefon public
+detay sayfalarında gerçekten gösteriliyor; ayrıca sorgular `select("*")`
+kullanıyor). Çözüm: public sayfaları server-side service-role + manuel
+`.eq("tenant_id")` desenine (sitemap.ts deseni) taşımak, sonra public
+policy'leri DROP etmek.
+
+⚠️ **Parça B'de dikkat — iki sessiz regresyon riski:** RLS şu an
+`is_active = true` koşulunu sessizce uyguluyor. Service-role'e geçince bu
+kaybolur ve şu iki sorguda uygulama katmanında filtre YOK:
+- `src/app/(public)/subeler/[slug]/page.tsx:66-72` → pasif yönetim kurulu
+  üyesi şube yöneticisi olarak görünür hale gelir
+- `src/app/(public)/subeler/[slug]/yonetici/page.tsx:50-59` → gereksiz
+  redirect tetiklenir, çalışan sayfa 404 olur
+
+Parça B'de bu iki sorguya `.eq("is_active", true)` eklenmeli.
+
+---
+
 # ⛔ 013_revert_tenant_aware_rls.sql — ÇALIŞTIRILMAMALI (arşiv)
 
 Bu rollback dosyası **tehlikelidir**, üretimde asla çalıştırılmamalı:
