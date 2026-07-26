@@ -7,6 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 type Status = "loading" | "invalid" | "ready" | "saving";
 type Mode = "invite" | "recovery";
 
+// Recovery mode kalicilik bayragi: PKCE ?code URL'den temizlendikten sonra
+// sayfa yenilenirse mode kaybolmasin diye sessionStorage'da tutulur.
+const RECOVERY_FLAG_KEY = "davet-kabul-recovery";
+
 function buildTenantUrl(slug: string): string {
   const { protocol, hostname, port } = window.location;
   const portSuffix = port ? `:${port}` : "";
@@ -43,20 +47,65 @@ export default function DavetKabulPage() {
 
   useEffect(() => {
     // 1) Hash'ten parametreleri ÖNCE oku (Supabase temizlemeden önce)
+    //    Implicit akis: DAVET linkleri boyle gelir (#access_token&type=invite),
+    //    cunku davet server-side inviteUserByEmail ile baslar (PKCE verifier yok).
     const hash = window.location.hash.replace(/^#/, "");
     const hashParams = new URLSearchParams(hash);
     const t = hashParams.get("type");
     const accessToken = hashParams.get("access_token");
     const refreshToken = hashParams.get("refresh_token");
 
-    if (t === "recovery") {
-      setMode("recovery");
+    // 2) PKCE akisi (?code=...): SIFRE SIFIRLAMA linkleri boyle gelir, cunku
+    //    resetPasswordForEmail TARAYICIDAN cagrilir ve client PKCE'dir.
+    //    PKCE linkinde hash da type bilgisi de YOK — bu uygulamada ?code
+    //    gorulmesi = recovery (tek tarayici-baslatmali PKCE akisi budur).
+    const hasPkceCode = !!new URLSearchParams(window.location.search).get("code");
+
+    let storedRecoveryFlag = false;
+    try {
+      storedRecoveryFlag = sessionStorage.getItem(RECOVERY_FLAG_KEY) === "1";
+    } catch {
+      // sessionStorage kapali olabilir — bayrak olmadan devam
     }
 
-    const initSession = async () => {
-      const supabase = createClient();
+    if (t && t !== "recovery") {
+      // Acikca invite (veya baska tip) hash linki: ayni sekmede yarim kalmis
+      // bir recovery'den kalan bayrak daveti recovery sanmasin — temizle.
+      try {
+        sessionStorage.removeItem(RECOVERY_FLAG_KEY);
+      } catch {
+        // sessionStorage kapali olabilir
+      }
+    } else if (t === "recovery" || hasPkceCode || storedRecoveryFlag) {
+      setMode("recovery");
+      try {
+        sessionStorage.setItem(RECOVERY_FLAG_KEY, "1");
+      } catch {
+        // sessionStorage kapali olabilir — state zaten set edildi
+      }
+    }
 
-      // 2) Hash'te token varsa: manuel setSession (race condition'sız)
+    const supabase = createClient();
+
+    // 3) PKCE exchange'ini Supabase client OTOMATIK yapar (detectSessionInUrl
+    //    default acik). Exchange, recovery akisinda PASSWORD_RECOVERY event'i
+    //    yayinlar — abonelik exchange bitmeden (senkron) kuruldugu icin event
+    //    kacirilmaz. ?code cikarimina ek, Supabase'in otoriter sinyali.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setMode("recovery");
+        try {
+          sessionStorage.setItem(RECOVERY_FLAG_KEY, "1");
+        } catch {
+          // sessionStorage kapali olabilir — state zaten set edildi
+        }
+      }
+    });
+
+    const initSession = async () => {
+      // 4) Hash'te token varsa: manuel setSession (race condition'sız)
       if (accessToken && refreshToken) {
         const { data, error } = await supabase.auth.setSession({
           access_token: accessToken,
@@ -81,8 +130,9 @@ export default function DavetKabulPage() {
         return;
       }
 
-      // 3) Hash'te token yoksa: zaten session var mı kontrol et
-      // (örn: kullanıcı sayfayı bookmark'tan açtı veya yenilemiş)
+      // 5) Hash'te token yoksa: session kontrol et. PKCE (?code) akisinde
+      //    getSession, client'in otomatik exchange'inin bitmesini bekler —
+      //    exchange basariliysa session burada hazirdir.
       const {
         data: { session },
         error: getSessionError,
@@ -99,10 +149,21 @@ export default function DavetKabulPage() {
         return;
       }
 
+      // Kullanilmis PKCE code'unu URL'den temizle (sayfa yenilenirse ayni
+      // tek-kullanimlik code ile tekrar exchange denenip hata uretmesin;
+      // session zaten storage'da, mode sessionStorage bayraginda).
+      if (hasPkceCode) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+
       setStatus("ready");
     };
 
     initSession();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -126,6 +187,25 @@ export default function DavetKabulPage() {
       console.error("[DavetKabul] updateUser hatası:", updateError);
       setFormError("Şifre belirlenirken hata oluştu: " + updateError.message);
       setStatus("ready");
+      return;
+    }
+
+    // Recovery (şifre sıfırlama): şifre değişti; kullanıcıyı PANELE sokMA.
+    // Geçici recovery session'ı temizle + giriş sayfasına yönlendir.
+    // NEDEN: Eski akış tenant_users'a bakıp tenant'a yönlendiriyordu; süper
+    // admin'in (veya tenant_users kaydı olmayan herkesin) üyeliği olmadığı
+    // için /admin/yetkisiz'e düşüyordu. Ayrıca recovery redirectTo apex
+    // olabildiğinden tenant subdomain'ine yönlendirme cross-subdomain cookie
+    // sorununa takılıyordu. Giriş'e yönlendirmek her iki sorunu da çözer;
+    // AdminLoginForm kullanıcıyı rolüne göre doğru yere alır.
+    if (mode === "recovery") {
+      try {
+        sessionStorage.removeItem(RECOVERY_FLAG_KEY);
+      } catch {
+        // sessionStorage kapali olabilir — bayrak zaten yazilamamistir
+      }
+      await supabase.auth.signOut();
+      window.location.href = "/admin/giris?reset=success";
       return;
     }
 

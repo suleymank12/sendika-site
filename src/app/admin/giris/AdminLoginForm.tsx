@@ -20,6 +20,9 @@ export default function AdminLoginForm({ initialTitle }: { initialTitle: string 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Şifre sıfırlama sonrası davet-kabul buraya ?reset=success ile yönlendirir.
+  const resetSuccess = searchParams.get("reset") === "success";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -93,6 +96,11 @@ export default function AdminLoginForm({ initialTitle }: { initialTitle: string 
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {resetSuccess && (
+              <div className="rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
+                Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.
+              </div>
+            )}
             <Input
               id="email"
               label="E-posta"
