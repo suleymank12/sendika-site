@@ -5,6 +5,118 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🔴 GÜVENLİK — K1: Süper admin yetkisi super_admins tablosuna taşındı
+
+**Durum:** Kod + migration hazır, **SQL elle apply edilmeli.** Deploy blokeri.
+
+## Açık neydi?
+
+`is_super_admin` (010) yetkiyi `auth.users.raw_user_meta_data` alanından
+okuyordu. Bu alan = `user_metadata` = **kullanıcının kendisi yazabilir**:
+
+```js
+await supabase.auth.updateUser({ data: { is_super_admin: true } })
+```
+
+Yani herhangi bir tenant admini tek istekle süper admin olabiliyordu →
+`user_has_tenant_access` her tenant için TRUE → tüm kuruluşların tüm
+verisine sınırsız erişim + tüm süper admin endpoint'leri.
+
+**Canlı DB doğrulaması (apply öncesi):** Tek süper admin vardı
+(`suleymankaraman222@gmail.com`), açık **sömürülmemişti**, fonksiyon repo
+ile aynıydı (drift yok).
+
+## Çözüm
+
+`supabase/migrations/022_super_admins.sql` — yetki kaynağı
+`public.super_admins` tablosuna taşındı. Tablo **RLS açık + policy YOK**
+(021'deki `contact_rate_limit` deseni) → anon/authenticated erişemez;
+`is_super_admin` SECURITY DEFINER olduğu için RLS'i bypass ederek okur.
+
+**Fonksiyon imzası korundu** (`is_super_admin(user_id UUID) → BOOLEAN`) →
+10 TS RPC çağrısı ve ~28 RLS policy dokunulmadan çalışır. Sadece gövde
+değişti. Ayrıca `SET search_path = public` eklendi (010'da eksikti) ve
+`anon` EXECUTE izni kaldırıldı.
+
+## ⚠️ APPLY SIRASI (bu sıra bozulursa süper admin panelden kilitlenir)
+
+Migration tek transaction: tablo **önce** dolar, fonksiyon **sonra** değişir
+→ yetkisiz kalınan an oluşmaz. Yine de adımları sırayla doğrulayın:
+
+1. **Migration'ı çalıştır:** `022_super_admins.sql` (Supabase SQL Editor).
+2. **Doğrula** — dosya sonundaki (a)-(e) sorguları. Özellikle **(b)**:
+   ```sql
+   SELECT public.is_super_admin('00000000-0000-0000-0000-000000000000'::uuid);
+   -- MUTLAKA false dönmeli. true dönerse parametre gölgeleme hatası var
+   -- (herkes süper admin olur) → hemen rollback.
+   ```
+3. **Test:** süper admin ile giriş → `/super-admin` açılıyor mu, tenant
+   listesi geliyor mu, bir tenant'ın `/admin` paneline bypass ile
+   girilebiliyor mu, tenant düzenleme kaydediliyor mu.
+4. **Sömürülemezlik testi:** normal bir tenant admini konsolda
+   `await supabase.auth.updateUser({ data: { is_super_admin: true } })`
+   çalıştırsın → `/super-admin`'e **hâlâ girememeli**. Açığın kapandığının
+   kanıtı budur.
+5. **Testler geçince eski bayrağı temizle** (bu adımdan sonra rollback
+   çalışmaz):
+   ```sql
+   UPDATE auth.users
+   SET raw_user_meta_data = raw_user_meta_data - 'is_super_admin'
+   WHERE raw_user_meta_data ? 'is_super_admin';
+   ```
+
+**Rollback** (yalnızca adım 5'ten önce): migration dosyasının sonundaki
+ROLLBACK bloğu.
+
+## Yeni süper admin ekleme (010'daki YÖNTEMİN YERİNE)
+
+```sql
+INSERT INTO public.super_admins (user_id, note)
+SELECT id, 'gerekce / kim ekledi'
+FROM auth.users
+WHERE email = 'KULLANICI@ORNEK.COM'
+ON CONFLICT (user_id) DO NOTHING;
+```
+
+Kaldırma: `DELETE FROM public.super_admins WHERE user_id = '<uuid>';`
+Listeleme:
+```sql
+SELECT sa.user_id, u.email, sa.note, sa.created_at
+FROM public.super_admins sa JOIN auth.users u ON u.id = sa.user_id;
+```
+
+⛔ **`user_metadata`'ya bir daha ASLA yetki yazmayın.** 010'daki eski
+`UPDATE auth.users SET raw_user_meta_data ...` yöntemi güvenlik açığıdır.
+
+## Kod tarafı değişikliği
+
+`src/lib/super-admin/cleanup-orphan-user.ts` — süper admin tespiti artık
+`is_super_admin` RPC'si ile yapılıyor (eskiden `user_metadata`/`app_metadata`
+okuyordu; herkes kendini "silinemez" yapabiliyordu). Fail-closed korundu:
+RPC hata verirse kullanıcı silinmez. `getUserById` çağrısı kaldırıldı
+(yalnızca bu kontrol için yapılıyordu → bir Auth API çağrısı tasarrufu).
+
+---
+
+# ⛔ 013_revert_tenant_aware_rls.sql — ÇALIŞTIRILMAMALI (arşiv)
+
+Bu rollback dosyası **tehlikelidir**, üretimde asla çalıştırılmamalı:
+
+- `tenants_auth_insert/update/delete` politikalarını
+  `USING (true) TO authenticated` olarak geri kurar (013:81-86) →
+  **her tenant admini her tenant'ı silebilir/değiştirebilir.**
+- `tenant_users_auth_*` aynı şekilde açılır (013:88-95) → herkes istediği
+  tenant'a kendini admin ekleyebilir.
+- 15 içerik tablosunu tenant-agnostic hale döndürür → **tenant izolasyonu
+  tamamen kalkar.**
+- `user_has_tenant_access` fonksiyonunu DROP eder (013:98) → 017 storage
+  politikaları ve 019/021 politikaları da kırılır.
+
+012'de bir sorun çıkarsa rollback yerine hedefe yönelik düzeltme yazılmalı.
+Dosya yalnızca tarihsel referans olarak duruyor.
+
+---
+
 # İletişim Formu Backend — Faz 1 (DB kaydı + admin okuma)
 
 İletişim formu artık gerçek: form → `/api/contact` (POST) → server tenant'ı
@@ -223,17 +335,25 @@ yapılması gereken iki adım var:
 `supabase/migrations/011_schema_cleanup.sql` ve
 `supabase/migrations/012_tenant_aware_rls.sql` Supabase SQL Editor'dan
 sırayla çalıştırılmalı. `013_revert_tenant_aware_rls.sql` rollback dosyası
-repo'da hazır durur, otomatik uygulanmaz.
+repo'da durur, otomatik uygulanmaz — ⛔ **çalıştırılmamalı**, gerekçesi
+dosyanın başındaki "013 — ÇALIŞTIRILMAMALI" bölümünde.
 
-### 010_super_admin.sql — Süper Admin İşaretleme
+### 010_super_admin.sql — Süper Admin İşaretleme (⛔ GEÇERSİZ — 022 ile değişti)
 
-Süper admin yapılacak kullanıcılar için elle SQL çalıştırılır:
+**Bu bölümdeki yöntem bir GÜVENLİK AÇIĞIYDI (K1) ve artık kullanılmıyor.**
+`user_metadata` kullanıcının kendisi tarafından yazılabildiği için herkes
+kendini süper admin yapabiliyordu. Yetki `public.super_admins` tablosuna
+taşındı (migration 022).
+
+Güncel yöntem için dosyanın başındaki **"🔴 GÜVENLİK — K1"** bölümüne bakın.
+Aşağıdaki eski SQL yalnızca tarihsel referanstır, **ÇALIŞTIRMAYIN**:
 
 ```sql
-UPDATE auth.users
-SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb)
-                          || '{"is_super_admin": true}'::jsonb
-WHERE email = 'KULLANICI@ORNEK.COM';
+-- ⛔ ESKI / GUVENSIZ — KULLANMAYIN
+-- UPDATE auth.users
+-- SET raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb)
+--                           || '{"is_super_admin": true}'::jsonb
+-- WHERE email = 'KULLANICI@ORNEK.COM';
 ```
 
 ---
@@ -511,6 +631,21 @@ npm run migrate:storage        # sonra gerçek göç
 `supabase/migrations/017_storage_tenant_rls.sql` Supabase SQL Editor'dan
 çalıştırılmalı (011/012/.../015 gibi). Bu dosya OLUŞTURULDU ama Supabase'e
 UYGULANMADI.
+
+> 🔴 **GÜNCEL DURUM — DOĞRULANMALI (Güvenlik denetimi Tur 1, bulgu K2):**
+> 017'nin apply edildiğine dair repoda **hiçbir kayıt yok** ve Sprint 4 M5
+> doğrulaması da yalnızca `user_has_tenant_access` fonksiyonunu teyit etti,
+> 017'yi değil. Uygulanmadıysa storage'da hâlâ tenant-agnostic politikalar
+> geçerlidir (`018:39-55`: `bucket_id = 'images'`, tenant filtresi yok) →
+> **herhangi bir tenant admini, başka bir tenant'ın görsellerini silebilir
+> veya üzerine yazabilir** (defacement). Deploy öncesi kontrol:
+> ```sql
+> SELECT policyname, cmd FROM pg_policies
+> WHERE schemaname='storage' AND tablename='objects';
+> ```
+> `images_tenant_insert/update/delete` görünmüyorsa: **önce**
+> `npm run migrate:storage` (Aşama 2 prefix göçü), **sonra** 017.
+> Sıra kritik — tersi eski prefix'siz dosyalara erişimi kırar.
 
 ⚠️ **KRİTİK SIRALAMA:** 017'den **ÖNCE** Aşama 2 script'i (gerçek göç)
 mutlaka çalıştırılmalı. Aksi takdirde prefix'siz eski dosyalara write/

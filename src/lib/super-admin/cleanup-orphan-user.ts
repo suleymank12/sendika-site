@@ -29,10 +29,10 @@ export type CleanupResult =
  *    durumda olabilir, "bu tenant'tan cikarsam orphan olur mu?"
  *    sorusuna cevap icin excludeTenantId GEREKLI.
  *
- * Super admin tespiti: 3-yonlu metadata kontrolu (user_metadata true,
- * app_metadata true, string "true"). Su anki sistemde super admin
- * tenant_users'ta hic kayitli degil ama defansif kontrol kritik —
- * yanlislikla silinirse platform kilitlenir.
+ * Super admin tespiti: is_super_admin RPC'si (kaynak: public.super_admins
+ * tablosu, migration 022). Su anki sistemde super admin tenant_users'ta hic
+ * kayitli degil ama defansif kontrol kritik — yanlislikla silinirse platform
+ * kilitlenir. Kontrol FAIL-CLOSED: RPC hata verirse kullanici SILINMEZ.
  */
 export async function cleanupOrphanUserIfNeeded(
   admin: SupabaseClient,
@@ -65,22 +65,31 @@ export async function cleanupOrphanUserIfNeeded(
     return { deleted: false, reason: "multi-tenant" };
   }
 
-  // 2) Super admin mi? (3-yonlu metadata kontrolu)
-  const { data: userData, error: userFetchError } =
-    await admin.auth.admin.getUserById(userId);
+  // 2) Super admin mi? TEK DOGRULUK KAYNAGI: is_super_admin RPC'si
+  //    (public.super_admins tablosu — migration 022).
+  //
+  //    ONCEDEN burada user_metadata/app_metadata okunuyordu. user_metadata
+  //    kullanicinin KENDI yazabildigi bir alan oldugu icin herhangi bir
+  //    kullanici kendini "super admin" isaretleyip SILINEMEZ hale
+  //    getirebiliyordu (K1 aciginin yan dali). Artik yetki, kullanicinin
+  //    yazamadigi tek kaynaktan okunuyor.
+  const { data: isSuperAdmin, error: superAdminCheckError } = await admin.rpc(
+    "is_super_admin",
+    { user_id: userId }
+  );
 
-  if (userFetchError) {
+  if (superAdminCheckError) {
     console.error(
-      `[cleanup-orphan-user] user ${userId} fetch hatasi:`,
-      userFetchError
+      `[cleanup-orphan-user] user ${userId} super admin kontrolu hatasi:`,
+      superAdminCheckError
     );
-    return { deleted: false, reason: "error", error: userFetchError.message };
+    // FAIL-CLOSED: super admin olup olmadigindan emin degilsek SILME.
+    return {
+      deleted: false,
+      reason: "error",
+      error: superAdminCheckError.message,
+    };
   }
-
-  const isSuperAdmin =
-    userData?.user?.user_metadata?.is_super_admin === true ||
-    userData?.user?.app_metadata?.is_super_admin === true ||
-    userData?.user?.user_metadata?.is_super_admin === "true";
 
   if (isSuperAdmin) {
     console.warn(
