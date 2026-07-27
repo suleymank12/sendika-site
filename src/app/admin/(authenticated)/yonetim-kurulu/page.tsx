@@ -21,7 +21,7 @@ import FormField from "@/components/admin/FormField";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import { Plus, Edit, Trash2, GripVertical, Users } from "lucide-react";
 import { BoardMember } from "@/types";
-import { createSlug } from "@/lib/utils";
+import { createSlug, cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
   DndContext,
@@ -68,10 +68,12 @@ function SortableMemberCard({
   item,
   onEdit,
   onDelete,
+  onToggle,
 }: {
   item: BoardMember;
   onEdit: (item: BoardMember) => void;
   onDelete: (item: BoardMember) => void;
+  onToggle: (item: BoardMember) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -98,6 +100,20 @@ function SortableMemberCard({
           className="absolute top-2 left-2 rounded-lg bg-black/50 p-1.5 text-white cursor-grab"
         >
           <GripVertical className="h-4 w-4" />
+        </button>
+        {/* Fotograf uzerinde okunabilirlik icin solid arka plan (subeler pill'inin
+            bg-success/10 tonu beyaz kart icindi, foto uzerinde okunmazdi) */}
+        <button
+          onClick={() => onToggle(item)}
+          title={item.is_active ? "Pasife al" : "Aktife al"}
+          className={cn(
+            "absolute top-2 right-2 text-xs px-2.5 py-1 rounded-full font-medium transition-colors shadow-sm",
+            item.is_active
+              ? "bg-success text-white hover:bg-success/90"
+              : "bg-warning text-white hover:bg-warning/90"
+          )}
+        >
+          {item.is_active ? "Aktif" : "Pasif"}
         </button>
       </div>
       <div className="p-3">
@@ -244,6 +260,23 @@ export default function AdminBoardMembersPage() {
     setDeleting(false);
   };
 
+  const handleToggle = async (item: BoardMember) => {
+    if (!tenant) return;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("board_members")
+      .update({ is_active: !item.is_active })
+      .eq("tenant_id", tenant.id)
+      .eq("id", item.id);
+    if (error) {
+      toast.error("Güncelleme başarısız.");
+    } else {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === item.id ? { ...m, is_active: !m.is_active } : m))
+      );
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id || !tenant) return;
@@ -293,7 +326,7 @@ export default function AdminBoardMembersPage() {
               <SortableContext items={members.map((i) => i.id)} strategy={rectSortingStrategy}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {members.map((item) => (
-                    <SortableMemberCard key={item.id} item={item} onEdit={handleEdit} onDelete={setDeleteItem} />
+                    <SortableMemberCard key={item.id} item={item} onEdit={handleEdit} onDelete={setDeleteItem} onToggle={handleToggle} />
                   ))}
                 </div>
               </SortableContext>
@@ -389,6 +422,41 @@ export default function AdminBoardMembersPage() {
                   placeholder="uye@sendika.tr"
                   helperText="Opsiyonel"
                 />
+              </section>
+
+              <section className="space-y-3">
+                <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
+                <FormField label="Yayın Durumu">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, is_active: true })}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        form.is_active
+                          ? "border-success bg-success/10 text-success"
+                          : "border-border bg-white text-text-muted hover:bg-bg-light"
+                      )}
+                    >
+                      Aktif
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, is_active: false })}
+                      className={cn(
+                        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        !form.is_active
+                          ? "border-warning bg-warning/10 text-warning"
+                          : "border-border bg-white text-text-muted hover:bg-bg-light"
+                      )}
+                    >
+                      Pasif
+                    </button>
+                  </div>
+                  <p className="text-xs text-text-muted mt-1.5">
+                    Pasif üyeler sitede görünmez.
+                  </p>
+                </FormField>
               </section>
 
               <p className="text-xs text-text-muted pt-2">

@@ -157,6 +157,12 @@ export default function AdminBranchesPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Secilebilir yoneticiler: aktif uyeler + (varsa) halihazirda atanmis pasif
+  // uye. Pasif uyeler YENI secim olarak listelenmez; mevcut atama korunur.
+  const selectableManagers = boardMembers.filter(
+    (m) => m.is_active || m.id === form.manager_id
+  );
+
   const fetchBranches = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
@@ -169,6 +175,9 @@ export default function AdminBranchesPage() {
     setLoading(false);
   }, [tenant]);
 
+  // is_active filtresi KASITLI yok: pasif bir uye halihazirda yonetici
+  // atanmissa formda "(Pasif)" etiketiyle gosterilebilmeli. Yeni secim
+  // filtrelemesi selectableManagers'ta yapilir.
   const fetchBoardMembers = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
@@ -176,7 +185,6 @@ export default function AdminBranchesPage() {
       .from("board_members")
       .select("*")
       .eq("tenant_id", tenant.id)
-      .eq("is_active", true)
       .order("order", { ascending: true });
     setBoardMembers(data || []);
   }, [tenant]);
@@ -555,6 +563,41 @@ export default function AdminBranchesPage() {
                     placeholder="Pazartesi - Cuma, 09:00 - 17:00"
                   />
                 </section>
+
+                <section className="space-y-3">
+                  <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
+                  <FormField label="Yayın Durumu">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, is_active: true })}
+                        className={cn(
+                          "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                          form.is_active
+                            ? "border-success bg-success/10 text-success"
+                            : "border-border bg-white text-text-muted hover:bg-bg-light"
+                        )}
+                      >
+                        Aktif
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, is_active: false })}
+                        className={cn(
+                          "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                          !form.is_active
+                            ? "border-warning bg-warning/10 text-warning"
+                            : "border-border bg-white text-text-muted hover:bg-bg-light"
+                        )}
+                      >
+                        Pasif
+                      </button>
+                    </div>
+                    <p className="text-xs text-text-muted mt-1.5">
+                      Pasif şubeler sitede görünmez.
+                    </p>
+                  </FormField>
+                </section>
               </div>
             </div>
           )}
@@ -613,9 +656,11 @@ export default function AdminBranchesPage() {
                 <section className="space-y-3 max-w-2xl">
                   <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Üye Seçimi</p>
                   <FormField label="Yönetim Kurulu Üyesi">
-                    {boardMembers.length === 0 ? (
+                    {selectableManagers.length === 0 ? (
                       <p className="text-sm text-text-muted rounded-lg border border-dashed border-border p-4 text-center">
-                        Önce Yönetim Kurulu sayfasından üye eklemelisiniz.
+                        {boardMembers.length === 0
+                          ? "Önce Yönetim Kurulu sayfasından üye eklemelisiniz."
+                          : "Aktif üye bulunmuyor. Yönetim Kurulu sayfasından bir üyeyi aktif yapın veya yeni üye ekleyin."}
                       </p>
                     ) : (
                       <Select
@@ -623,9 +668,9 @@ export default function AdminBranchesPage() {
                         onChange={(e) => setForm({ ...form, manager_id: e.target.value || null })}
                       >
                         <option value="">Üye seçin...</option>
-                        {boardMembers.map((m) => (
+                        {selectableManagers.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {m.name}{m.title ? ` — ${m.title}` : ""}
+                            {m.name}{m.title ? ` — ${m.title}` : ""}{m.is_active ? "" : " (Pasif)"}
                           </option>
                         ))}
                       </Select>
