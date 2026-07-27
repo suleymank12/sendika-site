@@ -1,0 +1,129 @@
+-- ============================================================================
+-- Migration 024: board_members + branches public SELECT policy'leri DROP (Y1 / Parca B)
+-- ============================================================================
+--
+-- BULGU (Guvenlik denetimi, bulgu Y1 — asil KVKK riski):
+--   board_members ve branches'in public SELECT policy'leri tenant-agnostic
+--   idi (001:184-188, USING (is_active = true) — tenant filtresi YOK).
+--   Anon anahtar (JS bundle'inda, gizli degil) ile REST uzerinden TUM
+--   kuruluslarin yonetim kurulu uyeleri + sube yoneticilerinin kisisel
+--   ad + e-posta + telefon bilgileri TEK istekte toplanabiliyordu:
+--
+--     curl 'https://<proje>.supabase.co/rest/v1/board_members?select=name,email,phone' \
+--          -H "apikey: <anon key>"
+--     -> Tum tenant'larin kisisel iletisim verileri (KVKK ihlali).
+--
+-- COZUM (iki adimli — SIRA KRITIK):
+--   1. KOD (bu migration'dan ONCE deploy edilmis olmali):
+--      board_members/branches okuyan 5 public sayfa anon server client'tan
+--      service-role client'a (createAdminClient) tasindi; tenant izolasyonu
+--      ve aktiflik manuel .eq("tenant_id") + .eq("is_active", true)
+--      filtreleriyle saglaniyor (sitemap.ts deseni).
+--   2. DB (bu dosya): anon'un dogrudan REST erisimini saglayan public
+--      SELECT policy'leri DROP edilir. Public sayfalar service-role ile
+--      cektigi icin ETKILENMEZ.
+--
+-- ⚠️ APPLY SIRASI: Bu migration, kod degisikligi (Y1 Parca B client swap)
+--   deploy edildikten SONRA calistirilmali. Once calistirilirsa public
+--   yonetim-kurulu / subeler sayfalari bos doner (anon SELECT kalkar ama
+--   kod hala anon client kullaniyor olur).
+--
+-- KORUNANLAR: tenant_board_members_all + tenant_branches_all (012:73-83,
+--   FOR ALL TO authenticated, user_has_tenant_access) AYNEN kalir —
+--   admin panel calismaya devam eder.
+--
+-- ETKI: Idempotent (DROP POLICY IF EXISTS). Ikinci kez calistirilirsa
+--   hata vermez.
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- 1) board_members — anon dogrudan REST erisimi kapatilir
+-- ============================================================================
+-- Eski tanim (001_initial_schema.sql:184-185):
+--   CREATE POLICY "Public: board_members select" ON board_members
+--     FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public: board_members select" ON public.board_members;
+
+-- ============================================================================
+-- 2) branches — anon dogrudan REST erisimi kapatilir
+-- ============================================================================
+-- Eski tanim (001_initial_schema.sql:187-188):
+--   CREATE POLICY "Public: branches select" ON branches
+--     FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public: branches select" ON public.branches;
+
+-- ============================================================================
+-- 3) KORUNANLAR — bu migration bunlara DOKUNMAZ
+-- ============================================================================
+-- Authenticated tenant policy'leri AYNEN yerinde kalir:
+--   - tenant_board_members_all  (012:73-76)
+--   - tenant_branches_all       (012:80-83)
+-- Ikisi de: FOR ALL TO authenticated
+--           USING/WITH CHECK (user_has_tenant_access(tenant_id))
+-- -> Tenant admini kendi kayitlarini admin panelde gormeye/yonetmeye
+--    devam eder; super admin user_has_tenant_access shortcut'i ile bypass.
+--
+-- RLS zaten aktif (001'de ENABLE edildi) ve policy'siz tabloda RLS
+-- "hicbir satir" demektir -> anon icin SELECT artik BOS doner.
+-- Service role RLS'i tamamen bypass eder -> public sayfalar calisir.
+
+COMMIT;
+
+-- ============================================================================
+-- APPLY SONRASI DOGRULAMA — ayri ayri calistirin
+-- ============================================================================
+--
+-- (a) Public policy'ler gitti mi, tenant policy'ler duruyor mu?
+--     Her tablo icin SADECE tenant_*_all (ALL, {authenticated}) beklenir:
+--
+--     SELECT tablename, policyname, cmd, roles
+--     FROM pg_policies
+--     WHERE tablename IN ('board_members', 'branches')
+--     ORDER BY tablename, policyname;
+--
+--     BEKLENEN: 2 satir (tenant_board_members_all, tenant_branches_all).
+--     "Public: ..." satiri GORUNMEMELI.
+--
+-- (b) MANTIK TESTI — anon artik hicbir satir goremez:
+--     (Islem sonunda ROLLBACK — hicbir veri degismez.)
+--
+--     BEGIN;
+--       SET LOCAL ROLE anon;
+--       SELECT count(*) FROM public.board_members;  -- BEKLENEN: 0
+--       SELECT count(*) FROM public.branches;       -- BEKLENEN: 0
+--     ROLLBACK;
+--
+-- (c) REST TESTI (cross-tenant sizinti kapandi kaniti) — terminalden:
+--
+--     curl 'https://<proje>.supabase.co/rest/v1/board_members?select=name,email,phone' \
+--          -H "apikey: <anon key>" -H "Authorization: Bearer <anon key>"
+--     -- BEKLENEN: []  (bos dizi)
+--
+--     curl 'https://<proje>.supabase.co/rest/v1/branches?select=name,phone,email' \
+--          -H "apikey: <anon key>" -H "Authorization: Bearer <anon key>"
+--     -- BEKLENEN: []  (bos dizi)
+--
+-- (d) PUBLIC SITE REGRESYON TESTI (tarayici, incognito):
+--     - /kurumsal/yonetim-kurulu     -> aktif uyeler listeleniyor mu
+--     - /yonetim-kurulu/<slug>       -> uye detay + e-posta/telefon geliyor mu
+--     - /subeler                     -> aktif subeler listeleniyor mu
+--     - /subeler/<slug>              -> sube detay + yonetici karti geliyor mu
+--     - /subeler/<slug>/yonetici     -> manuel yonetici detay calisiyor mu
+--     Admin panelde (giris yapmis): yonetim-kurulu + subeler listeleri ve
+--     duzenleme formlari HALA CALISIYOR OLMALI (tenant policy uzerinden).
+--
+-- ============================================================================
+-- ROLLBACK (gerekirse — eski davranisa doner, KVKK sizintisi TEKRAR ACILIR)
+-- ============================================================================
+--   CREATE POLICY "Public: board_members select" ON public.board_members
+--     FOR SELECT USING (is_active = true);
+--
+--   CREATE POLICY "Public: branches select" ON public.branches
+--     FOR SELECT USING (is_active = true);
+-- ============================================================================
+-- Migration 024 sonu
+-- ============================================================================

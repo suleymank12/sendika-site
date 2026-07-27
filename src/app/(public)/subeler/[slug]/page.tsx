@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -12,8 +12,10 @@ interface Props {
   params: { slug: string };
 }
 
+// createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
+// manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("branches")
@@ -46,7 +48,7 @@ function buildMapsLink(branch: Branch): string {
 }
 
 export default async function BranchDetailPage({ params }: Props) {
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
 
   const { data: branchData } = await supabase
@@ -68,6 +70,7 @@ export default async function BranchDetailPage({ params }: Props) {
       .select("*")
       .eq("tenant_id", tenant.id)
       .eq("id", branch.manager_id)
+      .eq("is_active", true)
       .single();
     boardManager = (data as BoardMember) || null;
   }

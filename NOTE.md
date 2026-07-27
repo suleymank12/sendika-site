@@ -140,27 +140,65 @@ politikaları OR'ladığı için admin kendi taslaklarını görmeye devam eder.
 
 Rollback: dosya sonundaki ROLLBACK bloğu (sızıntıyı geri açar).
 
-## Y1'in KALAN parçası (Parça B — henüz YAPILMADI)
+## Y1'in KALAN parçası (Parça B — ✅ TAMAMLANDI, 27 Temmuz 2026)
 
-`board_members` ve `branches` hâlâ anon'a açık: **kişisel e-posta ve
-telefonlar** (yönetim kurulu üyeleri + şube yöneticileri) tüm kuruluşlar
-için tek istekte toplanabiliyor — Y1'in asıl KVKK riski budur.
+Aşağıdaki **"🟠 GÜVENLİK — Y1 / Parça B"** bölümüne bakın. Kod değişikliği
+yapıldı (5 public sayfa service-role'e taşındı, iki sessiz regresyon
+`.eq("is_active", true)` ile kapatıldı), migration 024 hazır — **kod
+deploy edildikten SONRA elle apply edilmeli.**
 
-Bu tablolarda kolon kısıtlaması **mümkün değil** (e-posta/telefon public
-detay sayfalarında gerçekten gösteriliyor; ayrıca sorgular `select("*")`
-kullanıyor). Çözüm: public sayfaları server-side service-role + manuel
-`.eq("tenant_id")` desenine (sitemap.ts deseni) taşımak, sonra public
-policy'leri DROP etmek.
+---
 
-⚠️ **Parça B'de dikkat — iki sessiz regresyon riski:** RLS şu an
-`is_active = true` koşulunu sessizce uyguluyor. Service-role'e geçince bu
-kaybolur ve şu iki sorguda uygulama katmanında filtre YOK:
-- `src/app/(public)/subeler/[slug]/page.tsx:66-72` → pasif yönetim kurulu
-  üyesi şube yöneticisi olarak görünür hale gelir
-- `src/app/(public)/subeler/[slug]/yonetici/page.tsx:50-59` → gereksiz
-  redirect tetiklenir, çalışan sayfa 404 olur
+# 🟠 GÜVENLİK — Y1 / Parça B: board_members + branches anon erişimi kapatıldı
 
-Parça B'de bu iki sorguya `.eq("is_active", true)` eklenmeli.
+**Durum:** Kod değişikliği tamamlandı (27 Temmuz 2026), migration 024 hazır.
+**SQL elle apply edilmeli — AMA kod deploy edildikten SONRA.**
+
+## Açık neydi?
+
+`board_members` ve `branches` public SELECT policy'leri tenant-agnostic
+idi (001:184-188, `USING (is_active = true)` — tenant filtresi yok). Anon
+anahtarla REST üzerinden **tüm kuruluşların** yönetim kurulu üyeleri +
+şube yöneticilerinin **ad + e-posta + telefonu** tek istekte
+toplanabiliyordu — Y1'in asıl KVKK riski.
+
+## Çözüm (iki adım — SIRA KRİTİK)
+
+1. **Kod (yapıldı):** board_members/branches okuyan 5 public sayfa anon
+   server client'tan `createAdminClient`'a (service role) taşındı —
+   sitemap.ts deseni. 11 public sorgunun 11'inde `.eq("tenant_id")` zaten
+   vardı; RLS'in sessizce uyguladığı `is_active = true` koşulu eksik olan
+   2 sorguya eklendi:
+   - `subeler/[slug]/page.tsx` board_members sorgusu (pasif yönetici
+     public'te görünürdü)
+   - `subeler/[slug]/yonetici/page.tsx` board_members redirect sorgusu
+     (çalışan sayfa 404 olurdu)
+2. **DB:** `supabase/migrations/024_drop_public_pii_policies.sql` —
+   `"Public: board_members select"` + `"Public: branches select"` DROP.
+   `tenant_board_members_all` + `tenant_branches_all` (admin panel)
+   KORUNUR.
+
+## ⚠️ APPLY SIRASI (bozulursa public sayfalar kırılır)
+
+1. **ÖNCE** kod değişikliği commit + deploy (service-role'e geçmiş olmalı).
+2. **SONRA** `024_drop_public_pii_policies.sql` (Supabase SQL Editor).
+
+Ters sıra: policy DROP'lanır ama kod hâlâ anon client kullanır → public
+yönetim-kurulu/şubeler sayfaları boş döner. (Lokalde ikisi aynı anda
+test edilebilir; production'da sıra önemli.)
+
+## Test
+
+Kod sonrası (policy DROP'tan önce de çalışır):
+- incognito → `/kurumsal/yonetim-kurulu`, `/yonetim-kurulu/<slug>` (e-posta
+  + telefon dahil), `/subeler`, `/subeler/<slug>`, `/subeler/<slug>/yonetici`
+- Bir yöneticiyi pasif işaretle → public'te GÖRÜNMEMELİ (regresyon testi)
+
+Policy DROP sonrası: 024 dosya sonundaki (a)–(d) doğrulamaları. Özellikle
+(c) curl testi: anon key ile `board_members`/`branches` sorgusu **[]**
+dönmeli (cross-tenant sızıntının kapandığının kanıtı).
+
+Rollback: 024 dosya sonundaki ROLLBACK bloğu (sızıntıyı geri açar).
 
 ---
 

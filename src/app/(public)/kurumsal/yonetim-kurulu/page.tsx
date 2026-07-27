@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import BoardMemberCard from "@/components/public/BoardMemberCard";
@@ -11,7 +11,9 @@ export const metadata: Metadata = {
 };
 
 export default async function BoardMembersPage() {
-  const supabase = createClient();
+  // createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
+  // manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
+  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
   const { data: members } = await supabase
     .from("board_members")
