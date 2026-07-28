@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { isSafeMapEmbedUrl } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import Link from "next/link";
@@ -35,7 +36,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 function buildMapEmbed(branch: Branch): string | null {
-  if (branch.map_url) {
+  // map_url tenant admin girdisi — dogrulanmadan iframe'e verilmez.
+  // Gecersiz deger "yok" sayilir: adresten uretilen haritaya duser.
+  if (isSafeMapEmbedUrl(branch.map_url)) {
     return branch.map_url;
   }
   const query = [branch.name, branch.address, branch.city].filter(Boolean).join(", ");

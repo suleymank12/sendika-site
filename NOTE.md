@@ -465,6 +465,50 @@ kaydedilirken/render edilirken doğrulanması) hâlâ yapılmalı.**
 edilirken doğrulanmalı — yalnızca `https://www.google.com/maps...` biçimine
 izin veren bir kontrol. `isNextImageSafeUrl` deseninin aynısı uygulanabilir.
 
+## ✅ KAPATILDI (29 Temmuz 2026)
+
+Doğrulama iki katmanda uygulandı; **zorlanabilir katman render** (Y2
+gerekçesi: admin panel client-side, kayıt admin'in kendi token'ıyla doğrudan
+PostgREST'e gidiyor → form doğrulaması güvenlik değil, UX katmanı).
+
+Yapılanlar:
+
+- **`src/lib/utils.ts` → `isSafeMapEmbedUrl()`** — `isNextImageSafeUrl`
+  deseninin eşi: saf, asla throw etmez, type predicate, allow-list. Kabul
+  edilen TEK kaynak: `https` + hostname **tam eşleşme** `www.google.com` +
+  (`/maps/embed...` yolu **veya** `/maps` + `output=embed` parametresi).
+  Suffix hilesi (`www.google.com.evil.com`), `/maps/place` (embed'lenemez —
+  gri "refused to connect" kutusu), kısa linkler (`maps.app.goo.gl`,
+  `goo.gl/maps`), `maps.google.com` (CSP frame-src'te yok), `javascript:`,
+  `data:`, `http:`, protokol-göreli → hepsi RED. ⚠️ Kural `middleware.ts`
+  CSP `frame-src` ile **SENKRON olmalı** — uyarı yorumu iki dosyada da var.
+- **`src/lib/utils.ts` → `normalizeMapEmbedInput()`** — YALNIZCA admin form
+  kullanır. Google'ın "Haritayı yerleştir" diyaloğu iframe kodunun tamamını
+  kopyalattığı için en olası kullanıcı hatası kurtarılır: iframe HTML'inden
+  `src` ayıklanır, aynı katı kuraldan geçirilir. DB'ye her zaman **temiz
+  URL** yazılır.
+- **Render (`subeler/[slug]/page.tsx` → `buildMapEmbed`):** `map_url` artık
+  yalnızca doğrulamadan geçerse iframe'e gider; geçmezse **adresten üretilen
+  haritaya düşer** (render'da kurtarma YOK — saf doğrulayıcı). Sayfa hiçbir
+  durumda yabancı iframe ya da bozuk gri kutu göstermez.
+- **Admin form (`admin/(authenticated)/subeler/page.tsx` → `handleSave`):**
+  normalize → boş değil ama geçersizse kayıt **ENGELLENİR**, yol gösteren
+  Türkçe toast (kısa paylaşım linklerinin çalışmadığı açıkça söylenir).
+  Yardım metni güncellendi: iframe kodunun tamamı da yapıştırılabilir.
+- **`middleware.ts` frame-src yorumu güncellendi:** birincil savunma artık
+  kaynak doğrulaması, CSP ikinci katman.
+
+Mevcut veri uyumu: canlı DB'de 2 şubenin ikisinde de `map_url` NULL —
+hiçbir çalışan harita etkilenmedi (ikisi de adres fallback'i kullanıyor;
+fallback URL biçimi `/maps?q=...&output=embed` yeni kuralı kendisi de
+geçiyor).
+
+Doğrulama: `npm run test:sanitize` → yeni (e) bölümüyle **90 fixture**
+geçiyor (22 yeni: kabul 4 + ret 14 + normalize 4); build ve lint temiz.
+Canlı sömürülemezlik testi (konsoldan `map_url`'e `https://evil.example` /
+`javascript:alert(1)` yazıp public sayfayı kontrol etmek) henüz elle
+yapılmadı — K1'deki desenle yapılması önerilir.
+
 ---
 
 # 📋 BACKLOG — Süper admin panelini ayrı host'a taşı (Senaryo A)

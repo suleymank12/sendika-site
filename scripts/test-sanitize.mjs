@@ -16,7 +16,12 @@
  */
 
 import { sanitizeContentHtml } from "../src/lib/sanitize.ts";
-import { isNextImageSafeUrl, extractImagesFromHtml } from "../src/lib/utils.ts";
+import {
+  isNextImageSafeUrl,
+  extractImagesFromHtml,
+  isSafeMapEmbedUrl,
+  normalizeMapEmbedInput,
+} from "../src/lib/utils.ts";
 
 // ---------------------------------------------------------------------------
 // Kucuk test kosucusu
@@ -389,6 +394,90 @@ if (JSON.stringify(extracted) === JSON.stringify(extractExpected)) {
   failures.push({ group: "next-image", name: "extractImagesFromHtml filtresi", input: EXTRACT_HTML, out: JSON.stringify(extracted), problems: [`beklenen ${JSON.stringify(extractExpected)}`] });
   console.log(`  FAIL  [next-image] extractImagesFromHtml -> ${JSON.stringify(extracted)}`);
 }
+
+// ---------------------------------------------------------------------------
+// (e) HARITA EMBED — isSafeMapEmbedUrl / normalizeMapEmbedInput
+//     map_url tenant admin girdisi; dogrulanmadan iframe'e ulasMAMALI.
+//     Kural middleware.ts CSP frame-src ile senkron (www.google.com).
+// ---------------------------------------------------------------------------
+console.log("\n(e) Harita embed: isSafeMapEmbedUrl\n");
+
+/** @param {string} name @param {unknown} input @param {boolean} expected */
+function checkMapUrl(name, input, expected) {
+  let actual;
+  try {
+    actual = isSafeMapEmbedUrl(input);
+  } catch (err) {
+    failures.push({ group: "map-embed", name, input, out: String(err), problems: ["THROW ETTI — asla throw etmemeli"] });
+    console.log(`  FAIL  [map-embed] ${name} -> THROW: ${err}`);
+    return;
+  }
+  if (actual === expected) {
+    passed++;
+    console.log(`  PASS  [map-embed] ${name}`);
+  } else {
+    failures.push({ group: "map-embed", name, input, out: String(actual), problems: [`beklenen ${expected}`] });
+    console.log(`  FAIL  [map-embed] ${name} -> ${actual} (beklenen ${expected})`);
+  }
+}
+
+// Kabul: iframe'de gercekten calisan Google Maps bicimleri
+checkMapUrl('"Haritayi yerlestir" pb= URL', "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3059.9!2d32.85!3d39.92", true);
+checkMapUrl("Maps Embed API (/maps/embed/v1)", "https://www.google.com/maps/embed/v1/place?key=API_KEY&q=Ankara", true);
+checkMapUrl("eski embed modu (fallback bicimi)", "https://www.google.com/maps?q=Sendika%20Genel%20Merkezi%2C%20Ankara&output=embed", true);
+checkMapUrl("output=embed parametre sirasi farkli", "https://www.google.com/maps?output=embed&q=Izmir", true);
+
+// Ret: tehlikeli / calismaz / CSP disi
+checkMapUrl("javascript: semasi", "javascript:alert(1)", false);
+checkMapUrl("data: URI", "data:text/html,<script>alert(1)</script>", false);
+checkMapUrl("yabanci host", "https://evil.com/maps/embed?pb=x", false);
+checkMapUrl("hostname suffix hilesi", "https://www.google.com.evil.com/maps/embed?pb=x", false);
+checkMapUrl("/maps/place (embed'lenemez, gri kutu)", "https://www.google.com/maps/place/Ankara/@39.92,32.85,12z", false);
+checkMapUrl("kisa paylasim linki (maps.app.goo.gl)", "https://maps.app.goo.gl/AbCdEf123", false);
+checkMapUrl("eski kisa link (goo.gl/maps)", "https://goo.gl/maps/AbCdEf123", false);
+checkMapUrl("http (https degil)", "http://www.google.com/maps/embed?pb=x", false);
+checkMapUrl("protokol-goreli", "//www.google.com/maps/embed?pb=x", false);
+checkMapUrl("maps.google.com (CSP frame-src'te YOK)", "https://maps.google.com/maps?q=Ankara&output=embed", false);
+checkMapUrl("bos string", "", false);
+checkMapUrl("sadece bosluk", "   ", false);
+checkMapUrl("null", null, false);
+checkMapUrl("undefined", undefined, false);
+
+// normalizeMapEmbedInput: admin formunun iframe-kurtarma katmani
+console.log("\n(e) Harita embed: normalizeMapEmbedInput\n");
+
+/** @param {string} name @param {unknown} input @param {string|null} expected */
+function checkNormalize(name, input, expected) {
+  let actual;
+  try {
+    actual = normalizeMapEmbedInput(input);
+  } catch (err) {
+    failures.push({ group: "map-normalize", name, input, out: String(err), problems: ["THROW ETTI — asla throw etmemeli"] });
+    console.log(`  FAIL  [map-normalize] ${name} -> THROW: ${err}`);
+    return;
+  }
+  if (actual === expected) {
+    passed++;
+    console.log(`  PASS  [map-normalize] ${name}`);
+  } else {
+    failures.push({ group: "map-normalize", name, input, out: JSON.stringify(actual), problems: [`beklenen ${JSON.stringify(expected)}`] });
+    console.log(`  FAIL  [map-normalize] ${name} -> ${JSON.stringify(actual)} (beklenen ${JSON.stringify(expected)})`);
+  }
+}
+
+const VALID_EMBED = "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3059.9!2d32.85!3d39.92";
+checkNormalize(
+  "gecerli src'li iframe HTML -> URL ayiklanir",
+  `<iframe src="${VALID_EMBED}" width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>`,
+  VALID_EMBED
+);
+checkNormalize(
+  "kotu src'li iframe HTML -> null",
+  '<iframe src="https://evil.com/phish" width="600"></iframe>',
+  null
+);
+checkNormalize("iframe icermeyen serbest metin -> null", "haritayi buraya koy", null);
+checkNormalize("zaten temiz URL -> aynen gecer", VALID_EMBED, VALID_EMBED);
 
 // ---------------------------------------------------------------------------
 console.log(`SONUC: ${passed} gecti, ${failures.length} kaldi\n`);

@@ -103,6 +103,64 @@ export function extractImagesFromHtml(html: string | null | undefined): string[]
   return urls;
 }
 
+// UYARI: Bu kural middleware.ts CSP frame-src ile SENKRON olmali. Orayi
+//  degistirirsen burayi da guncelle — yoksa dogrulayicinin kabul ettigi
+//  URL'i CSP bloklar ve kullanici sebebini anlayamaz.
+/**
+ * Verilen adresin sube haritasi <iframe src>'ine GUVENLE verilebilecegini
+ * soyler. map_url tenant admin girdisidir; dogrulanmadan iframe'e verilirse
+ * public sayfaya rastgele site gomulebilir (phishing) ve javascript: semasi
+ * XSS vektoru olur.
+ *
+ * Kabul edilen TEK kaynak Google Maps embed URL'leri:
+ *   - https://www.google.com/maps/embed?pb=...    ("Haritayi yerlestir")
+ *   - https://www.google.com/maps/embed/v1/...    (Maps Embed API)
+ *   - https://www.google.com/maps?...&output=embed (eski embed modu;
+ *     adresten uretilen fallback da bu bicim)
+ *
+ * Hostname TAM eslesir ("www.google.com.evil.com" gibi suffix hileleri
+ * gecmez). /maps/place gibi sayfalar BILEREK reddedilir: Google onlari
+ * frame'lemeyi reddeder, iframe'de gri "refused to connect" kutusu cikar.
+ *
+ * ASLA throw etmez — ayristirilamayan girdi icin false doner.
+ */
+export function isSafeMapEmbedUrl(url: string | null | undefined): url is string {
+  const value = (url || "").trim();
+  if (!value) return false;
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" || parsed.hostname !== "www.google.com") {
+      return false;
+    }
+    if (parsed.pathname.startsWith("/maps/embed")) return true;
+    return parsed.pathname === "/maps" && parsed.searchParams.get("output") === "embed";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Admin formu icin harita girdisi normalizasyonu. Google'in "Haritayi
+ * yerlestir" diyalogu iframe kodunun TAMAMINI kopyalatir; en olasi kullanici
+ * hatasi onu aynen yapistirmak. Girdi iframe HTML'i ise icinden src cikarilir
+ * ve ayni kati kuraldan (isSafeMapEmbedUrl) gecirilir. Gecmeyen her sey null.
+ *
+ * SADECE yazma yolunda (admin form) kullanilmali — render tarafi kurtarma
+ * yapmaz, sadece dogrular (bkz. buildMapEmbed). Boylece DB'de her zaman
+ * temiz URL durur.
+ */
+export function normalizeMapEmbedInput(raw: string | null | undefined): string | null {
+  const value = (raw || "").trim();
+  if (!value) return null;
+
+  const iframeSrc = value.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+  // Markup gorunumlu ama iframe src'si cikmayan girdi URL olarak DENENMEZ.
+  const candidate = iframeSrc ? iframeSrc[1] : value.startsWith("<") ? null : value;
+
+  return isSafeMapEmbedUrl(candidate) ? candidate : null;
+}
+
 /**
  * Tenant'in admin paneline cross-subdomain URL insa eder.
  * Development: subdomain.lvh.me:3000/admin

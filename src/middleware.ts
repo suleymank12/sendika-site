@@ -40,9 +40,9 @@ const CSP_HEADER_NAME = CSP_REPORT_ONLY
  *  - connect-src: client-side Supabase (PostgREST/Auth/Storage) cagrilari.
  *    wss:// BILEREK YOK — Realtime (.channel()) kullanilmiyor. Eklenirse
  *    wss://*.supabase.co da gerekir (bkz. NOTE.md).
- *  - frame-src: tek mesru iki embed (YouTube + Google Maps). Yan fayda:
- *    branches.map_url dogrulanmadan iframe src'ye gidiyor; bu satir rastgele
- *    site gomulmesini ve javascript: iframe'i engelliyor (bkz. NOTE.md backlog).
+ *  - frame-src: tek mesru iki embed (YouTube + Google Maps). branches.map_url
+ *    artik KAYNAGINDA dogrulaniyor (utils.ts isSafeMapEmbedUrl — o kural bu
+ *    satirla SENKRON kalmali); bu satir ikinci savunma katmani.
  *  - upgrade-insecure-requests BILEREK YOK: lokal http gelistirmeyi bozar,
  *    HTTPS zorlamasi Nginx'in isi (HSTS + redirect).
  */

@@ -18,7 +18,7 @@ import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Building2, GripVertical, Edit, Trash2, Phone, Mail, MapPin, Info, User } from "lucide-react";
 import { Branch, BoardMember } from "@/types";
-import { createSlug } from "@/lib/utils";
+import { createSlug, normalizeMapEmbedInput } from "@/lib/utils";
 import ImageUploader from "@/components/admin/ImageUploader";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import FormField from "@/components/admin/FormField";
@@ -245,6 +245,16 @@ export default function AdminBranchesPage() {
 
     const finalSlug = form.slug.trim() || createSlug(form.name);
 
+    // Iframe kodu yapistirilmissa src'si ayiklanir; gecersiz girdi kaydi
+    // engeller (render tarafi zaten yok sayacakti — sessiz kaybolmasin).
+    const mapUrl = normalizeMapEmbedInput(form.map_url);
+    if (form.map_url.trim() && !mapUrl) {
+      toast.error(
+        "Harita adresi tanınmadı. Google Maps'te konumu açıp Paylaş → Haritayı yerleştir adımından aldığınız kodu yapıştırın. Kısa paylaşım linkleri (maps.app.goo.gl) çalışmaz."
+      );
+      return;
+    }
+
     setSaving(true);
     const supabase = createClient();
 
@@ -255,7 +265,7 @@ export default function AdminBranchesPage() {
       address: form.address.trim() || null,
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
-      map_url: form.map_url.trim() || null,
+      map_url: mapUrl,
       working_hours: form.working_hours.trim() || null,
       description: form.description || null,
       is_active: form.is_active,
@@ -531,7 +541,7 @@ export default function AdminBranchesPage() {
                       className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none font-mono"
                     />
                     <p className="text-xs text-text-muted mt-1">
-                      Google Maps&apos;te konumu aç → Paylaş → Haritayı yerleştir → src=&quot;...&quot; içindeki URL&apos;yi kopyala. Boş bırakılırsa adresten otomatik harita oluşturulur.
+                      Google Maps&apos;te konumu aç → Paylaş → Haritayı yerleştir → kodu kopyala. İframe kodunun tamamını yapıştırabilirsiniz; kayıt sırasında içindeki adres otomatik ayıklanır. Boş bırakılırsa adresten otomatik harita oluşturulur.
                     </p>
                   </FormField>
                 </section>
