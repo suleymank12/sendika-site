@@ -16,7 +16,7 @@
   },
   "overrides": [
     {
-      "files": ["src/components/SafeHtml.tsx", "src/app/layout.tsx"],
+      "files": ["src/components/SafeHtml.tsx"],
       "rules": {
         "react/no-danger": "off"
       }

@@ -299,12 +299,171 @@ güncellenmelidir**, yoksa meşru içerik sessizce bozulur.
 
 ## Kapsam dışı bırakılanlar (ayrı işler)
 
-- **CSP** (nonce tabanlı, middleware'de) — sanitize'ın altına serilecek
-  ikinci savunma hattı. Henüz uygulanmadı; `next.config.mjs`'te hâlâ
-  hiçbir güvenlik header'ı yok.
+- **CSP** (nonce tabanlı, middleware'de) — ✅ uygulandı, aşağıdaki bölüme bakın.
 - **RichTextEditor temizliği** — StarterKit v3 zaten `Link` ve `Underline`
   içeriyor, bileşen bunları bir kez daha ekliyor ("Duplicate extension
   names" uyarısı; `Link.configure({openOnClick:false})` garanti değil).
+
+---
+
+# 🟠 GÜVENLİK — Y2 / CSP: nonce tabanlı Content-Security-Policy (28 Temmuz 2026)
+
+**Durum:** ✅ **Enforce modunda yayında** (28 Temmuz 2026,
+`CSP_REPORT_ONLY = false`). Yeni bir dış kaynak eklenecekse önce
+Report-Only'ye dönülmeli (aşağıda).
+
+Sanitize hattının **altına serilen ikinci savunma katmanı**. Sanitize XSS'i
+kaynağında öldürür; CSP, sanitize atlanırsa/aşılırsa devreye girer.
+
+## Ne kapsıyor
+
+`src/middleware.ts` her istekte şu CSP'yi üretiyor:
+
+```
+default-src 'self';
+script-src 'self' 'nonce-{HER ISTEKTE YENI}' 'strict-dynamic';
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+font-src 'self' https://fonts.gstatic.com;
+img-src 'self' data: blob: https://*.supabase.co;
+media-src 'self' https://*.supabase.co;
+connect-src 'self' https://*.supabase.co;
+frame-src https://www.youtube.com https://www.google.com;
+frame-ancestors 'none'; form-action 'self'; base-uri 'self'; object-src 'none';
+```
+
+Kaçınılmaz tavizler ve gerekçeleri:
+
+- **`style-src 'unsafe-inline'` zorunlu.** `(public)/layout.tsx` tenant rengini
+  CSS değişkeni olarak `style={{}}` ile basıyor, Swiper runtime'da `transform`
+  stili yazıyor, `DetailPageLayout` yazı boyutunu inline veriyor. Inline
+  **style**, inline **script**'ten çok daha az tehlikeli.
+- **`fonts.googleapis.com` / `fonts.gstatic.com`**: `globals.css:1`'deki
+  `@import` derlenmiş CSS'te hayatta kalıyor (Inter fontu). Bunlar olmadan
+  site sistem fontuna düşer.
+- **`'unsafe-eval'` yalnızca development'ta** (Next HMR `eval` kullanıyor).
+  Production'da asla — `process.env.NODE_ENV` ile ayrılmış.
+- **`upgrade-insecure-requests` bilerek yok**: lokal http geliştirmeyi bozar,
+  HTTPS zorlaması Nginx'in işi.
+
+## Nonce mekanizması (Next 14.2.35'te doğrulandı)
+
+Next, nonce'u **`x-nonce` header'ından okumaz.** İsteğin
+`Content-Security-Policy` **veya** `Content-Security-Policy-Report-Only`
+header'ından okur (`app-render.js` → `getScriptNonceFromHeader`); `script-src`
+direktifindeki `'nonce-…'` değerini alır.
+
+Bu yüzden middleware CSP'yi **hem request hem response** header'ına yazıyor:
+
+| Yer | Neden |
+|---|---|
+| `requestHeaders.set(...)` (nonce üretiminden hemen sonra) | Next kendi inline bootstrap script'lerine nonce'u buradan basıyor. **Sadece response'a yazmak siteyi tamamen öldürür** — script'ler nonce'suz kalır, tarayıcı hepsini bloklar. |
+| `setAll` closure'ı içinde | `setAll` `supabaseResponse`'u **yeniden kuruyor**; bu satır olmadan token yenilenen isteklerde CSP header'ı düşer. `x-tenant-slug` ile birebir aynı tuzak. |
+| `auth.getUser()` sonrası | `setAll` hiç tetiklenmediğinde (çerez yenilenmedi) response'a CSP'yi yazan tek yer. |
+
+**Nonce her istekte yeniden üretiliyor** (`btoa(crypto.randomUUID())`). Modül
+seviyesinde sabitlenirse CSP'nin XSS koruması tamamen değersizleşir.
+
+## Report-Only → enforce (✅ geçildi, 28 Temmuz 2026)
+
+`src/middleware.ts` başındaki `const CSP_REPORT_ONLY` bayrağı `false`
+yapıldı; CSP artık `Content-Security-Policy` header'ı olarak **zorlayıcı**.
+
+Next, Report-Only header'ından **da** nonce okuduğu için nonce mekanizması
+enforce'tan önce gerçekten test edilmiş oldu; geçişte sürpriz çıkmadı.
+
+**Enforce kriteri geçişten önce sağlandı — gezinti temiz geçti:**
+
+1. Şu akışların tamamı, tarayıcı konsolunda **tek bir `[Report Only]`
+   satırı üretmeden** tamamlandı:
+   anasayfa (Swiper slider) · YouTube'lu haber detayı · iletişim + şube detayı
+   (Google Maps) · admin giriş → Tiptap editör → **görsel yükleme** (en kırılgan
+   akış: `blob:` + `connect-src`) · DevTools Network'te `fonts.gstatic.com`
+   isteği **200** döndü (blocked değil).
+2. Sayfa kaynağında Next'in inline script'lerinde `nonce="…"` görüldü ve
+   **her yenilemede değişti**.
+
+**Enforce sonrası doğrulama sonuçları:**
+
+- Production build'de **`'unsafe-eval'` yok** (yalnızca development/HMR'de).
+- **22/22 inline script nonce'lu**; nonce **istek başına değişiyor**.
+- **9 rota 200** dönüyor (public + admin akışları kırılmadı).
+
+## ⚠️ Yeni dış kaynak eklerken: önce Report-Only'ye geri dön
+
+Siteye yeni bir dış kaynak eklenirse (analytics, CDN, üçüncü parti embed,
+Supabase Realtime `wss://` vb.) enforce modundaki CSP onu **bloklar**.
+Prosedür:
+
+1. `src/middleware.ts` → `CSP_REPORT_ONLY = true` (Report-Only'ye dön).
+2. İlgili CSP direktifine yeni kaynağı ekle.
+3. Yukarıdaki gezinti akışlarını (1) ve nonce kontrolünü (2) **tekrarla** —
+   konsol temiz geçmeden `CSP_REPORT_ONLY = false` ile enforce'a dönme.
+
+## ⚠️ Realtime eklenirse
+
+`connect-src`'te **`wss://` bilerek yok** — Supabase Realtime (`.channel()`)
+şu an kullanılmıyor (tek `subscribe()` `davet-kabul`'daki `onAuthStateChange`,
+o websocket açmıyor). İleride `.channel()` kullanılırsa `connect-src`'e
+**`wss://*.supabase.co` eklenmelidir**, yoksa realtime sessizce çalışmaz.
+
+## Statik header'lar (`next.config.mjs`)
+
+`X-Content-Type-Options: nosniff`, `Referrer-Policy:
+strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(),
+geolocation=()`, `X-Frame-Options: DENY`.
+
+`next.config.mjs`'te duruyorlar ki **hem Vercel'de hem VPS/Nginx arkasında**
+otomatik çalışsınlar (taşınabilirlik).
+
+**HSTS bilerek YOK.** `Strict-Transport-Security` deploy'da **Nginx'te** set
+edilmeli (`max-age=31536000; includeSubDomains`) — TLS'i sonlandıran katman
+orası ve yanlış bir `max-age` geri alınamaz.
+
+## Yan etki: root layout'taki inline script kaldırıldı
+
+`app/layout.tsx`'teki `document.body.classList.add("hydrated")` inline
+script'i `src/components/HydrationFlag.tsx` (client component) ile değiştirildi.
+Böylece CSP'de inline script istisnası hiç gerekmedi.
+
+Neden root layout'ta: `#initial-loading-bar` açılış spinner'ı root layout'ta,
+yani **admin ve super-admin dahil** her sayfada. `PageLoader` ise yalnızca
+`(public)/layout.tsx`'te mount ediliyor — script tek başına kaldırılsaydı
+admin panelinde spinner ekranda asılı kalırdı. `PageLoader.tsx:13`'teki aynı
+çağrı bilinçli olarak duruyor (idempotent, zararsız).
+
+`.eslintrc.json`'daki `react/no-danger` istisnasından `app/layout.tsx`
+çıkarıldı — artık tek istisna `SafeHtml.tsx`.
+
+---
+
+# 📋 BACKLOG — `branches.map_url` doğrulanmadan iframe src'ye veriliyor
+
+**Nereden çıktı:** CSP dış kaynak envanteri (28 Temmuz 2026).
+
+**Sorun:** `subeler/[slug]/page.tsx` içindeki `buildMapEmbed`, `branch.map_url`
+kolonunu **hiçbir doğrulama yapmadan** `<iframe src>`'e veriyor. Admin formunda
+düz metin input (`admin/subeler/page.tsx` → `form.map_url.trim() || null`).
+
+Sonuçları:
+- Tenant admin, public şube sayfasına **istediği siteyi** iframe olarak
+  gömebilir (phishing).
+- `javascript:` şemalı bir değer Chromium'da iframe içinde **üst dokümanın
+  origin'inde çalışır** — yani bu bir XSS vektörü.
+
+**Neden Y2 sanitize hattı kapsamadı:** Bu sink `dangerouslySetInnerHTML` değil,
+normal bir React prop'u. Sanitize hattı HTML içeriğini temizliyor, JSX
+prop'larını değil.
+
+**Şu anki durum (güncellendi, 28 Temmuz 2026):** CSP artık **ENFORCE
+modunda** ve `frame-src https://www.youtube.com https://www.google.com`
+ikisini de kapatıyor (nonce'lu `script-src` `javascript:` URI'larını da
+bloklar) — rastgele iframe gömme **fiilen bloklanıyor**. Ama CSP burada
+yara bandı olmaya devam ediyor; **asıl düzeltme (değerin
+kaydedilirken/render edilirken doğrulanması) hâlâ yapılmalı.**
+
+**Asıl düzeltme (ayrı iş):** `map_url` değeri kaydedilirken ve/veya render
+edilirken doğrulanmalı — yalnızca `https://www.google.com/maps...` biçimine
+izin veren bir kontrol. `isNextImageSafeUrl` deseninin aynısı uygulanabilir.
 
 ---
 

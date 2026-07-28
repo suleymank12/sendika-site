@@ -2,6 +2,74 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
 
+// ===========================================================================
+// CSP (Guvenlik bulgusu Y2 / ikinci savunma katmani)
+// ===========================================================================
+/**
+ * ROLLOUT ANAHTARI — enforce'a gecis TEK SATIR:
+ *   true  -> Content-Security-Policy-Report-Only (ihlaller sadece konsola duser,
+ *            hicbir sey bloklanmaz)
+ *   false -> Content-Security-Policy (zorlayici)
+ *
+ * Enforce'a gecmeden ONCE saglanmasi gereken kriter NOTE.md'de yazili.
+ * Kisaca: manuel test listesinin tamami konsolda tek bir [Report Only]
+ * satiri uretmeden gecmeli.
+ *
+ * NOT: Next, nonce'u Report-Only header'indan DA okuyor (app-render.js),
+ * yani nonce mekanizmasi bu asamada gercekten test edilmis olur.
+ */
+const CSP_REPORT_ONLY = false;
+
+const CSP_HEADER_NAME = CSP_REPORT_ONLY
+  ? "Content-Security-Policy-Report-Only"
+  : "Content-Security-Policy";
+
+/**
+ * Istek basina CSP string'i uretir.
+ *
+ * Direktif gerekceleri:
+ *  - script-src: Next'in inline bootstrap script'leri nonce ile gecer;
+ *    'strict-dynamic' dinamik yuklenen chunk'lara guveni devreder.
+ *    'unsafe-eval' YALNIZCA development'ta (Next HMR eval kullanir).
+ *  - style-src 'unsafe-inline': KACINILMAZ. (public)/layout.tsx tenant
+ *    rengini CSS degiskeni olarak style={{}} ile basiyor, Swiper runtime'da
+ *    transform stili yaziyor, DetailPageLayout fontSize'i inline veriyor.
+ *    fonts.googleapis.com ise globals.css'teki @import icin.
+ *  - font-src gstatic: Inter font dosyalari oradan geliyor.
+ *  - img-src blob:: image-compress.ts URL.createObjectURL ile onizleme yapiyor.
+ *  - connect-src: client-side Supabase (PostgREST/Auth/Storage) cagrilari.
+ *    wss:// BILEREK YOK — Realtime (.channel()) kullanilmiyor. Eklenirse
+ *    wss://*.supabase.co da gerekir (bkz. NOTE.md).
+ *  - frame-src: tek mesru iki embed (YouTube + Google Maps). Yan fayda:
+ *    branches.map_url dogrulanmadan iframe src'ye gidiyor; bu satir rastgele
+ *    site gomulmesini ve javascript: iframe'i engelliyor (bkz. NOTE.md backlog).
+ *  - upgrade-insecure-requests BILEREK YOK: lokal http gelistirmeyi bozar,
+ *    HTTPS zorlamasi Nginx'in isi (HSTS + redirect).
+ */
+function buildCsp(nonce: string): string {
+  const scriptSrc = [
+    "'self'",
+    `'nonce-${nonce}'`,
+    "'strict-dynamic'",
+    ...(process.env.NODE_ENV === "development" ? ["'unsafe-eval'"] : []),
+  ].join(" ");
+
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSrc}`,
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https://*.supabase.co",
+    "media-src 'self' https://*.supabase.co",
+    "connect-src 'self' https://*.supabase.co",
+    "frame-src https://www.youtube.com https://www.google.com",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+  ].join("; ");
+}
+
 export async function middleware(request: NextRequest) {
   // Hostname'i parse et (DB'siz, senkron). Server Component'ler tenant'i
   // x-tenant-slug header'i üzerinden okuyacak.
@@ -21,6 +89,20 @@ export async function middleware(request: NextRequest) {
   // çağrısı anında yakalandığı için, header'i final slug belli olduktan
   // SONRA set edip response'u yeniden kuruyoruz (aşağıda).
   const requestHeaders = new Headers(request.headers);
+
+  // Nonce HER ISTEKTE yeniden uretilir. Modul seviyesinde sabitlenirse
+  // CSP'nin XSS korumasi tamamen degersizlesir (saldirgan nonce'u kopyalar).
+  const nonce = btoa(crypto.randomUUID());
+  const csp = buildCsp(nonce);
+
+  // KRITIK: Next nonce'u REQUEST'in CSP header'indan okur
+  // (app-render.js -> getScriptNonceFromHeader). Sadece response'a yazmak
+  // YETMEZ — o zaman Next'in kendi inline bootstrap script'leri nonce'suz
+  // kalir, tarayici hepsini bloklar ve site tamamen olur.
+  // x-nonce yalnizca kolaylik: uygulama kodu headers().get("x-nonce") ile
+  // kendi inline script'ine nonce koymak isterse diye. Su an kullanan yok.
+  requestHeaders.set(CSP_HEADER_NAME, csp);
+  requestHeaders.set("x-nonce", nonce);
 
   let supabaseResponse = NextResponse.next({
     request: { headers: requestHeaders },
@@ -45,6 +127,10 @@ export async function middleware(request: NextRequest) {
           // (custom_domain DB sorgusundan SONRA) tetiklendiği için güncel
           // slug görünür.
           supabaseResponse.headers.set("x-tenant-slug", tenantSlug);
+          // setAll supabaseResponse'u YENIDEN KURUYOR — daha once yazilmis
+          // CSP header'i bu satir olmadan token yenilenen isteklerde duserdi.
+          // x-tenant-slug ile birebir ayni gerekce.
+          supabaseResponse.headers.set(CSP_HEADER_NAME, csp);
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -86,6 +172,11 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // setAll hic tetiklenmediyse (cerez yenilenmedi) response'a CSP'yi yazan
+  // tek yer burasi. getUser'dan SONRA olmali: setAll auth.getUser() sirasinda
+  // tetiklenip supabaseResponse'u yeniden kurabiliyor.
+  supabaseResponse.headers.set(CSP_HEADER_NAME, csp);
 
   const { pathname } = request.nextUrl;
 

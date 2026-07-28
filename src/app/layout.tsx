@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import HydrationFlag from "@/components/HydrationFlag";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -63,7 +64,7 @@ export default function RootLayout({
     <html lang="tr">
       <body className="antialiased" suppressHydrationWarning>
         <div id="initial-loading-bar" aria-hidden />
-        <script dangerouslySetInnerHTML={{ __html: `document.body.classList.add("hydrated")` }} />
+        <HydrationFlag />
         {children}
       </body>
     </html>
