@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { Upload, X, Film } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
@@ -115,12 +115,17 @@ export default function MediaUploader({
             />
           ) : (
             <div className="relative w-full h-48">
-              <Image
+              <SafeImage
                 src={value}
                 alt="Yüklenen medya"
                 fill
                 sizes="(max-width: 768px) 100vw, 50vw"
                 className="object-cover"
+                fallback={
+                  <div className="h-full w-full bg-bg-light flex items-center justify-center text-text-muted text-xs">
+                    Görsel önizlenemiyor
+                  </div>
+                }
               />
             </div>
           )}

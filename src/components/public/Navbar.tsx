@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown, ChevronRight } from "lucide-react";
 import { MenuItem } from "@/types";
@@ -200,13 +200,19 @@ export default function Navbar({ menuItems, logoUrl, siteTitle, layoutType }: Na
       <div className="container mx-auto flex items-center justify-between gap-3 px-4 py-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-3 min-w-0">
-          {logoUrl && logoUrl !== "/placeholder-logo.png" ? (
-            <Image src={logoUrl} alt={siteTitle} width={44} height={44} className="h-11 w-auto shrink-0" />
-          ) : (
-            <div className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl shrink-0">
-              S
-            </div>
-          )}
+          <SafeImage
+            // placeholder-logo.png "gercek logo yok" sentinel'i — harf avatarina dusulur
+            src={logoUrl === "/placeholder-logo.png" ? null : logoUrl}
+            alt={siteTitle}
+            width={44}
+            height={44}
+            className="h-11 w-auto shrink-0"
+            fallback={
+              <div className="h-11 w-11 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl shrink-0">
+                S
+              </div>
+            }
+          />
           <span className="text-white font-bold text-base sm:text-xl tracking-tight truncate">
             {siteTitle}
           </span>

@@ -1,8 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound, redirect } from "next/navigation";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import Breadcrumb from "@/components/public/Breadcrumb";
+import SafeHtml from "@/components/SafeHtml";
 import { User, Phone, Mail } from "lucide-react";
 import type { Branch } from "@/types";
 import type { Metadata } from "next";
@@ -80,19 +81,18 @@ export default async function BranchManagerPage({ params }: Props) {
         <div className="bg-white border border-border rounded-xl overflow-hidden shadow-sm mb-6">
           <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-0">
             <div className="relative aspect-[4/5] md:aspect-auto bg-bg-light">
-              {branch.manager_photo ? (
-                <Image
-                  src={branch.manager_photo}
-                  alt={branch.manager_name}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 320px"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center min-h-[320px]">
-                  <User className="h-20 w-20 text-text-muted/20" />
-                </div>
-              )}
+              <SafeImage
+                src={branch.manager_photo}
+                alt={branch.manager_name}
+                fill
+                sizes="(max-width: 768px) 100vw, 320px"
+                className="object-cover"
+                fallback={
+                  <div className="h-full w-full flex items-center justify-center min-h-[320px]">
+                    <User className="h-20 w-20 text-text-muted/20" />
+                  </div>
+                }
+              />
             </div>
 
             <div className="p-6 lg:p-8 flex flex-col">
@@ -142,10 +142,7 @@ export default async function BranchManagerPage({ params }: Props) {
             <h2 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-4">
               Hakkında
             </h2>
-            <div
-              className="prose max-w-none text-text-dark"
-              dangerouslySetInnerHTML={{ __html: branch.manager_bio }}
-            />
+            <SafeHtml html={branch.manager_bio} className="prose max-w-none text-text-dark" />
           </div>
         ) : (
           <div className="bg-white border border-border rounded-xl p-6 text-center text-text-muted text-sm shadow-sm">

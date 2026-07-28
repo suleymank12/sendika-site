@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound, redirect } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
+import SafeHtml from "@/components/SafeHtml";
+import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml } from "@/lib/utils";
 import type { Metadata } from "next";
 import type { Headline } from "@/types";
@@ -84,17 +86,9 @@ export default async function MansetDetailPage({ params }: Props) {
     redirect(item.link_url);
   }
 
-  const contentImages = extractImagesFromHtml(item.content);
-
-  // Alt başlık varsa content'in başına ekle
-  const combinedContent = [
-    item.subtitle
-      ? `<p class="text-lg text-gray-600 mb-4">${item.subtitle}</p>`
-      : "",
-    item.content || "",
-  ]
-    .filter(Boolean)
-    .join("");
+  // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
+  const cleanContent = sanitizeContentHtml(item.content);
+  const contentImages = extractImagesFromHtml(cleanContent);
 
   return (
     <DetailPageLayout
@@ -104,11 +98,12 @@ export default async function MansetDetailPage({ params }: Props) {
         { label: item.title },
       ]}
       title={item.title}
+      subtitle={item.subtitle}
       date={item.created_at}
       coverImage={item.image_url}
       videoUrl={item.video_url}
       youtubeUrl={item.youtube_url}
-      content={combinedContent || null}
+      content={cleanContent ? <SafeHtml html={cleanContent} /> : null}
       contentImages={contentImages}
     />
   );

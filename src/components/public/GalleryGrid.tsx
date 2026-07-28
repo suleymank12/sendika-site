@@ -1,32 +1,39 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { GalleryImage } from "@/types";
+import { isNextImageSafeUrl } from "@/lib/utils";
 
 interface GalleryGridProps {
   images: GalleryImage[];
 }
 
 export default function GalleryGrid({ images }: GalleryGridProps) {
+  // Bozuk image_url'li kayitlar BASTA elenir — per-item null render etmek
+  // izgarada bos kutu birakir VE lightbox index matematigini kaydirirdi
+  // (ok tuslari bos slaytlara giderdi). Dogru yer kaynak: DetailPageLayout'un
+  // photos[] deseninin aynisi.
+  const safeImages = images.filter((img) => isNextImageSafeUrl(img.image_url));
+
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const openLightbox = (index: number) => setLightboxIndex(index);
   const closeLightbox = () => setLightboxIndex(null);
-  const prev = () => setLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : images.length - 1));
-  const next = () => setLightboxIndex((i) => (i !== null && i < images.length - 1 ? i + 1 : 0));
+  const prev = () => setLightboxIndex((i) => (i !== null && i > 0 ? i - 1 : safeImages.length - 1));
+  const next = () => setLightboxIndex((i) => (i !== null && i < safeImages.length - 1 ? i + 1 : 0));
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {images.map((img, i) => (
+        {safeImages.map((img, i) => (
           <button
             key={img.id}
             onClick={() => openLightbox(i)}
             className="group relative aspect-square rounded-lg overflow-hidden bg-bg-light"
           >
-            <Image
+            <SafeImage
               src={img.image_url}
               alt={img.caption || ""}
               fill
@@ -56,18 +63,18 @@ export default function GalleryGrid({ images }: GalleryGridProps) {
           >
             <ChevronRight className="h-8 w-8" />
           </button>
-          <Image
-            src={images[lightboxIndex].image_url}
-            alt={images[lightboxIndex].caption || ""}
+          <SafeImage
+            src={safeImages[lightboxIndex].image_url}
+            alt={safeImages[lightboxIndex].caption || ""}
             width={1920}
             height={1080}
             unoptimized
             className="max-h-[85vh] max-w-[90vw] w-auto h-auto object-contain rounded-lg"
             onClick={(e) => e.stopPropagation()}
           />
-          {images[lightboxIndex].caption && (
+          {safeImages[lightboxIndex].caption && (
             <p className="absolute bottom-6 text-center text-white/80 text-sm">
-              {images[lightboxIndex].caption}
+              {safeImages[lightboxIndex].caption}
             </p>
           )}
         </div>

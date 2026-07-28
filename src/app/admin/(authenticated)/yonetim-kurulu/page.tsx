@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import {
   storagePathFromUrl,
@@ -81,19 +81,18 @@ function SortableMemberCard({
   return (
     <div ref={setNodeRef} style={style} className="rounded-xl border border-border bg-white overflow-hidden">
       <div className="relative h-48">
-        {item.photo ? (
-          <Image
-            src={item.photo}
-            alt={`Yönetim kurulu üyesi: ${item.name}`}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 25vw"
-            className="object-cover"
-          />
-        ) : (
-          <div className="w-full h-48 bg-bg-light flex items-center justify-center">
-            <Users className="h-12 w-12 text-text-muted/30" />
-          </div>
-        )}
+        <SafeImage
+          src={item.photo}
+          alt={`Yönetim kurulu üyesi: ${item.name}`}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1280px) 33vw, 25vw"
+          className="object-cover"
+          fallback={
+            <div className="w-full h-48 bg-bg-light flex items-center justify-center">
+              <Users className="h-12 w-12 text-text-muted/30" />
+            </div>
+          }
+        />
         <button
           {...attributes}
           {...listeners}

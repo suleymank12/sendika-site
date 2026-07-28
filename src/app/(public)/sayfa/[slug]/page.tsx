@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
+import SafeHtml from "@/components/SafeHtml";
+import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml } from "@/lib/utils";
 import type { Metadata } from "next";
 
@@ -36,7 +38,9 @@ export default async function DynamicPage({ params }: Props) {
 
   if (!page) notFound();
 
-  const editorImages = extractImagesFromHtml(page.content);
+  // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
+  const cleanContent = sanitizeContentHtml(page.content);
+  const editorImages = extractImagesFromHtml(cleanContent);
 
   const { data: mediaData } = await supabase
     .from("content_media")
@@ -63,7 +67,7 @@ export default async function DynamicPage({ params }: Props) {
       coverImage={page.cover_image}
       videoUrl={page.video_url}
       youtubeUrl={page.youtube_url}
-      content={page.content}
+      content={cleanContent ? <SafeHtml html={cleanContent} /> : null}
       contentImages={contentImages}
     />
   );

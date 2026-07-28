@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { ChevronRight, Newspaper, Megaphone } from "lucide-react";
 import { News, Announcement } from "@/types";
 import { formatDate } from "@/lib/utils";
@@ -112,17 +112,14 @@ export default function NewsAnnouncementTabs({ news, announcements, fullHeight }
                   )}
                 >
                   <div className="w-16 h-12 shrink-0 rounded-lg overflow-hidden bg-primary/5 flex items-center justify-center">
-                    {n.cover_image ? (
-                      <Image
-                        src={n.cover_image}
-                        alt={n.title}
-                        width={64}
-                        height={48}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <Newspaper className="h-6 w-6 text-primary/30" />
-                    )}
+                    <SafeImage
+                      src={n.cover_image}
+                      alt={n.title}
+                      width={64}
+                      height={48}
+                      className="h-full w-full object-cover"
+                      fallback={<Newspaper className="h-6 w-6 text-primary/30" />}
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <time className="text-xs text-text-muted">

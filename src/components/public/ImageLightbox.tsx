@@ -1,9 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 
 interface ImageLightboxProps {
+  /**
+   * SOZLESME: cagiran taraf bu diziyi isNextImageSafeUrl ile FILTRELEYEREK
+   * vermelidir (bkz. DetailPageLayout photos[]). Burada filtrelenmez, cunku
+   * initialIndex disaridan geliyor — ic filtre index'i kaydirirdi.
+   * SafeImage yine de son savunma: gecersiz src'de cizmez, cokertmez.
+   */
   images: string[];
   initialIndex: number;
   onClose: () => void;
@@ -152,7 +158,7 @@ export default function ImageLightbox({
           </button>
         )}
 
-        <Image
+        <SafeImage
           src={images[index]}
           alt=""
           width={1920}
@@ -214,7 +220,7 @@ export default function ImageLightbox({
                     : "opacity-60 hover:opacity-100"
                 }`}
               >
-                <Image
+                <SafeImage
                   src={src}
                   alt=""
                   width={64}

@@ -2,10 +2,10 @@
 
 import { useState, ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import ArticleTools from "./ArticleTools";
 import ImageLightbox from "./ImageLightbox";
-import { formatDate } from "@/lib/utils";
+import { formatDate, isNextImageSafeUrl } from "@/lib/utils";
 
 interface BreadcrumbItem {
   label: string;
@@ -15,13 +15,21 @@ interface BreadcrumbItem {
 interface DetailPageLayoutProps {
   breadcrumbs: BreadcrumbItem[];
   title: string;
+  /** Duz metin alt baslik (manset). HTML DEGIL — JSX ile escape edilir. */
+  subtitle?: string | null;
   date?: string | null;
   updatedAt?: string | null;
   category?: string | null;
   coverImage?: string | null;
   videoUrl?: string | null;
   youtubeUrl?: string | null;
-  content?: string | null;
+  /**
+   * Hazir render edilmis icerik dugumu — tipik olarak <SafeHtml html={...} />.
+   * Bilincli olarak string DEGIL: bu bileşen "use client" oldugu icin
+   * sanitize edemez, dolayisiyla ham HTML'i buraya hic sokmuyoruz.
+   * Sanitize cagiran server component'te yapilir (Guvenlik bulgusu Y2).
+   */
+  content?: ReactNode;
   contentImages?: string[];
   relatedTitle?: string;
   relatedSection?: ReactNode;
@@ -72,6 +80,7 @@ function VideoPlayer({ video, title }: { video: VideoItem; title: string }) {
 export default function DetailPageLayout({
   breadcrumbs,
   title,
+  subtitle,
   date,
   updatedAt,
   category,
@@ -91,15 +100,22 @@ export default function DetailPageLayout({
   const youtubeEmbed = youtubeUrl ? getYoutubeEmbedUrl(youtubeUrl) : null;
   if (youtubeEmbed) videos.push({ kind: "youtube", src: youtubeEmbed });
 
+  // next/image tanimadigi src'de HATA FIRLATIR (sayfa 500 olur). cover_image
+  // kolonu ne sanitize'dan ne extractImagesFromHtml'den geciyor; bozuk bir
+  // kolon degeri de sayfayi cokertmesin diye burada eleniyor.
   const photos: string[] = [];
-  if (coverImage) photos.push(coverImage);
+  if (coverImage && isNextImageSafeUrl(coverImage)) photos.push(coverImage);
   for (const img of contentImages) {
-    if (!photos.includes(img)) photos.push(img);
+    if (isNextImageSafeUrl(img) && !photos.includes(img)) photos.push(img);
   }
 
   const videoCount = videos.length;
   const photoCount = photos.length;
   const hasMedia = videoCount > 0 || photoCount > 0;
+
+  // Eskiden alt baslik content string'ine gomuluyordu; ayrildiktan sonra
+  // "icerik yok" mesaji yalnizca IKISI de bosken gosterilmeli.
+  const showEmptyState = !content && !subtitle;
 
   const openLightbox = (i: number) => setLightboxIndex(i);
 
@@ -179,6 +195,11 @@ export default function DetailPageLayout({
             );
           })()}
 
+          {/* Alt başlık — DÜZ METİN (React escape eder, HTML olarak yorumlanmaz) */}
+          {subtitle && (
+            <p className="text-lg text-gray-600 mb-4">{subtitle}</p>
+          )}
+
           {/* Article text */}
           <div>
             {content ? (
@@ -190,9 +211,11 @@ export default function DetailPageLayout({
                   wordBreak: "break-word",
                   overflowWrap: "anywhere",
                 }}
-                dangerouslySetInnerHTML={{ __html: content }}
-              />
-            ) : (
+              >
+                {content}
+              </div>
+            ) : null}
+            {showEmptyState && (
               <p className="text-gray-500">Bu sayfa için henüz içerik eklenmemiş.</p>
             )}
           </div>
@@ -255,7 +278,7 @@ function PhotoGrid({
             className="relative aspect-square w-full cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-shadow"
             aria-label={`Görsel ${i + 1}`}
           >
-            <Image
+            <SafeImage
               src={src}
               alt=""
               fill
@@ -285,7 +308,7 @@ function PhotoSidebar({
       className="relative w-full aspect-video overflow-hidden cursor-pointer shadow-sm hover:shadow-md transition-shadow"
       aria-label="Görsel"
     >
-      <Image
+      <SafeImage
         src={src}
         alt=""
         fill

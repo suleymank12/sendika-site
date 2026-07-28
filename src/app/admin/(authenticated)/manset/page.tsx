@@ -6,7 +6,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import {
   storagePathFromUrl,
@@ -369,19 +369,18 @@ export default function AdminHeadlinePage() {
                   <GripVertical className="h-5 w-5" />
                 </div>
 
-                {h.image_url ? (
-                  <Image
-                    src={h.image_url}
-                    alt={h.title}
-                    width={80}
-                    height={56}
-                    className="w-20 h-14 object-cover rounded-lg shrink-0"
-                  />
-                ) : (
-                  <div className="w-20 h-14 bg-bg-light rounded-lg flex items-center justify-center text-text-muted text-xs shrink-0">
-                    Görsel yok
-                  </div>
-                )}
+                <SafeImage
+                  src={h.image_url}
+                  alt={h.title}
+                  width={80}
+                  height={56}
+                  className="w-20 h-14 object-cover rounded-lg shrink-0"
+                  fallback={
+                    <div className="w-20 h-14 bg-bg-light rounded-lg flex items-center justify-center text-text-muted text-xs shrink-0">
+                      Görsel yok
+                    </div>
+                  }
+                />
 
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-text-dark truncate">{h.title}</h4>

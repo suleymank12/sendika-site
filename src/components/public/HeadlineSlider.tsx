@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 import type { Swiper as SwiperType } from "swiper";
@@ -130,21 +130,20 @@ export default function HeadlineSlider({ headlines, fallbackSliders = [] }: Head
               )}
             >
               <div className="relative h-full w-full">
-                {slide.image_url ? (
-                  <Image
-                    src={slide.image_url}
-                    alt={slide.title || "Manşet görseli"}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 66vw"
-                    priority
-                    className="object-cover pointer-events-none"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="h-full w-full bg-primary flex items-center justify-center pointer-events-none">
-                    <Newspaper className="h-16 w-16 text-white/30" />
-                  </div>
-                )}
+                <SafeImage
+                  src={slide.image_url}
+                  alt={slide.title || "Manşet görseli"}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 66vw"
+                  priority
+                  className="object-cover pointer-events-none"
+                  draggable={false}
+                  fallback={
+                    <div className="h-full w-full bg-primary flex items-center justify-center pointer-events-none">
+                      <Newspaper className="h-16 w-16 text-white/30" />
+                    </div>
+                  }
+                />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent pointer-events-none" />
                 {(slide.title || slide.subtitle) && (
                   <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8 lg:p-10 pb-16 sm:pb-20 pointer-events-none">

@@ -16,7 +16,7 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { Upload, X, GripVertical } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
@@ -79,12 +79,17 @@ function SortableGalleryItem({
       style={style}
       className="relative group aspect-square rounded border border-gray-200 overflow-hidden bg-gray-50"
     >
-      <Image
+      <SafeImage
         src={url}
         alt=""
         fill
         sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 200px"
         className="object-cover"
+        fallback={
+          <div className="h-full w-full flex items-center justify-center text-gray-400 text-xs">
+            Görsel yok
+          </div>
+        }
       />
       <button
         type="button"

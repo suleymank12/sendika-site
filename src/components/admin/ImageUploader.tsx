@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import NextImage from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
@@ -99,12 +99,17 @@ export default function ImageUploader({
   if (value) {
     return (
       <div className="relative group rounded-lg overflow-hidden border border-border h-48">
-        <NextImage
+        <SafeImage
           src={value}
           alt="Yüklenen görsel"
           fill
           sizes="(max-width: 768px) 100vw, 50vw"
           className="object-cover"
+          fallback={
+            <div className="h-full w-full bg-bg-light flex items-center justify-center text-text-muted text-xs">
+              Görsel önizlenemiyor
+            </div>
+          }
         />
         <button
           type="button"

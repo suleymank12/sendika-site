@@ -1,8 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import Breadcrumb from "@/components/public/Breadcrumb";
+import SafeHtml from "@/components/SafeHtml";
 import { Users, Phone, Mail } from "lucide-react";
 import type { BoardMember } from "@/types";
 import type { Metadata } from "next";
@@ -69,19 +70,18 @@ export default async function BoardMemberDetailPage({ params }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-0">
             {/* Photo */}
             <div className="relative aspect-[4/5] md:aspect-auto bg-bg-light">
-              {m.photo ? (
-                <Image
-                  src={m.photo}
-                  alt={m.name}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 320px"
-                  className="object-cover"
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center min-h-[320px]">
-                  <Users className="h-20 w-20 text-text-muted/20" />
-                </div>
-              )}
+              <SafeImage
+                src={m.photo}
+                alt={m.name}
+                fill
+                sizes="(max-width: 768px) 100vw, 320px"
+                className="object-cover"
+                fallback={
+                  <div className="h-full w-full flex items-center justify-center min-h-[320px]">
+                    <Users className="h-20 w-20 text-text-muted/20" />
+                  </div>
+                }
+              />
             </div>
 
             {/* Info */}
@@ -131,10 +131,7 @@ export default async function BoardMemberDetailPage({ params }: Props) {
             <h2 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-4">
               Hakkında
             </h2>
-            <div
-              className="prose max-w-none text-text-dark"
-              dangerouslySetInnerHTML={{ __html: m.bio }}
-            />
+            <SafeHtml html={m.bio} className="prose max-w-none text-text-dark" />
           </div>
         )}
 

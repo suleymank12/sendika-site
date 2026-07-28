@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { Building2, ChevronRight } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import NewsCard from "./NewsCard";
@@ -126,23 +126,24 @@ function CustomItemCard({ item }: { item: HomepageSectionItem }) {
   const content = (
     <div className="group rounded-lg border border-border bg-white overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 h-full flex flex-col">
       <div className="relative aspect-video bg-primary/5 overflow-hidden">
-        {item.image_url ? (
-          <Image
-            src={item.image_url}
-            alt={item.title}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : Icon ? (
-          <div className="h-full w-full flex items-center justify-center">
-            <Icon className="h-10 w-10 text-primary/60" />
-          </div>
-        ) : (
-          <div className="h-full w-full flex items-center justify-center">
-            <Building2 className="h-10 w-10 text-primary/40" />
-          </div>
-        )}
+        <SafeImage
+          src={item.image_url}
+          alt={item.title}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          fallback={
+            Icon ? (
+              <div className="h-full w-full flex items-center justify-center">
+                <Icon className="h-10 w-10 text-primary/60" />
+              </div>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center">
+                <Building2 className="h-10 w-10 text-primary/40" />
+              </div>
+            )
+          }
+        />
       </div>
       <div className="p-3 flex-1 flex flex-col">
         <h3 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2">
@@ -179,19 +180,18 @@ function AnnouncementCard({ announcement }: { announcement: Announcement }) {
       className="group block h-full rounded-lg border border-border bg-white overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       <div className="relative aspect-video bg-primary/5 overflow-hidden">
-        {announcement.cover_image ? (
-          <Image
-            src={announcement.cover_image}
-            alt={announcement.title}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center">
-            <Building2 className="h-10 w-10 text-primary/40" />
-          </div>
-        )}
+        <SafeImage
+          src={announcement.cover_image}
+          alt={announcement.title}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          fallback={
+            <div className="h-full w-full flex items-center justify-center">
+              <Building2 className="h-10 w-10 text-primary/40" />
+            </div>
+          }
+        />
       </div>
       <div className="p-3">
         <time className="text-xs text-text-muted">

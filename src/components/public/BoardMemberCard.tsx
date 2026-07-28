@@ -1,4 +1,4 @@
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { BoardMember } from "@/types";
@@ -13,19 +13,18 @@ export default function BoardMemberCard({ member }: BoardMemberCardProps) {
   const cardContent = (
     <>
       <div className="relative h-56 bg-bg-light overflow-hidden">
-        {member.photo ? (
-          <Image
-            src={member.photo}
-            alt={member.name}
-            fill
-            sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="h-full w-full flex items-center justify-center">
-            <Users className="h-16 w-16 text-text-muted/20" />
-          </div>
-        )}
+        <SafeImage
+          src={member.photo}
+          alt={member.name}
+          fill
+          sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          fallback={
+            <div className="h-full w-full flex items-center justify-center">
+              <Users className="h-16 w-16 text-text-muted/20" />
+            </div>
+          }
+        />
       </div>
       <div className="p-4 text-center">
         <h3 className="font-semibold text-text-dark group-hover:text-primary transition-colors">

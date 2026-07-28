@@ -48,8 +48,48 @@ export function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
+const NEXT_IMAGE_HOST_RE = /^[a-z0-9-]+\.supabase\.co$/i;
+const NEXT_IMAGE_PATH_PREFIX = "/storage/v1/object/public/";
+
+// UYARI: Bu kural next.config.mjs images.remotePatterns ile SENKRON
+//  olmalı. Orayı değiştirirsen burayı da güncelle — yoksa geçerli
+//  görsel sessizce kaybolur ya da geçersiz src sayfayı çökertir.
 /**
- * HTML icerigindeki <img src="..."> adreslerini cikarir
+ * Verilen adresin next/image'a GUVENLE verilebilecegini soyler.
+ *
+ * next/image, tanimadigi bir src ile render sirasinda HATA FIRLATIR ve
+ * sayfayi 500'e dusurur ("Failed to parse src", "hostname is not configured").
+ * Bu yuzden bozuk/yabanci veri buraya hic ulasmamali. Ikinci savunma katmani:
+ * sanitize kaynagi temizler, bu fonksiyon da tuketim tarafini korur.
+ *
+ * ASLA throw etmez — ayristirilamayan girdi icin false doner.
+ *
+ * Type predicate: true donduğunde cagiran tarafta tip `string`e daralir,
+ * boylece SafeImage gibi tuketiciler ekstra non-null assertion'a ihtiyac
+ * duymaz.
+ */
+export function isNextImageSafeUrl(url: string | null | undefined): url is string {
+  const value = (url || "").trim();
+  if (!value) return false;
+
+  // Site-goreli: TEK egik cizgi ("//host/x" protokol-gorelidir, reddedilir).
+  if (value.startsWith("/")) return !value.startsWith("//");
+
+  try {
+    const parsed = new URL(value);
+    return (
+      parsed.protocol === "https:" &&
+      NEXT_IMAGE_HOST_RE.test(parsed.hostname) &&
+      parsed.pathname.startsWith(NEXT_IMAGE_PATH_PREFIX)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * HTML icerigindeki <img src="..."> adreslerini cikarir.
+ * next/image'a verilemeyecek adresler SESSIZCE atlanir (bkz. isNextImageSafeUrl).
  */
 export function extractImagesFromHtml(html: string | null | undefined): string[] {
   if (!html) return [];
@@ -57,7 +97,8 @@ export function extractImagesFromHtml(html: string | null | undefined): string[]
   const urls: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
-    if (m[1] && !urls.includes(m[1])) urls.push(m[1]);
+    const src = m[1];
+    if (src && isNextImageSafeUrl(src) && !urls.includes(src)) urls.push(src);
   }
   return urls;
 }

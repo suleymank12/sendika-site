@@ -3,6 +3,8 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import NewsCard from "@/components/public/NewsCard";
+import SafeHtml from "@/components/SafeHtml";
+import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml } from "@/lib/utils";
 import type { Metadata } from "next";
 import type { News } from "@/types";
@@ -61,7 +63,9 @@ export default async function NewsDetailPage({ params }: Props) {
     .limit(5);
 
   const relatedNews = ((related as News[]) || []).slice(0, 3);
-  const editorImages = extractImagesFromHtml(item.content);
+  // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
+  const cleanContent = sanitizeContentHtml(item.content);
+  const editorImages = extractImagesFromHtml(cleanContent);
 
   const { data: mediaData } = await supabase
     .from("content_media")
@@ -92,7 +96,7 @@ export default async function NewsDetailPage({ params }: Props) {
       coverImage={item.cover_image}
       videoUrl={item.video_url}
       youtubeUrl={item.youtube_url}
-      content={item.content}
+      content={cleanContent ? <SafeHtml html={cleanContent} /> : null}
       contentImages={contentImages}
       relatedTitle={relatedNews.length > 0 ? "İlgili Haberler" : undefined}
       relatedSection={

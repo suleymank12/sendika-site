@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import {
@@ -53,12 +53,17 @@ function SortableImage({
 
   return (
     <div ref={setNodeRef} style={style} className="relative group rounded-lg overflow-hidden border border-border h-32">
-      <Image
+      <SafeImage
         src={image.image_url}
         alt={image.caption || ""}
         fill
         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
         className="object-cover"
+        fallback={
+          <div className="h-full w-full bg-bg-light flex items-center justify-center text-text-muted text-xs">
+            Görsel yok
+          </div>
+        }
       />
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
         <button {...attributes} {...listeners} className="rounded-lg bg-white/90 p-1.5 text-text-dark cursor-grab">

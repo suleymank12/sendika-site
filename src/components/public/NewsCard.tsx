@@ -1,4 +1,4 @@
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import Link from "next/link";
 import { Calendar, Newspaper } from "lucide-react";
 import { News } from "@/types";
@@ -14,19 +14,18 @@ export default function NewsCard({ news }: NewsCardProps) {
       <article className="rounded-xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 h-full flex flex-col">
         {/* Cover image */}
         <div className="relative h-52 bg-bg-light overflow-hidden">
-          {news.cover_image ? (
-            <Image
-              src={news.cover_image}
-              alt={news.title}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center bg-primary/5">
-              <Newspaper className="h-10 w-10 text-primary/30" />
-            </div>
-          )}
+          <SafeImage
+            src={news.cover_image}
+            alt={news.title}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            fallback={
+              <div className="h-full w-full flex items-center justify-center bg-primary/5">
+                <Newspaper className="h-10 w-10 text-primary/30" />
+              </div>
+            }
+          />
           {news.category && (
             <span className="absolute top-3 left-3 rounded-full bg-primary px-3 py-1 text-xs font-medium text-white">
               {news.category}

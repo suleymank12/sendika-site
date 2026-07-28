@@ -1,3 +1,31 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"]
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "rules": {
+    "react/no-danger": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "next/image",
+            "message": "next/image tanimadigi src ile RENDER SIRASINDA hata firlatir ve sayfayi 500'e dusurur. DB kaynakli src'ler icin @/components/SafeImage kullanin."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/components/SafeHtml.tsx", "src/app/layout.tsx"],
+      "rules": {
+        "react/no-danger": "off"
+      }
+    },
+    {
+      "files": ["src/components/SafeImage.tsx"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ]
 }

@@ -3,6 +3,8 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
+import SafeHtml from "@/components/SafeHtml";
+import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml, formatDate } from "@/lib/utils";
 import { Calendar } from "lucide-react";
 import type { Metadata } from "next";
@@ -62,7 +64,9 @@ export default async function AnnouncementDetailPage({ params }: Props) {
     .limit(5);
 
   const relatedItems = ((related as Announcement[]) || []).slice(0, 3);
-  const editorImages = extractImagesFromHtml(item.content);
+  // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
+  const cleanContent = sanitizeContentHtml(item.content);
+  const editorImages = extractImagesFromHtml(cleanContent);
 
   const { data: mediaData } = await supabase
     .from("content_media")
@@ -92,7 +96,7 @@ export default async function AnnouncementDetailPage({ params }: Props) {
       coverImage={item.cover_image}
       videoUrl={item.video_url}
       youtubeUrl={item.youtube_url}
-      content={item.content}
+      content={cleanContent ? <SafeHtml html={cleanContent} /> : null}
       contentImages={contentImages}
       relatedTitle={relatedItems.length > 0 ? "İlgili Duyurular" : undefined}
       relatedSection={

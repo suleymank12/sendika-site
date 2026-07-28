@@ -202,6 +202,196 @@ Rollback: 024 dosya sonundaki ROLLBACK bloğu (sızıntıyı geri açar).
 
 ---
 
+# 🟠 GÜVENLİK — Y2: Sanitize hattı kapatıldı (28 Temmuz 2026)
+
+**Durum:** ✅ Kod tarafı tamamlandı. **Migration YOK, elle apply YOK.**
+Sanitize render anında çalışır; DB'deki mevcut kirli veri de kapsanır.
+
+## Açık neydi?
+
+Tenant admin'lerin girdiği HTML, public sayfalarda **sanitize edilmeden**
+`dangerouslySetInnerHTML` ile render ediliyordu (7 sink / 10 render yolu:
+news, announcements, pages, headlines içerikleri + `board_members.bio` +
+`branches.description` + `branches.manager_bio`). Projede sanitize
+kütüphanesi yoktu.
+
+Zincir: kötü niyetli tenant admin içeriğe script gömer → o origin'de
+oturumu olan kullanıcının Supabase auth token'ı sızar. Token JS'ten
+okunabilir bir çerezde (`@supabase/ssr` `httpOnly:false` — client-side
+auth mimarisinin zorunlu sonucu, yapılandırma hatası değil) ve JWT proje
+geneline geçerli olduğundan, süper admin token'ı ele geçirilirse **tüm
+tenant'ların verisi** açılır.
+
+**Not:** Çerez host-only'dir (`domain` set edilmiyor). Yani "subdomain'i
+ziyaret etmek" tek başına yetmez; kurban o host'ta **login olmuş**
+olmalıdır. Gerçekçi iki senaryo:
+- **A (en kritik):** `/super-admin` paneli apex'te; apex'in tenant'ı
+  `default`. Yani `default` tenant'ın public içeriği süper admin paneliyle
+  **aynı origin'de**. → aşağıdaki backlog kaydı.
+- **B:** Süper admin, `/super-admin/tenants` sayfasındaki "Admin paneli"
+  linkiyle tenant subdomain'ine gidip orada login olur → süper admin JWT'si
+  o tenant'ın origin'inde bir çerezde durur.
+
+## Çözüm
+
+Yazma yolunda sanitize **zorlanamaz** (admin panel client-side; kayıtlar
+tarayıcıdan doğrudan PostgREST'e gidiyor, kötü niyetli admin kendi
+token'ıyla ham HTML yazabilir). Bu yüzden tek zorlanabilir darboğaz olan
+**render** anında sanitize edildi.
+
+- `src/lib/sanitize.ts` — `sanitizeContentHtml()`, `sanitize-html` tabanlı
+  katı allow-list. Kaynak: Tiptap'in (StarterKit v3 + Underline + Link +
+  Image + TextAlign) üretebildiği HTML kümesi. `style` yalnızca
+  `text-align`, `code.class` yalnızca `language-*`, şemalar
+  http/https/mailto/tel. `import "server-only"` ile client bundle'a
+  sızması build hatası verir.
+- `src/components/SafeHtml.tsx` — server component. Projedeki **tek**
+  meşru `dangerouslySetInnerHTML` kullanıcısı (7 sink → 1).
+- `DetailPageLayout` client component olduğu için sanitize edemez;
+  `content` prop'u `string` yerine **ReactNode** oldu ve ham HTML sink'i
+  bu bileşenden tamamen kaldırıldı.
+- `headlines.subtitle` artık HTML string'ine gömülmüyor; ayrı prop olarak
+  **düz metin** render ediliyor (alan admin formda zaten düz `<Input>`).
+- **Yan fayda:** `img src` yalnızca `*.supabase.co` + göreli kabul ediliyor.
+  Yabancı host'lu bir `<img>`, `extractImagesFromHtml` üzerinden
+  `next/image`'a düşüp sayfayı 500'e çeviriyordu; o da kapandı.
+- `.eslintrc.json` → `react/no-danger: "error"` (override: `SafeHtml.tsx`
+  ve `app/layout.tsx`). Regresyon kilidi.
+
+## Bug fix — `<img src="x">` sayfayı 500'e düşürüyordu (28 Temmuz 2026)
+
+Sanitize hattı test edilirken yakalandı. İlk `isAllowedImageSrc`
+uygulaması "şemasız ve `//` ile başlamayan **her şeyi**" göreli URL sayıp
+kabul ediyordu. Yani `<img src="x">` HTML'de kalıyor →
+`extractImagesFromHtml` bunu `next/image`'a veriyor → next/image
+`Failed to parse src "x"` ile **çöküyor, sayfa 500**.
+
+İki katman birden düzeltildi (derinlemesine savunma):
+
+- **Kaynak (`src/lib/sanitize.ts`):** `isAllowedImageSrc` sıkılaştırıldı.
+  Kabul edilen tek iki biçim: `https://<alt>.supabase.co/...` **veya**
+  `/...` (tek eğik çizgi). `x`, `a.jpg`, `./a.png`, `../a.png`,
+  `//evil.com/...`, `http://...` (https dışı), `data:`, boş → **tag düşer**.
+  `http:` bilinçli olarak kaldırıldı: `next.config.mjs` `protocol: "https"`
+  şart koşuyor, http'li bir supabase URL'i de çökertiyordu.
+- **Tüketim (`src/lib/utils.ts`):** Yeni `isNextImageSafeUrl()` —
+  `next.config.mjs` `images.remotePatterns`'i **birebir** yansıtır
+  (https + `*.supabase.co` + pathname `/storage/v1/object/public/`, ya da
+  `/` ile başlayan göreli). Asla throw etmez. `extractImagesFromHtml` artık
+  bununla filtreliyor; `DetailPageLayout`'ta `photos[]` kurulurken
+  **`cover_image` kolonu da** aynı filtreden geçiyor — o kolon ne
+  sanitize'dan ne extract'tan geçtiği için bozuk bir değeri aynı 500'ü
+  veriyordu.
+
+⚠️ `next.config.mjs` `images.remotePatterns` değişirse `isNextImageSafeUrl`
+**da** güncellenmeli (fonksiyonun üstünde uyarı yorumu var). Aksi halde ya
+geçerli görsel sessizce kaybolur ya da geçersiz src sayfayı çökertir.
+
+## Test
+
+`npm run test:sanitize` — **65 fixture**, tümü geçiyor:
+- (a) XSS vektörleri, (a2) img src kabul kuralı (düşen 8 + korunan 2),
+- (b) meşru Tiptap çıktısının korunması, (c) null/idempotent sözleşmesi,
+- (d) ikinci katman: `isNextImageSafeUrl` + `extractImagesFromHtml` filtresi.
+
+RichTextEditor extension listesi değişirse **allow-list ve bu fixture'lar
+güncellenmelidir**, yoksa meşru içerik sessizce bozulur.
+
+## Kapsam dışı bırakılanlar (ayrı işler)
+
+- **CSP** (nonce tabanlı, middleware'de) — sanitize'ın altına serilecek
+  ikinci savunma hattı. Henüz uygulanmadı; `next.config.mjs`'te hâlâ
+  hiçbir güvenlik header'ı yok.
+- **RichTextEditor temizliği** — StarterKit v3 zaten `Link` ve `Underline`
+  içeriyor, bileşen bunları bir kez daha ekliyor ("Duplicate extension
+  names" uyarısı; `Link.configure({openOnClick:false})` garanti değil).
+
+---
+
+# 📋 BACKLOG — Süper admin panelini ayrı host'a taşı (Senaryo A)
+
+**Ne zaman:** VPS deploy'unda değerlendirilecek. Acil değil (Y2 sanitize
+hattı riski büyük ölçüde kapattı), ama mimari olarak istenmeyen durum
+devam ediyor.
+
+**Sorun:** `/super-admin` rotaları apex host'ta servis ediliyor. Apex'te
+`parseHostname` → `{type:"apex"}` → tenant slug `"default"`. Yani
+**`default` tenant'ın public sayfaları süper admin paneliyle aynı origin'i
+paylaşıyor.** Süper admin varsayılan olarak apex'te login olduğu için
+(`middleware.ts`: next yoksa `/super-admin`) çerezi de orada durur.
+`default` tenant'ta admin yetkisi olan (ama süper admin olmayan) biri,
+o origin'de çalışacak herhangi bir XSS ile süper admin oturumuna ulaşır.
+
+**Öneri:** Süper admin panelini `admin.{apex}` gibi ayrı bir host'a taşımak.
+Çerez host-only olduğu için bu, süper admin oturumunu hiçbir tenant'ın
+public içeriğiyle aynı origin'de bulunmayacak şekilde izole eder.
+
+**Dikkat:** Senaryo B (süper admin'in tenant subdomain'inde login olması)
+bu taşımayla **kapanmaz** — `/super-admin/tenants` sayfasındaki "Admin
+paneli" linki tasarım gereği tenant origin'ine login gerektiriyor. Onun
+için ayrı bir değerlendirme gerekir (ör. impersonation'ı server tarafında
+kısa ömürlü token'la çözmek).
+
+---
+
+# 📋 BACKLOG — next/image için ortak güvenli-src sarmalayıcı
+
+**Nereden çıktı:** Y2 sanitize hattının `<img src="x">` bug fix'i
+(28 Temmuz 2026). O düzeltme yalnızca detay sayfası zincirini
+(`extractImagesFromHtml` → `DetailPageLayout.photos[]`) korudu.
+
+**Sorun:** `NewsCard`, `GalleryGrid`, `BoardMemberCard` gibi **diğer
+`next/image` çağrıları bozuk DB URL'ine karşı aynı derecede kırılgan**
+(`cover_image`, `photo`, `logo` kolonları). next/image tanımadığı bir src
+ile render sırasında hata fırlatır ve sayfayı 500'e düşürür; bu kolonlar
+ne sanitize'dan ne de `isNextImageSafeUrl`'den geçiyor.
+
+**Öneri:** `src/lib/utils.ts`'teki `isNextImageSafeUrl` zaten var. Ayrı iş
+olarak, bu kontrolü içeride yapan ortak bir sarmalayıcı bileşen
+(ör. `<SafeImage />` — geçersiz src'de `next/image` yerine placeholder ya
+da `null` döner) değerlendirilmeli ve tüm `next/image` çağrı yerleri ona
+geçirilmeli. İlke: **bozuk veri hiçbir zaman 500'e yol açmamalı.**
+
+## ✅ KAPATILDI (28 Temmuz 2026)
+
+Bu bir **DoS**'tu: kötü niyetli (ya da dikkatsiz) bir tenant admin kendi
+`cover_image`/`photo`/`image_url`/`logo_url` kolonuna `"x"` yazarak kendi
+tenant'ının anasayfasını, listelerini, galerisini çökertebiliyordu. En
+kötüsü `logo_url`: Navbar `(public)/layout.tsx`'te olduğu için sitenin
+**tamamı** 500'e düşüyordu.
+
+Yapılanlar:
+
+- **`src/components/SafeImage.tsx`** (yeni) — direktifsiz (universal)
+  sarmalayıcı. `isNextImageSafeUrl(src)` false ise `next/image` **hiç
+  çağrılmaz**, `fallback` render edilir. Proplar tek tek sayılmaz:
+  `Omit<ImageProps,"src">` + `...rest` ile next/image'ın kendi tipi
+  devralınır, böylece hiçbir prop sessizce düşemez.
+- **`isNextImageSafeUrl` artık type predicate** (`url is string`) — çağıran
+  tarafta tip daralır, non-null assertion gerekmez.
+- **30 `<Image>` çağrısının tamamı** SafeImage'a geçirildi (19 public +
+  9 admin + DetailPageLayout'un 2'si). Her çağrı yerinin kendi "görsel yok"
+  JSX'i `fallback` prop'una **aynen** taşındı → bozuk src ile görsel-yok
+  görünümü birebir aynı.
+- **Dizi tüketicilerinde SafeImage değil, kaynakta filtre:** `GalleryGrid`
+  artık `images`'ı başta `isNextImageSafeUrl` ile eliyor. Per-item `null`
+  render etmek ızgarada boş kutu bırakır **ve lightbox index matematiğini
+  kaydırırdı**. `ImageLightbox` içeride filtrelemez (dışarıdan gelen
+  `initialIndex`'i kaydırırdı) — sözleşme prop yorumunda yazılı, tek
+  çağıranı olan `DetailPageLayout` zaten filtreli veriyor.
+- **`DetailPageLayout`'un `photos[]` filtresi KALDI** — o filtre yalnızca
+  çökmeyi değil, `photoCount`/`hasMedia`/lightbox index'inin doğruluğunu da
+  sağlıyor. SafeImage'a geçiş orada sadece lint kilidi için.
+- **Lint kilidi:** `.eslintrc.json` → `no-restricted-imports` ile
+  `next/image` proje genelinde yasak, tek istisna `SafeImage.tsx`
+  (`react/no-danger` + `SafeHtml` deseninin eşi).
+
+Doğrulama: `npm run test:sanitize` 68 fixture geçiyor; build ve lint temiz.
+Ayrıca canlı A/B: bir haberin `cover_image`'i `'x'` yapıldığında ham
+`next/image` ile `/` ve `/haberler` **500**, SafeImage ile **200** döndü.
+
+---
+
 # ⛔ 013_revert_tenant_aware_rls.sql — ÇALIŞTIRILMAMALI (arşiv)
 
 Bu rollback dosyası **tehlikelidir**, üretimde asla çalıştırılmamalı:

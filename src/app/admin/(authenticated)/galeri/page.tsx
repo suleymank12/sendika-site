@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import {
   storagePathFromUrl,
@@ -87,19 +87,18 @@ function SortableAlbumCard({
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="relative h-40">
-        {album.cover_image ? (
-          <Image
-            src={album.cover_image}
-            alt={`${album.title} albümü kapağı`}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            className="object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-bg-light flex items-center justify-center">
-            <ImageIcon className="h-12 w-12 text-text-muted/30" />
-          </div>
-        )}
+        <SafeImage
+          src={album.cover_image}
+          alt={`${album.title} albümü kapağı`}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="object-cover"
+          fallback={
+            <div className="w-full h-full bg-bg-light flex items-center justify-center">
+              <ImageIcon className="h-12 w-12 text-text-muted/30" />
+            </div>
+          }
+        />
       </div>
       <div className="p-3">
         <p className="text-sm font-semibold text-text-dark">{album.title}</p>

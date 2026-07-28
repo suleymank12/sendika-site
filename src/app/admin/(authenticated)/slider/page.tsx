@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import {
   storagePathFromUrl,
@@ -76,12 +76,17 @@ function SortableSliderCard({
   return (
     <div ref={setNodeRef} style={style} className="rounded-xl border border-border bg-white overflow-hidden">
       <div className="relative h-40">
-        <Image
+        <SafeImage
           src={item.image_url}
           alt={item.title || "Slider görseli"}
           fill
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           className="object-cover"
+          fallback={
+            <div className="h-full w-full bg-bg-light flex items-center justify-center">
+              <Images className="h-10 w-10 text-text-muted/30" />
+            </div>
+          }
         />
         <div className="absolute top-2 left-2">
           <button {...attributes} {...listeners} className="rounded-lg bg-black/50 p-1.5 text-white cursor-grab">

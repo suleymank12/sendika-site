@@ -1,9 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import Link from "next/link";
 import Breadcrumb from "@/components/public/Breadcrumb";
+import SafeHtml from "@/components/SafeHtml";
 import { MapPin, Phone, Mail, Clock, User, ChevronRight, ExternalLink } from "lucide-react";
 import type { Branch, BoardMember } from "@/types";
 import type { Metadata } from "next";
@@ -122,19 +123,18 @@ export default async function BranchDetailPage({ params }: Props) {
           {managerName && (
             <div className="mt-6 bg-white/95 rounded-xl p-4 flex items-center gap-4 max-w-xl shadow-lg">
               <div className="relative w-16 h-16 shrink-0 rounded-full overflow-hidden bg-bg-light">
-                {managerPhoto ? (
-                  <Image
-                    src={managerPhoto}
-                    alt={managerName}
-                    fill
-                    sizes="64px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full flex items-center justify-center">
-                    <User className="h-8 w-8 text-text-muted/40" />
-                  </div>
-                )}
+                <SafeImage
+                  src={managerPhoto}
+                  alt={managerName}
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                  fallback={
+                    <div className="h-full w-full flex items-center justify-center">
+                      <User className="h-8 w-8 text-text-muted/40" />
+                    </div>
+                  }
+                />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-text-dark truncate">{managerName}</p>
@@ -264,10 +264,7 @@ export default async function BranchDetailPage({ params }: Props) {
             <h2 className="text-xs uppercase tracking-wider text-text-muted font-semibold mb-4">
               Hakkında
             </h2>
-            <div
-              className="prose max-w-none text-text-dark"
-              dangerouslySetInnerHTML={{ __html: branch.description }}
-            />
+            <SafeHtml html={branch.description} className="prose max-w-none text-text-dark" />
           </div>
         )}
 

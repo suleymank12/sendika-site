@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import SafeImage from "@/components/SafeImage";
 import { Building2 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import FullWidthSlider from "@/components/public/FullWidthSlider";
@@ -124,19 +124,20 @@ function TileBox({ item }: { item: HomepageSectionItem }) {
   const content = (
     <div className="group flex flex-col items-center justify-center bg-white border border-gray-200 rounded-lg p-6 lg:p-8 text-center min-h-[180px] hover:shadow-lg transition h-full">
       <div className="w-14 h-14 mb-3 flex items-center justify-center">
-        {item.image_url ? (
-          <Image
-            src={item.image_url}
-            alt={item.title}
-            width={56}
-            height={56}
-            className="h-14 w-14 object-contain"
-          />
-        ) : Icon ? (
-          <Icon className="h-12 w-12 text-primary" />
-        ) : (
-          <Building2 className="h-12 w-12 text-primary/60" />
-        )}
+        <SafeImage
+          src={item.image_url}
+          alt={item.title}
+          width={56}
+          height={56}
+          className="h-14 w-14 object-contain"
+          fallback={
+            Icon ? (
+              <Icon className="h-12 w-12 text-primary" />
+            ) : (
+              <Building2 className="h-12 w-12 text-primary/60" />
+            )
+          }
+        />
       </div>
       <span className="text-base font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2">
         {item.title}
