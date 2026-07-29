@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getSiteSettings } from "@/lib/site-settings";
 import SiteKapaliView from "./_components/SiteKapaliView";
 import PageLoader from "@/components/public/PageLoader";
 import TopBar from "@/components/public/TopBar";
@@ -31,19 +32,6 @@ function lightenColorRgb(hex: string, amount: number = 0.2): string {
   return `${r} ${g} ${b}`;
 }
 
-async function getSettings(tenantId: string) {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("site_settings")
-    .select("key, value")
-    .eq("tenant_id", tenantId);
-  const settings: Record<string, string> = {};
-  data?.forEach((item: { key: string; value: string | null }) => {
-    settings[item.key] = item.value || "";
-  });
-  return settings;
-}
-
 async function getMenuItems(tenantId: string) {
   const supabase = createClient();
   const { data } = await supabase
@@ -64,7 +52,7 @@ export default async function PublicLayout({ children }: { children: React.React
   }
 
   const [settings, menuItems] = await Promise.all([
-    getSettings(tenant.id),
+    getSiteSettings(tenant.id),
     getMenuItems(tenant.id),
   ]);
 

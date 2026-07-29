@@ -25,6 +25,11 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // VPS deploy'u icin kendi kendine yeten cikti (.next/standalone):
+  // 369 MB node_modules yerine ~O(50 MB) server.js + trace edilmis moduller.
+  // DIKKAT: standalone'a .next/static ve public/ OTOMATIK KOPYALANMAZ —
+  // deploy adimlari NOTE.md "VPS deploy adimlari" bolumunde.
+  output: "standalone",
   images: {
     remotePatterns: [
       {

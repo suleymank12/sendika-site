@@ -202,6 +202,126 @@ Rollback: 024 dosya sonundaki ROLLBACK bloğu (sızıntıyı geri açar).
 
 ---
 
+# 🟠 MIGRATION 025 — homepage_sections drift'i kapatıldı (29 Temmuz 2026)
+
+**Durum:** Migration hazır, **SQL elle apply edilmeli.** Mevcut canlı DB'de
+veri kaybı/davranış değişikliği YOK; asıl amacı **sıfırdan kurulan DB'lerin**
+(yeni müşteri projesi) çalışması.
+
+## Sorun neydi? (Tur 2 performans denetimi, bulgu b5)
+
+`homepage_sections` + `homepage_section_items` tabloları Supabase
+Dashboard'da elle yaratılmıştı — repo'da CREATE TABLE'ları yoktu (009:19-21
+bunu belgeliyordu; çalıştırılan DDL `admin/anasayfa-bolumleri/page.tsx:1-33`
+yorumunda duruyordu). Sıfırdan kurulan DB'de 005 (icon kolonu) ve 012
+(policy) hata veriyor, anasayfa bölümleri hiç çalışmıyordu.
+
+## Çözüm
+
+`supabase/migrations/025_homepage_sections.sql` — canlı DB'deki gerçek şema
+(PostgREST OpenAPI'den okundu) birebir repo'ya alındı. 019'daki
+content_media emsalinin aynısı: CREATE TABLE IF NOT EXISTS + ADD COLUMN
+IF NOT EXISTS + CREATE INDEX IF NOT EXISTS + DROP POLICY IF EXISTS →
+CREATE POLICY. **Tamamen idempotent.**
+
+Canlı DB'de tek görünür değişiklik: public policy İSİMLERİ Dashboard'daki
+"Public read active sections/section items"tan repo standardına
+(`homepage_*_public_read`) geçer. Predicate aynen `is_active = true` kalır
+— erişim ne genişler ne daralır.
+
+## Apply + doğrulama
+
+1. `025_homepage_sections.sql` çalıştır (Supabase SQL Editor).
+2. Dosya sonundaki (a)–(e) doğrulamaları çalıştır — özellikle (d): anon
+   rolüyle yalnızca aktif satırlar dönmeli.
+3. Regresyon: public anasayfa bölümleri + `/bolum/[id]` + admin "Anasayfa
+   Bölümleri" (listeleme/ekleme/silme).
+
+## ⚠️ Sıfırdan kurulum sırası (yeni müşteri projesi açarken)
+
+Migration'lar sırayla uygulanırken 025, **004'ten sonra (005'ten önce) BİR
+KEZ erken** çalıştırılmalı, sırası geldiğinde normal şekilde TEKRAR
+çalıştırılmalı (ikisi de güvenli — idempotent). Erken koşumda tenants
+tablosu henüz olmadığı için tenant_id/tenant-policy blokları NOTICE ile
+atlanır; 009 ve 012 sırası gelince tamamlar.
+
+Rollback: dosya sonundaki blok (yalnızca policy isimlerini geri alır —
+tablolar migration'dan önce de vardı, DROP TABLE bilerek dahil değil).
+
+---
+
+# 📦 VPS DEPLOY ADIMLARI (Tur 2 / a2 — 29 Temmuz 2026)
+
+Hedef: isimtescil VDS-Eko, **1 core / 2 GB RAM / 20 GB SSD**. Bu bölüm
+repo tarafı hazırlanırken yazıldı; sunucu alınınca sırayla uygulanacak.
+
+## 1. Build LOKALDE veya CI'da alınır — sunucuda ASLA
+
+`next build` tepe noktada 1.5-2+ GB RAM ister; 2 GB / 1 core sunucuda OOM
+ya da saatlerce swap demektir. Sunucuya yalnızca build ÇIKTISI kopyalanır.
+
+⚠️ **Platform uyumu:** standalone çıktının içindeki node_modules (özellikle
+sharp'ın native binary'si) build alınan platforma özgüdür. **Windows'ta
+alınan build Linux VPS'te ÇALIŞMAZ.** Build şunlardan biriyle alınmalı:
+- WSL (Ubuntu) içinde `npm ci && npm run build`, veya
+- CI (GitHub Actions ubuntu-latest), veya
+- `npm install --os=linux --cpu=x64 sharp` ile cross-install (sharp
+  0.33+ destekler) + Windows'ta build — EN SON çare, WSL/CI tercih edilir.
+
+## 2. Standalone çıktı + ELLE kopyalanacak klasörler
+
+`next.config.mjs` → `output: "standalone"` aktif. `next build` sonrası:
+
+```
+.next/standalone/          ← server.js + trace edilmiş node_modules (bunu kopyala)
+.next/static/              ← OTOMATIK DAHİL DEĞİL → .next/standalone/.next/static/ altına kopyala
+public/                    ← OTOMATIK DAHİL DEĞİL → .next/standalone/public/ altına kopyala
+```
+
+Kopyalama (build makinesinde):
+```bash
+cp -r .next/static .next/standalone/.next/static
+cp -r public .next/standalone/public
+```
+Sonra `.next/standalone/` içeriği sunucuya rsync'lenir. Çalıştırma:
+`node server.js` (PORT ve HOSTNAME env ile). `.env` PRODUCTION değerleriyle
+sunucuda ayrıca oluşturulmalı (standalone .env.local taşımaz).
+
+## 3. Sunucu hazırlığı (2 GB gerçeği)
+
+- **2 GB swap aç** (güvenlik ağı — build için değil, runtime tepeleri için):
+  `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile` + fstab satırı.
+- **Tek Node prosesi:** 1 core'da PM2 cluster ANLAMSIZ — `pm2 start server.js -i 1`
+  veya systemd unit. Restart-on-crash yeterli.
+- **Nginx önde:** TLS + gzip + `/_next/static` için uzun Cache-Control.
+  HSTS Nginx'te set edilecek (next.config'te bilerek yok — NOTE'taki CSP
+  bölümüne bakın).
+
+## 4. sharp doğrulaması (görsel optimizasyonu)
+
+`sharp` artık dependency (package.json). Next 14.2 production'da sharp
+yoksa WASM squoosh'a düşer: yavaş + bellek-tepeli → 2 GB'da OOM riski.
+Deploy sonrası doğrula:
+```bash
+node -e "console.log(require('sharp').versions)"   # standalone dizininde
+```
+Ayrıca `node server.js` loglarında "sharp" uyarısı OLMAMALI. next/image
+varyantları `.next/cache/images`'ta birikir — disk yeterli (20 GB), ama
+`.next/cache` rsync'e dahil edilmemeli (her deploy'da sıfırlanması sorun
+değil, yeniden üretilir).
+
+## 5. Deploy sonrası ilk hafta işleri (Tur 2 teşhisinden — sırayla)
+
+- b1: Admin listelerine kolon listesi + pagination + arama debounce
+- b2: Detay sayfalarında bağımsız sorguları Promise.all'a alma
+- b3: Chrome sorgularına tenant-keyed unstable_cache (60 sn TTL) — tasarım
+  şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat)
+- b4: `news`/`announcements` composite index migration'ı +
+  `homepage_section_items(section_id)` index'i
+- Uptime monitor (Supabase Free 7 gün inaktivite pause + genel sağlık)
+
+---
+
 # 🟠 GÜVENLİK — Y2: Sanitize hattı kapatıldı (28 Temmuz 2026)
 
 **Durum:** ✅ Kod tarafı tamamlandı. **Migration YOK, elle apply YOK.**

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getSiteSettings } from "@/lib/site-settings";
 import HydrationFlag from "@/components/HydrationFlag";
 import "./globals.css";
 
@@ -16,17 +16,10 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   }
 
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("site_settings")
-    .select("key, value")
-    .eq("tenant_id", tenant.id)
-    .in("key", ["site_title", "site_description", "favicon_url"]);
-
-  const map: Record<string, string> = {};
-  data?.forEach((row: { key: string; value: string | null }) => {
-    if (row.value) map[row.key] = row.value;
-  });
+  // cache()'li ortak yardimci: (public) layout ayni istekte ayni map'i
+  // kullaniyor, DB'ye tek sorgu gidiyor. (Eskiden burada 3 key'lik ayri
+  // bir sorgu vardi.)
+  const map = await getSiteSettings(tenant.id);
 
   const title = map.site_title || tenant.name || "Sendika Adı";
   const description = map.site_description || `${title} Kurumsal Web Sitesi`;

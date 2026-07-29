@@ -29,6 +29,7 @@
     "react-hot-toast": "^2.6.0",
     "sanitize-html": "^2.17.6",
     "server-only": "^0.0.1",
+    "sharp": "^0.35.3",
     "slugify": "^1.6.9",
     "swiper": "^12.1.3"
   },

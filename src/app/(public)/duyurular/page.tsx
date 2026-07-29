@@ -25,9 +25,13 @@ export default async function AnnouncementsListPage({ searchParams }: Props) {
   const from = (page - 1) * PAGE_SIZE.ANNOUNCEMENTS;
   const to = from + PAGE_SIZE.ANNOUNCEMENTS - 1;
 
+  // content (rich text, buyuk) listede BILEREK cekilmiyor. Kolon listesi
+  // bu sayfanin JSX'inin kullandigi alanlar: slug, published_at,
+  // created_at, title, summary (+ key icin id). cover_image bu listede
+  // gosterilmiyor. Karta alan eklenirse burasi da guncellenmeli.
   const { data, count } = await supabase
     .from("announcements")
-    .select("*", { count: "exact" })
+    .select("id, slug, title, summary, published_at, created_at", { count: "exact" })
     .eq("tenant_id", tenant.id)
     .eq("is_published", true)
     .order("published_at", { ascending: false })

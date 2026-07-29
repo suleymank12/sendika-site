@@ -4,6 +4,7 @@ import Breadcrumb from "@/components/public/Breadcrumb";
 import NewsCard from "@/components/public/NewsCard";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { News } from "@/types";
 
 import type { Metadata } from "next";
 
@@ -26,15 +27,23 @@ export default async function NewsListPage({ searchParams }: Props) {
   const from = (page - 1) * PER_PAGE;
   const to = from + PER_PAGE - 1;
 
+  // content (rich text, buyuk) listede BILEREK cekilmiyor. Kolon listesi
+  // NewsCard'in kullandigi alanlar: slug, cover_image, title, category,
+  // published_at, created_at, summary (+ key icin id). Karta alan
+  // eklenirse burasi da guncellenmeli.
   const { data, count } = await supabase
     .from("news")
-    .select("*", { count: "exact" })
+    .select("id, slug, title, summary, cover_image, category, published_at, created_at", {
+      count: "exact",
+    })
     .eq("tenant_id", tenant.id)
     .eq("is_published", true)
     .order("published_at", { ascending: false })
     .range(from, to);
 
-  const news = data || [];
+  // Kolon listesi News tipinin alt kumesi — NewsCard yalnizca bu alanlari
+  // kullaniyor (anasayfadaki desenle ayni cast).
+  const news = (data as unknown as News[]) || [];
   const totalPages = Math.ceil((count || 0) / PER_PAGE);
 
   const hrefFor = (p: number) => `/haberler${p > 1 ? `?sayfa=${p}` : ""}`;

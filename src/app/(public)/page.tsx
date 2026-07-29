@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getSiteSettings } from "@/lib/site-settings";
 import Layout1Homepage from "@/components/public/Layout1Homepage";
 import Layout2Homepage from "@/components/public/Layout2Homepage";
 import {
@@ -15,12 +16,27 @@ export default async function HomePage() {
   const supabase = createClient();
   const tenant = await getCurrentTenant();
 
+  // Liste sorgularinda content (rich text, buyuk) BILEREK cekilmiyor.
+  // Kolon listeleri tuketici bilesenlerin JSX'inden cikarildi — alan
+  // eklerseniz buradaki select'i de guncelleyin:
+  //   news         -> NewsCard (slug, cover_image, title, category,
+  //                   published_at, created_at, summary) +
+  //                   NewsAnnouncementTabs (id, slug, cover_image, title,
+  //                   published_at, created_at)
+  //   announcements-> NewsAnnouncementTabs (id, slug, title, published_at,
+  //                   created_at) + HomepageSection/AnnouncementCard
+  //                   (slug, cover_image, title, published_at, created_at)
+  const NEWS_LIST_COLUMNS =
+    "id, slug, title, summary, cover_image, category, published_at, created_at";
+  const ANNOUNCEMENT_LIST_COLUMNS =
+    "id, slug, title, cover_image, published_at, created_at";
+
   const [
     headlinesRes,
     newsRes,
     announcementsRes,
     slidersRes,
-    settingsRes,
+    settings,
     sectionsRes,
   ] = await Promise.all([
     supabase
@@ -31,14 +47,14 @@ export default async function HomePage() {
       .order("order", { ascending: true }),
     supabase
       .from("news")
-      .select("*")
+      .select(NEWS_LIST_COLUMNS)
       .eq("tenant_id", tenant.id)
       .eq("is_published", true)
       .order("published_at", { ascending: false })
       .limit(6),
     supabase
       .from("announcements")
-      .select("*")
+      .select(ANNOUNCEMENT_LIST_COLUMNS)
       .eq("tenant_id", tenant.id)
       .eq("is_published", true)
       .order("published_at", { ascending: false })
@@ -49,12 +65,10 @@ export default async function HomePage() {
       .eq("tenant_id", tenant.id)
       .eq("is_active", true)
       .order("order", { ascending: true }),
-    supabase
-      .from("site_settings")
-      .select("key, value")
-      .eq("tenant_id", tenant.id)
-      .eq("key", "layout_type")
-      .maybeSingle(),
+    // cache()'li ortak yardimci — root layout metadata'si ve (public)
+    // layout ile ayni istek-ici sorguyu paylasir (eskiden burada ayri bir
+    // layout_type sorgusu vardi).
+    getSiteSettings(tenant.id),
     supabase
       .from("homepage_sections")
       .select("*")
@@ -102,10 +116,10 @@ export default async function HomePage() {
         : null,
   }));
 
-  const news = (newsRes.data as News[]) || [];
-  const announcements = (announcementsRes.data as Announcement[]) || [];
+  const news = (newsRes.data as unknown as News[]) || [];
+  const announcements = (announcementsRes.data as unknown as Announcement[]) || [];
   const sliders = (slidersRes.data as Slider[]) || [];
-  const layoutType = (settingsRes.data?.value as string) || "layout1";
+  const layoutType = settings.layout_type || "layout1";
 
   const sections = ((sectionsRes?.data as HomepageSectionType[]) || []).filter((s) =>
     ["custom", "news", "announcements"].includes(s.source)
@@ -136,7 +150,7 @@ export default async function HomePage() {
     needsExtraNews && maxNewsCount > news.length
       ? supabase
           .from("news")
-          .select("*")
+          .select(NEWS_LIST_COLUMNS)
           .eq("tenant_id", tenant.id)
           .eq("is_published", true)
           .order("published_at", { ascending: false })
@@ -145,7 +159,7 @@ export default async function HomePage() {
     needsExtraAnnouncements && maxAnnCount > announcements.length
       ? supabase
           .from("announcements")
-          .select("*")
+          .select(ANNOUNCEMENT_LIST_COLUMNS)
           .eq("tenant_id", tenant.id)
           .eq("is_published", true)
           .order("published_at", { ascending: false })
