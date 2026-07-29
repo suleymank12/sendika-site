@@ -248,9 +248,11 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <>
+    // flex min-h-full flex-col + icerikte flex-1: icerik viewport'tan kisa
+    // kaldiginda sticky bar ortada asili kalmasin, en alta otursun.
+    <div className="flex min-h-full flex-col">
       <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
-      <div className="p-4 lg:p-6 pb-24">
+      <div className="flex-1 p-4 lg:p-6 pb-24">
         <div className="space-y-6">
           {/* Genel */}
           <SettingsSection
@@ -492,6 +494,6 @@ export default function AdminSettingsPage() {
           Ayarları Kaydet
         </Button>
       </div>
-    </>
+    </div>
   );
 }

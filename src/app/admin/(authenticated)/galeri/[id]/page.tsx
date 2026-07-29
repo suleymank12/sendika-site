@@ -289,7 +289,9 @@ export default function AdminGalleryDetailPage() {
   }
 
   return (
-    <>
+    // flex min-h-full flex-col + icerikte flex-1: icerik viewport'tan kisa
+    // kaldiginda sticky bar ortada asili kalmasin, en alta otursun.
+    <div className="flex min-h-full flex-col">
       <AdminHeader
         title={album?.title || "Albüm"}
         breadcrumbs={[
@@ -297,7 +299,9 @@ export default function AdminGalleryDetailPage() {
           { label: album?.title || "Detay" },
         ]}
       />
-      <div className="p-4 lg:p-6 max-w-5xl mx-auto pb-24">
+      {/* w-full sart: kolon flex'te mx-auto'lu oge stretch olmaz,
+          icerik genisligine daralirdi (blok davranisini korur) */}
+      <div className="flex-1 w-full p-4 lg:p-6 max-w-5xl mx-auto pb-24">
         <div className="space-y-8">
           {/* Album info */}
           <section>
@@ -378,6 +382,6 @@ export default function AdminGalleryDetailPage() {
         loading={deleting}
         description="Bu fotoğrafı silmek istediğinize emin misiniz?"
       />
-    </>
+    </div>
   );
 }

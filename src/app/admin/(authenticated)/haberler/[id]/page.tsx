@@ -346,12 +346,16 @@ export default function AdminNewsEditorPage() {
   }
 
   return (
-    <>
+    // flex min-h-full flex-col + icerikte flex-1: icerik viewport'tan kisa
+    // kaldiginda sticky bar ortada asili kalmasin, en alta otursun.
+    <div className="flex min-h-full flex-col">
       <AdminHeader
         title={isNew ? "Yeni Haber" : title || "Haber Düzenle"}
         breadcrumbs={breadcrumbs}
       />
-      <div className="p-4 lg:p-6 max-w-7xl mx-auto pb-24">
+      {/* w-full sart: kolon flex'te mx-auto'lu oge stretch olmaz,
+          icerik genisligine daralirdi (blok davranisini korur) */}
+      <div className="flex-1 w-full p-4 lg:p-6 max-w-7xl mx-auto pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(340px,400px)] gap-8 lg:gap-6">
           {/* Sol sütun — Yazı ağırlıklı */}
           <div className="space-y-8 min-w-0">
@@ -485,6 +489,6 @@ export default function AdminNewsEditorPage() {
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
