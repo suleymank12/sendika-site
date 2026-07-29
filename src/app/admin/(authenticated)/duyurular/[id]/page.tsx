@@ -168,10 +168,13 @@ export default function AdminAnnouncementEditorPage() {
       await cleanupReplacedFile(supabase, initialCoverImage, coverImage || null);
       await cleanupReplacedFile(supabase, initialVideoUrl, videoUrl || null);
 
+      // --- Senkron yazmalar (Tur 3 / P4) — haberler/[id] ile ayni desen ---
+      let syncFailed = false;
+
       // Galeri görsellerini senkronize et
       const removed = initialGallery.filter((u) => !galleryImages.includes(u));
       if (removed.length > 0) {
-        await supabase
+        const { error: removeError } = await supabase
           .from("content_media")
           .delete()
           .eq("tenant_id", tenant.id)
@@ -179,12 +182,16 @@ export default function AdminAnnouncementEditorPage() {
           .eq("content_id", annId)
           .in("url", removed);
 
-        // Cikartilan galeri fotograflarini storage'tan da temizle (best-effort)
-        await removeFilesFromStorage(
-          supabase,
-          "images",
-          removed.map((url) => storagePathFromUrl(url))
-        );
+        if (removeError) {
+          syncFailed = true;
+        } else {
+          // Storage temizligi YALNIZ DB silme basariliysa (best-effort).
+          await removeFilesFromStorage(
+            supabase,
+            "images",
+            removed.map((url) => storagePathFromUrl(url))
+          );
+        }
       }
 
       const added = galleryImages.filter((u) => !initialGallery.includes(u));
@@ -197,23 +204,30 @@ export default function AdminAnnouncementEditorPage() {
           url,
           order: galleryImages.indexOf(url),
         }));
-        await supabase.from("content_media").insert(rows);
+        const { error: addError } = await supabase.from("content_media").insert(rows);
+        if (addError) syncFailed = true;
       }
 
       const kept = galleryImages.filter((u) => initialGallery.includes(u));
       for (const url of kept) {
-        await supabase
+        const { error: orderError } = await supabase
           .from("content_media")
           .update({ order: galleryImages.indexOf(url) })
           .eq("tenant_id", tenant.id)
           .eq("content_type", "announcement")
           .eq("content_id", annId)
           .eq("url", url);
+        if (orderError) syncFailed = true;
       }
 
-      // Manşete ekle/çıkar
-      if (isHeadline && publish) {
-        const { data: existing } = await supabase
+      // Manşet senkronu — kosullar haberler/[id] ile ayni:
+      //   publish && isHeadline  -> yoksa olustur, varsa kopyayi esitle (P4-iv)
+      //   publish && !isHeadline -> kaldir (mevcut davranis)
+      //   !publish (taslak)      -> kaldir (P4-ii); is_headline DB'de korunur
+      let headlineRemovedByDraft = false;
+
+      if (publish && isHeadline) {
+        const { data: existing, error: existingError } = await supabase
           .from("headlines")
           .select("id")
           .eq("tenant_id", tenant.id)
@@ -221,8 +235,10 @@ export default function AdminAnnouncementEditorPage() {
           .eq("source_id", annId)
           .maybeSingle();
 
-        if (!existing) {
-          await supabase.from("headlines").insert({
+        if (existingError) {
+          syncFailed = true;
+        } else if (!existing) {
+          const { error: headlineInsertError } = await supabase.from("headlines").insert({
             tenant_id: tenant.id,
             title: title.trim(),
             image_url: coverImage || null,
@@ -231,17 +247,46 @@ export default function AdminAnnouncementEditorPage() {
             source_id: annId,
             is_active: true,
           });
+          if (headlineInsertError) syncFailed = true;
+        } else {
+          // (P4-iv) Kopya senkronu.
+          const { error: headlineUpdateError } = await supabase
+            .from("headlines")
+            .update({
+              title: title.trim(),
+              image_url: coverImage || null,
+              link_url: `/duyurular/${slug.trim()}`,
+            })
+            .eq("tenant_id", tenant.id)
+            .eq("id", existing.id);
+          if (headlineUpdateError) syncFailed = true;
         }
-      } else if (!isHeadline) {
-        await supabase
+      } else {
+        const { data: removedHeadlines, error: headlineDeleteError } = await supabase
           .from("headlines")
           .delete()
           .eq("tenant_id", tenant.id)
           .eq("source_type", "announcement")
-          .eq("source_id", annId);
+          .eq("source_id", annId)
+          .select("id");
+
+        if (headlineDeleteError) {
+          syncFailed = true;
+        } else if (!publish && isHeadline && (removedHeadlines?.length ?? 0) > 0) {
+          headlineRemovedByDraft = true;
+        }
       }
 
-      toast.success(publish ? "Duyuru yayınlandı." : "Taslak kaydedildi.");
+      if (syncFailed) {
+        toast.error(
+          "Duyuru kaydedildi ancak galeri/manşet güncellenemedi — sayfayı açıp tekrar kaydedin."
+        );
+      } else {
+        toast.success(publish ? "Duyuru yayınlandı." : "Taslak kaydedildi.");
+        if (headlineRemovedByDraft) {
+          toast("Taslağa alındığı için manşetten kaldırıldı.", { icon: "ℹ️" });
+        }
+      }
       router.push("/admin/duyurular");
     }
 

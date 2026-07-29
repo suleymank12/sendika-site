@@ -100,6 +100,19 @@ export default function AdminNewsListPage() {
     // 4) Storage temizligi (cover + galeri, tek cagri, best-effort)
     await removeFilesFromStorage(supabase, "images", [coverPath, ...galleryPaths]);
 
+    // 5) Manset temizligi (Tur 3 / P4-iii): yardim metni bunu zaten vaat
+    // ediyor (help-content "silersen mansetten de otomatik kalkar") —
+    // eskiden yapilmiyor, anasayfada linksiz yetim manset kaliyordu.
+    const { error: headlineError } = await supabase
+      .from("headlines")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("source_type", "news")
+      .eq("source_id", deleteItem.id);
+    if (headlineError) {
+      toast.error("Haber silindi ancak manşet kaydı kaldırılamadı — Manşet sayfasından silebilirsiniz.");
+    }
+
     toast.success("Haber silindi.");
     setNews((prev) => prev.filter((n) => n.id !== deleteItem.id));
     setDeleteItem(null);

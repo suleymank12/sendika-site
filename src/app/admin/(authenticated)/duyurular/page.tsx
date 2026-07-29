@@ -99,6 +99,17 @@ export default function AdminAnnouncementsListPage() {
     // 4) Storage temizligi (cover + galeri, tek cagri, best-effort)
     await removeFilesFromStorage(supabase, "images", [coverPath, ...galleryPaths]);
 
+    // 5) Manset temizligi (Tur 3 / P4-iii) — haberler/page.tsx ile ayni.
+    const { error: headlineError } = await supabase
+      .from("headlines")
+      .delete()
+      .eq("tenant_id", tenant.id)
+      .eq("source_type", "announcement")
+      .eq("source_id", deleteItem.id);
+    if (headlineError) {
+      toast.error("Duyuru silindi ancak manşet kaydı kaldırılamadı — Manşet sayfasından silebilirsiniz.");
+    }
+
     toast.success("Duyuru silindi.");
     setItems((prev) => prev.filter((n) => n.id !== deleteItem.id));
     setDeleteItem(null);

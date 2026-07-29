@@ -190,10 +190,15 @@ export default function AdminNewsEditorPage() {
       await cleanupReplacedFile(supabase, initialCoverImage, coverImage || null);
       await cleanupReplacedFile(supabase, initialVideoUrl, videoUrl || null);
 
+      // --- Senkron yazmalar (Tur 3 / P4) ---
+      // Ana kayit BASARILI; asagidaki galeri/manset yazmalarindan biri
+      // hata verirse kosulsuz "yayinlandi" DENMEZ — kullanici uyarilir.
+      let syncFailed = false;
+
       // Galeri görsellerini senkronize et
       const removed = initialGallery.filter((u) => !galleryImages.includes(u));
       if (removed.length > 0) {
-        await supabase
+        const { error: removeError } = await supabase
           .from("content_media")
           .delete()
           .eq("tenant_id", tenant.id)
@@ -201,12 +206,17 @@ export default function AdminNewsEditorPage() {
           .eq("content_id", newsId)
           .in("url", removed);
 
-        // Cikartilan galeri fotograflarini storage'tan da temizle (best-effort)
-        await removeFilesFromStorage(
-          supabase,
-          "images",
-          removed.map((url) => storagePathFromUrl(url))
-        );
+        if (removeError) {
+          syncFailed = true;
+        } else {
+          // Storage temizligi YALNIZ DB silme basariliysa (best-effort):
+          // DB satiri duruyorsa dosyasi da durmali, gorsel kirilmasin.
+          await removeFilesFromStorage(
+            supabase,
+            "images",
+            removed.map((url) => storagePathFromUrl(url))
+          );
+        }
       }
 
       const added = galleryImages.filter((u) => !initialGallery.includes(u));
@@ -219,24 +229,35 @@ export default function AdminNewsEditorPage() {
           url,
           order: galleryImages.indexOf(url),
         }));
-        await supabase.from("content_media").insert(rows);
+        const { error: addError } = await supabase.from("content_media").insert(rows);
+        if (addError) syncFailed = true;
       }
 
       // Sıralama güncellemesi (mevcut kayıtlar için)
       const kept = galleryImages.filter((u) => initialGallery.includes(u));
       for (const url of kept) {
-        await supabase
+        const { error: orderError } = await supabase
           .from("content_media")
           .update({ order: galleryImages.indexOf(url) })
           .eq("tenant_id", tenant.id)
           .eq("content_type", "news")
           .eq("content_id", newsId)
           .eq("url", url);
+        if (orderError) syncFailed = true;
       }
 
-      // Manşete ekle/çıkar
-      if (isHeadline && publish) {
-        const { data: existing } = await supabase
+      // Manşet senkronu — tetiklenme koşulları:
+      //   publish && isHeadline  -> manset yoksa OLUSTUR; varsa kopyayi
+      //                             (title/image/link) haberle ESITLE (P4-iv)
+      //   publish && !isHeadline -> manseti kaldir (mevcut davranis)
+      //   !publish (taslak)      -> manseti KALDIR (P4-ii): taslak icerik
+      //                             404 verir, anasayfada kirik manset kalamaz.
+      //                             Checkbox durumu (is_headline) DB'de korunur;
+      //                             tekrar yayinlanirsa manset yeniden olusur.
+      let headlineRemovedByDraft = false;
+
+      if (publish && isHeadline) {
+        const { data: existing, error: existingError } = await supabase
           .from("headlines")
           .select("id")
           .eq("tenant_id", tenant.id)
@@ -244,8 +265,10 @@ export default function AdminNewsEditorPage() {
           .eq("source_id", newsId)
           .maybeSingle();
 
-        if (!existing) {
-          await supabase.from("headlines").insert({
+        if (existingError) {
+          syncFailed = true;
+        } else if (!existing) {
+          const { error: headlineInsertError } = await supabase.from("headlines").insert({
             tenant_id: tenant.id,
             title: title.trim(),
             image_url: coverImage || null,
@@ -254,17 +277,52 @@ export default function AdminNewsEditorPage() {
             source_id: newsId,
             is_active: true,
           });
+          if (headlineInsertError) syncFailed = true;
+        } else {
+          // (P4-iv) Kopya senkronu: haber basligi/kapagi degisince
+          // anasayfadaki manset kopyasi eskimesin.
+          const { error: headlineUpdateError } = await supabase
+            .from("headlines")
+            .update({
+              title: title.trim(),
+              image_url: coverImage || null,
+              link_url: `/haberler/${slug.trim()}`,
+            })
+            .eq("tenant_id", tenant.id)
+            .eq("id", existing.id);
+          if (headlineUpdateError) syncFailed = true;
         }
-      } else if (!isHeadline) {
-        await supabase
+      } else {
+        // publish && !isHeadline VEYA taslak kaydi: iliskili manset kaldirilir.
+        // select("id") ile gercekten silinen satir var mi ogreniyoruz
+        // (taslak bilgi toast'i yalniz gercek silmede gosterilir).
+        const { data: removedHeadlines, error: headlineDeleteError } = await supabase
           .from("headlines")
           .delete()
           .eq("tenant_id", tenant.id)
           .eq("source_type", "news")
-          .eq("source_id", newsId);
+          .eq("source_id", newsId)
+          .select("id");
+
+        if (headlineDeleteError) {
+          syncFailed = true;
+        } else if (!publish && isHeadline && (removedHeadlines?.length ?? 0) > 0) {
+          // Yalniz "kutucuk isaretliyken taslaga cekildi" durumunda bilgilendir;
+          // kutucugu kullanicinin kendisi kaldirdiysa silme zaten bekledigi sonuc.
+          headlineRemovedByDraft = true;
+        }
       }
 
-      toast.success(publish ? "Haber yayınlandı." : "Taslak kaydedildi.");
+      if (syncFailed) {
+        toast.error(
+          "Haber kaydedildi ancak galeri/manşet güncellenemedi — sayfayı açıp tekrar kaydedin."
+        );
+      } else {
+        toast.success(publish ? "Haber yayınlandı." : "Taslak kaydedildi.");
+        if (headlineRemovedByDraft) {
+          toast("Taslağa alındığı için manşetten kaldırıldı.", { icon: "ℹ️" });
+        }
+      }
       router.push("/admin/haberler");
     }
 

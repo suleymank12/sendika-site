@@ -66,7 +66,7 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "İçerik kutusuna tam metni yaz.", outcome: "Detay sayfasında okunan asıl içerik." },
           { text: "Kapak görseli yükle.", outcome: "Kartlarda ve detay sayfasının üstünde gösterilir." },
           { text: "İstersen video, YouTube veya galeri görselleri ekle." },
-          { text: "'Manşete Ekle'yi işaretlersen anasayfa manşet alanında öne çıkar." },
+          { text: "'Manşete Ekle'yi işaretlersen anasayfa manşet alanında öne çıkar. Manşet yalnızca yayındaki haberlerde görünür; haberi taslağa alırsan manşetten otomatik kalkar, tekrar yayınlayınca geri gelir." },
           { text: "'Yayınla' veya 'Taslak Kaydet'e bas.", outcome: "Yayınla = ziyaretçiye açık. Taslak = sadece sen görürsün." },
         ],
       },

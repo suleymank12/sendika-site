@@ -144,10 +144,13 @@ export default function AdminPageEditorPage() {
       await cleanupReplacedFile(supabase, initialCoverImage, coverImage || null);
       await cleanupReplacedFile(supabase, initialVideoUrl, videoUrl || null);
 
+      // --- Senkron yazmalar (Tur 3 / P4) — sayfalarda manset yok, yalniz galeri ---
+      let syncFailed = false;
+
       // Galeri görsellerini senkronize et
       const removed = initialGallery.filter((u) => !galleryImages.includes(u));
       if (removed.length > 0) {
-        await supabase
+        const { error: removeError } = await supabase
           .from("content_media")
           .delete()
           .eq("tenant_id", tenant.id)
@@ -155,12 +158,16 @@ export default function AdminPageEditorPage() {
           .eq("content_id", pageId)
           .in("url", removed);
 
-        // Cikartilan galeri fotograflarini storage'tan da temizle (best-effort)
-        await removeFilesFromStorage(
-          supabase,
-          "images",
-          removed.map((url) => storagePathFromUrl(url))
-        );
+        if (removeError) {
+          syncFailed = true;
+        } else {
+          // Storage temizligi YALNIZ DB silme basariliysa (best-effort).
+          await removeFilesFromStorage(
+            supabase,
+            "images",
+            removed.map((url) => storagePathFromUrl(url))
+          );
+        }
       }
 
       const added = galleryImages.filter((u) => !initialGallery.includes(u));
@@ -173,21 +180,29 @@ export default function AdminPageEditorPage() {
           url,
           order: galleryImages.indexOf(url),
         }));
-        await supabase.from("content_media").insert(rows);
+        const { error: addError } = await supabase.from("content_media").insert(rows);
+        if (addError) syncFailed = true;
       }
 
       const kept = galleryImages.filter((u) => initialGallery.includes(u));
       for (const url of kept) {
-        await supabase
+        const { error: orderError } = await supabase
           .from("content_media")
           .update({ order: galleryImages.indexOf(url) })
           .eq("tenant_id", tenant.id)
           .eq("content_type", "page")
           .eq("content_id", pageId)
           .eq("url", url);
+        if (orderError) syncFailed = true;
       }
 
-      toast.success(publish ? "Sayfa yayınlandı." : "Taslak kaydedildi.");
+      if (syncFailed) {
+        toast.error(
+          "Sayfa kaydedildi ancak galeri güncellenemedi — sayfayı açıp tekrar kaydedin."
+        );
+      } else {
+        toast.success(publish ? "Sayfa yayınlandı." : "Taslak kaydedildi.");
+      }
       router.push("/admin/sayfalar");
     }
     setSaving(false);
