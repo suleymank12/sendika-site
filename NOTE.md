@@ -645,6 +645,26 @@ yapılmadı — K1'deki desenle yapılması önerilir.
 
 ---
 
+# 📋 NOT — Kaydedilmemiş değişiklik uyarısının bilinen sınırı (29 Temmuz 2026)
+
+Tur 3 / b2 / P6 ile admin editörlerine (haberler/duyurular/sayfalar
+editörleri + ayarlar) kaydedilmemiş değişiklik koruması eklendi:
+`DirtyFormProvider` (`src/hooks/useDirtyForm.tsx`) + snapshot
+karşılaştırması + Sidebar/AdminHeader geçiş onayı + beforeunload.
+
+**BİLİNEN SINIR — tarayıcı GERİ tuşu korunmaz.** SPA içi geri/ileri
+(popstate) App Router'da güvenilir şekilde engellenemez: resmi
+navigation-guard API'si yok (pages router'daki `router.events`
+kaldırıldı), popstate'i elle engellemek Next'in kendi history
+yönetimiyle yarışan kırılgan bir hack. Bilinçli olarak kapsam dışı
+bırakıldı. Kapsanan çıkışlar: sekme kapatma/yenileme/harici URL
+(beforeunload), Sidebar linkleri + logo + çıkış, AdminHeader
+geri/breadcrumb/çıkış, haber editöründeki "Kategoriler sayfasından"
+linki. İleride Next resmi bir API sunarsa (`useRouter` interception)
+buradan tamamlanabilir.
+
+---
+
 # 📋 BACKLOG — prose-* sınıfları no-op (Tailwind typography plugin yok)
 
 **Nereden çıktı:** Tur 3 UX denetimi / a1 (29 Temmuz 2026). Karar Süleyman

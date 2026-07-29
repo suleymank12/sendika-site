@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useSidebar } from "@/hooks/useAdminSidebar";
+import { useDirtyForm } from "@/hooks/useDirtyForm";
 import { cn } from "@/lib/utils";
 import HelpButton from "@/components/admin/HelpButton";
 
@@ -21,6 +22,9 @@ export default function AdminHeader({ title, action, breadcrumbs, helpTopic }: A
   const [email, setEmail] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const { toggle } = useSidebar();
+  // Kaydedilmemis degisiklik korumasi (P6): geri/breadcrumb/cikis
+  // gecislerinde kirli form icin onay sorulur.
+  const { confirmLeave } = useDirtyForm();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,6 +46,7 @@ export default function AdminHeader({ title, action, breadcrumbs, helpTopic }: A
   }, [menuOpen]);
 
   const handleLogout = async () => {
+    if (!confirmLeave()) return;
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/admin/giris");
@@ -74,6 +79,9 @@ export default function AdminHeader({ title, action, breadcrumbs, helpTopic }: A
         {backHref && (
           <Link
             href={backHref}
+            onClick={(e) => {
+              if (!confirmLeave()) e.preventDefault();
+            }}
             className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-text-muted hover:text-text-dark hover:bg-bg-light transition-colors shrink-0"
             aria-label={`${backLabel} sayfasına dön`}
             title={`${backLabel} sayfasına dön`}
@@ -91,6 +99,9 @@ export default function AdminHeader({ title, action, breadcrumbs, helpTopic }: A
                   {b.href ? (
                     <Link
                       href={b.href}
+                      onClick={(e) => {
+                        if (!confirmLeave()) e.preventDefault();
+                      }}
                       className="text-primary hover:underline underline-offset-2 transition-colors"
                     >
                       {b.label}

@@ -10,6 +10,7 @@ import {
   cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { useDirtyForm, useDirtyTracker } from "@/hooks/useDirtyForm";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
 import MediaSection from "@/components/admin/MediaSection";
@@ -49,6 +50,33 @@ export default function AdminNewsEditorPage() {
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [categories, setCategories] = useState<NewsCategory[]>([]);
   const [existingPublishedAt, setExistingPublishedAt] = useState<string | null>(null);
+
+  // --- Kaydedilmemis degisiklik korumasi (P6) ---
+  // Yontem: SNAPSHOT karsilastirmasi — alanlari tek tek izlemek yerine ilk
+  // yuklenen degerlerin serilestirilmis kopyasi tutulur; mevcut degerler her
+  // render'da ayni sirayla serilestirilip karsilastirilir. Yanlis pozitif
+  // uretmez: fetch'te state'lere yazilan normalize degerlerin ("" fallback'leri
+  // dahil) BIREBIR AYNISI snapshot'a yazilir. Tiptap content'i de guvenli:
+  // RichTextEditor onUpdate yalniz KULLANICI duzenlemesinde tetiklenir, ilk
+  // render normalizasyonu state'e yazilmaz (content DB string'i olarak kalir).
+  const [formSnapshot, setFormSnapshot] = useState(() =>
+    JSON.stringify(["", "", "", "", "", "", false, "", "", [] as string[]])
+  );
+  const isDirty =
+    JSON.stringify([
+      title,
+      slug,
+      summary,
+      content,
+      coverImage,
+      category,
+      isHeadline,
+      videoUrl,
+      youtubeUrl,
+      galleryImages,
+    ]) !== formSnapshot;
+  useDirtyTracker(isDirty);
+  const { confirmLeave } = useDirtyForm();
 
   useEffect(() => {
     if (!tenant) return;
@@ -107,6 +135,22 @@ export default function AdminNewsEditorPage() {
         const urls = (mediaData || []).map((m) => m.url as string);
         setGalleryImages(urls);
         setInitialGallery(urls);
+
+        // Dirty snapshot'i: yukaridaki setter'larla BIREBIR ayni degerler/sira
+        setFormSnapshot(
+          JSON.stringify([
+            data.title,
+            data.slug,
+            data.summary || "",
+            data.content || "",
+            data.cover_image || "",
+            data.category || "",
+            data.is_headline || false,
+            data.video_url || "",
+            data.youtube_url || "",
+            urls,
+          ])
+        );
 
         setSlugManuallyEdited(true);
         setLoading(false);
@@ -401,8 +445,9 @@ export default function AdminNewsEditorPage() {
                   {categories.length === 0 && (
                     <p className="text-xs text-text-muted mt-1">
                       {/* Link (client-side gecis) sart: <a href> tam sayfa
-                          yenileme yapip yazilmakta olan haberi kaybettiriyordu */}
-                      Henüz kategori yok. <Link href="/admin/kategoriler" className="text-primary hover:underline">Kategoriler sayfasından</Link> ekleyebilirsin.
+                          yenileme yapip yazilmakta olan haberi kaybettiriyordu.
+                          confirmLeave: kirli formdan cikista onay (P6). */}
+                      Henüz kategori yok. <Link href="/admin/kategoriler" onClick={(e) => { if (!confirmLeave()) e.preventDefault(); }} className="text-primary hover:underline">Kategoriler sayfasından</Link> ekleyebilirsin.
                     </p>
                   )}
                 </div>

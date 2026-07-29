@@ -25,6 +25,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useDirtyForm } from "@/hooks/useDirtyForm";
 import { useSiteTitle } from "@/hooks/useSiteTitle";
 import { useTenant } from "@/hooks/useTenant";
 
@@ -92,6 +93,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const router = useRouter();
   const siteTitle = useSiteTitle();
   const { tenant } = useTenant();
+  // Kaydedilmemis degisiklik korumasi (P6): editordeki kirli formu
+  // sidebar gecisiyle kaybetmeden once onay sorulur.
+  const { confirmLeave } = useDirtyForm();
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Okunmamis mesaj sayaci. Tenant-scoped; RLS tenant uyeligini kontrol eder.
@@ -115,6 +119,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   }, [fetchUnread]);
 
   const handleLogout = async () => {
+    if (!confirmLeave()) return;
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/admin/giris");
@@ -140,7 +145,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         {/* Logo / Title */}
         <div className="flex items-center justify-between px-5 py-5 border-b border-white/10">
-          <Link href="/admin" className="text-white font-bold text-lg tracking-tight truncate">
+          <Link
+            href="/admin"
+            onClick={(e) => {
+              if (!confirmLeave()) e.preventDefault();
+            }}
+            className="text-white font-bold text-lg tracking-tight truncate"
+          >
             {siteTitle}
           </Link>
           <button onClick={onClose} className="lg:hidden text-white/60 hover:text-white">
@@ -163,7 +174,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        onClick={onClose}
+                        onClick={(e) => {
+                          if (!confirmLeave()) {
+                            e.preventDefault();
+                            return;
+                          }
+                          onClose();
+                        }}
                         className={cn(
                           "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                           isActive(item.href)

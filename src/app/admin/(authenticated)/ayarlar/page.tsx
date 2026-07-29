@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cleanupReplacedFile } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { useDirtyTracker } from "@/hooks/useDirtyForm";
 import AdminHeader from "@/components/admin/AdminHeader";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -136,6 +137,16 @@ export default function AdminSettingsPage() {
   const [initialLogoUrl, setInitialLogoUrl] = useState<string | null>(null);
   const [initialFaviconUrl, setInitialFaviconUrl] = useState<string | null>(null);
 
+  // --- Kaydedilmemis degisiklik korumasi (P6) ---
+  // Snapshot karsilastirmasi; settings objesi hep {...defaultSettings}
+  // uzerinden kuruldugu icin key sirasi deterministik — stringify guvenli.
+  // Ayrintili gerekce haberler/[id]'de.
+  const [settingsSnapshot, setSettingsSnapshot] = useState(() =>
+    JSON.stringify(defaultSettings)
+  );
+  const isDirty = JSON.stringify(settings) !== settingsSnapshot;
+  useDirtyTracker(isDirty);
+
   useEffect(() => {
     if (!tenant) return;
     const fetchSettings = async () => {
@@ -158,6 +169,8 @@ export default function AdminSettingsPage() {
         }
       });
       setSettings(obj);
+      // Dirty snapshot'i: forma yazilan obj ile birebir ayni
+      setSettingsSnapshot(JSON.stringify(obj));
       setInitialLogoUrl(obj.logo_url || null);
       setInitialFaviconUrl(obj.favicon_url || null);
       setLoading(false);
@@ -198,6 +211,9 @@ export default function AdminSettingsPage() {
       );
       setInitialLogoUrl(settings.logo_url || null);
       setInitialFaviconUrl(settings.favicon_url || null);
+      // Kayit basarili: mevcut degerler yeni taban — form artik temiz
+      // (sayfada kaliniyor, redirect yok; sonraki cikis onay SORMAMALI).
+      setSettingsSnapshot(JSON.stringify(settings));
       toast.success("Ayarlar kaydedildi.");
     }
     setSaving(false);

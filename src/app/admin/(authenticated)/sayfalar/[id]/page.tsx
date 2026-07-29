@@ -9,6 +9,7 @@ import {
   cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { useDirtyTracker } from "@/hooks/useDirtyForm";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
 import MediaSection from "@/components/admin/MediaSection";
@@ -39,6 +40,16 @@ export default function AdminPageEditorPage() {
   const [initialCoverImage, setInitialCoverImage] = useState<string | null>(null);
   const [initialVideoUrl, setInitialVideoUrl] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+
+  // --- Kaydedilmemis degisiklik korumasi (P6) ---
+  // Snapshot karsilastirmasi — ayrintili gerekce haberler/[id]'de.
+  const [formSnapshot, setFormSnapshot] = useState(() =>
+    JSON.stringify(["", "", "", "", "", "", [] as string[]])
+  );
+  const isDirty =
+    JSON.stringify([title, slug, content, coverImage, videoUrl, youtubeUrl, galleryImages]) !==
+    formSnapshot;
+  useDirtyTracker(isDirty);
 
   useEffect(() => {
     if (!isNew && tenant) {
@@ -76,6 +87,19 @@ export default function AdminPageEditorPage() {
         const urls = (mediaData || []).map((m) => m.url as string);
         setGalleryImages(urls);
         setInitialGallery(urls);
+
+        // Dirty snapshot'i: yukaridaki setter'larla BIREBIR ayni degerler/sira
+        setFormSnapshot(
+          JSON.stringify([
+            data.title,
+            data.slug,
+            data.content || "",
+            data.cover_image || "",
+            data.video_url || "",
+            data.youtube_url || "",
+            urls,
+          ])
+        );
 
         setSlugManuallyEdited(true);
         setLoading(false);

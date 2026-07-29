@@ -9,6 +9,7 @@ import {
   cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { useDirtyTracker } from "@/hooks/useDirtyForm";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
 import MediaSection from "@/components/admin/MediaSection";
@@ -44,6 +45,25 @@ export default function AdminAnnouncementEditorPage() {
   const [initialVideoUrl, setInitialVideoUrl] = useState<string | null>(null);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const [existingPublishedAt, setExistingPublishedAt] = useState<string | null>(null);
+
+  // --- Kaydedilmemis degisiklik korumasi (P6) ---
+  // Snapshot karsilastirmasi — ayrintili gerekce haberler/[id]'de.
+  const [formSnapshot, setFormSnapshot] = useState(() =>
+    JSON.stringify(["", "", "", "", "", false, "", "", [] as string[]])
+  );
+  const isDirty =
+    JSON.stringify([
+      title,
+      slug,
+      summary,
+      content,
+      coverImage,
+      isHeadline,
+      videoUrl,
+      youtubeUrl,
+      galleryImages,
+    ]) !== formSnapshot;
+  useDirtyTracker(isDirty);
 
   useEffect(() => {
     if (!isNew && tenant) {
@@ -86,6 +106,21 @@ export default function AdminAnnouncementEditorPage() {
         const urls = (mediaData || []).map((m) => m.url as string);
         setGalleryImages(urls);
         setInitialGallery(urls);
+
+        // Dirty snapshot'i: yukaridaki setter'larla BIREBIR ayni degerler/sira
+        setFormSnapshot(
+          JSON.stringify([
+            data.title,
+            data.slug,
+            data.summary || "",
+            data.content || "",
+            data.cover_image || "",
+            data.is_headline || false,
+            data.video_url || "",
+            data.youtube_url || "",
+            urls,
+          ])
+        );
 
         setSlugManuallyEdited(true);
         setLoading(false);

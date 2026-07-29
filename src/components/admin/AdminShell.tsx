@@ -3,6 +3,7 @@
 import Sidebar from "@/components/admin/Sidebar";
 import ToastProvider from "@/components/ui/Toast";
 import { SidebarProvider, useSidebar } from "@/hooks/useAdminSidebar";
+import { DirtyFormProvider } from "@/hooks/useDirtyForm";
 import { TenantProvider } from "@/hooks/useTenant";
 
 function AdminShellInner({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   return (
     <TenantProvider>
       <SidebarProvider>
-        <AdminShellInner>{children}</AdminShellInner>
+        <DirtyFormProvider>
+          <AdminShellInner>{children}</AdminShellInner>
+        </DirtyFormProvider>
       </SidebarProvider>
     </TenantProvider>
   );
