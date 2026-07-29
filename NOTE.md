@@ -645,6 +645,37 @@ yapılmadı — K1'deki desenle yapılması önerilir.
 
 ---
 
+# 📋 BACKLOG — homepage_sections public policy'leri tenant-agnostik
+
+**Nereden çıktı:** Migration 025 hazırlanırken (29 Temmuz 2026, Tur 2 / b5).
+
+**Sorun:** `homepage_sections` + `homepage_section_items` public SELECT
+policy'leri tenant-agnostik: `USING (is_active = true)` — tenant filtresi
+yok (025'te repo'ya alınan `homepage_*_public_read` policy'leri; canlıdaki
+Dashboard policy'lerinin birebir devamı). Y1'deki board_members/branches
+deseninin aynısı: anon anahtarla REST üzerinden **tüm kuruluşların**
+anasayfa bölümleri tek istekte okunabiliyor.
+
+**Risk seviyesi:** Düşük — **PII YOK** (başlık, açıklama, görsel/link
+URL'i). KVKK riski değil; cross-tenant **yapı sızıntısı** (bir kuruluşun
+anasayfa kurgusu/kampanya linkleri dışarıdan toplanabilir). Y1'in aksine
+acil değil, bu yüzden 025 kapsamına bilinçli alınmadı — 025 canlı
+davranışı birebir korur, erişimi ne genişletir ne daraltır.
+
+**Çözüm (Y1 Parça B ile aynı desen, ayrı iş):**
+1. Public sayfalardaki `homepage_sections`/`homepage_section_items`
+   sorgularını (`(public)/page.tsx`, `(public)/bolum/[id]/page.tsx`)
+   anon client'tan `createAdminClient`'a (service role) taşı —
+   `.eq("tenant_id")` 4 sorguda da zaten var, `.eq(is_active, true)` da
+   var (RLS'in sessizce uyguladığı koşul sorguda mevcut, Y1'deki gibi
+   eksik filtre regresyonu beklenmiyor; yine de test edilmeli).
+2. SONRA `homepage_sections_public_read` + `homepage_section_items_public_read`
+   policy'lerini DROP eden migration (025'teki isimlerle). Sıra Y1 Parça
+   B'deki gibi KRİTİK: önce kod deploy, sonra policy DROP — ters sıra
+   public anasayfa bölümlerini boşaltır.
+
+---
+
 # 📋 BACKLOG — Süper admin panelini ayrı host'a taşı (Senaryo A)
 
 **Ne zaman:** VPS deploy'unda değerlendirilecek. Acil değil (Y2 sanitize
