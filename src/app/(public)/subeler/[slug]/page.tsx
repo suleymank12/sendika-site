@@ -116,7 +116,9 @@ export default async function BranchDetailPage({ params }: Props) {
         <div className="max-w-5xl mx-auto px-4 py-10">
           <h1 className="text-3xl lg:text-4xl font-bold tracking-tight">{branch.name}</h1>
           {branch.city && (
-            <p className="mt-2 text-primary-light flex items-center gap-1.5 text-sm">
+            // text-white/80: primary zemin ustunde text-primary-light ayni
+            // rengin %20 acigi oldugundan (~1.4:1) okunmuyordu (Tur 3/a3)
+            <p className="mt-2 text-white/80 flex items-center gap-1.5 text-sm">
               <MapPin className="h-4 w-4" />
               {branch.city}
             </p>

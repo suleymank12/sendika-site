@@ -147,9 +147,22 @@ body.hydrated #initial-loading-bar {
 .prose a { @apply text-primary-light underline hover:text-primary; }
 .prose hr { @apply my-8 border-border; }
 .prose strong { @apply font-semibold; }
-.prose table { @apply w-full border-collapse my-4; }
+/* Mobil tasma korumasi (Tur 3/a1): icerik admin'den geliyor — uzun URL,
+   genis tablo, kod blogu dar ekranda sayfayi YATAY KAYDIRMAMALI ve
+   KIRPILMAMALI. Uzun kelime kirilir; tablo/kod kendi icinde yatay kayar. */
+.prose { overflow-wrap: anywhere; word-break: break-word; }
+.prose table {
+  /* block + max-content: dar tablo dogal genisliginde kalir, genis tablo
+     icerigi kirpilmadan kendi scroll konteynerinde kayar. */
+  @apply block max-w-full overflow-x-auto border-collapse my-4;
+  width: max-content;
+}
 .prose th, .prose td { @apply border border-border px-3 py-2 text-sm; }
 .prose th { @apply bg-bg-light font-medium; }
+/* Kod bloklari: editor onizlemesiyle (.tiptap pre) ayni gorunum + tasma korumasi */
+.prose pre { @apply bg-bg-dark text-white p-4 rounded-lg my-4 overflow-x-auto; }
+.prose pre code { @apply bg-transparent p-0; }
+.prose code { @apply bg-bg-light px-1.5 py-0.5 rounded text-sm; }
 
 /* Swiper overrides */
 .hero-slider .swiper-pagination-bullet {

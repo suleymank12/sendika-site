@@ -17,6 +17,16 @@ export default async function ContactPage() {
   // atiyordu (mukerrer), artik ikisi tek DB sorgusunu paylasiyor.
   const settings = await getSiteSettings(tenant.id);
 
+  // Harita tenant'in adresinden uretilir (eski sabit Ankara koordinati
+  // KALDIRILDI — Tur 3/a2). site_settings'te harita URL anahtari yok;
+  // contact_address kullanilir, adres yoksa harita bolumu hic gosterilmez.
+  // URL bicimi subeler/[slug] buildMapEmbed fallback'i ile ayni:
+  // /maps?q=...&output=embed (isSafeMapEmbedUrl kabul kumesi + CSP
+  // frame-src www.google.com ile uyumlu).
+  const mapEmbed = settings.contact_address
+    ? `https://www.google.com/maps?q=${encodeURIComponent(settings.contact_address)}&output=embed`
+    : null;
+
   return (
     <>
       <Breadcrumb items={[{ label: "İletişim" }]} />
@@ -101,21 +111,23 @@ export default async function ContactPage() {
           </div>
         </div>
 
-        {/* Google Maps — full width */}
-        <div className="mt-8 rounded-xl border border-border bg-white overflow-hidden">
-          <div className="h-[400px] w-full bg-bg-light">
-            <iframe
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d12042.123456789!2d32.85!3d39.92!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMznCsDU1JzEyLjAiTiAzMsKwNTEnMDAuMCJF!5e0!3m2!1str!2str!4v1700000000000"
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              title="Konum"
-            />
+        {/* Google Maps — full width (yalnizca adres girilmisse) */}
+        {mapEmbed && (
+          <div className="mt-8 rounded-xl border border-border bg-white overflow-hidden">
+            <div className="h-[400px] w-full bg-bg-light">
+              <iframe
+                src={mapEmbed}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Konum"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </>
   );

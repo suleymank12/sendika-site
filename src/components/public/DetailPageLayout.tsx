@@ -157,6 +157,9 @@ export default function DetailPageLayout({
 
       {/* Content card */}
       <div className="max-w-6xl mx-auto mt-6 mb-10 px-4">
+        {/* overflow-hidden guvenlik agi olarak duruyor: genis icerik artik
+            kirpilmiyor cunku tablo/pre kendi icinde kayar (globals.css .prose
+            tasma kurallari) — buraya ulasan tasma kalmamali. */}
         <article className="bg-white border border-gray-200 p-6 lg:p-12 overflow-hidden">
           {/* Title + tools */}
           <div className="flex flex-row items-start justify-between gap-4 border-b border-gray-200 pb-4 mb-6">

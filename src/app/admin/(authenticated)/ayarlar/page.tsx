@@ -126,6 +126,11 @@ export default function AdminSettingsPage() {
   const { tenant } = useTenant();
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [loading, setLoading] = useState(true);
+  // Fetch HATASINDA form varsayilanlarla ACILMAZ: admin farkinda olmadan
+  // kaydederse kurulusun gercek ayarlarinin ustune yazar (veri kaybi,
+  // Tur 3 teshisi). Hata durumunda yalnizca "tekrar dene" ekrani gosterilir.
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const [saving, setSaving] = useState(false);
   // Replace orphan temizligi icin DB'den okunan ilk logo/favicon snapshot'i
   const [initialLogoUrl, setInitialLogoUrl] = useState<string | null>(null);
@@ -135,25 +140,30 @@ export default function AdminSettingsPage() {
     if (!tenant) return;
     const fetchSettings = async () => {
       const supabase = createClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("site_settings")
         .select("key, value")
         .eq("tenant_id", tenant.id);
-      if (data) {
-        const obj = { ...defaultSettings };
-        data.forEach((item: { key: string; value: string | null }) => {
-          if (item.key in obj) {
-            (obj as Record<string, string>)[item.key] = item.value || "";
-          }
-        });
-        setSettings(obj);
-        setInitialLogoUrl(obj.logo_url || null);
-        setInitialFaviconUrl(obj.favicon_url || null);
+      if (error) {
+        setLoadFailed(true);
+        setLoading(false);
+        return;
       }
+      // Bos data (yeni tenant, hic satir yok) HATA DEGIL — varsayilanlar dogru.
+      setLoadFailed(false);
+      const obj = { ...defaultSettings };
+      data?.forEach((item: { key: string; value: string | null }) => {
+        if (item.key in obj) {
+          (obj as Record<string, string>)[item.key] = item.value || "";
+        }
+      });
+      setSettings(obj);
+      setInitialLogoUrl(obj.logo_url || null);
+      setInitialFaviconUrl(obj.favicon_url || null);
       setLoading(false);
     };
     fetchSettings();
-  }, [tenant]);
+  }, [tenant, retryKey]);
 
   const handleSave = async () => {
     if (!tenant) {
@@ -203,6 +213,35 @@ export default function AdminSettingsPage() {
         <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
+        </div>
+      </>
+    );
+  }
+
+  // Form hic render edilmez -> kaydetme yolu tamamen kapali.
+  if (loadFailed) {
+    return (
+      <>
+        <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
+        <div className="p-4 lg:p-6">
+          <div className="max-w-xl mx-auto mt-12 rounded-xl border border-error/30 bg-error/5 p-6 text-center">
+            <p className="font-medium text-text-dark">Ayarlar yüklenemedi.</p>
+            <p className="text-sm text-text-muted mt-2">
+              Mevcut ayarlarınızın yanlışlıkla üzerine yazılmaması için form
+              açılmadı. İnternet bağlantınızı kontrol edip tekrar deneyin;
+              sorun sürerse sayfayı yenileyin.
+            </p>
+            <Button
+              className="mt-4"
+              onClick={() => {
+                setLoading(true);
+                setLoadFailed(false);
+                setRetryKey((k) => k + 1);
+              }}
+            >
+              Tekrar Dene
+            </Button>
+          </div>
         </div>
       </>
     );

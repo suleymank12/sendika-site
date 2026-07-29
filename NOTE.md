@@ -645,6 +645,35 @@ yapılmadı — K1'deki desenle yapılması önerilir.
 
 ---
 
+# 📋 BACKLOG — prose-* sınıfları no-op (Tailwind typography plugin yok)
+
+**Nereden çıktı:** Tur 3 UX denetimi / a1 (29 Temmuz 2026). Karar Süleyman
+onayıyla verildi (29 Temmuz 2026).
+
+**Durum:** `@tailwindcss/typography` kurulu değil (`tailwind.config.ts:32`
+`plugins: []`). Bu yüzden `DetailPageLayout.tsx:207`'deki
+`prose-headings/prose-h2/prose-h3/prose-p/prose-a/prose-img/prose-strong`
+zinciri ve 3 kurumsal sayfadaki (`hakkimizda`/`misyon-vizyon`/`tuzuk`)
+`prose-lg` **HİÇBİR ŞEY YAPMIYOR** — ölü sınıflar.
+
+**Karar: Plugin KURULMAYACAK.** Gerekçe: `globals.css`'te sanitize
+allow-list'ine uyarlanmış, çalışan bir özel `.prose` implementasyonu var;
+plugin aynı seçicilere ikinci bir kural kümesi bindirir, specificity
+çakışmaları öngörülemez görsel regresyon yaratır ve iki stil kaynağı
+kalıcı bakım maliyeti demektir.
+
+**Yapılacak (ilk müşteriden önce, ~1-2 saat):** No-op zincirdeki niyeti
+(başlık ağırlığı/margin, paragraf satır aralığı, link rengi, img
+yuvarlatma) `globals.css .prose`'a taşı; `prose-lg` yerine düz CSS ya da
+`text-lg`; sınıf listelerini kısalt. **Görsel karşılaştırma şart** —
+içerikli bir haber detayı + 3 kurumsal sayfa öncesi/sonrası yan yana
+kontrol edilmeli.
+
+**Not:** Tur 3/a1'deki taşma düzeltmeleri (`.prose` overflow/word-break
+kuralları) bu karardan bağımsız çalışıyor — temizlik onlara dokunmayacak.
+
+---
+
 # 📋 BACKLOG — homepage_sections public policy'leri tenant-agnostik
 
 **Nereden çıktı:** Migration 025 hazırlanırken (29 Temmuz 2026, Tur 2 / b5).

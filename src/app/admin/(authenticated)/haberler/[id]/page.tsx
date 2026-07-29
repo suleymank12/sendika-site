@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -337,7 +338,9 @@ export default function AdminNewsEditorPage() {
                   </Select>
                   {categories.length === 0 && (
                     <p className="text-xs text-text-muted mt-1">
-                      Henüz kategori yok. <a href="/admin/kategoriler" className="text-primary hover:underline">Kategoriler sayfasından</a> ekleyebilirsin.
+                      {/* Link (client-side gecis) sart: <a href> tam sayfa
+                          yenileme yapip yazilmakta olan haberi kaybettiriyordu */}
+                      Henüz kategori yok. <Link href="/admin/kategoriler" className="text-primary hover:underline">Kategoriler sayfasından</Link> ekleyebilirsin.
                     </p>
                   )}
                 </div>
