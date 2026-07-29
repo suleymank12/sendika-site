@@ -21,8 +21,10 @@ export default function DeleteModal({
   title = "Silme Onayı",
   description = "Bu öğeyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
 }: DeleteModalProps) {
+  // closeOnOverlay: form yok, kayip riski yok — overlay ile kapatmak
+  // iptal anlamina gelir, kacis kolay olmali.
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title}>
+    <Modal isOpen={isOpen} onClose={onClose} title={title} closeOnOverlay>
       <div className="flex gap-3 mb-6">
         <div className="rounded-full bg-error/10 p-2 h-fit">
           <AlertTriangle className="h-5 w-5 text-error" />

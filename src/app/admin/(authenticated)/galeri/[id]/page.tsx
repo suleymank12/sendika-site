@@ -14,6 +14,7 @@ import {
 } from "@/lib/storage";
 import { compressImage } from "@/lib/image-compress";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import ImageUploader from "@/components/admin/ImageUploader";
@@ -86,6 +87,8 @@ export default function AdminGalleryDetailPage() {
   const [album, setAlbum] = useState<GalleryAlbum | null>(null);
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fotograf listesi fetch hatasi "bos galeri" olarak GOSTERILMEZ (Tur 3 b1).
+  const [loadFailed, setLoadFailed] = useState(false);
   const [title, setTitle] = useState("");
   const [coverImage, setCoverImage] = useState("");
   // Replace orphan temizligi icin DB'den okunan ilk kapak degerinin snapshot'i
@@ -128,6 +131,12 @@ export default function AdminGalleryDetailPage() {
     setTitle(albumRes.data.title);
     setCoverImage(albumRes.data.cover_image || "");
     setInitialCoverImage(albumRes.data.cover_image || null);
+    if (imagesRes.error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setImages(imagesRes.data || []);
     setLoading(false);
   }, [albumId, router, tenant]);
@@ -247,7 +256,7 @@ export default function AdminGalleryDetailPage() {
     setImages(reordered);
 
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       reordered.map((img, idx) =>
         supabase
           .from("gallery_images")
@@ -256,7 +265,13 @@ export default function AdminGalleryDetailPage() {
           .eq("id", img.id)
       )
     );
-    toast.success("Sıralama kaydedildi.");
+    // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchData();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   if (loading) {
@@ -324,7 +339,9 @@ export default function AdminGalleryDetailPage() {
               </label>
             </div>
             <div className="rounded-xl bg-white border border-border p-5 lg:p-6">
-              {images.length === 0 ? (
+              {loadFailed ? (
+                <ListLoadError onRetry={fetchData} />
+              ) : images.length === 0 ? (
                 <p className="text-sm text-text-muted text-center py-8">
                   Henüz fotoğraf yüklenmemiş. Yukarıdaki butonu kullanarak fotoğraf ekleyin.
                 </p>

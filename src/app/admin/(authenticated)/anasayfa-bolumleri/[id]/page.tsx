@@ -6,6 +6,7 @@ import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -158,6 +159,8 @@ export default function AdminSectionItemsPage() {
   const [section, setSection] = useState<HomepageSection | null>(null);
   const [items, setItems] = useState<HomepageSectionItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Ogeler fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1).
+  const [loadFailed, setLoadFailed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<ItemFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -194,6 +197,12 @@ export default function AdminSectionItemsPage() {
     }
 
     setSection(sectionRes.data as HomepageSection);
+    if (itemsRes.error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setItems((itemsRes.data as HomepageSectionItem[]) || []);
     setLoading(false);
   }, [sectionId, router, tenant]);
@@ -310,7 +319,7 @@ export default function AdminSectionItemsPage() {
     setItems(reordered);
 
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       reordered.map((i, idx) =>
         supabase
           .from("homepage_section_items")
@@ -319,7 +328,13 @@ export default function AdminSectionItemsPage() {
           .eq("id", i.id)
       )
     );
-    toast.success("Sıralama kaydedildi.");
+    // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchData();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   const breadcrumbs = [
@@ -373,7 +388,9 @@ export default function AdminSectionItemsPage() {
             </Button>
           </div>
 
-          {items.length === 0 ? (
+          {loadFailed ? (
+            <ListLoadError onRetry={fetchData} />
+          ) : items.length === 0 ? (
             <EmptyState
               icon={LayoutGrid}
               title="Henüz öğe eklenmemiş"

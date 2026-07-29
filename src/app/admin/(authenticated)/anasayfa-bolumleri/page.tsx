@@ -39,6 +39,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -192,6 +193,8 @@ export default function AdminHomepageSectionsPage() {
   const [sections, setSections] = useState<HomepageSection[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<SectionFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -206,11 +209,17 @@ export default function AdminHomepageSectionsPage() {
   const fetchSections = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("homepage_sections")
       .select("*")
       .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     const list = (data as HomepageSection[]) || [];
     setSections(list);
 
@@ -334,6 +343,8 @@ export default function AdminHomepageSectionsPage() {
     setSections((prev) =>
       prev.map((s) => (s.id === section.id ? { ...s, is_active: !s.is_active } : s))
     );
+    // Toggle etkisi aninda — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
+    toast.success(section.is_active ? "Pasife alındı — sitede artık görünmez." : "Aktife alındı.");
   };
 
   const handleManageItems = (section: HomepageSection) => {
@@ -355,7 +366,7 @@ export default function AdminHomepageSectionsPage() {
     setSections(reordered);
 
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       reordered.map((s, idx) =>
         supabase
           .from("homepage_sections")
@@ -364,7 +375,13 @@ export default function AdminHomepageSectionsPage() {
           .eq("id", s.id)
       )
     );
-    toast.success("Sıralama kaydedildi.");
+    // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchSections();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   return (
@@ -385,6 +402,8 @@ export default function AdminHomepageSectionsPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchSections} />
           ) : sections.length === 0 ? (
             <EmptyState
               icon={LayoutGrid}

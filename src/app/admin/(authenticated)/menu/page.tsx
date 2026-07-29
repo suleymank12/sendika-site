@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -204,6 +205,8 @@ export default function AdminMenuPage() {
   const { tenant } = useTenant();
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<MenuFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -220,11 +223,17 @@ export default function AdminMenuPage() {
   const fetchItems = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("menu_items")
       .select("*")
       .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setItems(data || []);
     setLoading(false);
   }, [tenant]);
@@ -481,8 +490,14 @@ export default function AdminMenuPage() {
         .eq("tenant_id", tenant.id)
         .eq("id", item.id)
     );
-    await Promise.all(updates);
-    toast.success("Sıralama kaydedildi.");
+    const results = await Promise.all(updates);
+    // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchItems();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   const parentLabel = (id: string | null): string => {
@@ -513,6 +528,8 @@ export default function AdminMenuPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchItems} />
           ) : tree.length === 0 ? (
             <EmptyState
               icon={MenuIcon}

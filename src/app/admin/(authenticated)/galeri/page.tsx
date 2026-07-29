@@ -11,6 +11,7 @@ import {
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -132,6 +133,8 @@ export default function AdminGalleryPage() {
   const { tenant } = useTenant();
   const [albums, setAlbums] = useState<AlbumWithCount[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<AlbumFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -146,11 +149,17 @@ export default function AdminGalleryPage() {
   const fetchAlbums = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    const { data: albumsData } = await supabase
+    const { data: albumsData, error } = await supabase
       .from("gallery_albums")
       .select("*, gallery_images(count)")
       .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
 
     const albums = (albumsData || []).map((album: Record<string, unknown>) => ({
       ...album,
@@ -262,7 +271,7 @@ export default function AdminGalleryPage() {
     setAlbums(reordered);
 
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       reordered.map((a, idx) =>
         supabase
           .from("gallery_albums")
@@ -271,7 +280,13 @@ export default function AdminGalleryPage() {
           .eq("id", a.id)
       )
     );
-    toast.success("Sıralama kaydedildi.");
+    // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchAlbums();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   const handleEditAlbum = (album: AlbumWithCount) => {
@@ -298,6 +313,8 @@ export default function AdminGalleryPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchAlbums} />
           ) : albums.length === 0 ? (
             <EmptyState
               icon={GalleryHorizontal}

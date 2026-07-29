@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -100,6 +101,8 @@ export default function AdminNewsCategoriesPage() {
   const { tenant } = useTenant();
   const [categories, setCategories] = useState<NewsCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<CategoryFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -115,11 +118,17 @@ export default function AdminNewsCategoriesPage() {
   const fetchCategories = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("news_categories")
       .select("*")
       .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setCategories(data || []);
     setLoading(false);
   }, [tenant]);
@@ -231,6 +240,8 @@ export default function AdminNewsCategoriesPage() {
       toast.error("Güncelleme başarısız.");
     } else {
       setCategories((prev) => prev.map((c) => (c.id === item.id ? { ...c, is_active: !c.is_active } : c)));
+      // Toggle etkisi aninda — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
+      toast.success(item.is_active ? "Pasife alındı — sitede artık görünmez." : "Aktife alındı.");
     }
   };
 
@@ -245,7 +256,7 @@ export default function AdminNewsCategoriesPage() {
     setCategories(reordered);
 
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       reordered.map((c, idx) =>
         supabase
           .from("news_categories")
@@ -254,7 +265,13 @@ export default function AdminNewsCategoriesPage() {
           .eq("id", c.id)
       )
     );
-    toast.success("Sıralama kaydedildi.");
+    // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchCategories();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   return (
@@ -274,6 +291,8 @@ export default function AdminNewsCategoriesPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchCategories} />
           ) : categories.length === 0 ? (
             <EmptyState
               icon={Tag}

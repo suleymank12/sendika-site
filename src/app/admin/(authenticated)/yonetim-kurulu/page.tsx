@@ -10,6 +10,7 @@ import {
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -135,6 +136,8 @@ export default function AdminBoardMembersPage() {
   const { tenant } = useTenant();
   const [members, setMembers] = useState<BoardMember[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<MemberFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -149,11 +152,17 @@ export default function AdminBoardMembersPage() {
   const fetchMembers = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("board_members")
       .select("*")
       .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setMembers(data || []);
     setLoading(false);
   }, [tenant]);
@@ -273,6 +282,8 @@ export default function AdminBoardMembersPage() {
       setMembers((prev) =>
         prev.map((m) => (m.id === item.id ? { ...m, is_active: !m.is_active } : m))
       );
+      // Toggle etkisi aninda — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
+      toast.success(item.is_active ? "Pasife alındı — sitede artık görünmez." : "Aktife alındı.");
     }
   };
 
@@ -285,7 +296,7 @@ export default function AdminBoardMembersPage() {
     setMembers(reordered);
 
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       reordered.map((item, idx) =>
         supabase
           .from("board_members")
@@ -294,7 +305,13 @@ export default function AdminBoardMembersPage() {
           .eq("id", item.id)
       )
     );
-    toast.success("Sıralama kaydedildi.");
+    // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchMembers();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   return (
@@ -312,6 +329,8 @@ export default function AdminBoardMembersPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchMembers} />
           ) : members.length === 0 ? (
             <EmptyState
               icon={Users}

@@ -8,6 +8,7 @@ import { Plus, Search, Edit, Trash2, Building2, Power, PowerOff, ExternalLink } 
 import { formatDate, buildTenantAdminUrl } from "@/lib/utils";
 import toast from "react-hot-toast";
 import DeleteModal from "@/components/admin/DeleteModal";
+import ListLoadError from "@/components/admin/ListLoadError";
 
 interface Tenant {
   id: string;
@@ -22,6 +23,8 @@ export default function SuperAdminTenantsPage() {
   const router = useRouter();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState("");
   const [deleteItem, setDeleteItem] = useState<Tenant | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -29,10 +32,16 @@ export default function SuperAdminTenantsPage() {
 
   const fetchTenants = useCallback(async () => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("tenants")
       .select("*")
       .order("created_at", { ascending: false });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setTenants((data as Tenant[]) || []);
     setLoading(false);
   }, []);
@@ -150,6 +159,8 @@ export default function SuperAdminTenantsPage() {
 
         {loading ? (
           <p className="text-sm text-text-muted py-8 text-center">Yükleniyor...</p>
+        ) : loadFailed ? (
+          <ListLoadError onRetry={fetchTenants} />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-text-muted">
             <Building2 className="h-12 w-12 opacity-30 mb-2" />

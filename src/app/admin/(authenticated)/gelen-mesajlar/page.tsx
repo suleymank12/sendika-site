@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
@@ -33,6 +34,9 @@ export default function GelenMesajlarPage() {
   const { tenant } = useTenant();
   const [items, setItems] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "Henuz mesaj yok" olarak GOSTERILMEZ (Tur 3 b1) — gelen
+  // mesajin kayboldugunu sanmak bu panelin en hassas destek senaryosu.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [selected, setSelected] = useState<ContactMessage | null>(null);
   const [deleteItem, setDeleteItem] = useState<ContactMessage | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -41,11 +45,17 @@ export default function GelenMesajlarPage() {
     if (!tenant) return;
     const supabase = createClient();
     // RLS zaten tenant'a gore filtreler; explicit .eq mevcut admin pattern'i ile tutarli.
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("contact_messages")
       .select("*")
       .eq("tenant_id", tenant.id)
       .order("created_at", { ascending: false });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setItems((data as ContactMessage[]) || []);
     setLoading(false);
   }, [tenant]);
@@ -104,6 +114,8 @@ export default function GelenMesajlarPage() {
         <div className="rounded-xl bg-white border border-border p-5">
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchData} />
           ) : items.length === 0 ? (
             <EmptyState
               icon={Inbox}
@@ -189,6 +201,8 @@ export default function GelenMesajlarPage() {
         onClose={() => setSelected(null)}
         title="Mesaj Detayı"
         className="max-w-xl"
+        // Salt-okunur detay — form yok, kayip riski yok; kacis kolay olmali.
+        closeOnOverlay
       >
         {selected && (
           <div className="space-y-4">

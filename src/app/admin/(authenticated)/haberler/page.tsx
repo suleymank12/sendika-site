@@ -11,6 +11,7 @@ import {
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
+import ListLoadError from "@/components/admin/ListLoadError";
 import StatusBadge from "@/components/admin/StatusBadge";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Button from "@/components/ui/Button";
@@ -27,6 +28,9 @@ export default function AdminNewsListPage() {
   const { tenant } = useTenant();
   const [news, setNews] = useState<News[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ — kullanici verisinin
+  // silindigini sanir (Tur 3 b1). Hata durumunda ListLoadError cikar.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
   const [deleteItem, setDeleteItem] = useState<News | null>(null);
@@ -51,7 +55,13 @@ export default function AdminNewsListPage() {
       query = query.eq("is_published", false);
     }
 
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setNews(data || []);
     setLoading(false);
   };
@@ -152,6 +162,8 @@ export default function AdminNewsListPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchNews} />
           ) : news.length === 0 && !search ? (
             <EmptyState
               icon={Newspaper}

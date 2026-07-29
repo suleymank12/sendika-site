@@ -9,6 +9,7 @@ import {
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
@@ -144,6 +145,8 @@ export default function AdminBranchesPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [boardMembers, setBoardMembers] = useState<BoardMember[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState<BranchFormData>(emptyForm);
   const [saving, setSaving] = useState(false);
@@ -166,11 +169,17 @@ export default function AdminBranchesPage() {
   const fetchBranches = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("branches")
       .select("*")
       .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setBranches(data || []);
     setLoading(false);
   }, [tenant]);
@@ -371,6 +380,8 @@ export default function AdminBranchesPage() {
       toast.error("Güncelleme başarısız.");
     } else {
       setBranches((prev) => prev.map((b) => (b.id === item.id ? { ...b, is_active: !b.is_active } : b)));
+      // Toggle sitede ANINDA etkili — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
+      toast.success(item.is_active ? "Pasife alındı — sitede artık görünmez." : "Aktife alındı.");
     }
   };
 
@@ -386,7 +397,7 @@ export default function AdminBranchesPage() {
     setBranches(reordered);
 
     const supabase = createClient();
-    await Promise.all(
+    const results = await Promise.all(
       reordered.map((i, idx) =>
         supabase
           .from("branches")
@@ -395,7 +406,14 @@ export default function AdminBranchesPage() {
           .eq("id", i.id)
       )
     );
-    toast.success("Sıralama kaydedildi.");
+    // Manset deseni (Tur 3 b1): sonuc kontrolsuz "kaydedildi" deme;
+    // hatada sunucudaki gercek sirayi geri cek (optimistic state'i duzeltir).
+    if (results.some((r) => r.error)) {
+      toast.error("Sıralama kaydedilemedi.");
+      fetchBranches();
+    } else {
+      toast.success("Sıralama kaydedildi.");
+    }
   };
 
   return (
@@ -412,6 +430,8 @@ export default function AdminBranchesPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchBranches} />
           ) : branches.length === 0 ? (
             <EmptyState
               icon={Building2}

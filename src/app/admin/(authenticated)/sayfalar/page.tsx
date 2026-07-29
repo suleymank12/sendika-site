@@ -11,6 +11,7 @@ import {
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
+import ListLoadError from "@/components/admin/ListLoadError";
 import StatusBadge from "@/components/admin/StatusBadge";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Button from "@/components/ui/Button";
@@ -26,6 +27,8 @@ export default function AdminPagesListPage() {
   const { tenant } = useTenant();
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState("");
   const [deleteItem, setDeleteItem] = useState<Page | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -41,7 +44,13 @@ export default function AdminPagesListPage() {
     if (search) {
       query = query.ilike("title", `%${search}%`);
     }
-    const { data } = await query;
+    const { data, error } = await query;
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setPages(data || []);
     setLoading(false);
   };
@@ -123,6 +132,8 @@ export default function AdminPagesListPage() {
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
+          ) : loadFailed ? (
+            <ListLoadError onRetry={fetchPages} />
           ) : pages.length === 0 && !search ? (
             <EmptyState
               icon={FileText}

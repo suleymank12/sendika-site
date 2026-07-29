@@ -16,6 +16,7 @@ import {
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import AdminHeader from "@/components/admin/AdminHeader";
+import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
@@ -64,6 +65,8 @@ export default function AdminHeadlinePage() {
   const { tenant } = useTenant();
   const [headlines, setHeadlines] = useState<Headline[]>([]);
   const [loading, setLoading] = useState(true);
+  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+  const [loadFailed, setLoadFailed] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Modal
@@ -85,11 +88,17 @@ export default function AdminHeadlinePage() {
   const fetchHeadlines = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("headlines")
       .select("*")
       .eq("tenant_id", tenant.id)
       .order("order", { ascending: true });
+    if (error) {
+      setLoadFailed(true);
+      setLoading(false);
+      return;
+    }
+    setLoadFailed(false);
     setHeadlines(data || []);
     setLoading(false);
   }, [tenant]);
@@ -270,6 +279,8 @@ export default function AdminHeadlinePage() {
       setHeadlines((prev) =>
         prev.map((item) => (item.id === h.id ? { ...item, is_active: !item.is_active } : item))
       );
+      // Toggle etkisi aninda — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
+      toast.success(h.is_active ? "Pasife alındı — sitede artık görünmez." : "Aktife alındı.");
     }
   };
 
@@ -343,7 +354,9 @@ export default function AdminHeadlinePage() {
           )}
         </div>
 
-        {headlines.length === 0 ? (
+        {loadFailed ? (
+          <ListLoadError onRetry={fetchHeadlines} />
+        ) : headlines.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-text-muted rounded-xl bg-white border border-border">
             <p className="text-lg font-medium mb-1">Henüz manşet eklenmemiş</p>
             <p className="text-sm mb-4">Yeni bir manşet ekleyerek başlayın.</p>
