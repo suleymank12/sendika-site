@@ -300,9 +300,23 @@ güncellenmelidir**, yoksa meşru içerik sessizce bozulur.
 ## Kapsam dışı bırakılanlar (ayrı işler)
 
 - **CSP** (nonce tabanlı, middleware'de) — ✅ uygulandı, aşağıdaki bölüme bakın.
-- **RichTextEditor temizliği** — StarterKit v3 zaten `Link` ve `Underline`
-  içeriyor, bileşen bunları bir kez daha ekliyor ("Duplicate extension
-  names" uyarısı; `Link.configure({openOnClick:false})` garanti değil).
+- **RichTextEditor temizliği** — ✅ **KAPATILDI (29 Temmuz 2026).**
+  StarterKit v3 zaten `Link` ve `Underline` içeriyor; bileşen bunları bir
+  kez daha ekliyordu ("Duplicate extension names" uyarısı). Ayrı import'lar
+  kaldırıldı, ayar `StarterKit.configure({ link: { openOnClick: false } })`
+  olarak taşındı; `@tiptap/extension-link` + `@tiptap/extension-underline`
+  package.json'dan da düşürüldü (StarterKit kendi dependency'si olarak
+  getiriyor, kurulu sürüm değişmedi — yeniden import edilip aynı sorunun
+  geri gelmesine davetiye olmasın diye).
+
+  **Bonus bulgu:** duplicate kayıt yüzünden `openOnClick: false` fiilen
+  ÇALIŞMIYORDU — iki `Link` kopyası da click handler kaydediyor, `false`
+  olan kopya tıklamayı "handled" saymayınca sıra StarterKit'in
+  `openOnClick: true` kopyasına geçiyor ve admin editörde linke tıklamak
+  onu yeni sekmede açıyordu. Fix bunu da düzeltti.
+
+  Üretilen HTML byte-for-byte aynı doğrulandı (aynı paket, aynı sürüm,
+  aynı varsayılanlar) → sanitize allow-list + fixture'lara dokunulmadı.
 
 ---
 

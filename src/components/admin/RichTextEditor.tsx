@@ -2,8 +2,6 @@
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
-import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import TextAlign from "@tiptap/extension-text-align";
 import {
@@ -68,9 +66,10 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit,
-      Underline,
-      Link.configure({ openOnClick: false }),
+      // Link ve Underline StarterKit v3'un icinde — ayrica eklenirse
+      // duplicate kayit olusur ve openOnClick:false fiilen calismaz
+      // (StarterKit'in openOnClick:true kopyasi devreye girer).
+      StarterKit.configure({ link: { openOnClick: false } }),
       Image,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
