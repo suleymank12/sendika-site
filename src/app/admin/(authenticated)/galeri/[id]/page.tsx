@@ -75,7 +75,7 @@ function SortableImage({
         <button
           {...attributes}
           {...listeners}
-          className="rounded-lg bg-white/90 p-1.5 text-text-dark cursor-grab"
+          className="rounded-lg bg-white/90 p-1.5 text-text-dark cursor-grab touch-none"
           aria-label="Sürükle"
         >
           <GripVertical className="h-4 w-4" />

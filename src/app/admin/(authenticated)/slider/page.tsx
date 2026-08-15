@@ -90,7 +90,7 @@ function SortableSliderCard({
           }
         />
         <div className="absolute top-2 left-2">
-          <button {...attributes} {...listeners} className="rounded-lg bg-black/50 p-1.5 text-white cursor-grab">
+          <button {...attributes} {...listeners} className="rounded-lg bg-black/50 p-1.5 text-white cursor-grab touch-none">
             <GripVertical className="h-4 w-4" />
           </button>
         </div>

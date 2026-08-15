@@ -96,7 +96,7 @@ function SortableGalleryItem({
         type="button"
         {...attributes}
         {...listeners}
-        className="absolute bottom-1 left-1 rounded bg-white/90 p-1 text-text-dark opacity-0 group-hover:opacity-100 transition-opacity cursor-grab"
+        className="absolute bottom-1 left-1 rounded bg-white/90 p-1 text-text-dark opacity-0 group-hover:opacity-100 transition-opacity cursor-grab touch-none"
         aria-label="Sürükle"
       >
         <GripVertical className="h-3 w-3" />

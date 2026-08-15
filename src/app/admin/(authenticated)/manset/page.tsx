@@ -30,6 +30,23 @@ import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import { GripVertical, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import { Headline, News, Announcement } from "@/types";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import toast from "react-hot-toast";
 
 type SourceType = "custom" | "news" | "announcement";
@@ -62,6 +79,96 @@ const emptyForm: HeadlineForm = {
   is_active: true,
 };
 
+function SortableHeadlineRow({
+  h,
+  onToggle,
+  onEdit,
+  onDelete,
+}: {
+  h: Headline;
+  onToggle: (h: Headline) => void;
+  onEdit: (h: Headline) => void;
+  onDelete: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: h.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-4 rounded-xl bg-white border border-border p-4 ${
+        !h.is_active ? "opacity-60" : ""
+      }`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab text-text-muted hover:text-text-dark touch-none"
+        aria-label="Sürükle"
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+
+      <SafeImage
+        src={h.image_url}
+        alt={h.title}
+        width={80}
+        height={56}
+        className="w-20 h-14 object-cover rounded-lg shrink-0"
+        fallback={
+          <div className="w-20 h-14 bg-bg-light rounded-lg flex items-center justify-center text-text-muted text-xs shrink-0">
+            Görsel yok
+          </div>
+        }
+      />
+
+      <div className="flex-1 min-w-0">
+        <h4 className="font-medium text-text-dark truncate">{h.title}</h4>
+        {h.subtitle && (
+          <p className="text-sm text-text-muted truncate">{h.subtitle}</p>
+        )}
+        <span className="text-xs text-text-muted">
+          {h.source_type === "news"
+            ? "Haber"
+            : h.source_type === "announcement"
+            ? "Duyuru"
+            : "Özel"}
+        </span>
+      </div>
+
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={() => onToggle(h)}
+          className="p-2 rounded-lg hover:bg-bg-light text-text-muted transition-colors"
+          title={h.is_active ? "Pasife al" : "Aktif et"}
+        >
+          {h.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={() => onEdit(h)}
+          className="p-2 rounded-lg hover:bg-bg-light text-text-muted transition-colors"
+          title="Düzenle"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => onDelete(h.id)}
+          className="p-2 rounded-lg hover:bg-error/10 text-text-muted hover:text-error transition-colors"
+          title="Sil"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminHeadlinePage() {
   const { tenant } = useTenant();
   const [headlines, setHeadlines] = useState<Headline[]>([]);
@@ -83,8 +190,12 @@ export default function AdminHeadlinePage() {
   const [newsList, setNewsList] = useState<News[]>([]);
   const [announcementList, setAnnouncementList] = useState<Announcement[]>([]);
 
-  // Drag
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  // Drag — dnd-kit (PointerSensor dokunmatikte de calisir; eski HTML5
+  // native draggable dokunmatik cihazlarda hic tetiklenmiyordu)
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   const fetchHeadlines = useCallback(async () => {
     if (!tenant) return;
@@ -292,26 +403,20 @@ export default function AdminHeadlinePage() {
   };
 
   // Drag & Drop
-  const handleDragStart = (index: number) => {
-    setDragIndex(index);
-  };
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !tenant) return;
 
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (dragIndex === null || dragIndex === index) return;
+    const oldIndex = headlines.findIndex((h) => h.id === active.id);
+    const newIndex = headlines.findIndex((h) => h.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(headlines, oldIndex, newIndex);
+    setHeadlines(reordered);
 
-    const updated = [...headlines];
-    const [moved] = updated.splice(dragIndex, 1);
-    updated.splice(index, 0, moved);
-    setHeadlines(updated);
-    setDragIndex(index);
-  };
-
-  const handleDragEnd = async () => {
-    setDragIndex(null);
-    if (!tenant) return;
+    // Persist REORDERED uzerinden (state async): hata kontrolu korunur —
+    // kismi basarisizlikta sunucu durumuna geri donulur (fetchHeadlines).
     const supabase = createClient();
-    const updates = headlines.map((h, i) =>
+    const updates = reordered.map((h, i) =>
       supabase
         .from("headlines")
         .update({ order: i })
@@ -373,75 +478,21 @@ export default function AdminHeadlinePage() {
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {headlines.map((h, index) => (
-              <div
-                key={h.id}
-                draggable
-                onDragStart={() => handleDragStart(index)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragEnd={handleDragEnd}
-                className={`flex items-center gap-4 rounded-xl bg-white border border-border p-4 transition-opacity ${
-                  dragIndex === index ? "opacity-50" : ""
-                } ${!h.is_active ? "opacity-60" : ""}`}
-              >
-                <div className="cursor-grab text-text-muted hover:text-text-dark">
-                  <GripVertical className="h-5 w-5" />
-                </div>
-
-                <SafeImage
-                  src={h.image_url}
-                  alt={h.title}
-                  width={80}
-                  height={56}
-                  className="w-20 h-14 object-cover rounded-lg shrink-0"
-                  fallback={
-                    <div className="w-20 h-14 bg-bg-light rounded-lg flex items-center justify-center text-text-muted text-xs shrink-0">
-                      Görsel yok
-                    </div>
-                  }
-                />
-
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-text-dark truncate">{h.title}</h4>
-                  {h.subtitle && (
-                    <p className="text-sm text-text-muted truncate">{h.subtitle}</p>
-                  )}
-                  <span className="text-xs text-text-muted">
-                    {h.source_type === "news"
-                      ? "Haber"
-                      : h.source_type === "announcement"
-                      ? "Duyuru"
-                      : "Özel"}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => toggleActive(h)}
-                    className="p-2 rounded-lg hover:bg-bg-light text-text-muted transition-colors"
-                    title={h.is_active ? "Pasife al" : "Aktif et"}
-                  >
-                    {h.is_active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                  </button>
-                  <button
-                    onClick={() => openEdit(h)}
-                    className="p-2 rounded-lg hover:bg-bg-light text-text-muted transition-colors"
-                    title="Düzenle"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setDeleteId(h.id)}
-                    className="p-2 rounded-lg hover:bg-error/10 text-text-muted hover:text-error transition-colors"
-                    title="Sil"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={headlines.map((h) => h.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {headlines.map((h) => (
+                  <SortableHeadlineRow
+                    key={h.id}
+                    h={h}
+                    onToggle={toggleActive}
+                    onEdit={openEdit}
+                    onDelete={setDeleteId}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 

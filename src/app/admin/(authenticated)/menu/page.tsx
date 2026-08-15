@@ -120,7 +120,7 @@ function SortableRow({
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab text-text-muted hover:text-text-dark"
+          className="cursor-grab text-text-muted hover:text-text-dark touch-none"
         >
           <GripVertical className="h-4 w-4" />
         </button>

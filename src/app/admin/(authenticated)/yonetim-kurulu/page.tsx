@@ -97,7 +97,7 @@ function SortableMemberCard({
         <button
           {...attributes}
           {...listeners}
-          className="absolute top-2 left-2 rounded-lg bg-black/50 p-1.5 text-white cursor-grab"
+          className="absolute top-2 left-2 rounded-lg bg-black/50 p-1.5 text-white cursor-grab touch-none"
         >
           <GripVertical className="h-4 w-4" />
         </button>
