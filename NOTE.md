@@ -1697,3 +1697,20 @@ Madde 5 ek migration). Migration'lar elle apply edildi (NOTE.md "elle apply" mod
 - Örnek (M2): prompt taslağındaki `setToast` / `check_tenant_id` / eksik search_path
   gerçek koda ve apply güvenliğine göre düzeltildi
 - İlke: bug iddiası ve "çözüldü" sonucu apply/test ile doğrulanmadan kesin sunulmaz
+
+## b6 Aşama 2 Sonrası Backlog — JSON-LD (KAPSAM DIŞI bırakıldı)
+
+NewsArticle + BreadcrumbList şemaları mevcut veriden otomatik üretilebilir
+(~yarım gün iş: title/published_at/updated_at/cover_image + tenant adı/logosu;
+breadcrumb props'ları sayfalarda zaten kurulu). Bilinçli olarak ertelendi:
+
+- **Değer değerlendirmesi:** Sendika/dernek sitelerinde trafik ağırlıkla
+  marka aramalı ve doğrudan geliyor; structured data'nın katkısı marjinal.
+  Tek gerçek aday haber detayında NewsArticle (SERP'te tarih/rich result).
+  Gerçek trafik verisi (Search Console) toplandıktan sonra karar verilecek.
+- ⚠️ **CSP tuzağı:** CSP enforce modda (middleware.ts CSP_REPORT_ONLY=false)
+  ve script-src nonce'lu. CSP, type="application/ld+json" dahil TÜM <script>
+  elemanlarına uygulanır — JSON-LD script'i middleware'in set ettiği
+  x-nonce header'ını (headers().get("x-nonce")) KULLANMALI, yoksa tarayıcı
+  sessizce bloklar ve şema hiç görünmez. Middleware'deki "şu an kullanan yok"
+  notu bu durumda güncellenmeli.

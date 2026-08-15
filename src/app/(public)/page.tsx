@@ -11,6 +11,14 @@ import {
   HomepageSection as HomepageSectionType,
   HomepageSectionItem,
 } from "@/types";
+import { buildPublicMetadata } from "@/lib/seo";
+import type { Metadata } from "next";
+
+export async function generateMetadata(): Promise<Metadata> {
+  // title verilmez: root layout'un default'u (site basligi) gecerli kalir,
+  // template "%s | site" burada uygulanmaz. Amac canonical + og:url.
+  return buildPublicMetadata({ path: "/" });
+}
 
 export default async function HomePage() {
   const supabase = createClient();

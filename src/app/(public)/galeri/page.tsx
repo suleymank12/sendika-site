@@ -6,12 +6,16 @@ import SafeImage from "@/components/SafeImage";
 import { ImageIcon } from "lucide-react";
 import { GalleryAlbum } from "@/types";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Fotoğraf Galerisi",
-  description: "Etkinlik ve organizasyon fotoğrafları",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPublicMetadata({
+    path: "/galeri",
+    title: "Fotoğraf Galerisi",
+    description: "Etkinlik ve organizasyon fotoğrafları",
+  });
+}
 
 export default async function GalleryPage() {
   const supabase = createClient();

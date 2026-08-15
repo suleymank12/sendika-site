@@ -103,6 +103,32 @@ export function extractImagesFromHtml(html: string | null | undefined): string[]
   return urls;
 }
 
+/**
+ * HTML icerikten duz metin ozeti cikarir (meta description icin).
+ * Server-safe: DOM yok, regex ile tag atma + yaygin entity cozme +
+ * bosluk normalizasyonu. Sonuc maxLength'te kesilir; bos/tagsiz icerik
+ * icin "" doner (cagiran taraf `|| undefined` ile fallback'e dusurur).
+ */
+export function extractTextFromHtml(
+  html: string | null | undefined,
+  maxLength = 160
+): string {
+  if (!html) return "";
+  const text = html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return truncateText(text, maxLength);
+}
+
 // UYARI: Bu kural middleware.ts CSP frame-src ile SENKRON olmali. Orayi
 //  degistirirsen burayi da guncelle — yoksa dogrulayicinin kabul ettigi
 //  URL'i CSP bloklar ve kullanici sebebini anlayamaz.

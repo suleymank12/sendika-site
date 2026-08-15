@@ -3,12 +3,16 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import BoardMemberCard from "@/components/public/BoardMemberCard";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Yönetim Kurulu",
-  description: "Yönetim kurulu üyeleri",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPublicMetadata({
+    path: "/kurumsal/yonetim-kurulu",
+    title: "Yönetim Kurulu",
+    description: "Yönetim kurulu üyeleri",
+  });
+}
 
 export default async function BoardMembersPage() {
   // createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik

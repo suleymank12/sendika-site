@@ -6,15 +6,21 @@ import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { PAGE_SIZE } from "@/lib/constants";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Duyurular",
-  description: "Sendika duyuruları ve bilgilendirmeler",
-};
 
 interface Props {
   searchParams: { sayfa?: string };
+}
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  // Sayfalama canonical'da korunur (bkz. haberler/page.tsx).
+  const page = parseInt(searchParams.sayfa || "1");
+  return buildPublicMetadata({
+    path: page > 1 ? `/duyurular?sayfa=${page}` : "/duyurular",
+    title: "Duyurular",
+    description: "Sendika duyuruları ve bilgilendirmeler",
+  });
 }
 
 export default async function AnnouncementsListPage({ searchParams }: Props) {

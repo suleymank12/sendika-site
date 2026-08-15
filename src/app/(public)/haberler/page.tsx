@@ -6,17 +6,24 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { News } from "@/types";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-  title: "Haberler",
-  description: "En güncel haberler ve gelişmeler",
-};
 
 const PER_PAGE = 9;
 
 interface Props {
   searchParams: { sayfa?: string };
+}
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  // Sayfalama canonical'da korunur: 2. sayfayi 1.'e isaretlemek yanlis
+  // sinyal olur (Google self-canonical onerir), her sayfa kendini gosterir.
+  const page = parseInt(searchParams.sayfa || "1");
+  return buildPublicMetadata({
+    path: page > 1 ? `/haberler?sayfa=${page}` : "/haberler",
+    title: "Haberler",
+    description: "En güncel haberler ve gelişmeler",
+  });
 }
 
 export default async function NewsListPage({ searchParams }: Props) {

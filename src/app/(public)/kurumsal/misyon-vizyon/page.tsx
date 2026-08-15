@@ -3,12 +3,16 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import SafeHtml from "@/components/SafeHtml";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Misyon ve Vizyon",
-  description: "Sendikamızın misyon ve vizyonu",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPublicMetadata({
+    path: "/kurumsal/misyon-vizyon",
+    title: "Misyon ve Vizyon",
+    description: "Sendikamızın misyon ve vizyonu",
+  });
+}
 
 export default async function MisyonVizyonPage() {
   const supabase = createClient();

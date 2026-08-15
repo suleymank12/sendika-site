@@ -7,6 +7,7 @@ import Link from "next/link";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import SafeHtml from "@/components/SafeHtml";
 import { MapPin, Phone, Mail, Clock, User, ChevronRight, ExternalLink } from "lucide-react";
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Branch, BoardMember } from "@/types";
 import type { Metadata } from "next";
 
@@ -29,10 +30,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!data) return { title: "Şube Bulunamadı" };
 
-  return {
+  return buildPublicMetadata({
+    path: `/subeler/${params.slug}`,
     title: data.name,
     description: [data.city, data.address].filter(Boolean).join(" — ") || undefined,
-  };
+  });
 }
 
 function buildMapEmbed(branch: Branch): string | null {

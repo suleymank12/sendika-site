@@ -7,6 +7,7 @@ import { Building2 } from "lucide-react";
 import * as LucideIcons from "lucide-react";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import { truncateText } from "@/lib/utils";
+import { buildPublicMetadata } from "@/lib/seo";
 import type { HomepageSection, HomepageSectionItem } from "@/types";
 import type { Metadata } from "next";
 
@@ -35,7 +36,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .maybeSingle();
 
   if (!data) return { title: "Sayfa Bulunamadı" };
-  return { title: data.title };
+
+  // description verilmez: helper "title — siteName" uretir (bolumun kendi
+  // aciklama alani yok, homepage_sections yalnizca title tasir).
+  return buildPublicMetadata({
+    path: `/bolum/${params.id}`,
+    title: data.title,
+  });
 }
 
 export default async function SectionPage({ params }: Props) {

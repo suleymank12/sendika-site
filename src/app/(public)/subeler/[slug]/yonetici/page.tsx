@@ -5,6 +5,7 @@ import SafeImage from "@/components/SafeImage";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import SafeHtml from "@/components/SafeHtml";
 import { User, Phone, Mail } from "lucide-react";
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Branch } from "@/types";
 import type { Metadata } from "next";
 
@@ -27,10 +28,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!data || !data.manager_name) return { title: "Yönetici Bulunamadı" };
 
-  return {
+  return buildPublicMetadata({
+    path: `/subeler/${params.slug}/yonetici`,
     title: `${data.manager_name} — ${data.name}`,
     description: data.manager_title || undefined,
-  };
+  });
 }
 
 export default async function BranchManagerPage({ params }: Props) {

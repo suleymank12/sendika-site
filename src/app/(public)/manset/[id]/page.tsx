@@ -8,6 +8,7 @@ import DetailPageLayout from "@/components/public/DetailPageLayout";
 import SafeHtml from "@/components/SafeHtml";
 import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml } from "@/lib/utils";
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import type { Headline } from "@/types";
 
@@ -27,15 +28,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!data) return { title: "Manşet Bulunamadı" };
 
-  return {
+  return buildPublicMetadata({
+    path: `/manset/${params.id}`,
     title: data.title,
     description: data.subtitle || undefined,
-    openGraph: {
-      title: data.title,
-      description: data.subtitle || undefined,
-      images: data.image_url ? [data.image_url] : undefined,
-    },
-  };
+    image: data.image_url,
+  });
 }
 
 export default async function MansetDetailPage({ params }: Props) {

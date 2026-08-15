@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import SafeHtml from "@/components/SafeHtml";
 import { sanitizeContentHtml } from "@/lib/sanitize";
-import { extractImagesFromHtml } from "@/lib/utils";
+import { extractImagesFromHtml, extractTextFromHtml } from "@/lib/utils";
+import { buildPublicMetadata } from "@/lib/seo";
+import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 import type { Metadata } from "next";
 
 interface Props {
@@ -16,13 +18,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("pages")
-    .select("title")
+    .select("title, content")
     .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_published", true)
     .single();
 
-  return { title: data?.title || "Sayfa" };
+  if (!data) return { title: "Sayfa" };
+
+  // Rezerve kurumsal slug'lar iki URL'de yasar (/kurumsal/{slug} asil,
+  // /sayfa/{slug} kopya). Canonical asil adresi gosterir; Google kopyayi
+  // indekslemez. Sitemap de /sayfa/ varyantini listelemiyor (sitemap.ts).
+  const isKurumsalSlug = (KURUMSAL_PAGE_SLUGS as readonly string[]).includes(
+    params.slug
+  );
+
+  return buildPublicMetadata({
+    path: isKurumsalSlug ? `/kurumsal/${params.slug}` : `/sayfa/${params.slug}`,
+    title: data.title,
+    description: extractTextFromHtml(data.content) || undefined,
+  });
 }
 
 export default async function DynamicPage({ params }: Props) {

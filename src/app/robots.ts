@@ -24,7 +24,9 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: "/admin/",
+      // Prefix eslesmesi: "/admin" hem /admin'in kendisini hem /admin/*'i
+      // kapsar (eski "/admin/" slash'li hali /admin URL'sini kapsamiyordu).
+      disallow: ["/admin", "/super-admin", "/api"],
     },
     sitemap: `${baseUrl}/sitemap.xml`,
   };

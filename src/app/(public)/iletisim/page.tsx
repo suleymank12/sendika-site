@@ -4,12 +4,16 @@ import Breadcrumb from "@/components/public/Breadcrumb";
 import ContactForm from "@/components/public/ContactForm";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "İletişim",
-  description: "İletişim bilgileri ve iletişim formu",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPublicMetadata({
+    path: "/iletisim",
+    title: "İletişim",
+    description: "İletişim bilgileri ve iletişim formu",
+  });
+}
 
 export default async function ContactPage() {
   const tenant = await getCurrentTenant();

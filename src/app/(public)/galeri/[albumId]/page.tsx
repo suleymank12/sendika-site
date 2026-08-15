@@ -3,6 +3,7 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import GalleryGrid from "@/components/public/GalleryGrid";
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
 interface Props {
@@ -14,13 +15,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("gallery_albums")
-    .select("title")
+    .select("title, cover_image, gallery_images(count)")
     .eq("tenant_id", tenant.id)
     .eq("id", params.albumId)
     .eq("is_published", true)
     .single();
 
-  return { title: data?.title || "Galeri Albümü" };
+  if (!data) return { title: "Galeri Albümü" };
+
+  const imageCount: number = data.gallery_images?.[0]?.count || 0;
+
+  return buildPublicMetadata({
+    path: `/galeri/${params.albumId}`,
+    title: data.title,
+    description:
+      imageCount > 0
+        ? `${data.title} albümü — ${imageCount} fotoğraf`
+        : `${data.title} fotoğraf albümü`,
+    image: data.cover_image,
+  });
 }
 
 export default async function GalleryAlbumPage({ params }: Props) {

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
+import { buildTenantPublicUrl } from "@/lib/tenant-url";
 import HydrationFlag from "@/components/HydrationFlag";
 import "./globals.css";
 
@@ -32,11 +33,22 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s | ${title}`,
     },
     description,
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://sendika.org.tr"),
+    // Tenant-aware taban: canonical/og:url relative verilir, buradan
+    // absolute'a cozulur. buildTenantPublicUrl custom_domain > subdomain >
+    // apex onceligiyle sitemap.ts ile AYNI host'u uretir (eskiden tek sabit
+    // NEXT_PUBLIC_SITE_URL idi — tum tenant'lar apex'e cozuluyordu).
+    // Fallback tekillestirildi: env yoksa tenant-url.ts'in lvh.me dev
+    // fallback'i gecerli (buradaki ayri sendika.org.tr fallback'i kalkti).
+    metadataBase: new URL(buildTenantPublicUrl(tenant)),
     openGraph: {
       type: "website",
       locale: "tr_TR",
       siteName: title,
+    },
+    // Sayfa bazinda twitter tanimi yok — bu default tum public sayfalara
+    // miras kalir; twitter:image/title og taglerinden okunur.
+    twitter: {
+      card: "summary_large_image",
     },
     ...(faviconUrl && {
       icons: {

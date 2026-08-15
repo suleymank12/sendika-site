@@ -5,6 +5,7 @@ import SafeImage from "@/components/SafeImage";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import SafeHtml from "@/components/SafeHtml";
 import { Users, Phone, Mail } from "lucide-react";
+import { buildPublicMetadata } from "@/lib/seo";
 import type { BoardMember } from "@/types";
 import type { Metadata } from "next";
 
@@ -27,15 +28,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!data) return { title: "Üye Bulunamadı" };
 
-  return {
+  return buildPublicMetadata({
+    path: `/yonetim-kurulu/${params.slug}`,
     title: data.name,
     description: data.title || undefined,
-    openGraph: {
-      title: data.name,
-      description: data.title || undefined,
-      images: data.photo ? [data.photo] : undefined,
-    },
-  };
+    image: data.photo,
+  });
 }
 
 export default async function BoardMemberDetailPage({ params }: Props) {

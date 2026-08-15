@@ -61,6 +61,19 @@ export const SLUG_MAX_LENGTH = 50;
 export const CUSTOM_DOMAIN_REGEX =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 
+/**
+ * /kurumsal/* rotalarinin icerik kaynagi olan rezerve pages slug'lari.
+ * Ayni satirlar /sayfa/{slug} altinda da render edilebildigi icin duplicate
+ * content olusur. Cozum iki katmanli (b6 Asama 2):
+ *  - sitemap.ts /sayfa/ varyantini LISTELEMEZ
+ *  - sayfa/[slug] canonical'i /kurumsal/{slug}'i gosterir
+ */
+export const KURUMSAL_PAGE_SLUGS = [
+  "hakkimizda",
+  "tuzuk",
+  "misyon-vizyon",
+] as const;
+
 // Site ayarlari anahtarlari
 export const SETTING_KEYS = {
   LOGO_URL: "logo_url",

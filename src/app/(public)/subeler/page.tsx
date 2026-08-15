@@ -3,12 +3,16 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import BranchCard from "@/components/public/BranchCard";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Şubelerimiz",
-  description: "Sendika şubeleri ve iletişim bilgileri",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPublicMetadata({
+    path: "/subeler",
+    title: "Şubelerimiz",
+    description: "Sendika şubeleri ve iletişim bilgileri",
+  });
+}
 
 export default async function BranchesPage() {
   // createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik

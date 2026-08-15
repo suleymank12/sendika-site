@@ -6,6 +6,7 @@ import NewsCard from "@/components/public/NewsCard";
 import SafeHtml from "@/components/SafeHtml";
 import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml } from "@/lib/utils";
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 import type { News } from "@/types";
 
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("news")
-    .select("title, summary, cover_image")
+    .select("title, summary, cover_image, published_at, updated_at")
     .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_published", true)
@@ -26,15 +27,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!data) return { title: "Haber Bulunamadı" };
 
-  return {
+  return buildPublicMetadata({
+    path: `/haberler/${params.slug}`,
     title: data.title,
     description: data.summary || undefined,
-    openGraph: {
-      title: data.title,
-      description: data.summary || undefined,
-      images: data.cover_image ? [data.cover_image] : undefined,
+    image: data.cover_image,
+    article: {
+      publishedTime: data.published_at,
+      modifiedTime: data.updated_at,
     },
-  };
+  });
 }
 
 export default async function NewsDetailPage({ params }: Props) {

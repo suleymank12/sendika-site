@@ -6,6 +6,7 @@ import DetailPageLayout from "@/components/public/DetailPageLayout";
 import SafeHtml from "@/components/SafeHtml";
 import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml, formatDate } from "@/lib/utils";
+import { buildPublicMetadata } from "@/lib/seo";
 import { Calendar } from "lucide-react";
 import type { Metadata } from "next";
 import type { Announcement } from "@/types";
@@ -19,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("announcements")
-    .select("title, summary, cover_image")
+    .select("title, summary, cover_image, published_at, updated_at")
     .eq("tenant_id", tenant.id)
     .eq("slug", params.slug)
     .eq("is_published", true)
@@ -27,15 +28,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!data) return { title: "Duyuru Bulunamadı" };
 
-  return {
+  return buildPublicMetadata({
+    path: `/duyurular/${params.slug}`,
     title: data.title,
     description: data.summary || undefined,
-    openGraph: {
-      title: data.title,
-      description: data.summary || undefined,
-      images: data.cover_image ? [data.cover_image] : undefined,
+    image: data.cover_image,
+    article: {
+      publishedTime: data.published_at,
+      modifiedTime: data.updated_at,
     },
-  };
+  });
 }
 
 export default async function AnnouncementDetailPage({ params }: Props) {

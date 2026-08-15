@@ -3,12 +3,16 @@ import { getCurrentTenant } from "@/lib/get-tenant";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import SafeHtml from "@/components/SafeHtml";
 
+import { buildPublicMetadata } from "@/lib/seo";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-  title: "Tüzük",
-  description: "Sendika tüzüğü",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPublicMetadata({
+    path: "/kurumsal/tuzuk",
+    title: "Tüzük",
+    description: "Sendika tüzüğü",
+  });
+}
 
 export default async function TuzukPage() {
   const supabase = createClient();
