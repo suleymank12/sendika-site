@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { getHelpTopic, HelpSection, HelpStep } from "@/lib/help-content";
 import { cn } from "@/lib/utils";
+import useDialogA11y from "@/hooks/useDialogA11y";
 
 interface HelpButtonProps {
   topic: string;
@@ -25,16 +26,17 @@ export default function HelpButton({ topic }: HelpButtonProps) {
   useEffect(() => {
     if (open) {
       document.body.style.overflow = "hidden";
-      const handleKey = (e: KeyboardEvent) => {
-        if (e.key === "Escape") setOpen(false);
-      };
-      window.addEventListener("keydown", handleKey);
       return () => {
         document.body.style.overflow = "";
-        window.removeEventListener("keydown", handleKey);
       };
     }
   }, [open]);
+
+  // Esc + focus-in/focus-restore (salt-okunur icerik, kayip riski yok)
+  const dialogRef = useDialogA11y<HTMLDivElement>({
+    isOpen: open,
+    onEscape: () => setOpen(false),
+  });
 
   useEffect(() => {
     if (open) setActiveIdx(0);
@@ -65,7 +67,12 @@ export default function HelpButton({ topic }: HelpButtonProps) {
             onClick={() => setOpen(false)}
           />
 
-          <div className="relative w-full max-w-5xl h-[85vh] max-h-[820px] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            className="relative w-full max-w-5xl h-[85vh] max-h-[820px] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+          >
             {/* Top header bar */}
             <div className="flex items-center justify-between gap-4 px-6 lg:px-8 py-4 border-b border-border shrink-0">
               <div className="flex items-center gap-2 text-xs font-medium text-text-muted">

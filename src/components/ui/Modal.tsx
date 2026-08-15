@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useEffect } from "react";
+import useDialogA11y from "@/hooks/useDialogA11y";
 
 interface ModalProps {
   isOpen: boolean;
@@ -42,6 +43,13 @@ export default function Modal({
     };
   }, [isOpen]);
 
+  // Esc, overlay tiklamasiyla ayni eksende: yalnizca kayip riski olmayan
+  // (closeOnOverlay=true) modallarda kapatir — dolu form korunur (b2).
+  const dialogRef = useDialogA11y<HTMLDivElement>({
+    isOpen,
+    onEscape: closeOnOverlay ? onClose : undefined,
+  });
+
   if (!isOpen) return null;
 
   const hasCustomWidth = className && /(?:^|\s)(max-w-|w-\[)/.test(className);
@@ -53,6 +61,9 @@ export default function Modal({
         onClick={closeOnOverlay ? onClose : undefined}
       />
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
         className={cn(
           "relative z-10 rounded-xl bg-white p-6 shadow-xl animate-in fade-in zoom-in-95 duration-200",
           !hasCustomWidth && "w-full max-w-lg",
@@ -65,6 +76,7 @@ export default function Modal({
             <button
               onClick={onClose}
               className="rounded-lg p-1 text-text-muted hover:bg-bg-light hover:text-text-dark transition-colors"
+              aria-label="Kapat"
             >
               <X className="h-5 w-5" />
             </button>

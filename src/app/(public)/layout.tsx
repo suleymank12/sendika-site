@@ -69,19 +69,33 @@ export default async function PublicLayout({ children }: { children: React.React
         "--color-primary-light": lightenColorRgb(navbarColor, 0.2),
       } as React.CSSProperties}
     >
-      <TopBar
-        siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
-        phone={settings.contact_phone || ""}
-        email={settings.contact_email || ""}
-      />
+      <a
+        href="#icerik"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[200] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-primary focus:shadow-lg"
+      >
+        İçeriğe atla
+      </a>
       <div className="relative">
-        <Navbar
-          menuItems={menuItems}
-          logoUrl={logoUrl}
-          siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
-          layoutType={settings.layout_type || "layout1"}
-        />
-        <main className="min-h-[60vh]">{children}</main>
+        {/* display:contents — header kutu olusturmaz: Navbar'in sticky (layout1)
+            ve absolute overlay (layout2) konumlandirmasi, main'i de iceren bu
+            div.relative'e gore cozulmeye devam eder. Duz bir header sarmalayici
+            sticky'yi kendi yuksekligine hapsedip bozardi. */}
+        <header className="contents">
+          <TopBar
+            siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
+            phone={settings.contact_phone || ""}
+            email={settings.contact_email || ""}
+          />
+          <Navbar
+            menuItems={menuItems}
+            logoUrl={logoUrl}
+            siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
+            layoutType={settings.layout_type || "layout1"}
+          />
+        </header>
+        <main id="icerik" tabIndex={-1} className="min-h-[60vh] outline-none">
+          {children}
+        </main>
       </div>
       <Footer
         siteTitle={settings.site_title || tenant.name || "Sendika Adı"}

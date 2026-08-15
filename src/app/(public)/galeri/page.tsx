@@ -67,7 +67,7 @@ export default async function GalleryPage() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <h3 className="text-white font-semibold">{album.title}</h3>
+                    <h2 className="text-white font-semibold">{album.title}</h2>
                     <p className="text-white/70 text-sm mt-0.5">{album.image_count} fotoğraf</p>
                   </div>
                 </div>

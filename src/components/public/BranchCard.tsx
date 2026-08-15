@@ -12,9 +12,9 @@ export default function BranchCard({ branch }: BranchCardProps) {
   const cardContent = (
     <>
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-semibold text-text-dark group-hover:text-primary transition-colors">
+        <h2 className="font-semibold text-text-dark group-hover:text-primary transition-colors">
           {branch.name}
-        </h3>
+        </h2>
         {hasDetail && (
           <ChevronRight className="h-4 w-4 text-text-muted shrink-0 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
         )}

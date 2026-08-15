@@ -196,9 +196,16 @@ export default async function HomePage() {
     sectionAnnPool,
   };
 
-  if (layoutType === "layout2") {
-    return <Layout2Homepage {...layoutProps} />;
-  }
-
-  return <Layout1Homepage {...layoutProps} />;
+  return (
+    <>
+      {/* Anasayfanin gorsel tasariminda sayfa basligi yok; h1 ekran
+          okuyucu/SEO icin sr-only verilir (her iki varyantta da). */}
+      <h1 className="sr-only">{settings.site_title || tenant.name || "Sendika Adı"}</h1>
+      {layoutType === "layout2" ? (
+        <Layout2Homepage {...layoutProps} />
+      ) : (
+        <Layout1Homepage {...layoutProps} />
+      )}
+    </>
+  );
 }

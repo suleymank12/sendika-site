@@ -2,21 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import SafeImage from "@/components/SafeImage";
+import useDialogA11y from "@/hooks/useDialogA11y";
 
 interface ImageLightboxProps {
   /**
    * SOZLESME: cagiran taraf bu diziyi isNextImageSafeUrl ile FILTRELEYEREK
-   * vermelidir (bkz. DetailPageLayout photos[]). Burada filtrelenmez, cunku
-   * initialIndex disaridan geliyor — ic filtre index'i kaydirirdi.
-   * SafeImage yine de son savunma: gecersiz src'de cizmez, cokertmez.
+   * vermelidir (bkz. DetailPageLayout photos[], GalleryGrid safeImages).
+   * Burada filtrelenmez, cunku initialIndex disaridan geliyor — ic filtre
+   * index'i kaydirirdi. SafeImage yine de son savunma: gecersiz src'de
+   * cizmez, cokertmez.
    */
   images: string[];
+  /** images ile INDEX-HIZALI opsiyonel alt yazilar (galeri caption'lari) */
+  captions?: (string | null | undefined)[];
   initialIndex: number;
   onClose: () => void;
 }
 
 export default function ImageLightbox({
   images,
+  captions,
   initialIndex,
   onClose,
 }: ImageLightboxProps) {
@@ -45,15 +50,21 @@ export default function ImageLightbox({
     };
   }, []);
 
+  // Esc + focus-in/focus-restore hook'ta; burada yalniz ok tuslari kalir.
+  // Bilesen ancak acikken mount edildigi icin isOpen sabit true.
+  const dialogRef = useDialogA11y<HTMLDivElement>({
+    isOpen: true,
+    onEscape: onClose,
+  });
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      else if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "ArrowLeft") goPrev();
       else if (e.key === "ArrowRight") goNext();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goPrev, goNext, onClose]);
+  }, [goPrev, goNext]);
 
   useEffect(() => {
     setImgLoaded(false);
@@ -90,9 +101,11 @@ export default function ImageLightbox({
   };
 
   const hasMultiple = images.length > 1;
+  const caption = captions?.[index] ?? null;
 
   return (
     <div
+      ref={dialogRef}
       onClick={handleOverlayClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -113,7 +126,7 @@ export default function ImageLightbox({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label="Kapat"
           className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/20 cursor-pointer"
         >
           <svg
@@ -140,7 +153,7 @@ export default function ImageLightbox({
               e.stopPropagation();
               goPrev();
             }}
-            aria-label="Previous"
+            aria-label="Önceki görsel"
             className="absolute left-4 top-1/2 z-10 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur text-white transition-colors hover:bg-black/60 cursor-pointer"
           >
             <svg
@@ -160,7 +173,7 @@ export default function ImageLightbox({
 
         <SafeImage
           src={images[index]}
-          alt=""
+          alt={caption || ""}
           width={1920}
           height={1080}
           unoptimized
@@ -178,7 +191,7 @@ export default function ImageLightbox({
               e.stopPropagation();
               goNext();
             }}
-            aria-label="Next"
+            aria-label="Sonraki görsel"
             className="absolute right-4 top-1/2 z-10 -translate-y-1/2 flex h-12 w-12 items-center justify-center rounded-full bg-black/40 backdrop-blur text-white transition-colors hover:bg-black/60 cursor-pointer"
           >
             <svg
@@ -197,6 +210,13 @@ export default function ImageLightbox({
         )}
       </div>
 
+      {/* Caption */}
+      {caption && (
+        <div onClick={stop} className="shrink-0 px-6 pb-2 pt-1 text-center">
+          <p className="text-white/80 text-sm">{caption}</p>
+        </div>
+      )}
+
       {/* Thumbnail strip */}
       {images.length > 1 && (
         <div
@@ -213,7 +233,7 @@ export default function ImageLightbox({
                 type="button"
                 data-thumb-index={i}
                 onClick={() => setIndex(i)}
-                aria-label={`Image ${i + 1}`}
+                aria-label={`Görsel ${i + 1}`}
                 className={`h-16 w-16 shrink-0 overflow-hidden rounded-md transition-all ${
                   i === index
                     ? "border-2 border-white ring-2 ring-white/50 opacity-100"

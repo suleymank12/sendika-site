@@ -122,7 +122,7 @@ export default function DetailPageLayout({
   return (
     <div className="bg-white min-h-screen pb-16">
       {/* Breadcrumb */}
-      <nav className="w-full bg-transparent border-b border-gray-100 py-3 no-print">
+      <nav aria-label="Sayfa yolu" className="w-full bg-transparent border-b border-gray-100 py-3 no-print">
         <div className="max-w-6xl mx-auto px-4 text-sm text-gray-400">
           <ol className="flex items-center flex-wrap">
             {breadcrumbs.map((crumb, i) => {
@@ -271,7 +271,7 @@ function PhotoGrid({
 }) {
   return (
     <div>
-      <h3 className="text-base font-semibold text-gray-800 mb-4">Resimler</h3>
+      <h2 className="text-base font-semibold text-gray-800 mb-4">Resimler</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 lg:gap-4">
         {photos.map((src, i) => (
           <button

@@ -123,9 +123,9 @@ function ItemCard({ item }: { item: HomepageSectionItem }) {
         />
       </div>
       <div className="p-3 flex-1 flex flex-col">
-        <h3 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2">
+        <h2 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors line-clamp-2">
           {item.title}
-        </h3>
+        </h2>
         {item.description && (
           <p className="text-xs text-text-muted mt-1 line-clamp-2">
             {truncateText(item.description, 120)}

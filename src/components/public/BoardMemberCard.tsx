@@ -27,9 +27,9 @@ export default function BoardMemberCard({ member }: BoardMemberCardProps) {
         />
       </div>
       <div className="p-4 text-center">
-        <h3 className="font-semibold text-text-dark group-hover:text-primary transition-colors">
+        <h2 className="font-semibold text-text-dark group-hover:text-primary transition-colors">
           {member.name}
-        </h3>
+        </h2>
         {member.title && (
           <p className="text-sm text-primary-light mt-0.5">{member.title}</p>
         )}

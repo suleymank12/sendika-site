@@ -6,9 +6,16 @@ import { formatDate, truncateText } from "@/lib/utils";
 
 interface NewsCardProps {
   news: News;
+  /**
+   * Kart basliginin seviyesi, kullanildigi sayfanin hiyerarsisine gore:
+   * h1 altinda dogrudan listelenirken "h2" (haberler listesi), bir h2
+   * bolum basligi altindayken varsayilan "h3" (anasayfa, ilgili haberler).
+   */
+  headingLevel?: "h2" | "h3";
 }
 
-export default function NewsCard({ news }: NewsCardProps) {
+export default function NewsCard({ news, headingLevel = "h3" }: NewsCardProps) {
+  const TitleTag = headingLevel;
   return (
     <Link href={`/haberler/${news.slug}`} className="group block h-full">
       <article className="rounded-xl border border-border bg-white overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300 h-full flex flex-col">
@@ -39,9 +46,9 @@ export default function NewsCard({ news }: NewsCardProps) {
             <Calendar className="h-3.5 w-3.5" />
             <time>{formatDate(news.published_at || news.created_at)}</time>
           </div>
-          <h3 className="text-base font-semibold text-text-dark group-hover:text-primary transition-colors mb-2 line-clamp-2">
+          <TitleTag className="text-base font-semibold text-text-dark group-hover:text-primary transition-colors mb-2 line-clamp-2">
             {news.title}
-          </h3>
+          </TitleTag>
           {news.summary && (
             <p className="text-sm text-text-muted leading-relaxed flex-1 line-clamp-3">
               {truncateText(news.summary, 120)}

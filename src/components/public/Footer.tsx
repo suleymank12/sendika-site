@@ -189,6 +189,7 @@ export default function Footer({
                       rel="noopener noreferrer"
                       className="rounded-lg bg-white/10 p-2 hover:bg-white/20 transition-colors"
                       title={social.label}
+                      aria-label={social.label}
                     >
                       <Icon className="h-4 w-4" />
                     </a>

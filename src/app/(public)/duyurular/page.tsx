@@ -67,9 +67,9 @@ export default async function AnnouncementsListPage({ searchParams }: Props) {
                     <Calendar className="h-3.5 w-3.5" />
                     <time>{formatDate(item.published_at || item.created_at)}</time>
                   </div>
-                  <h3 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors mt-1">
+                  <h2 className="text-sm font-medium text-text-dark group-hover:text-primary transition-colors mt-1">
                     {item.title}
-                  </h3>
+                  </h2>
                   {item.summary && (
                     <p className="text-sm text-text-muted mt-1 line-clamp-2">
                       {truncateText(item.summary, 200)}
