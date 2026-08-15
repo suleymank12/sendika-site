@@ -12,6 +12,16 @@ export const STORAGE_BUCKETS = {
   DOCUMENTS: "documents",
 } as const;
 
+/**
+ * Dosya yukleme boyut sinirlari (MB). TEK KAYNAK: ImageUploader,
+ * MediaUploader, MediaSection, RichTextEditor ve galeri coklu yukleme
+ * bu degerleri kullanir — limit degisecekse yalniz burasi degisir.
+ */
+export const MAX_UPLOAD_MB = {
+  IMAGE: 50,
+  VIDEO: 400,
+} as const;
+
 // Varsayilan meta tag degerleri
 export const DEFAULT_META = {
   TITLE: "Sendika Adı",

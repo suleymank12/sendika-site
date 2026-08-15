@@ -6,6 +6,7 @@ import { Upload, X, Film } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
+import { MAX_UPLOAD_MB } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
@@ -58,8 +59,8 @@ export default function MediaUploader({
         return;
       }
 
-      if (file.size > 400 * 1024 * 1024) {
-        toast.error("Video boyutu 400MB'dan küçük olmalıdır.");
+      if (file.size > MAX_UPLOAD_MB.VIDEO * 1024 * 1024) {
+        toast.error(`Video boyutu ${MAX_UPLOAD_MB.VIDEO}MB'dan küçük olmalıdır.`);
         return;
       }
 
@@ -170,7 +171,7 @@ export default function MediaUploader({
                   Video yüklemek için tıklayın veya sürükleyin
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  MP4, WEBM, MOV (maks. 400MB)
+                  {`MP4, WEBM, MOV (maks. ${MAX_UPLOAD_MB.VIDEO}MB)`}
                 </p>
               </div>
             </>

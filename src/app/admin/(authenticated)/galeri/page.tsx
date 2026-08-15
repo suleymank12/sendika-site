@@ -354,7 +354,7 @@ export default function AdminGalleryPage() {
             required
           />
           <FormField label="Kapak Görseli">
-            <ImageUploader value={form.cover_image} onChange={(url) => setForm({ ...form, cover_image: url })} folder="gallery" />
+            <ImageUploader value={form.cover_image} onChange={(url) => setForm({ ...form, cover_image: url })} folder="gallery" maxWidth={1200} maxHeight={675} />
           </FormField>
           <Select
             label="Durum"

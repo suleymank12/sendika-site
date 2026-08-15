@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
 import { compressImage } from "@/lib/image-compress";
+import { MAX_UPLOAD_MB } from "@/lib/constants";
 import toast from "react-hot-toast";
 import ImageUploader from "./ImageUploader";
 import MediaUploader from "./MediaUploader";
@@ -151,11 +152,18 @@ export default function MediaSection({
     setUploading(true);
     const supabase = createClient();
     const newUrls: string[] = [];
+    // Sessiz atlama YOK: her dosya ya yuklenir ya da asagida sebebiyle sayilir
+    let notImage = 0;
+    let tooBig = 0;
+    let failed = 0;
 
     for (const file of Array.from(files)) {
-      if (!file.type.startsWith("image/")) continue;
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error(`${file.name} 50MB'dan büyük, atlandı.`);
+      if (!file.type.startsWith("image/")) {
+        notImage++;
+        continue;
+      }
+      if (file.size > MAX_UPLOAD_MB.IMAGE * 1024 * 1024) {
+        tooBig++;
         continue;
       }
 
@@ -171,7 +179,10 @@ export default function MediaSection({
       const filePath = buildStoragePath(tenant.id, galleryFolder, fileName);
 
       const { error: uploadError } = await supabase.storage.from("images").upload(filePath, compressed);
-      if (uploadError) continue;
+      if (uploadError) {
+        failed++;
+        continue;
+      }
 
       const { data: urlData } = supabase.storage.from("images").getPublicUrl(filePath);
       newUrls.push(urlData.publicUrl);
@@ -180,9 +191,12 @@ export default function MediaSection({
     if (newUrls.length > 0) {
       onGalleryChange([...gallery, ...newUrls]);
       toast.success(`${newUrls.length} fotoğraf yüklendi.`);
-    } else {
-      toast.error("Fotoğraf yüklenemedi.");
     }
+    const problems: string[] = [];
+    if (notImage > 0) problems.push(`${notImage} dosya görsel olmadığı için atlandı`);
+    if (tooBig > 0) problems.push(`${tooBig} dosya ${MAX_UPLOAD_MB.IMAGE}MB sınırını aştığı için atlandı`);
+    if (failed > 0) problems.push(`${failed} fotoğraf yüklenemedi`);
+    if (problems.length > 0) toast.error(`${problems.join(", ")}.`);
 
     setUploading(false);
     e.target.value = "";

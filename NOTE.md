@@ -1714,3 +1714,12 @@ breadcrumb props'ları sayfalarda zaten kurulu). Bilinçli olarak ertelendi:
   x-nonce header'ını (headers().get("x-nonce")) KULLANMALI, yoksa tarayıcı
   sessizce bloklar ve şema hiç görünmez. Middleware'deki "şu an kullanan yok"
   notu bu durumda güncellenmeli.
+
+# 📋 NOT — Logo yükleyicisi bilinçli olarak sıkıştırmasız (b3)
+
+`ayarlar/page.tsx`'teki logo ImageUploader'ı maxWidth/maxHeight
+parametresi ALMIYOR — ImageUploader parametre verilmeyince sıkıştırmayı
+tamamen atlar. Bu bilinçli: PNG keskinlik/şeffaflık kaygısı; favicon'da
+`toWebp={false}` emsali var. Değiştirilecekse görsel kontrol şart.
+(b3'te galeri kapak yükleyicilerine 1200×675 verildi, logo bilerek
+dışarıda bırakıldı.)

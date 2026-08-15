@@ -19,13 +19,18 @@ import {
   AlignRight,
   Undo,
   Redo,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
 import { compressImage } from "@/lib/image-compress";
+import { MAX_UPLOAD_MB } from "@/lib/constants";
+import Modal from "@/components/ui/Modal";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import toast from "react-hot-toast";
 
 interface RichTextEditorProps {
@@ -38,20 +43,24 @@ function ToolbarButton({
   active,
   children,
   title,
+  disabled,
 }: {
   onClick: () => void;
   active?: boolean;
   children: React.ReactNode;
   title: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={title}
+      disabled={disabled}
       className={cn(
         "rounded p-1.5 transition-colors",
-        active ? "bg-primary/10 text-primary" : "text-text-muted hover:bg-bg-light hover:text-text-dark"
+        active ? "bg-primary/10 text-primary" : "text-text-muted hover:bg-bg-light hover:text-text-dark",
+        disabled && "opacity-50 cursor-not-allowed"
       )}
     >
       {children}
@@ -59,9 +68,27 @@ function ToolbarButton({
   );
 }
 
+/**
+ * Pratik URL normalizasyonu: admin "www.ornek.com" yazabilsin.
+ * http(s), site ici path/anchor ve mailto/tel oldugu gibi gecer;
+ * geri kalan her sey https:// onekiyle mutlak URL'ye cevrilir (bu ayni
+ * zamanda javascript: gibi semalari da etkisizlestirir).
+ */
+function normalizeLinkUrl(raw: string): string {
+  const url = raw.trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url) || /^[/#]/.test(url) || /^(mailto|tel):/i.test(url)) {
+    return url;
+  }
+  return `https://${url}`;
+}
+
 export default function RichTextEditor({ content, onChange }: RichTextEditorProps) {
   const { tenant } = useTenant();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -79,12 +106,26 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
     },
   });
 
-  const addLink = useCallback(() => {
+  // Link modali: acilista mevcut href dolu gelir (duzenleme), "Kaldir"
+  // ile yanlis eklenen link cikarilabilir (unsetLink).
+  const openLinkModal = useCallback(() => {
     if (!editor) return;
-    const url = window.prompt("Link URL:");
-    if (url) {
-      editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-    }
+    setLinkUrl(editor.getAttributes("link").href || "");
+    setLinkModalOpen(true);
+  }, [editor]);
+
+  const applyLink = useCallback(() => {
+    if (!editor) return;
+    const url = normalizeLinkUrl(linkUrl);
+    if (!url) return;
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+    setLinkModalOpen(false);
+  }, [editor, linkUrl]);
+
+  const removeLink = useCallback(() => {
+    if (!editor) return;
+    editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    setLinkModalOpen(false);
   }, [editor]);
 
   const addImage = useCallback(async (file: File) => {
@@ -98,7 +139,12 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
       toast.error("Sadece görsel dosyaları yüklenebilir.");
       return;
     }
+    if (file.size > MAX_UPLOAD_MB.IMAGE * 1024 * 1024) {
+      toast.error(`Dosya boyutu ${MAX_UPLOAD_MB.IMAGE}MB'dan küçük olmalıdır.`);
+      return;
+    }
 
+    setUploading(true);
     try {
       // Sikistir + WebP'ye cevir (hata/fayda yoksa orijinal doner).
       // Genislik cap'i; yukseklik serbest — uzun infografikler ezilmesin.
@@ -116,6 +162,8 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
       toast.success("Görsel eklendi.");
     } catch {
       toast.error("Görsel yüklenemedi.");
+    } finally {
+      setUploading(false);
     }
   }, [editor, tenant]);
 
@@ -219,11 +267,19 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
 
         <div className="w-px h-6 bg-border mx-1" />
 
-        <ToolbarButton onClick={addLink} active={editor.isActive("link")} title="Link Ekle">
+        <ToolbarButton onClick={openLinkModal} active={editor.isActive("link")} title="Link Ekle">
           <LinkIcon className={iconSize} />
         </ToolbarButton>
-        <ToolbarButton onClick={handleImageClick} title="Görsel Ekle">
-          <ImageIcon className={iconSize} />
+        <ToolbarButton
+          onClick={handleImageClick}
+          title={uploading ? "Görsel yükleniyor..." : "Görsel Ekle"}
+          disabled={uploading}
+        >
+          {uploading ? (
+            <Loader2 className={cn(iconSize, "animate-spin text-primary")} />
+          ) : (
+            <ImageIcon className={iconSize} />
+          )}
         </ToolbarButton>
 
         <div className="w-px h-6 bg-border mx-1" />
@@ -241,6 +297,43 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
 
       {/* Hidden file input */}
       <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+
+      {/* Link modali — tek input, kayip riski yok: closeOnOverlay (Esc de kapatir) */}
+      <Modal
+        isOpen={linkModalOpen}
+        onClose={() => setLinkModalOpen(false)}
+        title={editor.isActive("link") ? "Linki Düzenle" : "Link Ekle"}
+        closeOnOverlay
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            applyLink();
+          }}
+          className="space-y-4"
+        >
+          <Input
+            label="Link adresi"
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://ornek.com veya www.ornek.com"
+            helperText="Başına https:// yazmasanız da olur, otomatik eklenir."
+          />
+          <div className="flex items-center justify-end gap-2">
+            {editor.isActive("link") && (
+              <Button type="button" variant="danger" onClick={removeLink} className="mr-auto">
+                Linki Kaldır
+              </Button>
+            )}
+            <Button type="button" variant="secondary" onClick={() => setLinkModalOpen(false)}>
+              İptal
+            </Button>
+            <Button type="submit" disabled={!linkUrl.trim()}>
+              {editor.isActive("link") ? "Güncelle" : "Ekle"}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

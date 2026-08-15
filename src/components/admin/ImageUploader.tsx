@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
 import { compressImage } from "@/lib/image-compress";
+import { MAX_UPLOAD_MB } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
@@ -47,8 +48,8 @@ export default function ImageUploader({
         return;
       }
 
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error("Dosya boyutu 50MB'dan küçük olmalıdır.");
+      if (file.size > MAX_UPLOAD_MB.IMAGE * 1024 * 1024) {
+        toast.error(`Dosya boyutu ${MAX_UPLOAD_MB.IMAGE}MB'dan küçük olmalıdır.`);
         return;
       }
 
@@ -154,7 +155,7 @@ export default function ImageUploader({
             <p className="text-sm font-medium text-text-dark">
               Görsel yüklemek için tıklayın veya sürükleyin
             </p>
-            <p className="text-xs text-text-muted mt-1">PNG, JPG, WEBP (maks. 50MB)</p>
+            <p className="text-xs text-text-muted mt-1">{`PNG, JPG, WEBP (maks. ${MAX_UPLOAD_MB.IMAGE}MB)`}</p>
           </div>
         </>
       )}
