@@ -281,7 +281,7 @@ export default function AdminBoardMembersPage() {
       .eq("tenant_id", tenant.id)
       .eq("id", item.id);
     if (error) {
-      toast.error("Güncelleme başarısız.");
+      toast.error("Güncelleme başarısız oldu.");
     } else {
       setMembers((prev) =>
         prev.map((m) => (m.id === item.id ? { ...m, is_active: !m.is_active } : m))
@@ -448,7 +448,7 @@ export default function AdminBoardMembersPage() {
 
               <section className="space-y-3">
                 <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
-                <FormField label="Yayın Durumu">
+                <FormField label="Durum">
                   <div className="flex gap-2">
                     <button
                       type="button"

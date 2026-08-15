@@ -1723,3 +1723,22 @@ tamamen atlar. Bu bilinçli: PNG keskinlik/şeffaflık kaygısı; favicon'da
 `toWebp={false}` emsali var. Değiştirilecekse görsel kontrol şart.
 (b3'te galeri kapak yükleyicilerine 1200×675 verildi, logo bilerek
 dışarıda bırakıldı.)
+
+# 📋 Terminoloji Sözleşmesi (b8)
+
+Yeni UI metni yazarken bu kalıplara uy (merkezi sözlük dosyası BİLEREK yok
+— kalıplar buradan, örnekler mevcut koddan alınır):
+
+- Durum alanları: etiket her yerde **"Durum"**. Seçenekler alana göre:
+  `is_published` → "Yayında / Taslak" (StatusBadge ile aynı);
+  `is_active` → "Aktif / Pasif". "Yayın Durumu" etiketi KULLANILMAZ.
+- Görsel terimleri: tekil kapak/dekor = **Görsel**; insan fotoğrafı ve
+  galeri içeriği = **Fotoğraf**; görsel+video üst kategorisi = **Medya**.
+  "Resim" kullanılmaz.
+- Toast hata kalıbı: **"‹İş› başarısız oldu."** (Kaydetme/Silme/Güncelleme).
+  "işlemi" dolgusu ve noktasız "başarısız." varyantı kullanılmaz.
+- Sıralama toast'ları: "Sıralama kaydedildi." / "Sıralama kaydedilemedi."
+- Sayfa başlığı = sidebar etiketi (birebir aynı). Panelde İngilizce kelime
+  kullanılmaz (Dashboard → Özet).
+- Saat yalnız aynı-gün sıralamanın önemli olduğu yerde gösterilir
+  (gelen mesajlar, `formatDateTime`); içerik listelerinde `formatDate`.

@@ -389,7 +389,7 @@ export default function AdminBranchesPage() {
       .eq("tenant_id", tenant.id)
       .eq("id", item.id);
     if (error) {
-      toast.error("Güncelleme başarısız.");
+      toast.error("Güncelleme başarısız oldu.");
     } else {
       setBranches((prev) => prev.map((b) => (b.id === item.id ? { ...b, is_active: !b.is_active } : b)));
       // Toggle sitede ANINDA etkili — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
@@ -608,7 +608,7 @@ export default function AdminBranchesPage() {
 
                 <section className="space-y-3">
                   <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
-                  <FormField label="Yayın Durumu">
+                  <FormField label="Durum">
                     <div className="flex gap-2">
                       <button
                         type="button"

@@ -34,6 +34,16 @@ export function formatDate(date: string | Date): string {
 }
 
 /**
+ * Turkce tarih + saat formati: "1 Ocak 2026 14:30".
+ * Saat yalnizca ayni-gun siralamanin onemli oldugu yerlerde gosterilir
+ * (gelen mesajlar); icerik listelerinde gun hassasiyeti yeterli.
+ */
+export function formatDateTime(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return format(d, "d MMMM yyyy HH:mm", { locale: tr });
+}
+
+/**
  * Metni belirli uzunlukta kes
  */
 export function truncateText(text: string, maxLength: number): string {

@@ -506,7 +506,7 @@ export default function AdminSectionItemsPage() {
           {/* Durum */}
           <section className="space-y-3">
             <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
-            <FormField label="Yayın Durumu">
+            <FormField label="Durum">
               <div className="flex gap-2">
                 <button
                   type="button"

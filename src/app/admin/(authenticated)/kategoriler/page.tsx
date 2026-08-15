@@ -237,7 +237,7 @@ export default function AdminNewsCategoriesPage() {
       .eq("tenant_id", tenant.id)
       .eq("id", item.id);
     if (error) {
-      toast.error("Güncelleme başarısız.");
+      toast.error("Güncelleme başarısız oldu.");
     } else {
       setCategories((prev) => prev.map((c) => (c.id === item.id ? { ...c, is_active: !c.is_active } : c)));
       // Toggle etkisi aninda — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
@@ -352,7 +352,7 @@ export default function AdminNewsCategoriesPage() {
 
           <section className="space-y-3">
             <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
-            <FormField label="Yayın Durumu">
+            <FormField label="Durum">
               <div className="flex gap-2">
                 <button
                   type="button"

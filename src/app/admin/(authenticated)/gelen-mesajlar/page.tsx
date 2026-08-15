@@ -11,7 +11,7 @@ import Button from "@/components/ui/Button";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import { Inbox, Mail, Trash2 } from "lucide-react";
-import { formatDate, truncateText, cn } from "@/lib/utils";
+import { formatDateTime, truncateText, cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 interface ContactMessage {
@@ -94,7 +94,7 @@ export default function GelenMesajlarPage() {
       .eq("tenant_id", tenant.id)
       .eq("id", deleteItem.id);
     if (error) {
-      toast.error("Silme işlemi başarısız oldu.");
+      toast.error("Silme başarısız oldu.");
       setDeleting(false);
       return;
     }
@@ -136,7 +136,7 @@ export default function GelenMesajlarPage() {
                       <th className="px-4 py-3 w-8" />
                       <th className="px-4 py-3 text-left font-medium text-text-muted">Gönderen</th>
                       <th className="px-4 py-3 text-left font-medium text-text-muted hidden md:table-cell">Mesaj</th>
-                      <th className="px-4 py-3 text-left font-medium text-text-muted hidden sm:table-cell">Tarih</th>
+                      <th className="px-4 py-3 text-left font-medium text-text-muted hidden sm:table-cell">Eklenme</th>
                       <th className="px-4 py-3 text-right font-medium text-text-muted w-16">İşlem</th>
                     </tr>
                   </thead>
@@ -169,7 +169,7 @@ export default function GelenMesajlarPage() {
                           {truncateText(item.mesaj, 60)}
                         </td>
                         <td className="px-4 py-3 hidden sm:table-cell text-text-muted text-xs whitespace-nowrap">
-                          {formatDate(item.created_at)}
+                          {formatDateTime(item.created_at)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex justify-end">
@@ -213,7 +213,7 @@ export default function GelenMesajlarPage() {
               </div>
               <div>
                 <p className="text-xs text-text-muted mb-0.5">Tarih</p>
-                <p className="text-sm text-text-dark">{formatDate(selected.created_at)}</p>
+                <p className="text-sm text-text-dark">{formatDateTime(selected.created_at)}</p>
               </div>
               <div>
                 <p className="text-xs text-text-muted mb-0.5">E-posta</p>

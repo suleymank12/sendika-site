@@ -392,7 +392,7 @@ export default function AdminHeadlinePage() {
       .eq("tenant_id", tenant.id)
       .eq("id", h.id);
     if (error) {
-      toast.error("Güncelleme başarısız.");
+      toast.error("Güncelleme başarısız oldu.");
     } else {
       setHeadlines((prev) =>
         prev.map((item) => (item.id === h.id ? { ...item, is_active: !item.is_active } : item))
@@ -428,14 +428,14 @@ export default function AdminHeadlinePage() {
       toast.error("Sıralama kaydedilemedi.");
       fetchHeadlines();
     } else {
-      toast.success("Sıralama güncellendi.");
+      toast.success("Sıralama kaydedildi.");
     }
   };
 
   if (loading) {
     return (
       <>
-        <AdminHeader title="Manşet Yönetimi" helpTopic="manset" />
+        <AdminHeader title="Manşetler" helpTopic="manset" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -445,7 +445,7 @@ export default function AdminHeadlinePage() {
 
   return (
     <>
-      <AdminHeader title="Manşet Yönetimi" helpTopic="manset" />
+      <AdminHeader title="Manşetler" helpTopic="manset" />
 
       <div className="p-4 lg:p-6">
         {headlines.length >= 10 && (

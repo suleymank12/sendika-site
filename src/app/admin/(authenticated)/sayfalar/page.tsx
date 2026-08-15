@@ -76,7 +76,7 @@ export default function AdminPagesListPage() {
       .eq("tenant_id", tenant.id)
       .eq("id", deleteItem.id);
     if (error) {
-      toast.error("Silme işlemi başarısız oldu.");
+      toast.error("Silme başarısız oldu.");
       setDeleteItem(null);
       setDeleting(false);
       return;
@@ -113,7 +113,7 @@ export default function AdminPagesListPage() {
     },
     {
       key: "updated_at",
-      label: "Güncelleme",
+      label: "Son Güncelleme",
       className: "hidden sm:table-cell",
       render: (item) => <span className="text-text-muted text-xs">{formatDate(item.updated_at)}</span>,
     },
@@ -121,7 +121,7 @@ export default function AdminPagesListPage() {
 
   return (
     <>
-      <AdminHeader title="Sayfalar" helpTopic="sayfalar" />
+      <AdminHeader title="Sabit Sayfalar" helpTopic="sayfalar" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-end mb-4">

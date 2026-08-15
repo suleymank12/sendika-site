@@ -337,7 +337,7 @@ export default function AdminHomepageSectionsPage() {
       .eq("tenant_id", tenant.id)
       .eq("id", section.id);
     if (error) {
-      toast.error("Durum değiştirilemedi.");
+      toast.error("Güncelleme başarısız oldu.");
       return;
     }
     setSections((prev) =>

@@ -65,7 +65,7 @@ const menuGroups: MenuGroup[] = [
     label: "Anasayfa Düzeni",
     items: [
       { label: "Anasayfa Slider", href: "/admin/slider", icon: Presentation },
-      { label: "Manşet Haber", href: "/admin/manset", icon: Star },
+      { label: "Manşetler", href: "/admin/manset", icon: Star },
       { label: "Anasayfa Bölümleri", href: "/admin/anasayfa-bolumleri", icon: LayoutGrid },
     ],
   },
@@ -74,7 +74,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { label: "Site Menüsü", href: "/admin/menu", icon: ListTree },
       { label: "Yönetim Kurulu", href: "/admin/yonetim-kurulu", icon: Users },
-      { label: "Şubelerimiz", href: "/admin/subeler", icon: Building2 },
+      { label: "Şubeler", href: "/admin/subeler", icon: Building2 },
     ],
   },
   {

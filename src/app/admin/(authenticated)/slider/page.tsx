@@ -183,7 +183,7 @@ export default function AdminSliderPage() {
       .eq("tenant_id", tenant.id)
       .eq("id", item.id);
     if (error) {
-      toast.error("Güncelleme başarısız.");
+      toast.error("Güncelleme başarısız oldu.");
     } else {
       setSliders((prev) => prev.map((s) => (s.id === item.id ? { ...s, is_active: !s.is_active } : s)));
       // Toggle sitede ANINDA etkili — sessiz kalirsa admin emin olamiyor (Tur 3 b1).
@@ -294,7 +294,7 @@ export default function AdminSliderPage() {
 
   return (
     <>
-      <AdminHeader title="Slider Yönetimi" helpTopic="slider" />
+      <AdminHeader title="Anasayfa Slider" helpTopic="slider" />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">
@@ -397,7 +397,7 @@ export default function AdminSliderPage() {
 
               <section className="space-y-3">
                 <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Durum</p>
-                <FormField label="Yayın Durumu">
+                <FormField label="Durum">
                   <div className="flex gap-2">
                     <button
                       type="button"

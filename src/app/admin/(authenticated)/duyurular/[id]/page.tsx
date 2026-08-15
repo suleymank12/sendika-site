@@ -195,7 +195,7 @@ export default function AdminAnnouncementEditorPage() {
       if (error.code === "23505") {
         toast.error("Bu slug zaten kullanılıyor. Farklı bir slug deneyin.");
       } else {
-        toast.error("Kaydetme işlemi başarısız oldu.");
+        toast.error("Kaydetme başarısız oldu.");
       }
     } else {
       // Replace orphan temizligi: degisen cover/video eski dosyalari (best-effort).

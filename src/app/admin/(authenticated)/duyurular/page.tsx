@@ -87,7 +87,7 @@ export default function AdminAnnouncementsListPage() {
       .eq("id", deleteItem.id);
 
     if (error) {
-      toast.error("Silme işlemi başarısız oldu.");
+      toast.error("Silme başarısız oldu.");
       setDeleteItem(null);
       setDeleting(false);
       return;
@@ -131,7 +131,7 @@ export default function AdminAnnouncementsListPage() {
     },
     {
       key: "created_at",
-      label: "Tarih",
+      label: "Eklenme",
       className: "hidden sm:table-cell",
       render: (item) => (
         <span className="text-text-muted text-xs">{formatDate(item.created_at)}</span>
