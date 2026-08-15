@@ -18,11 +18,13 @@ import AdminHeader from "@/components/admin/AdminHeader";
 import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
+import Modal from "@/components/ui/Modal";
 import ImageUploader from "@/components/admin/ImageUploader";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import FormField from "@/components/admin/FormField";
-import { Upload, Trash2, GripVertical } from "lucide-react";
+import { Upload, Trash2, GripVertical, Pencil } from "lucide-react";
 import { GalleryAlbum, GalleryImage } from "@/types";
 import toast from "react-hot-toast";
 import {
@@ -46,9 +48,11 @@ import { CSS } from "@dnd-kit/utilities";
 function SortableImage({
   image,
   onDelete,
+  onEditCaption,
 }: {
   image: GalleryImage;
   onDelete: (image: GalleryImage) => void;
+  onEditCaption: (image: GalleryImage) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: image.id });
   const style = { transform: CSS.Transform.toString(transform), transition };
@@ -68,13 +72,34 @@ function SortableImage({
         }
       />
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-        <button {...attributes} {...listeners} className="rounded-lg bg-white/90 p-1.5 text-text-dark cursor-grab">
+        <button
+          {...attributes}
+          {...listeners}
+          className="rounded-lg bg-white/90 p-1.5 text-text-dark cursor-grab"
+          aria-label="Sürükle"
+        >
           <GripVertical className="h-4 w-4" />
         </button>
-        <button onClick={() => onDelete(image)} className="rounded-lg bg-white/90 p-1.5 text-error">
+        <button
+          onClick={() => onEditCaption(image)}
+          className="rounded-lg bg-white/90 p-1.5 text-text-dark"
+          aria-label="Açıklamayı düzenle"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          onClick={() => onDelete(image)}
+          className="rounded-lg bg-white/90 p-1.5 text-error"
+          aria-label="Sil"
+        >
           <Trash2 className="h-4 w-4" />
         </button>
       </div>
+      {image.caption && (
+        <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1.5 py-0.5">
+          <p className="text-[10px] leading-4 text-white truncate">{image.caption}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -91,6 +116,7 @@ export default function AdminGalleryDetailPage() {
   // Fotograf listesi fetch hatasi "bos galeri" olarak GOSTERILMEZ (Tur 3 b1).
   const [loadFailed, setLoadFailed] = useState(false);
   const [title, setTitle] = useState("");
+  const [isPublished, setIsPublished] = useState(true);
   const [coverImage, setCoverImage] = useState("");
   // Replace orphan temizligi icin DB'den okunan ilk kapak degerinin snapshot'i
   const [initialCoverImage, setInitialCoverImage] = useState<string | null>(null);
@@ -98,6 +124,9 @@ export default function AdminGalleryDetailPage() {
   const [uploading, setUploading] = useState(false);
   const [deleteImage, setDeleteImage] = useState<GalleryImage | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [captionImage, setCaptionImage] = useState<GalleryImage | null>(null);
+  const [captionText, setCaptionText] = useState("");
+  const [captionSaving, setCaptionSaving] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -130,6 +159,7 @@ export default function AdminGalleryDetailPage() {
 
     setAlbum(albumRes.data);
     setTitle(albumRes.data.title);
+    setIsPublished(albumRes.data.is_published ?? true);
     setCoverImage(albumRes.data.cover_image || "");
     setInitialCoverImage(albumRes.data.cover_image || null);
     if (imagesRes.error) {
@@ -159,7 +189,11 @@ export default function AdminGalleryDetailPage() {
     const supabase = createClient();
     const { error } = await supabase
       .from("gallery_albums")
-      .update({ title: title.trim(), cover_image: coverImage || null })
+      .update({
+        title: title.trim(),
+        cover_image: coverImage || null,
+        is_published: isPublished,
+      })
       .eq("tenant_id", tenant.id)
       .eq("id", albumId);
 
@@ -173,6 +207,36 @@ export default function AdminGalleryDetailPage() {
       toast.success("Albüm güncellendi.");
     }
     setSaving(false);
+  };
+
+  const openCaptionModal = (image: GalleryImage) => {
+    setCaptionImage(image);
+    setCaptionText(image.caption || "");
+  };
+
+  const handleSaveCaption = async () => {
+    if (!captionImage || !tenant) return;
+    setCaptionSaving(true);
+    const supabase = createClient();
+    const newCaption = captionText.trim() || null;
+    const { error } = await supabase
+      .from("gallery_images")
+      .update({ caption: newCaption })
+      .eq("tenant_id", tenant.id)
+      .eq("id", captionImage.id);
+
+    if (error) {
+      toast.error("Açıklama kaydedilemedi.");
+    } else {
+      setImages((prev) =>
+        prev.map((img) =>
+          img.id === captionImage.id ? { ...img, caption: newCaption } : img
+        )
+      );
+      toast.success("Açıklama kaydedildi.");
+      setCaptionImage(null);
+    }
+    setCaptionSaving(false);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -339,6 +403,14 @@ export default function AdminGalleryDetailPage() {
                 placeholder="Albümün adı"
                 required
               />
+              <Select
+                label="Durum"
+                value={isPublished ? "true" : "false"}
+                onChange={(e) => setIsPublished(e.target.value === "true")}
+              >
+                <option value="true">Yayında</option>
+                <option value="false">Taslak</option>
+              </Select>
               <FormField label="Kapak Görseli">
                 <ImageUploader value={coverImage} onChange={setCoverImage} folder="gallery" maxWidth={1200} maxHeight={675} />
               </FormField>
@@ -376,7 +448,12 @@ export default function AdminGalleryDetailPage() {
                   <SortableContext items={images.map((i) => i.id)} strategy={rectSortingStrategy}>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
                       {images.map((image) => (
-                        <SortableImage key={image.id} image={image} onDelete={setDeleteImage} />
+                        <SortableImage
+                          key={image.id}
+                          image={image}
+                          onDelete={setDeleteImage}
+                          onEditCaption={openCaptionModal}
+                        />
                       ))}
                     </div>
                   </SortableContext>
@@ -404,6 +481,38 @@ export default function AdminGalleryDetailPage() {
         loading={deleting}
         description="Bu fotoğrafı silmek istediğinize emin misiniz?"
       />
+
+      {/* Caption modali — tek input, kayip riski dusuk: closeOnOverlay (Esc de kapatir) */}
+      <Modal
+        isOpen={!!captionImage}
+        onClose={() => setCaptionImage(null)}
+        title="Fotoğraf Açıklaması"
+        closeOnOverlay
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveCaption();
+          }}
+          className="space-y-4"
+        >
+          <Input
+            label="Açıklama"
+            value={captionText}
+            onChange={(e) => setCaptionText(e.target.value)}
+            placeholder="Örn: 8 Mart yürüyüşünden"
+            helperText="Sitede fotoğrafın büyük görünümünde gösterilir. Boş bırakıp kaydedersen açıklama kaldırılır."
+          />
+          <div className="flex items-center justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={() => setCaptionImage(null)}>
+              İptal
+            </Button>
+            <Button type="submit" loading={captionSaving}>
+              Kaydet
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

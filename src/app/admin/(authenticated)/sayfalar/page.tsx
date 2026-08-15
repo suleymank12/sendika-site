@@ -19,6 +19,7 @@ import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 import { Page } from "@/types";
 import toast from "react-hot-toast";
 
@@ -129,6 +130,12 @@ export default function AdminPagesListPage() {
               Yeni Sayfa
             </Button>
           </div>
+
+          <p className="mb-4 rounded-lg bg-bg-light border border-border px-3 py-2 text-xs text-text-muted">
+            Bilgi: URL kısa adı <b>{KURUMSAL_PAGE_SLUGS.join(", ")}</b> olan sayfalar sitedeki
+            Kurumsal menüsünü besler (örn. /kurumsal/hakkimizda). Bu adları değiştirirseniz
+            ilgili kurumsal sayfa boş kalır.
+          </p>
 
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />

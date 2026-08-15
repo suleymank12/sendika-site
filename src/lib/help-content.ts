@@ -250,7 +250,10 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "Albümün üzerine tıkla." },
           { text: "'Fotoğraf Ekle'ye bas." },
           { text: "Birden fazla fotoğraf seçebilirsin." },
-          { text: "İstersen her fotoğrafa açıklama ekle." },
+          {
+            text: "İstersen fotoğrafın üzerine gel, kalem simgesine tıkla ve açıklama ekle.",
+            outcome: "Açıklama sitede fotoğrafın büyük görünümünde gösterilir.",
+          },
         ],
         tips: [
           "Web için optimize edilmiş (max 1920px) fotoğraflar tercih et.",
