@@ -31,7 +31,7 @@ export default async function TuzukPage() {
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-text-dark tracking-tight mb-8">Tüzük</h1>
         {page?.content ? (
-          <SafeHtml html={page.content} className="prose prose-lg max-w-none text-text-dark" />
+          <SafeHtml html={page.content} className="prose max-w-none text-lg text-text-dark" />
         ) : (
           <p className="text-text-muted">Bu sayfa henüz oluşturulmamış. Admin panelden içerik ekleyebilirsiniz.</p>
         )}

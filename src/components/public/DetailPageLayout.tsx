@@ -207,7 +207,7 @@ export default function DetailPageLayout({
           <div>
             {content ? (
               <div
-                className="prose max-w-none break-words text-gray-700 prose-headings:font-semibold prose-headings:text-gray-800 prose-h2:mt-8 prose-h2:mb-3 prose-h3:mt-8 prose-h3:mb-3 prose-p:text-gray-700 prose-p:leading-8 prose-p:mb-5 prose-a:text-primary prose-a:break-words prose-img:my-4 prose-strong:text-gray-800"
+                className="prose max-w-none break-words text-gray-700"
                 style={{
                   fontSize: `${fontSize}px`,
                   lineHeight: "2rem",

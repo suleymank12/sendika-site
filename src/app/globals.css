@@ -134,10 +134,15 @@ body.hydrated #initial-loading-bar {
   @apply bg-transparent p-0;
 }
 
-/* Prose (rich text content on public pages) */
-.prose h1 { @apply text-3xl font-bold mb-4 mt-8; }
-.prose h2 { @apply text-2xl font-bold mb-3 mt-6; }
-.prose h3 { @apply text-xl font-bold mb-2 mt-5; }
+/* Prose (rich text content on public pages)
+   Baslik/strong rengi, DetailPageLayout'taki olu prose-* zincirinden
+   tasinan niyettir (typography plugin BILEREK kurulmadi — bkz. NOTE.md).
+   Zincirdeki diger niyetler tasinMADI: margin/agirlik/link rengi
+   buradaki mevcut kurallarla catisiyordu (mevcut kazanir karari),
+   p rengi ise kullanan sayfanin dis sinifindan miras aliniyor. */
+.prose h1 { @apply text-3xl font-bold mb-4 mt-8 text-text-dark; }
+.prose h2 { @apply text-2xl font-bold mb-3 mt-6 text-text-dark; }
+.prose h3 { @apply text-xl font-bold mb-2 mt-5 text-text-dark; }
 .prose p { @apply mb-4 leading-relaxed; }
 .prose ul { @apply list-disc pl-6 mb-4; }
 .prose ol { @apply list-decimal pl-6 mb-4; }
@@ -146,7 +151,7 @@ body.hydrated #initial-loading-bar {
 .prose img { @apply max-w-full h-auto rounded-lg my-6; }
 .prose a { @apply text-primary-light underline hover:text-primary; }
 .prose hr { @apply my-8 border-border; }
-.prose strong { @apply font-semibold; }
+.prose strong { @apply font-semibold text-text-dark; }
 /* Mobil tasma korumasi (Tur 3/a1): icerik admin'den geliyor — uzun URL,
    genis tablo, kod blogu dar ekranda sayfayi YATAY KAYDIRMAMALI ve
    KIRPILMAMALI. Uzun kelime kirilir; tablo/kod kendi icinde yatay kayar. */

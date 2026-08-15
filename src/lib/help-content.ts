@@ -31,7 +31,7 @@ export interface HelpTopic {
 
 export const helpContent: Record<string, HelpTopic> = {
   dashboard: {
-    title: "Dashboard",
+    title: "Özet",
     intro: "Yönetim panelinin anasayfası. Genel durumu görür, hızlı işlemlere ulaşırsın.",
     sections: [
       {
@@ -88,7 +88,7 @@ export const helpContent: Record<string, HelpTopic> = {
       {
         id: "yonetim",
         title: "Düzenleme & Silme",
-        body: "Listede satıra tıklayıp düzenleyebilir, çöp kutusu ile silebilirsin.",
+        body: "Listede satıra tıklayıp düzenleyebilir, çöp kutusu ile silebilirsin. Kaydetmeden sayfadan ayrılmaya çalışırsan panel seni uyarır — değişiklikler sessizce kaybolmaz.",
         warnings: [
           "Silme işlemi geri alınamaz. Geçici gizleme için 'Taslak Kaydet' kullan.",
           "Manşetteki haberi silersen manşetten de otomatik kalkar.",
@@ -114,6 +114,7 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "Başlık ve özeti yaz." },
           { text: "İçerik kutusuna tam metni yaz." },
           { text: "İstersen kapak görseli yükle." },
+          { text: "Öne çıkarmak istersen 'Manşete Ekle'yi işaretle. Duyuruyu taslağa alırsan manşetten otomatik kalkar, tekrar yayınlayınca geri gelir." },
           { text: "'Yayınla'ya bas.", outcome: "Duyuru hemen siteye yansır." },
         ],
         tips: [
@@ -125,7 +126,7 @@ export const helpContent: Record<string, HelpTopic> = {
   },
 
   slider: {
-    title: "Slider",
+    title: "Anasayfa Slider",
     intro: "Anasayfanın üstünde dönen büyük görsel alan. Öne çıkarmak istediklerin için kullanılır.",
     sections: [
       {
@@ -138,7 +139,7 @@ export const helpContent: Record<string, HelpTopic> = {
         title: "Yeni Slide Ekle",
         steps: [
           { text: "'Yeni Slide Ekle'ye bas." },
-          { text: "Görsel yükle (1920x800 piksel önerilir)." },
+          { text: "Görsel yükle (yatay/geniş format önerilir; sistem görseli otomatik optimize eder)." },
           { text: "Başlık ve alt başlık ekle (isteğe bağlı).", outcome: "Görselin üstünde yazı olarak gösterilir." },
           { text: "Bağlantı (URL) gir.", outcome: "Slide'a tıklayan kullanıcı bu adrese yönlenir." },
           { text: "'Aktif' işaretli kaydet." },
@@ -152,7 +153,7 @@ export const helpContent: Record<string, HelpTopic> = {
   },
 
   manset: {
-    title: "Manşet",
+    title: "Manşetler",
     intro: "Anasayfanın öne çıkan haber/duyuru bölümü. 'Günün haberi' niteliğindeki içerikleri vurgular.",
     sections: [
       {
@@ -161,9 +162,11 @@ export const helpContent: Record<string, HelpTopic> = {
         steps: [
           { text: "'Yeni Manşet Ekle'ye bas." },
           { text: "Kaynak türü seç.", outcome: "Haber: mevcut bir habere bağlanır. Duyuru: mevcut duyuruya bağlanır. Özel: kendi başlık ve görselini yazarsın." },
+          { text: "Haber veya Duyuru türünü seçtiysen listeden içeriği de seç — seçmeden kayıt yapılmaz." },
           { text: "Görsel, başlık, alt başlığı doldur." },
           { text: "'Aktif' olarak kaydet." },
         ],
+        warnings: ["En fazla 10 manşet eklenebilir."],
         tips: [
           "Bir haberi manşet yapmanın en kolay yolu: haber düzenleme sayfasında 'Manşete Ekle' kutusunu işaretlemek.",
         ],
@@ -177,7 +180,7 @@ export const helpContent: Record<string, HelpTopic> = {
   },
 
   menu: {
-    title: "Menü",
+    title: "Site Menüsü",
     intro: "Sitenin üstünde görünen ana menüyü düzenlersin.",
     sections: [
       {
@@ -200,14 +203,14 @@ export const helpContent: Record<string, HelpTopic> = {
           "Üst menüde 5-7 öğe ideal, fazlası ziyaretçinin kafasını karıştırır.",
         ],
         tips: [
-          "URL'i '#' yaparsan sadece dropdown açıcı olur, kendisi tıklanamaz.",
+          "Alt menüsü olan öğede URL gerekmez — üst öğe tıklanınca yalnızca menüyü açar.",
         ],
       },
     ],
   },
 
   sayfalar: {
-    title: "Sayfalar",
+    title: "Sabit Sayfalar",
     intro: "Hakkımızda, Tüzük, Misyon Vizyon gibi statik içerikli sayfalar oluşturursun.",
     sections: [
       {
@@ -217,8 +220,11 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "'Yeni Sayfa'ya tıkla." },
           { text: "Başlık yaz.", outcome: "URL otomatik oluşur, sayfa /sayfa/baslik adresinden erişilebilir." },
           { text: "İçerik editöründen tam metni yaz." },
-          { text: "'Yayında' olarak kaydet." },
-          { text: "Menüye eklemek istersen 'Menü Yönetimi'nden URL olarak '/sayfa/...' yaz." },
+          { text: "'Yayınla'ya bas." },
+          { text: "Menüye eklemek istersen 'Site Menüsü'nden URL olarak '/sayfa/...' yaz." },
+        ],
+        warnings: [
+          "Kısa adı 'hakkimizda', 'tuzuk' veya 'misyon-vizyon' olan sayfalar sitedeki Kurumsal menüsünü besler (/kurumsal/hakkimizda gibi). Bu kısa adları değiştirirsen ilgili kurumsal sayfa boş kalır.",
         ],
       },
       {
@@ -230,7 +236,7 @@ export const helpContent: Record<string, HelpTopic> = {
   },
 
   galeri: {
-    title: "Galeri",
+    title: "Foto Galeri",
     intro: "Fotoğrafları etkinliklere göre albümler halinde organize edersin.",
     sections: [
       {
@@ -256,7 +262,8 @@ export const helpContent: Record<string, HelpTopic> = {
           },
         ],
         tips: [
-          "Web için optimize edilmiş (max 1920px) fotoğraflar tercih et.",
+          "Sistem fotoğrafları web için otomatik optimize eder; 50MB'tan büyük dosyalar yüklenmez.",
+          "Albüm detayındaki 'Durum'u Taslak yaparsan albüm silinmeden sitede gizlenir.",
           "Albümleri sürükle-bırak ile sıralayabilirsin.",
         ],
       },
@@ -299,6 +306,7 @@ export const helpContent: Record<string, HelpTopic> = {
         ],
         tips: [
           "Telefonu +90 ülke koduyla yaz, kullanıcı tek tıkla arayabilsin.",
+          "Kapanan şubeyi silmek yerine 'Pasif' yap — bilgiler saklanır, sitede görünmez.",
           "Sürükle-bırak ile sıralayabilirsin.",
         ],
       },
@@ -378,7 +386,7 @@ export const helpContent: Record<string, HelpTopic> = {
         title: "Sosyal Medya",
         body: "Sendikanın kullandığı sosyal medya hesaplarının tam URL'lerini gir. 11 farklı platform için alan var: Facebook, Twitter (X), Instagram, YouTube, LinkedIn, WhatsApp Kanalı, Telegram, TikTok, Threads, Bluesky, Spotify. Boş bıraktığın platformların ikonu footer'da görünmez — yalnızca kullandıklarını doldur.",
         tips: [
-          "Tam URL yaz: https://facebook.com/sendika gibi, sadece kullanıcı adı değil.",
+          "Hesabın tam adresini yapıştır (facebook.com/sendika gibi) — başındaki https:// eksikse sistem otomatik ekler. Yalnız kullanıcı adı yeterli değil.",
           "Hangi platformları kullanmıyorsan boş bırak; sitede sadece doldurduğun ikonlar görünecek.",
           "WhatsApp için kanal linkini kullan (https://whatsapp.com/channel/...), kişisel telefon numarası değil.",
         ],
@@ -395,7 +403,7 @@ export const helpContent: Record<string, HelpTopic> = {
       {
         id: "kaydet",
         title: "Kaydetme",
-        body: "Sayfanın altındaki 'Kaydet'e basmadan değişiklikler uygulanmaz. Birkaç saniye sonra siteye yansır.",
+        body: "Sayfanın altındaki 'Kaydet'e basmadan değişiklikler uygulanmaz. Birkaç saniye sonra siteye yansır. Kaydetmeden sayfadan ayrılmaya çalışırsan panel seni uyarır.",
       },
     ],
   },

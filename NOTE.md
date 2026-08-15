@@ -665,7 +665,12 @@ buradan tamamlanabilir.
 
 ---
 
-# 📋 BACKLOG — prose-* sınıfları no-op (Tailwind typography plugin yok)
+# ✅ KAPATILDI (15 Ağustos 2026) — prose-* sınıfları no-op (Tailwind typography plugin yok)
+
+**Kapanış:** Başlık/strong rengi niyeti `globals.css .prose`'a taşındı
+(text-text-dark); çakışan niyetler (margin/ağırlık/link rengi/p rengi)
+"mevcut kazanır" kuralıyla bilerek taşınmadı. `prose-lg` → `text-lg`.
+Ölü sınıf listeleri temizlendi. Plugin kurulmadı (karar geçerli).
 
 **Nereden çıktı:** Tur 3 UX denetimi / a1 (29 Temmuz 2026). Karar Süleyman
 onayıyla verildi (29 Temmuz 2026).
