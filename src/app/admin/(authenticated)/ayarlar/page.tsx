@@ -20,7 +20,7 @@ import {
   PanelBottom,
   Link2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, isValidEmail, normalizeExternalUrl } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 interface Settings {
@@ -47,6 +47,21 @@ interface Settings {
   navbar_color: string;
   layout_type: string;
 }
+
+// Kaydetme yolunda sessizce normalize edilen sosyal baglanti alanlari
+const SOCIAL_URL_KEYS = [
+  "facebook_url",
+  "twitter_url",
+  "instagram_url",
+  "youtube_url",
+  "linkedin_url",
+  "whatsapp_url",
+  "telegram_url",
+  "tiktok_url",
+  "threads_url",
+  "bluesky_url",
+  "spotify_url",
+] as const;
 
 const defaultSettings: Settings = {
   logo_url: "",
@@ -183,10 +198,24 @@ export default function AdminSettingsPage() {
       toast.error("Tenant bilgisi yüklenemedi.");
       return;
     }
+    if (settings.contact_email.trim() && !isValidEmail(settings.contact_email)) {
+      toast.error("Geçerli bir e-posta adresi girin.");
+      return;
+    }
+
+    // Sosyal baglantilar SESSIZCE normalize edilir ("facebook.com/x" →
+    // "https://facebook.com/x"); kaydedilen, ekranda kalan ve snapshot'a
+    // giren deger normalize halidir.
+    const normalized = { ...settings };
+    for (const key of SOCIAL_URL_KEYS) {
+      normalized[key] = normalizeExternalUrl(normalized[key]);
+    }
+    setSettings(normalized);
+
     setSaving(true);
     const supabase = createClient();
 
-    const updates = Object.entries(settings).map(([key, value]) =>
+    const updates = Object.entries(normalized).map(([key, value]) =>
       supabase
         .from("site_settings")
         .upsert(
@@ -203,17 +232,17 @@ export default function AdminSettingsPage() {
     } else {
       // Replace orphan temizligi: degisen logo/favicon eski dosyalari (best-effort).
       // Sayfa acik kaldigi icin snapshot'lar sonraki kayit icin yenilenir.
-      await cleanupReplacedFile(supabase, initialLogoUrl, settings.logo_url || null);
+      await cleanupReplacedFile(supabase, initialLogoUrl, normalized.logo_url || null);
       await cleanupReplacedFile(
         supabase,
         initialFaviconUrl,
-        settings.favicon_url || null
+        normalized.favicon_url || null
       );
-      setInitialLogoUrl(settings.logo_url || null);
-      setInitialFaviconUrl(settings.favicon_url || null);
+      setInitialLogoUrl(normalized.logo_url || null);
+      setInitialFaviconUrl(normalized.favicon_url || null);
       // Kayit basarili: mevcut degerler yeni taban — form artik temiz
       // (sayfada kaliniyor, redirect yok; sonraki cikis onay SORMAMALI).
-      setSettingsSnapshot(JSON.stringify(settings));
+      setSettingsSnapshot(JSON.stringify(normalized));
       toast.success("Ayarlar kaydedildi.");
     }
     setSaving(false);

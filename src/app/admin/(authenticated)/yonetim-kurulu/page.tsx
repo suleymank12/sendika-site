@@ -22,7 +22,7 @@ import FormField from "@/components/admin/FormField";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import { Plus, Edit, Trash2, GripVertical, Users } from "lucide-react";
 import { BoardMember } from "@/types";
-import { createSlug, cn } from "@/lib/utils";
+import { createSlug, cn, isValidEmail } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
   DndContext,
@@ -193,6 +193,10 @@ export default function AdminBoardMembersPage() {
     }
     if (!tenant) {
       toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
+    if (form.email.trim() && !isValidEmail(form.email)) {
+      toast.error("Geçerli bir e-posta adresi girin.");
       return;
     }
 

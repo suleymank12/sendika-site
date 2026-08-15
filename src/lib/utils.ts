@@ -188,6 +188,33 @@ export function normalizeMapEmbedInput(raw: string | null | undefined): string |
 }
 
 /**
+ * Gevsek e-posta bicim kontrolu (admin formlari). Bos degeri cagiran
+ * ele alir; burasi yalnizca dolu degerin kabaca adres olup olmadigina
+ * bakar. Kati RFC dogrulamasi BILEREK yok — gecerli adresi reddetmek,
+ * bicimsiz adresi kabul etmekten pahali.
+ */
+export function isValidEmail(value: string): boolean {
+  return /^\S+@\S+\.\S+$/.test(value.trim());
+}
+
+/**
+ * Pratik URL normalizasyonu (admin girdileri): kullanici "www.ornek.com"
+ * yazabilsin. http(s), site ici path/anchor ve mailto/tel oldugu gibi
+ * gecer; geri kalan her sey https:// onekiyle mutlak URL'ye cevrilir (bu
+ * ayni zamanda javascript: gibi semalari da etkisizlestirir). Bos girdi
+ * "" doner. Kullanim: RichTextEditor link modali + admin link/sosyal
+ * medya alanlarinin KAYDETME yolu (sessiz duzeltme, hata mesaji yok).
+ */
+export function normalizeExternalUrl(raw: string): string {
+  const url = raw.trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url) || /^[/#]/.test(url) || /^(mailto|tel):/i.test(url)) {
+    return url;
+  }
+  return `https://${url}`;
+}
+
+/**
  * Tenant'in admin paneline cross-subdomain URL insa eder.
  * Development: subdomain.lvh.me:3000/admin
  * Production: custom_domain varsa onu, yoksa subdomain.{apex}/admin

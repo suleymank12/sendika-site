@@ -15,6 +15,7 @@ import {
   cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { normalizeExternalUrl } from "@/lib/utils";
 import AdminHeader from "@/components/admin/AdminHeader";
 import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
@@ -183,6 +184,12 @@ export default function AdminHeadlinePage() {
       toast.error("Başlık zorunludur.");
       return;
     }
+    // Yildizli "Haber/Duyuru Sec" alaninin gercek karsiligi: kaynaksiz
+    // haber/duyuru manseti public'te tiklanamayan slayt uretirdi.
+    if (form.source_type !== "custom" && !form.source_id) {
+      toast.error("Lütfen bir haber/duyuru seçin.");
+      return;
+    }
     if (!tenant) {
       toast.error("Tenant bilgisi yüklenemedi.");
       return;
@@ -195,7 +202,7 @@ export default function AdminHeadlinePage() {
       title: form.title.trim(),
       subtitle: form.subtitle.trim() || null,
       image_url: form.image_url || null,
-      link_url: form.link_url.trim() || null,
+      link_url: normalizeExternalUrl(form.link_url) || null,
       source_type: form.source_type,
       source_id: form.source_id || null,
       content: form.source_type === "custom" ? form.content || null : null,

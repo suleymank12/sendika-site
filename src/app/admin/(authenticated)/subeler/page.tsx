@@ -19,7 +19,7 @@ import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, Building2, GripVertical, Edit, Trash2, Phone, Mail, MapPin, Info, User } from "lucide-react";
 import { Branch, BoardMember } from "@/types";
-import { createSlug, normalizeMapEmbedInput } from "@/lib/utils";
+import { createSlug, normalizeMapEmbedInput, isValidEmail } from "@/lib/utils";
 import ImageUploader from "@/components/admin/ImageUploader";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import FormField from "@/components/admin/FormField";
@@ -249,6 +249,18 @@ export default function AdminBranchesPage() {
     }
     if (!tenant) {
       toast.error("Tenant bilgisi yüklenemedi.");
+      return;
+    }
+    if (form.email.trim() && !isValidEmail(form.email)) {
+      toast.error("Geçerli bir şube e-posta adresi girin.");
+      return;
+    }
+    if (
+      managerMode === "manual" &&
+      form.manager_email.trim() &&
+      !isValidEmail(form.manager_email)
+    ) {
+      toast.error("Geçerli bir yönetici e-posta adresi girin.");
       return;
     }
 

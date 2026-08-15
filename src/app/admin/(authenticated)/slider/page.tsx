@@ -39,7 +39,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { cn } from "@/lib/utils";
+import { cn, normalizeExternalUrl } from "@/lib/utils";
 
 interface SliderFormData {
   id?: string;
@@ -207,7 +207,7 @@ export default function AdminSliderPage() {
       title: form.title.trim() || null,
       subtitle: form.subtitle.trim() || null,
       image_url: form.image_url,
-      link_url: form.link_url.trim() || null,
+      link_url: normalizeExternalUrl(form.link_url) || null,
       is_active: form.is_active,
     };
 

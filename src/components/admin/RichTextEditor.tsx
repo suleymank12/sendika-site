@@ -21,7 +21,7 @@ import {
   Redo,
   Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, normalizeExternalUrl } from "@/lib/utils";
 import { useCallback, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
@@ -68,21 +68,6 @@ function ToolbarButton({
   );
 }
 
-/**
- * Pratik URL normalizasyonu: admin "www.ornek.com" yazabilsin.
- * http(s), site ici path/anchor ve mailto/tel oldugu gibi gecer;
- * geri kalan her sey https:// onekiyle mutlak URL'ye cevrilir (bu ayni
- * zamanda javascript: gibi semalari da etkisizlestirir).
- */
-function normalizeLinkUrl(raw: string): string {
-  const url = raw.trim();
-  if (!url) return "";
-  if (/^https?:\/\//i.test(url) || /^[/#]/.test(url) || /^(mailto|tel):/i.test(url)) {
-    return url;
-  }
-  return `https://${url}`;
-}
-
 export default function RichTextEditor({ content, onChange }: RichTextEditorProps) {
   const { tenant } = useTenant();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,7 +101,7 @@ export default function RichTextEditor({ content, onChange }: RichTextEditorProp
 
   const applyLink = useCallback(() => {
     if (!editor) return;
-    const url = normalizeLinkUrl(linkUrl);
+    const url = normalizeExternalUrl(linkUrl);
     if (!url) return;
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
     setLinkModalOpen(false);

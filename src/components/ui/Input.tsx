@@ -10,17 +10,19 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, helperText, id, ...props }, ref) => {
+  ({ className, label, error, helperText, id, required, ...props }, ref) => {
     return (
       <div className="w-full">
         {label && (
           <label htmlFor={id} className="block text-sm font-medium text-text-dark mb-1">
             {label}
+            {required && <span className="text-error ml-0.5">*</span>}
           </label>
         )}
         <input
           ref={ref}
           id={id}
+          required={required}
           className={cn(
             "w-full rounded-lg border px-3 py-2 text-sm text-text-dark placeholder:text-text-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors",
             error ? "border-error" : "border-border",

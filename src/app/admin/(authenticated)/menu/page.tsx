@@ -16,7 +16,7 @@ import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import { Plus, GripVertical, Edit, Trash2, Menu as MenuIcon, FileText, FilePlus } from "lucide-react";
 import { MenuItem } from "@/types";
-import { createSlug } from "@/lib/utils";
+import { createSlug, normalizeExternalUrl } from "@/lib/utils";
 import toast from "react-hot-toast";
 import {
   DndContext,
@@ -318,7 +318,7 @@ export default function AdminMenuPage() {
     const supabase = createClient();
     const payload: Record<string, unknown> = {
       title: form.title.trim(),
-      url: form.url.trim() || null,
+      url: normalizeExternalUrl(form.url) || null,
       parent_id: form.parent_id || null,
       is_active: form.is_active,
     };

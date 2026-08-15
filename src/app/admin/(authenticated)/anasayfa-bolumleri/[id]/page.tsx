@@ -48,7 +48,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { cn } from "@/lib/utils";
+import { cn, normalizeExternalUrl } from "@/lib/utils";
 
 interface ItemFormData {
   id?: string;
@@ -247,7 +247,7 @@ export default function AdminSectionItemsPage() {
       title: form.title.trim(),
       description: form.description.trim() || null,
       image_url: form.image_url.trim() || null,
-      link_url: form.link_url.trim() || null,
+      link_url: normalizeExternalUrl(form.link_url) || null,
       icon: form.icon.trim() || null,
       order: form.order,
       is_active: form.is_active,
