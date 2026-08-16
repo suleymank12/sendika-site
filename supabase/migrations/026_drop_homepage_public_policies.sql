@@ -1,0 +1,155 @@
+-- ============================================================================
+-- Migration 026: homepage_sections + homepage_section_items public SELECT
+--                policy'leri DROP (Tur 2 / b5 backlog kaydi)
+-- ============================================================================
+--
+-- BULGU (Migration 025 hazirlanirken, 29 Temmuz 2026 — Tur 2 / b5):
+--   homepage_sections + homepage_section_items public SELECT policy'leri
+--   tenant-agnostik: USING (is_active = true) — tenant filtresi YOK.
+--   Anon anahtar (JS bundle'inda, gizli degil) ile REST uzerinden TUM
+--   kuruluslarin anasayfa bolumleri TEK istekte okunabiliyordu:
+--
+--     curl 'https://<proje>.supabase.co/rest/v1/homepage_sections?select=*' \
+--          -H "apikey: <anon key>"
+--
+--   Risk: PII YOK (baslik, aciklama, gorsel/link URL'i) -> KVKK riski degil;
+--   cross-tenant YAPI sizintisi (bir kurulusun anasayfa kurgusu / kampanya
+--   linkleri disaridan toplanabilir). Y1'deki board_members/branches
+--   deseninin aynisi, dusuk oncelikli hali.
+--
+-- COZUM (iki adimli — SIRA KRITIK, 024 ile ayni desen):
+--   1. KOD (bu migration'dan ONCE deploy edilmis olmali):
+--      homepage_* okuyan 2 public sayfa ((public)/page.tsx'teki 2 sorgu +
+--      (public)/bolum/[id]/page.tsx'in tamami) anon server client'tan
+--      service-role client'a (createAdminClient) tasindi; tenant izolasyonu
+--      ve aktiflik manuel .eq("tenant_id") + .eq("is_active", true)
+--      filtreleriyle saglaniyor (5 sorgunun 5'inde de mevcut, dogrulandi).
+--   2. DB (bu dosya): anon'un dogrudan REST erisimini saglayan public
+--      SELECT policy'leri DROP edilir. Public sayfalar service-role ile
+--      cektigi icin ETKILENMEZ.
+--
+-- ⚠️ APPLY SIRASI: Bu migration, kod degisikligi (homepage_* client swap)
+--   deploy edildikten SONRA calistirilmali. Once calistirilirsa public
+--   anasayfa bolumleri bos doner, /bolum/[id] 404 olur (anon SELECT kalkar
+--   ama kod hala anon client kullaniyor olur).
+--
+-- ⚠️⚠️ 025 BU DOSYADAN SONRA TEKRAR CALISTIRILMAMALI: 025 idempotent yapisi
+--   geregi her kosumda homepage_sections_public_read +
+--   homepage_section_items_public_read policy'lerini YENIDEN YARATIR —
+--   yani 026'dan sonra kosarsa bu dosyanin kapattigi sizintiyi GERI ACAR.
+--   Sifirdan kurulumda sira her zaman: ... -> 025 -> 026 (025'in "erken
+--   kosum" adimi dahil — 025'in SON kosumu 026'dan once olmali). Ayrica bu
+--   dosya tablolarin varligini varsayar (025 yaratir); 025'siz bir DB'de
+--   calistirilirsa "relation does not exist" hatasi verir.
+--
+-- DROP EDILEN 4 ISIM: Canli DB'de policy'ler 025 apply edilmisse repo
+--   standardi isimlerle (homepage_*_public_read), edilmemisse Dashboard'da
+--   elle verilen eski isimlerle ("Public read active ...") durur. Bu dosya
+--   iki ihtimali de kapsasin diye DORT ismi de IF EXISTS ile drop eder —
+--   025'in apply durumundan bagimsiz calisir.
+--
+-- KORUNANLAR: tenant_homepage_sections_all + tenant_homepage_section_items_all
+--   (025:172-182, FOR ALL TO authenticated, user_has_tenant_access) AYNEN
+--   kalir — admin panel "Anasayfa Bolumleri" calismaya devam eder.
+--
+-- ETKI: Idempotent (DROP POLICY IF EXISTS). Ikinci kez calistirilirsa
+--   hata vermez.
+-- ============================================================================
+
+BEGIN;
+
+-- ============================================================================
+-- 1) homepage_sections — anon dogrudan REST erisimi kapatilir
+-- ============================================================================
+-- Eski tanimlar:
+--   Dashboard (elle):  CREATE POLICY "Public read active sections"
+--     ON homepage_sections FOR SELECT USING (is_active = true);
+--   025:144-146:       CREATE POLICY "homepage_sections_public_read"
+--     ON homepage_sections FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public read active sections" ON public.homepage_sections;
+DROP POLICY IF EXISTS "homepage_sections_public_read" ON public.homepage_sections;
+
+-- ============================================================================
+-- 2) homepage_section_items — anon dogrudan REST erisimi kapatilir
+-- ============================================================================
+-- Eski tanimlar:
+--   Dashboard (elle):  CREATE POLICY "Public read active section items"
+--     ON homepage_section_items FOR SELECT USING (is_active = true);
+--   025:150-152:       CREATE POLICY "homepage_section_items_public_read"
+--     ON homepage_section_items FOR SELECT USING (is_active = true);
+
+DROP POLICY IF EXISTS "Public read active section items" ON public.homepage_section_items;
+DROP POLICY IF EXISTS "homepage_section_items_public_read" ON public.homepage_section_items;
+
+-- ============================================================================
+-- 3) KORUNANLAR — bu migration bunlara DOKUNMAZ
+-- ============================================================================
+-- Authenticated tenant policy'leri AYNEN yerinde kalir:
+--   - tenant_homepage_sections_all       (025:172-176)
+--   - tenant_homepage_section_items_all  (025:178-182)
+-- Ikisi de: FOR ALL TO authenticated
+--           USING/WITH CHECK (user_has_tenant_access(tenant_id))
+-- -> Tenant admini kendi bolumlerini admin panelde gormeye/yonetmeye
+--    devam eder; super admin user_has_tenant_access shortcut'i ile bypass.
+--
+-- RLS zaten aktif (025'te ENABLE edildi) ve policy'siz rol icin RLS
+-- "hicbir satir" demektir -> anon icin SELECT artik BOS doner.
+-- Service role RLS'i tamamen bypass eder -> public sayfalar calisir.
+
+COMMIT;
+
+-- ============================================================================
+-- APPLY SONRASI DOGRULAMA — ayri ayri calistirin
+-- ============================================================================
+--
+-- (a) Public policy'ler gitti mi, tenant policy'ler duruyor mu?
+--     Her tablo icin SADECE tenant_*_all (ALL, {authenticated}) beklenir:
+--
+--     SELECT tablename, policyname, cmd, roles
+--     FROM pg_policies
+--     WHERE tablename IN ('homepage_sections', 'homepage_section_items')
+--     ORDER BY tablename, policyname;
+--
+--     BEKLENEN: 2 satir (tenant_homepage_sections_all,
+--     tenant_homepage_section_items_all). "*public_read" veya
+--     "Public read active ..." satiri GORUNMEMELI.
+--
+-- (b) MANTIK TESTI — anon artik hicbir satir goremez:
+--     (Islem sonunda ROLLBACK — hicbir veri degismez.)
+--
+--     BEGIN;
+--       SET LOCAL ROLE anon;
+--       SELECT count(*) FROM public.homepage_sections;       -- BEKLENEN: 0
+--       SELECT count(*) FROM public.homepage_section_items;  -- BEKLENEN: 0
+--     ROLLBACK;
+--
+-- (c) REST TESTI (cross-tenant sizinti kapandi kaniti) — terminalden:
+--
+--     curl 'https://<proje>.supabase.co/rest/v1/homepage_sections?select=*' \
+--          -H "apikey: <anon key>" -H "Authorization: Bearer <anon key>"
+--     -- BEKLENEN: []  (bos dizi)
+--
+--     curl 'https://<proje>.supabase.co/rest/v1/homepage_section_items?select=*' \
+--          -H "apikey: <anon key>" -H "Authorization: Bearer <anon key>"
+--     -- BEKLENEN: []  (bos dizi)
+--
+-- (d) PUBLIC SITE REGRESYON TESTI (tarayici, incognito):
+--     - Anasayfa            -> bolumler (custom/news/announcements) geliyor mu
+--     - /bolum/<id>         -> custom bolum detayi + ogeleri geliyor mu
+--     - Bir bolumu pasif isaretle -> public'te GORUNMEMELI (is_active testi)
+--     Admin panelde (giris yapmis): "Anasayfa Bolumleri" listesi, bolum
+--     ekleme/duzenleme/silme ve oge yonetimi HALA CALISIYOR OLMALI
+--     (tenant policy uzerinden).
+--
+-- ============================================================================
+-- ROLLBACK (gerekirse — eski davranisa doner, yapi sizintisi TEKRAR ACILIR)
+-- ============================================================================
+--   CREATE POLICY "homepage_sections_public_read" ON public.homepage_sections
+--     FOR SELECT USING (is_active = true);
+--
+--   CREATE POLICY "homepage_section_items_public_read" ON public.homepage_section_items
+--     FOR SELECT USING (is_active = true);
+-- ============================================================================
+-- Migration 026 sonu
+-- ============================================================================

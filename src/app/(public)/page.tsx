@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
 import Layout1Homepage from "@/components/public/Layout1Homepage";
@@ -22,6 +23,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HomePage() {
   const supabase = createClient();
+  // YALNIZCA homepage_* sorgulari icin (RLS bypass) — public SELECT
+  // policy'leri 026 ile DROP edildi; tenant izolasyonu ve aktiflik manuel
+  // .eq("tenant_id") / .eq("is_active", true) filtreleriyle saglaniyor.
+  // DIKKAT: diger sorgulari bu client'a TASIMAYIN — ornegin asagidaki
+  // manset slug lookup'larinda (news/announcements) is_published filtresi
+  // YOK, onu RLS uyguluyor; service-role'e tasinirlarsa yayinlanmamis
+  // icerige link uretirler (Y1 Parca B'deki sessiz regresyonun esi).
+  const adminSupabase = createAdminClient();
   const tenant = await getCurrentTenant();
 
   // Liste sorgularinda content (rich text, buyuk) BILEREK cekilmiyor.
@@ -77,7 +86,7 @@ export default async function HomePage() {
     // layout ile ayni istek-ici sorguyu paylasir (eskiden burada ayri bir
     // layout_type sorgusu vardi).
     getSiteSettings(tenant.id),
-    supabase
+    adminSupabase
       .from("homepage_sections")
       .select("*")
       .eq("tenant_id", tenant.id)
@@ -147,7 +156,7 @@ export default async function HomePage() {
 
   const [customItemsRes, extraNewsRes, extraAnnRes] = await Promise.all([
     customSectionIds.length > 0
-      ? supabase
+      ? adminSupabase
           .from("homepage_section_items")
           .select("*")
           .eq("tenant_id", tenant.id)

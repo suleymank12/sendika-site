@@ -204,9 +204,13 @@ Rollback: 024 dosya sonundaki ROLLBACK bloğu (sızıntıyı geri açar).
 
 # 🟠 MIGRATION 025 — homepage_sections drift'i kapatıldı (29 Temmuz 2026)
 
-**Durum:** Migration hazır, **SQL elle apply edilmeli.** Mevcut canlı DB'de
-veri kaybı/davranış değişikliği YOK; asıl amacı **sıfırdan kurulan DB'lerin**
-(yeni müşteri projesi) çalışması.
+**Durum:** ✅ **Canlıda apply edildi ve doğrulandı (16 Ağustos 2026).**
+⚠️ **026 apply edildikten sonra bu dosyayı canlıda TEKRAR ÇALIŞTIRMAYIN** —
+`homepage_*_public_read` policy'lerini yeniden yaratır, 026'nın kapattığı
+sızıntı geri açılır (aşağıdaki homepage_sections KAPATILDI bölümüne bakın;
+sıfırdan kurulumda sıra: 025 → 026). Mevcut canlı DB'de veri kaybı/davranış
+değişikliği YOK; asıl amacı **sıfırdan kurulan DB'lerin** (yeni müşteri
+projesi) çalışması.
 
 ## Sorun neydi? (Tur 2 performans denetimi, bulgu b5)
 
@@ -699,7 +703,7 @@ kuralları) bu karardan bağımsız çalışıyor — temizlik onlara dokunmayac
 
 ---
 
-# 📋 BACKLOG — homepage_sections public policy'leri tenant-agnostik
+# ✅ KAPATILDI (16 Ağustos 2026) — homepage_sections public policy'leri tenant-agnostik
 
 **Nereden çıktı:** Migration 025 hazırlanırken (29 Temmuz 2026, Tur 2 / b5).
 
@@ -727,6 +731,62 @@ davranışı birebir korur, erişimi ne genişletir ne daraltır.
    policy'lerini DROP eden migration (025'teki isimlerle). Sıra Y1 Parça
    B'deki gibi KRİTİK: önce kod deploy, sonra policy DROP — ters sıra
    public anasayfa bölümlerini boşaltır.
+
+## ✅ Kapanış (16 Ağustos 2026)
+
+**Durum:** Kod değişikliği tamamlandı, migration 026 hazır.
+**SQL elle apply edilmeli — AMA kod deploy edildikten SONRA.**
+
+Teşhiste public tarafta **5 sorgu** bulundu (yukarıdaki "4 sorgu" sayımı
+`bolum/[id]`'deki `generateMetadata` sorgusunu atlamış); 5'inde de
+`.eq("tenant_id")` + `.eq("is_active", true)` mevcut doğrulandı — homepage_*
+sorgularının kendisinde eksik filtre regresyonu YOK.
+
+Yapılanlar:
+
+- **`(public)/bolum/[id]/page.tsx`** — sayfanın tamamı `createAdminClient`'a
+  geçti (Y1 Parça B deseni, `yonetim-kurulu/[slug]` emsali). Sayfa yalnızca
+  homepage_* sorguluyor, başka tablo etkilenmedi.
+- **`(public)/page.tsx`** — YALNIZCA 2 homepage_* sorgusu ayrı
+  `adminSupabase` client'ına taşındı; diğer ~8 sorgu anon client'ta kaldı.
+  BİLEREK: manşet slug lookup'larında (`news`/`announcements`,
+  `.in("id", ...)`) `.eq("is_published", true)` YOK — o filtreyi RLS
+  uyguluyor. Service-role'e taşınsalardı yayınlanmamış içeriğe link
+  üretirlerdi (Y1 Parça B'deki sessiz regresyonun eşi). Dosyada uyarı
+  yorumu var: diğer sorgular admin client'a TAŞINMAMALI.
+- **`supabase/migrations/026_drop_homepage_public_policies.sql`** — dört
+  public policy ismini de `DROP POLICY IF EXISTS` ile düşürür (2 eski
+  Dashboard ismi + 2 025 ismi → 025'in apply durumundan bağımsız çalışır;
+  canlıda 025 apply edildiği için fiilen 025 isimleri düşer). İdempotent.
+  `tenant_homepage_sections_all` + `tenant_homepage_section_items_all`
+  (admin panel) KORUNUR.
+
+## ⚠️ APPLY SIRASI (bozulursa public anasayfa bölümleri boşalır)
+
+1. **ÖNCE** kod değişikliği commit + deploy (admin client'a geçmiş olmalı).
+2. **SONRA** `026_drop_homepage_public_policies.sql` (Supabase SQL Editor).
+
+Ters sıra: policy DROP'lanır ama kod hâlâ anon client kullanır → public
+anasayfa bölümleri boş döner, `/bolum/[id]` 404 olur. (Lokalde ikisi aynı
+anda test edilebilir; production'da sıra önemli.)
+
+⚠️ **025'i 026'dan SONRA canlıda TEKRAR ÇALIŞTIRMAYIN** — 025 idempotent
+yapısı gereği her koşumda `homepage_*_public_read` policy'lerini yeniden
+yaratır; 026'dan sonra koşarsa kapatılan sızıntı GERİ AÇILIR. Sıfırdan
+kurulumda sıra her zaman 025 → 026 (025'in "erken koşum" adımı dahil —
+025'in SON koşumu 026'dan önce olmalı).
+
+## Test
+
+Kod sonrası (policy DROP'tan önce de çalışır):
+- incognito → anasayfa bölümleri + `/bolum/<id>` geliyor mu
+- Bir bölümü pasif işaretle → public'te GÖRÜNMEMELİ (regresyon testi)
+
+Policy DROP sonrası: 026 dosya sonundaki (a)–(d) doğrulamaları. Özellikle
+(c) curl testi: anon key ile `homepage_sections`/`homepage_section_items`
+sorgusu **[]** dönmeli (cross-tenant sızıntının kapandığının kanıtı).
+
+Rollback: 026 dosya sonundaki ROLLBACK bloğu (sızıntıyı geri açar).
 
 ---
 

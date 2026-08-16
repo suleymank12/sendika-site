@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -24,8 +24,11 @@ function getLucideIcon(name: string | null | undefined) {
   return icons[name] || null;
 }
 
+// createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
+// manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
+// (homepage_* public SELECT policy'leri 026 ile DROP edildi.)
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
   const { data } = await supabase
     .from("homepage_sections")
@@ -46,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SectionPage({ params }: Props) {
-  const supabase = createClient();
+  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
 
   const { data: sectionData } = await supabase
