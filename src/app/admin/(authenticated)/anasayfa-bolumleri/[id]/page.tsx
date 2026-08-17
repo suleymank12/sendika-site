@@ -345,7 +345,7 @@ export default function AdminSectionItemsPage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Bölüm Öğeleri" breadcrumbs={breadcrumbs} />
+        <AdminHeader title="Bölüm Öğeleri" breadcrumbs={breadcrumbs} helpTopic="anasayfa-bolumleri" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -356,7 +356,7 @@ export default function AdminSectionItemsPage() {
   if (section && section.source !== "custom") {
     return (
       <>
-        <AdminHeader title={section.title} breadcrumbs={breadcrumbs} />
+        <AdminHeader title={section.title} breadcrumbs={breadcrumbs} helpTopic="anasayfa-bolumleri" />
         <div className="p-4 lg:p-6 max-w-3xl">
           <div className="rounded-xl bg-white border border-border p-6 text-center">
             <p className="text-text-muted">
@@ -374,6 +374,7 @@ export default function AdminSectionItemsPage() {
       <AdminHeader
         title={section ? `${section.title} — Öğeler` : "Bölüm Öğeleri"}
         breadcrumbs={breadcrumbs}
+        helpTopic="anasayfa-bolumleri"
       />
       <div className="p-4 lg:p-6 max-w-4xl">
 

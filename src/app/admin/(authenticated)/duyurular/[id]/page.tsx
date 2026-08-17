@@ -336,7 +336,7 @@ export default function AdminAnnouncementEditorPage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Duyuru Düzenle" breadcrumbs={breadcrumbs} />
+        <AdminHeader title="Duyuru Düzenle" breadcrumbs={breadcrumbs} helpTopic="duyurular" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -351,6 +351,7 @@ export default function AdminAnnouncementEditorPage() {
       <AdminHeader
         title={isNew ? "Yeni Duyuru" : title || "Duyuru Düzenle"}
         breadcrumbs={breadcrumbs}
+        helpTopic="duyurular"
       />
       {/* w-full sart: kolon flex'te mx-auto'lu oge stretch olmaz,
           icerik genisligine daralirdi (blok davranisini korur) */}

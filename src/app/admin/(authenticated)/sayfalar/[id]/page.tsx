@@ -241,7 +241,7 @@ export default function AdminPageEditorPage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Sayfa Düzenle" breadcrumbs={breadcrumbs} />
+        <AdminHeader title="Sayfa Düzenle" breadcrumbs={breadcrumbs} helpTopic="sayfalar" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -256,6 +256,7 @@ export default function AdminPageEditorPage() {
       <AdminHeader
         title={isNew ? "Yeni Sayfa" : title || "Sayfa Düzenle"}
         breadcrumbs={breadcrumbs}
+        helpTopic="sayfalar"
       />
       {/* w-full sart: kolon flex'te mx-auto'lu oge stretch olmaz,
           icerik genisligine daralirdi (blok davranisini korur) */}

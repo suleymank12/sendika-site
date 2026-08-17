@@ -59,13 +59,13 @@ export const helpContent: Record<string, HelpTopic> = {
         id: "yeni",
         title: "Yeni Haber Ekle",
         steps: [
-          { text: "Sağ üstte '+ Yeni Haber'e bas." },
+          { text: "Sağ üstte 'Yeni Haber'e bas." },
           { text: "Başlığı yaz.", outcome: "Listede ve detay sayfasında en üstte görünür." },
           { text: "Kategori seç.", outcome: "Ziyaretçi haberleri kategoriye göre filtreleyebilir." },
           { text: "Özet alanına 2-3 cümle yaz.", outcome: "Kartlarda başlığın altında görünen metin." },
           { text: "İçerik kutusuna tam metni yaz.", outcome: "Detay sayfasında okunan asıl içerik." },
           { text: "Kapak görseli yükle.", outcome: "Kartlarda ve detay sayfasının üstünde gösterilir." },
-          { text: "İstersen video, YouTube veya galeri görselleri ekle." },
+          { text: "İstersen sağdaki Medya bölümünden video (dosya veya YouTube bağlantısı) ve fotoğraf galerisi ekle." },
           { text: "'Manşete Ekle'yi işaretlersen anasayfa manşet alanında öne çıkar. Manşet yalnızca yayındaki haberlerde görünür; haberi taslağa alırsan manşetten otomatik kalkar, tekrar yayınlayınca geri gelir." },
           { text: "'Yayınla' veya 'Taslak Kaydet'e bas.", outcome: "Yayınla = ziyaretçiye açık. Taslak = sadece sen görürsün." },
         ],
@@ -80,8 +80,8 @@ export const helpContent: Record<string, HelpTopic> = {
           { name: "Özet", description: "Kartlarda gösterilen kısa açıklama." },
           { name: "İçerik", description: "Haberin tam metni. Zengin metin editörü kullanılır." },
           { name: "Kapak Görseli", description: "Listede ve detay sayfasının başında görünür." },
-          { name: "Video / YouTube", description: "Habere video iliştirir. Detayda oynatıcı çıkar." },
-          { name: "Galeri Görselleri", description: "Detay sayfasında foto galerisi olarak gösterilir." },
+          { name: "Video", description: "Dosya yükleyebilir veya YouTube bağlantısı yapıştırabilirsin. Detayda oynatıcı çıkar." },
+          { name: "Fotoğraf Galerisi", description: "Detay sayfasında slayt olarak gösterilir. Birden fazla görsel seçebilirsin." },
           { name: "Manşete Ekle", description: "Haber anasayfa manşetine otomatik düşer." },
         ],
       },
@@ -110,12 +110,12 @@ export const helpContent: Record<string, HelpTopic> = {
         id: "yeni",
         title: "Yeni Duyuru Ekle",
         steps: [
-          { text: "'+ Yeni Duyuru'ya bas." },
+          { text: "'Yeni Duyuru'ya bas." },
           { text: "Başlık ve özeti yaz." },
           { text: "İçerik kutusuna tam metni yaz." },
-          { text: "İstersen kapak görseli yükle." },
+          { text: "İstersen Medya bölümünden kapak görseli, video (dosya veya YouTube) ve fotoğraf galerisi ekleyebilirsin." },
           { text: "Öne çıkarmak istersen 'Manşete Ekle'yi işaretle. Duyuruyu taslağa alırsan manşetten otomatik kalkar, tekrar yayınlayınca geri gelir." },
-          { text: "'Yayınla'ya bas.", outcome: "Duyuru hemen siteye yansır." },
+          { text: "'Yayınla' veya 'Taslak Kaydet'e bas.", outcome: "Yayınla = duyuru hemen siteye yansır. Taslak = sadece sen görürsün." },
         ],
         tips: [
           "Asıl mesaj ilk cümlede yer alsın.",
@@ -220,7 +220,8 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "'Yeni Sayfa'ya tıkla." },
           { text: "Başlık yaz.", outcome: "URL otomatik oluşur, sayfa /sayfa/baslik adresinden erişilebilir." },
           { text: "İçerik editöründen tam metni yaz." },
-          { text: "'Yayınla'ya bas." },
+          { text: "İstersen sağdaki Medya bölümünden kapak görseli, video (dosya veya YouTube) ve fotoğraf galerisi ekle." },
+          { text: "'Yayınla' veya 'Taslak Kaydet'e bas.", outcome: "Yayınla = ziyaretçiye açık. Taslak = sadece sen görürsün." },
           { text: "Menüye eklemek istersen 'Site Menüsü'nden URL olarak '/sayfa/...' yaz." },
         ],
         warnings: [
@@ -262,9 +263,20 @@ export const helpContent: Record<string, HelpTopic> = {
           },
         ],
         tips: [
+          "Fotoğrafın üzerine gelince üç buton çıkar: tutamak (sürükleyip sıralama), kalem (açıklama), çöp kutusu (silme).",
+          "Açıklamayı boş bırakıp kaydedersen mevcut açıklama kaldırılır.",
           "Sistem fotoğrafları web için otomatik optimize eder; 50MB'tan büyük dosyalar yüklenmez.",
-          "Albüm detayındaki 'Durum'u Taslak yaparsan albüm silinmeden sitede gizlenir.",
           "Albümleri sürükle-bırak ile sıralayabilirsin.",
+        ],
+      },
+      {
+        id: "album-detay",
+        title: "Albüm Bilgileri & Durum",
+        body: "Albüme tıklayınca açılan detay sayfasının üstünde 'Albüm Bilgileri' bölümü var. Buradaki değişiklikler ancak alttaki 'Albümü Kaydet' butonuna basınca kaydedilir. Fotoğraf işlemleri (yükleme, silme, sıralama, açıklama) ise anında kaydedilir — ayrıca kaydetmen gerekmez.",
+        fields: [
+          { name: "Albüm Adı", description: "Galeri listesinde ve albüm sayfasında görünen başlık.", required: true },
+          { name: "Durum", description: "'Yayında' = albüm sitede görünür. 'Taslak' = albüm silinmeden sitede gizlenir." },
+          { name: "Kapak Görseli", description: "Galeri listesinde albümü temsil eden görsel." },
         ],
       },
     ],
@@ -278,7 +290,7 @@ export const helpContent: Record<string, HelpTopic> = {
         id: "uye",
         title: "Yeni Üye Ekle",
         steps: [
-          { text: "'Yeni Üye'ye bas." },
+          { text: "'Yeni Üye Ekle'ye bas." },
           { text: "İsim Soyisim ve görev unvanını gir." },
           { text: "Fotoğraf yükle.", outcome: "Yönetim kurulu kartında bu fotoğraf görünür." },
           { text: "'Aktif' olarak kaydet." },
@@ -300,14 +312,59 @@ export const helpContent: Record<string, HelpTopic> = {
         id: "yeni",
         title: "Yeni Şube Ekle",
         steps: [
-          { text: "'Yeni Şube'ye bas." },
-          { text: "Şube adı, şehir, adres, telefon, e-posta gir.", outcome: "Boş alanlar şube kartında görünmez." },
-          { text: "'Aktif' olarak kaydet." },
+          { text: "'Yeni Şube Ekle'ye bas.", outcome: "Form iki sekmeden oluşur: 'Şube Bilgileri' ve 'Yönetici'." },
+          { text: "Şube adı, şehir, adres, telefon, e-posta ve çalışma saatlerini gir.", outcome: "Boş alanlar şube kartında görünmez." },
+          { text: "İstersen 'Şube Tanıtımı' alanına şubeyi anlatan bir metin yaz." },
+          { text: "Durum'u 'Aktif' bırakıp 'Şube Ekle'ye bas." },
         ],
         tips: [
           "Telefonu +90 ülke koduyla yaz, kullanıcı tek tıkla arayabilsin.",
           "Kapanan şubeyi silmek yerine 'Pasif' yap — bilgiler saklanır, sitede görünmez.",
           "Sürükle-bırak ile sıralayabilirsin.",
+        ],
+      },
+      {
+        id: "yonetici",
+        title: "Yönetici Atama",
+        body: "'Yönetici' sekmesinde şube sayfasında gösterilecek yöneticiyi belirlersin. Üç seçenek var:",
+        fields: [
+          {
+            name: "Yok",
+            description: "Şube sayfasında yönetici bilgisi gösterilmez.",
+          },
+          {
+            name: "Yönetim Kurulundan",
+            description:
+              "Mevcut yönetim kurulu üyelerinden birini seçersin. Ad, unvan ve fotoğraf üyenin kaydından gelir — Yönetim Kurulu sayfasında güncellenince şube sayfasına da otomatik yansır. Yeni seçim için listede yalnızca aktif üyeler çıkar; hiç üye yoksa önce Yönetim Kurulu sayfasından eklemelisin. Atadığın üye sonradan pasife alınırsa listede '(Pasif)' etiketiyle kalır ama sitede gösterilmez.",
+          },
+          {
+            name: "Manuel Gir",
+            description:
+              "Şubeye özel yönetici bilgisi girersin: ad soyad, unvan, özgeçmiş, fotoğraf, telefon ve e-posta. Yönetim kurulunda olmayan kişiler için kullan.",
+          },
+        ],
+        warnings: [
+          "Modu değiştirip kaydedersen önceki modda girilen yönetici bilgileri silinir — örneğin 'Manuel Gir'den 'Yönetim Kurulundan'a geçince manuel girdiğin ad, fotoğraf ve diğer bilgiler kaybolur.",
+        ],
+        tips: [
+          "Manuel yönetici fotoğrafı için dikey (portre) oranlı, 400 × 500 piksel görsel önerilir.",
+        ],
+      },
+      {
+        id: "harita",
+        title: "Harita",
+        body: "Şube detay sayfasında Google Haritası gösterilir. 'Google Maps Harita Adresi' alanını boş bırakırsan harita, girdiğin adresten otomatik oluşturulur. Konumu tam olarak sabitlemek istersen Google Maps'ten yerleştirme kodu ekle:",
+        steps: [
+          { text: "Google Maps'te şubenin konumunu aç." },
+          { text: "'Paylaş' butonuna bas ve 'Haritayı yerleştir' sekmesine geç." },
+          { text: "'HTML'yi kopyala' ile kodu kopyala." },
+          {
+            text: "Kodu 'Google Maps Harita Adresi' alanına yapıştır.",
+            outcome: "İframe kodunun tamamını yapıştırabilirsin; kayıt sırasında içindeki harita adresi otomatik ayıklanır.",
+          },
+        ],
+        warnings: [
+          "Google Maps'in 'Bağlantıyı paylaş' kısa linkleri (maps.app.goo.gl) harita olarak kullanılamaz — böyle bir girdiyle form kaydedilmez, uyarı gösterilir. Mutlaka 'Haritayı yerleştir' kodunu kullan.",
         ],
       },
     ],
@@ -351,7 +408,74 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "Kaynak türü seç.", outcome: "Haberler/Duyurular: otomatik gösterir. Özel: içerikleri sen eklersin." },
           { text: "Öğe sayısı ve düzeni (4'lü/8'li grid) seç." },
           { text: "Kaydet." },
-          { text: "'Özel' seçtiysen bölümün içine girip kart kart öğe ekle." },
+          { text: "'Özel' seçtiysen listedeki 'Öğeler' butonuyla bölümün içine girip öğeleri ekle." },
+        ],
+      },
+      {
+        id: "ogeler",
+        title: "Özel Bölüm Öğeleri",
+        body: "Kaynağı 'Özel' olan bölümlerin içeriğini öğe öğe kendin eklersin. Listede bölümün yanındaki 'Öğeler' butonuna basınca öğe yönetim sayfası açılır. Haberler/Duyurular kaynaklı bölümlerde bu buton yoktur — içerik otomatik beslenir, elle öğe eklenmez.",
+        steps: [
+          { text: "'Öğe Ekle'ye bas." },
+          { text: "Başlığı yaz; istersen 1-2 satırlık kısa açıklama ekle." },
+          {
+            text: "Görsel yükle veya hazır listeden ikon seç.",
+            outcome: "Görsel yüklenirse ikon yerine görsel gösterilir; görsel yoksa ikon kullanılır.",
+          },
+          { text: "Bağlantı adresi gir (opsiyonel).", outcome: "Ziyaretçi karta tıklayınca bu adrese gider." },
+          { text: "Durumu 'Aktif (görünür)' bırakıp 'Öğe Ekle'ye bas." },
+        ],
+        tips: [
+          "Öğeleri sürükle-bırak ile sıralayabilirsin.",
+          "Bir öğeyi geçici gizlemek için silmek yerine 'Pasif (gizli)' yap.",
+        ],
+      },
+    ],
+  },
+
+  "gelen-mesajlar": {
+    title: "Gelen Mesajlar",
+    intro: "Sitedeki iletişim formundan gönderilen mesajları okur ve yönetirsin.",
+    sections: [
+      {
+        id: "okuma",
+        title: "Okuma & Okundu İşareti",
+        body: "Mesajlar en yeniden eskiye sıralanır. Okunmamış mesajlar satır başındaki renkli nokta ve kalın yazılmış gönderen adıyla ayırt edilir; listenin üstünde toplam okunmamış sayısı yazar.",
+        steps: [
+          {
+            text: "Listedeki satıra tıkla.",
+            outcome: "Mesaj detayı açılır ve mesaj otomatik olarak okundu işaretlenir — nokta kaybolur.",
+          },
+        ],
+        warnings: [
+          "Okundu işareti geri alınamaz — bir mesajı tekrar 'okunmadı' yapmanın yolu yok.",
+        ],
+        tips: [
+          "Sol menüde Gelen Mesajlar'ın yanındaki kırmızı rozet okunmamış mesaj sayısını gösterir; mesajı açınca güncellenir.",
+          "'Eklenme' sütununda tarihle birlikte saat de gösterilir (örn. 1 Ocak 2026 14:30) — aynı gün gelen mesajların hangisinin önce geldiğini buradan anlarsın.",
+        ],
+      },
+      {
+        id: "yanit",
+        title: "Yanıtlama",
+        body: "Panelden doğrudan yanıt gönderilmez; yanıt e-posta üzerinden yazılır.",
+        steps: [
+          { text: "Mesajı aç." },
+          {
+            text: "'Yanıtla' butonuna bas.",
+            outcome: "Cihazındaki e-posta uygulaması, alıcı kısmında gönderenin adresi hazır şekilde açılır.",
+          },
+        ],
+        tips: [
+          "Detaydaki e-posta adresi ve telefon numarası tıklanabilir — e-posta yeni ileti açar, telefon aramayı başlatır.",
+        ],
+      },
+      {
+        id: "silme",
+        title: "Silme",
+        body: "Listedeki çöp kutusu simgesiyle veya mesaj detayındaki 'Sil' butonuyla silersin. Her iki yolda da önce onay sorulur.",
+        warnings: [
+          "Silinen mesaj geri getirilemez; arşiv tutulmaz. İleride lazım olabilecek bilgiyi silmeden önce not al.",
         ],
       },
     ],

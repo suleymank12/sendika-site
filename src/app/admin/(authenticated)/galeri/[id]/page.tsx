@@ -366,6 +366,7 @@ export default function AdminGalleryDetailPage() {
         <AdminHeader
           title="Albüm Detay"
           breadcrumbs={[{ label: "Galeri", href: "/admin/galeri" }, { label: "Detay" }]}
+          helpTopic="galeri"
         />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
@@ -384,6 +385,7 @@ export default function AdminGalleryDetailPage() {
           { label: "Galeri", href: "/admin/galeri" },
           { label: album?.title || "Detay" },
         ]}
+        helpTopic="galeri"
       />
       {/* w-full sart: kolon flex'te mx-auto'lu oge stretch olmaz,
           icerik genisligine daralirdi (blok davranisini korur) */}
