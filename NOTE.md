@@ -254,10 +254,47 @@ tablolar migration'dan önce de vardı, DROP TABLE bilerek dahil değil).
 
 ---
 
-# 📦 VPS DEPLOY ADIMLARI (Tur 2 / a2 — 29 Temmuz 2026)
+# 📦 VPS DEPLOY — ✅ TAMAMLANDI, CANLIDA (27 Ağustos 2026)
 
-Hedef: isimtescil VDS-Eko, **1 core / 2 GB RAM / 20 GB SSD**. Bu bölüm
-repo tarafı hazırlanırken yazıldı; sunucu alınınca sırayla uygulanacak.
+Bu bölüm 29 Temmuz 2026'da (Tur 2 / a2) **plan** olarak yazılmıştı. Deploy
+gerçekleşti; aşağısı **canlı kuruluma göre** güncellendi. Vercel artık
+kullanılmıyor — canlı ortam VPS.
+
+## 0. Canlı ortam
+
+- **Sunucu:** isimtescil VDS-Eko — `185.33.234.67`, 1 core / 2 GB RAM
+- **İşletim sistemi:** Ubuntu 22.04.5 LTS
+- **Uygulama dizini:** `/var/www/sendika-site`
+- **Runtime:** Node 20 (NodeSource) + PM2 (`pm2 startup systemd` kurulu,
+  proses adı `sendika`)
+- **Reverse proxy:** Nginx — config `/etc/nginx/sites-available/sendika`
+- **Domain:** `buyukdirilis.org.tr` (kayıt: isimtescil, DNS paneli: dnsenable.com)
+
+**Kurulumda yaşananlar** (yeni sunucu açılırsa tekrar gerekebilir):
+- Sunucu **CentOS 7** ile geldi; Ubuntu 22.04'e çevrilmesi için isimtescil'e
+  **ticket açıldı**.
+- Kurulumda LVM'in tamamı ayrılmamıştı — kök dosya sistemi `lvextend` +
+  `resize2fs` ile **10 GB → 18 GB** genişletildi. (Plan 20 GB SSD diyordu;
+  kullanılabilir kök alan 18 GB.)
+
+### DNS kayıtları
+
+| Tip | Ad | Değer |
+|---|---|---|
+| A | `@` | 185.33.234.67 |
+| A | `*` | 185.33.234.67 |
+
+⚠️ **Wildcard `A *` kaydı ŞART.** Multi-tenant subdomain'ler
+(`{slug}.buyukdirilis.org.tr`) onsuz çalışmaz.
+
+### SSL — ⏰ 24 KASIM 2026'DA ELLE YENİLENECEK
+
+Let's Encrypt **wildcard** sertifika, **manuel DNS-01** doğrulamasıyla alındı.
+
+🔴 **OTOMATİK YENİLENMEZ.** `certbot renew` bunu yenileyemez — aynı certbot
+komutu **tekrar elle** çalıştırılmalı ve doğrulama için **iki TXT kaydı**
+dnsenable.com'a elle eklenmelidir. Bitiş tarihinden en az bir hafta önceye
+hatırlatıcı koyun; sertifika düşerse tüm subdomain'ler dahil site kapanır.
 
 ## 1. Build LOKALDE veya CI'da alınır — sunucuda ASLA
 
@@ -279,29 +316,89 @@ alınan build Linux VPS'te ÇALIŞMAZ.** Build şunlardan biriyle alınmalı:
 ```
 .next/standalone/          ← server.js + trace edilmiş node_modules (bunu kopyala)
 .next/static/              ← OTOMATIK DAHİL DEĞİL → .next/standalone/.next/static/ altına kopyala
-public/                    ← OTOMATIK DAHİL DEĞİL → .next/standalone/public/ altına kopyala
 ```
 
 Kopyalama (build makinesinde):
 ```bash
 cp -r .next/static .next/standalone/.next/static
-cp -r public .next/standalone/public
 ```
-Sonra `.next/standalone/` içeriği sunucuya rsync'lenir. Çalıştırma:
-`node server.js` (PORT ve HOSTNAME env ile). `.env` PRODUCTION değerleriyle
-sunucuda ayrıca oluşturulmalı (standalone .env.local taşımaz).
 
-## 3. Sunucu hazırlığı (2 GB gerçeği)
+ℹ️ **Projede `public/` klasörü yok** — statik asset yalnızca `.next/static`
+üzerinden geliyor. (Deploy sırasında doğrulandı: `cp -r public ...`
+"No such file or directory" verdi.) İleride `public/` eklenirse
+`rsync --delete` öncesi standalone'a kopyalanmalıdır.
 
-- **2 GB swap aç** (güvenlik ağı — build için değil, runtime tepeleri için):
+Sonra `.next/standalone/` içeriği sunucuya rsync'lenir. `.env` PRODUCTION
+değerleriyle sunucuda ayrıca oluşturulmalı (standalone `.env.local` taşımaz).
+
+⚠️ Çalıştırma komutu için **4. Tuzak 1'e bakın** — `HOSTNAME` verilmemeli.
+
+## 3. Deploy akışı (her güncellemede)
+
+1. WSL (Ubuntu 22.04) içinde `~/projeler/sendika-site`:
+   ```bash
+   git pull
+   npm run build          # WSL'de — Windows build'i Linux'ta ÇALIŞMAZ (sharp native binary)
+   cp -r .next/static .next/standalone/.next/static
+   rsync -avz --delete .next/standalone/ root@185.33.234.67:/var/www/sendika-site/
+   ```
+2. Sunucuda:
+   ```bash
+   pm2 restart sendika
+   ```
+
+## 4. İki tuzak (deploy sırasında yaşandı — tekrarlanmasın)
+
+### Tuzak 1 — PM2'yi `HOSTNAME=127.0.0.1` ile başlatmayın
+
+Next.js `request.url`'i **dinlediği adrese göre** üretiyor. `HOSTNAME`
+127.0.0.1'e sabitlenince tüm yönlendirmeler `localhost:3000`'e gidiyor —
+giriş, davet kabul, admin redirect'leri kırılıyor.
+
+Doğrusu (`HOSTNAME` **verilmeden**):
+```bash
+PORT=3000 pm2 start server.js --name sendika
+```
+Nginx tarafında `X-Forwarded-Host` ve `X-Forwarded-Port` başlıkları da
+gönderiliyor.
+
+### Tuzak 2 — `NEXT_PUBLIC_*` BUILD ANINDA gömülür
+
+Sunucudaki `.env` **client bundle'ı etkilemez**. Build alınırken WSL'deki
+`.env` dosyasında `NEXT_PUBLIC_ROOT_DOMAIN=buyukdirilis.org.tr` olduğu
+doğrulanmalı — lokalde `lvh.me` kalırsa canlıda tüm tenant/admin URL'leri
+`*.lvh.me`'ye çıkar.
+
+Build sonrası doğrulama:
+```bash
+grep -o "buyukdirilis.org.tr" .next/static/chunks/*.js
+```
+
+## 5. Supabase Auth URL Configuration (✅ yapıldı)
+
+Supabase Dashboard → Authentication → URL Configuration:
+
+- **Site URL:** `https://buyukdirilis.org.tr`
+- **Redirect URLs** (ikisi de ekli):
+  - `https://buyukdirilis.org.tr/admin/davet-kabul`
+  - `https://*.buyukdirilis.org.tr/admin/davet-kabul`
+
+Wildcard satırı olmadan subdomain'e düşen davet/şifre-sıfırlama linkleri
+reddedilir.
+
+## 6. Sunucu hazırlığı (2 GB gerçeği)
+
+- ✅ **Swap — gerek kalmadı.** Sunucu **1.7 GB swap ile geldi** (`free -h`
+  ile doğrulandı), elle açmaya gerek olmadı. Yeni bir sunucuda swap yoksa:
   `fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile` + fstab satırı.
-- **Tek Node prosesi:** 1 core'da PM2 cluster ANLAMSIZ — `pm2 start server.js -i 1`
-  veya systemd unit. Restart-on-crash yeterli.
+- ✅ **Tek Node prosesi — yapıldı.** PM2 **fork_mode**, tek instance
+  çalışıyor. 1 core'da PM2 cluster ANLAMSIZ; restart-on-crash yeterli.
+  (Başlatma komutu için 4. bölüm Tuzak 1 — `HOSTNAME` verilmemeli.)
 - **Nginx önde:** TLS + gzip + `/_next/static` için uzun Cache-Control.
   HSTS Nginx'te set edilecek (next.config'te bilerek yok — NOTE'taki CSP
   bölümüne bakın).
 
-## 4. sharp doğrulaması (görsel optimizasyonu)
+## 7. sharp doğrulaması (görsel optimizasyonu)
 
 `sharp` artık dependency (package.json). Next 14.2 production'da sharp
 yoksa WASM squoosh'a düşer: yavaş + bellek-tepeli → 2 GB'da OOM riski.
@@ -310,11 +407,11 @@ Deploy sonrası doğrula:
 node -e "console.log(require('sharp').versions)"   # standalone dizininde
 ```
 Ayrıca `node server.js` loglarında "sharp" uyarısı OLMAMALI. next/image
-varyantları `.next/cache/images`'ta birikir — disk yeterli (20 GB), ama
-`.next/cache` rsync'e dahil edilmemeli (her deploy'da sıfırlanması sorun
+varyantları `.next/cache/images`'ta birikir — disk yeterli (kök fs 18 GB),
+ama `.next/cache` rsync'e dahil edilmemeli (her deploy'da sıfırlanması sorun
 değil, yeniden üretilir).
 
-## 5. Deploy sonrası ilk hafta işleri (Tur 2 teşhisinden — sırayla)
+## 8. Deploy sonrası ilk hafta işleri (Tur 2 teşhisinden — sırayla)
 
 - b1: Admin listelerine kolon listesi + pagination + arama debounce
 - b2: Detay sayfalarında bağımsız sorguları Promise.all'a alma
@@ -323,6 +420,17 @@ değil, yeniden üretilir).
 - b4: `news`/`announcements` composite index migration'ı +
   `homepage_section_items(section_id)` index'i
 - Uptime monitor (Supabase Free 7 gün inaktivite pause + genel sağlık)
+
+⏰ Deploy tamamlandığına göre bu liste artık **aktif** — sırayla ele alınacak.
+
+## 9. ✅ Kapatıldı (27 Ağustos 2026)
+
+- `src/lib/tenant-hostname.ts` başlık yorumu güncellendi. Eski hâli
+  *"Production'da Vercel'e `NEXT_PUBLIC_ROOT_DOMAIN=sendika-site.vercel.app`
+  eklenmelidir"* diyordu. Yeni hâli canlı gerçeği yazıyor: VPS,
+  `NEXT_PUBLIC_ROOT_DOMAIN=buyukdirilis.org.tr` ve değerin **build
+  ortamında** (WSL) set edilmesi gerektiği uyarısı + `grep` doğrulaması
+  (bkz. 4. bölüm Tuzak 2).
 
 ---
 

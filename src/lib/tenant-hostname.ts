@@ -8,8 +8,15 @@
  * Apex domain (root domain) NEXT_PUBLIC_ROOT_DOMAIN env'inden
  * okunur. Fallback: "lvh.me" (lokal gelistirme default'u).
  *
- * Production'da Vercel'e NEXT_PUBLIC_ROOT_DOMAIN=sendika-site.vercel.app
- * eklenmelidir.
+ * PRODUCTION (VPS — Vercel kullanilmiyor):
+ *   NEXT_PUBLIC_ROOT_DOMAIN=buyukdirilis.org.tr
+ *
+ * ⚠️ Bu deger BUILD ORTAMINDA set edilmelidir. NEXT_PUBLIC_* degiskenleri
+ * build aninda bundle'a gomulur; sunucudaki .env dosyasi client bundle'i
+ * ETKILEMEZ. Build WSL'de alindigi icin dogru degerin WSL'deki .env'de
+ * olmasi gerekir — aksi halde canli site lokal fallback'e ("lvh.me")
+ * duser. Dogrulama: grep -o "buyukdirilis.org.tr" .next/static/chunks/*.js
+ * (ayrinti: NOTE.md → VPS DEPLOY, 4. bolum Tuzak 2)
  */
 
 const ROOT_DOMAIN_FALLBACK = "lvh.me";
