@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
 
 type Status = "loading" | "invalid" | "ready" | "saving";
 type Mode = "invite" | "recovery";
@@ -10,33 +11,6 @@ type Mode = "invite" | "recovery";
 // Recovery mode kalicilik bayragi: PKCE ?code URL'den temizlendikten sonra
 // sayfa yenilenirse mode kaybolmasin diye sessionStorage'da tutulur.
 const RECOVERY_FLAG_KEY = "davet-kabul-recovery";
-
-function buildTenantUrl(slug: string): string {
-  const { protocol, hostname, port } = window.location;
-  const portSuffix = port ? `:${port}` : "";
-
-  if (hostname.endsWith(".lvh.me") || hostname === "lvh.me") {
-    return `${protocol}//${slug}.lvh.me${portSuffix}/admin`;
-  }
-  if (
-    hostname.endsWith(".localhost") ||
-    hostname === "localhost" ||
-    hostname === "127.0.0.1"
-  ) {
-    return `${protocol}//${slug}.localhost${portSuffix}/admin`;
-  }
-
-  // Production: hostname'in ilk parçasını slug ile değiştir
-  // platform.com → slug.platform.com
-  // www.platform.com → slug.platform.com
-  // sendika-site.vercel.app → slug.sendika-site.vercel.app
-  const parts = hostname.split(".");
-  if (parts.length <= 2) {
-    return `${protocol}//${slug}.${hostname}${portSuffix}/admin`;
-  }
-  const rest = parts.slice(1).join(".");
-  return `${protocol}//${slug}.${rest}${portSuffix}/admin`;
-}
 
 export default function DavetKabulPage() {
   const [status, setStatus] = useState<Status>("loading");
@@ -243,7 +217,7 @@ export default function DavetKabulPage() {
 
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
-      .select("slug")
+      .select("slug, custom_domain")
       .eq("id", links[0].tenant_id)
       .single();
 
@@ -253,7 +227,7 @@ export default function DavetKabulPage() {
       return;
     }
 
-    window.location.href = buildTenantUrl(tenant.slug);
+    window.location.href = buildTenantAdminUrl(tenant.slug, tenant.custom_domain);
   };
 
   if (status === "loading") {

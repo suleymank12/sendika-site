@@ -1,6 +1,6 @@
 /**
- * Hostname Parse Helper'lari
- * --------------------------
+ * Hostname Parse + Tenant URL Helper'lari
+ * ---------------------------------------
  * Saf string fonksiyonu — Edge runtime, Server Component'ler ve
  * Client component'lerin uchunde de guvenle calisir. DB veya
  * next/headers gibi runtime bagimliliklari YOK.
@@ -17,11 +17,51 @@ const ROOT_DOMAIN_FALLBACK = "lvh.me";
 /**
  * Apex domain'i env'den okur, port kismini temizler.
  * lvh.me:3000 -> lvh.me
- * sendika-site.vercel.app -> sendika-site.vercel.app
+ * buyukdirilis.org.tr -> buyukdirilis.org.tr
+ *
+ * Export: hostname'i PARSE eden taraf (parseHostname) ile URL INSA eden
+ * taraf (buildTenantAdminUrl) ayni apex kaynagini kullansin diye.
+ * Apex'i host string'inden tahmin etmek (split(".").slice(-2)) coklu
+ * parcali TLD'lerde yanlis sonuc verir: buyukdirilis.org.tr -> "org.tr".
  */
-function getRootDomain(): string {
+export function getRootDomain(): string {
   const raw = process.env.NEXT_PUBLIC_ROOT_DOMAIN || ROOT_DOMAIN_FALLBACK;
   return raw.split(":")[0].toLowerCase();
+}
+
+/**
+ * Tenant'in admin paneline cross-subdomain URL insa eder.
+ *
+ * Oncelik: custom_domain > {slug}.{apex}
+ *
+ * Apex host string'inden TAHMIN EDILMEZ, getRootDomain() ile env'den
+ * okunur. Tahmin (host.split(".").slice(-2)) coklu parcali TLD'lerde
+ * yanlis sonuc uretiyordu:
+ *   buyukdirilis.org.tr -> "org.tr" -> https://default.org.tr/admin (DNS yok)
+ *   dogrusu             -> https://default.buyukdirilis.org.tr/admin
+ *
+ * Port window'dan alinir: dev'de lvh.me:3000 korunur, prod'da port yok.
+ * Bu fonksiyon parseHostname ile AYNI apex kaynagini kullanir; parse ve
+ * insa taraflarinin ayrisamamasi icin bilerek ayni dosyada durur.
+ *
+ * Client-only (window'a bagimli) — SSR sirasinda "#" doner. Server
+ * tarafinda public URL icin bkz. lib/tenant-url.ts buildTenantPublicUrl.
+ */
+export function buildTenantAdminUrl(
+  slug: string,
+  customDomain?: string | null
+): string {
+  if (typeof window === "undefined") return "#";
+
+  // Custom domain varsa onu kullan (production'da oncelik)
+  if (customDomain) {
+    return `https://${customDomain}/admin`;
+  }
+
+  const { protocol, host } = window.location;
+  const port = host.split(":")[1];
+
+  return `${protocol}//${slug}.${getRootDomain()}${port ? `:${port}` : ""}/admin`;
 }
 
 /**
