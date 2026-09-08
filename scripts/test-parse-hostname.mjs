@@ -22,7 +22,6 @@
 import {
   parseHostname,
   normalizeCustomDomain,
-  extractSlugFromHostname,
 } from "../src/lib/tenant-hostname.ts";
 
 // ---------------------------------------------------------------------------
@@ -201,28 +200,6 @@ for (const h of [
     h
   );
 }
-
-// ---------------------------------------------------------------------------
-console.log("\n(h) extractSlugFromHostname — backward-compat wrapper\n");
-
-/** @param {string} rootDomain @param {string} hostname @param {string} expected */
-function checkSlug(rootDomain, hostname, expected) {
-  process.env.NEXT_PUBLIC_ROOT_DOMAIN = rootDomain;
-  ok(
-    "slug",
-    `${hostname} -> ${expected}`,
-    extractSlugFromHostname(hostname),
-    expected,
-    hostname
-  );
-}
-
-checkSlug(PROD, "buyukdirilis.org.tr", "default");
-checkSlug(PROD, "www.buyukdirilis.org.tr", "default");
-checkSlug(PROD, "test-abc.buyukdirilis.org.tr", "test-abc");
-checkSlug(PROD, "www.test-abc.buyukdirilis.org.tr", "test-abc");
-// custom_domain hala "default" doner (gercek slug DB lookup'i cagiranin isi)
-checkSlug(PROD, "www.kurmayteknoloji.com", "default");
 
 // ---------------------------------------------------------------------------
 console.log(`\nSONUC: ${passed} gecti, ${failures.length} kaldi\n`);

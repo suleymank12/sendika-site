@@ -5,6 +5,83 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🔴 CANLI BUG — Admin panelinde YANLIŞ TENANT (8 Eylül 2026)
+
+**Durum:** Kod tarafı **düzeltildi**. Elle iş: aşağıdaki manuel testler +
+`017_storage_tenant_rls.sql` (ayrı bölüm).
+
+## Bug neydi?
+
+`https://kurmayteknoloji.com` public sitesi **doğru** tenant'ı gösterirken
+`https://kurmayteknoloji.com/admin` **default tenant'ın** verilerini
+gösteriyordu (sidebar "Sendika Adı", default'un haber/duyuru sayaçları).
+
+**Kök neden — tenant İKİ AYRI YOLDAN çözülüyordu:**
+
+| | Public | Admin |
+|---|---|---|
+| Render | Server Component | Client Component |
+| Kaynak | `getCurrentTenant()` → `x-tenant-slug` | `useTenant()` → `window.location.hostname` |
+| custom_domain çözebiliyor mu | ✅ (middleware DB lookup) | ❌ |
+
+`useTenant` önce slug ile arıyordu; custom_domain host'unda slug
+`"default"`'a düşürülüyordu. **`default` tenant satırı HER ZAMAN vardır**
+(`014_protect_default_tenant`), dolayısıyla ilk sorgu daima dolu dönüyor ve
+arkasındaki custom_domain sorgusu (`if (!data)` ile korunmuş) **hiç
+çalışmıyordu** — yazıldığı günden beri ölü koddu.
+
+Panelin tamamı (Sidebar, dashboard sayaçları, 19 admin sayfası,
+ImageUploader/RichTextEditor storage yolu) bu değeri kullanıyordu.
+
+**Hasar tespiti (doğrulandı):** Kullanıcı yalnızca Kurmay Teknoloji üyesi,
+süper admin değil → `012` RLS (`user_has_tenant_access`) yazma işlemlerini
+reddetti, **DB'de veri kaybı YOK**. Gerçekleşen: default'un *yayınlanmış*
+içeriğinin okunması (`001:172` `Public: news select` policy'sinde `TO`
+kısıtı olmadığı için `authenticated` de kapsanıyor).
+
+## Kod tarafı (yapıldı)
+
+- **`admin/(authenticated)/layout.tsx:50,72`** → `<AdminShell initialTenant={tenant}>`
+  (sunucunun zaten çözdüğü tenant aşağı geçiriliyor)
+- **`AdminShell.tsx`** → `<TenantProvider initialTenant={...}>`
+- **`hooks/useTenant.tsx`** → `initialTenant` varsa **istemci sorgusu hiç
+  atılmaz**, `loading` hiç `true` olmaz. Tenant artık TEK yoldan gelir.
+- **`lib/tenant-hostname.ts`** → `planTenantQuery()` + `needsClientResolve()`.
+  Fallback **tek sorgu**, zincir yok: custom_domain bulunamazsa `null` —
+  sessizce default'a düşmez. `extractSlugFromHostname` silindi (çağıranı
+  kalmamıştı; "custom_domain → default" semantiği bu bug sınıfının kaynağıydı).
+- **`middleware.ts`** → `/admin` ve `/super-admin` yolunda **fail-closed**:
+  custom_domain çözülemezse `/admin/tenant-bulunamadi`'ya yönlendirir.
+  Public tarafta graceful degradation **korundu**.
+- **`admin/tenant-bulunamadi/page.tsx`** → yeni hata sayfası.
+- **`scripts/test-tenant-resolve.mjs`** → 22 vaka, `npm run test:tenant`.
+
+## ⏰ ELLE — deploy sonrası manuel testler
+
+Aşağıdaki 6 testin **hepsi** geçmeden bug kapandı sayılmaz. Her testte
+tarayıcı önbelleğini atlamak için **gizli pencere** kullanın.
+
+| # | Adres | Beklenen |
+|---|---|---|
+| 1 | `https://kurmayteknoloji.com/admin` | Sidebar'da **Kurmay Teknoloji**, Kurmay'ın sayaçları |
+| 2 | `https://www.kurmayteknoloji.com/admin` | 1 ile aynı |
+| 3 | `https://kurmay-teknoloji.buyukdirilis.org.tr/admin` | 1 ile aynı (subdomain bozulmadı) |
+| 4 | `https://buyukdirilis.org.tr/admin` | Default tenant (apex bozulmadı) |
+| 5 | `https://kurmayteknoloji.com` (public) | Kurmay sitesi (regresyon yok) |
+| 6 | Süper admin ile `/super-admin` | Panel açılır, tenant listesi tam |
+
+**Ek kontrol (1'de):** Kurmay panelinden bir haber düzenleyip kaydedin →
+Kurmay'ın public sitesinde göründüğünü, default'ta **görünmediğini**
+doğrulayın.
+
+**Fail-closed testi:** Süper admin panelinden geçici bir tenant'a
+`custom_domain = test-yok.example.com` yazıp DNS'siz o adrese gitmek yerine,
+daha basiti — mevcut bir custom_domain'i DB'den geçici silip `/admin`'e
+gidin: **"Alan Adı Tanımlı Değil"** sayfası gelmeli, default panel
+**açılmamalı**. Test sonrası değeri geri yazın.
+
+---
+
 # 🔴 CANLI BUG — `www.` ön eki tenant çözümünü kırıyordu (8 Eylül 2026)
 
 **Durum:** Kod tarafı **düzeltildi**. İki elle adım **BEKLİYOR** (aşağıda).

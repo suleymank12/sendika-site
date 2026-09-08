@@ -5,6 +5,7 @@ import ToastProvider from "@/components/ui/Toast";
 import { SidebarProvider, useSidebar } from "@/hooks/useAdminSidebar";
 import { DirtyFormProvider } from "@/hooks/useDirtyForm";
 import { TenantProvider } from "@/hooks/useTenant";
+import type { Tenant } from "@/lib/tenant";
 
 function AdminShellInner({ children }: { children: React.ReactNode }) {
   const { isOpen, close } = useSidebar();
@@ -20,9 +21,20 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AdminShell({ children }: { children: React.ReactNode }) {
+/**
+ * initialTenant: sunucuda cozulmus tenant (admin layout -> getCurrentTenant).
+ * TenantProvider'a verilir; istemci tenant'i BIR DAHA cozmez. Gerekce ve
+ * canli bug kaydi icin bkz. hooks/useTenant.tsx.
+ */
+export default function AdminShell({
+  children,
+  initialTenant,
+}: {
+  children: React.ReactNode;
+  initialTenant?: Tenant | null;
+}) {
   return (
-    <TenantProvider>
+    <TenantProvider initialTenant={initialTenant}>
       <SidebarProvider>
         <DirtyFormProvider>
           <AdminShellInner>{children}</AdminShellInner>

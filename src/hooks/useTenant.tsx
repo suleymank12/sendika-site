@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Tenant } from "@/lib/tenant";
-import { parseHostname } from "@/lib/tenant-hostname";
+import { planTenantQuery, needsClientResolve } from "@/lib/tenant-hostname";
 
 interface TenantContextValue {
   tenant: Tenant | null;
@@ -15,53 +15,75 @@ const TenantContext = createContext<TenantContextValue>({
   loading: true,
 });
 
-export function TenantProvider({ children }: { children: React.ReactNode }) {
-  const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * TENANT KAYNAGI — TEK YOL: initialTenant.
+ *
+ * Sunucu tarafi zinciri: middleware (custom_domain DB lookup)
+ *   -> x-tenant-slug header -> getCurrentTenant() -> admin layout
+ *   -> AdminShell -> buraya initialTenant olarak iner.
+ *
+ * NEDEN BOYLE (canli bug, 8 Eylul 2026):
+ *   Once tenant IKI AYRI YOLDAN cozuluyordu — sunucu header'dan (dogru),
+ *   istemci hostname'den (custom_domain'i cozemez). Custom domain uzerinden
+ *   admin panelinde sunucu "Kurmay Teknoloji" derken istemci "default"
+ *   diyordu; panelin tamami (sidebar, sayaclar, 19 sayfa, ImageUploader)
+ *   istemcinin degerini kullandigi icin BASKA TENANT'IN verisi gosteriliyordu.
+ *   Cozum: istemci artik ayni isi tekrar YAPMAZ.
+ *
+ * initialTenant verildiginde:
+ *   - istemci sorgusu HIC atilmaz,
+ *   - loading HIC true olmaz (loading flash yok).
+ *
+ * Asagidaki fallback yalnizca initialTenant VERILMEYEN kullanim icin durur
+ * (bugun boyle bir cagiran yok; ileride public tarafta kullanilirsa diye).
+ */
+export function TenantProvider({
+  children,
+  initialTenant,
+}: {
+  children: React.ReactNode;
+  initialTenant?: Tenant | null;
+}) {
+  const [tenant, setTenant] = useState<Tenant | null>(initialTenant ?? null);
+  // HATA STATE'I: loading false + tenant null. Ayri bir bayrak tutulmuyor —
+  // 19 admin sayfasi zaten `if (!tenant) return` deseniyle calisiyor.
+  const [loading, setLoading] = useState(needsClientResolve(initialTenant));
 
   useEffect(() => {
+    // Sunucu zaten cozdu → sorgu YOK, state zaten dolu.
+    if (!needsClientResolve(initialTenant)) return;
+
+    let cancelled = false;
+
     const fetchTenant = async () => {
       const supabase = createClient();
 
-      // parseHostname TEK KAYNAK: hem slug hem custom_domain host'u buradan
-      // gelir. Onceden custom_domain lookup'i window.location.hostname'i HAM
-      // kullaniyordu; "www." soyulmadigi icin www.musteri.com, DB'deki
-      // "musteri.com" ile eslesmeyip tenant default'a dusuyordu.
-      const match = parseHostname(window.location.hostname);
-      const slug = match.type === "subdomain" ? match.slug : "default";
-
-      let { data } = await supabase
+      // TEK sorgu. Fallback zinciri BILEREK yok: bulunamayan host'ta
+      // default'a dusmek, bu bug'in mekanizmasiydi.
+      const plan = planTenantQuery(window.location.hostname);
+      const { data, error } = await supabase
         .from("tenants")
         .select("*")
-        .eq("slug", slug)
+        .eq(plan.by, plan.value)
         .maybeSingle();
 
-      // Bulunamadıysa custom_domain ile dene (match.host www'suz normalize)
-      if (!data && match.type === "custom_domain") {
-        const customRes = await supabase
-          .from("tenants")
-          .select("*")
-          .eq("custom_domain", match.host)
-          .maybeSingle();
-        data = customRes.data;
+      if (cancelled) return;
+
+      if (error) {
+        console.error("[TenantProvider] tenant sorgusu hatasi:", error);
       }
 
-      // Hâlâ yoksa default'a düş
-      if (!data) {
-        const defaultRes = await supabase
-          .from("tenants")
-          .select("*")
-          .eq("slug", "default")
-          .maybeSingle();
-        data = defaultRes.data;
-      }
-
-      setTenant(data as Tenant | null);
+      // Bulunamadiysa null KALIR — default'a DUSULMEZ (fail-safe).
+      setTenant((data as Tenant | null) ?? null);
       setLoading(false);
     };
 
     fetchTenant();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialTenant]);
 
   return (
     <TenantContext.Provider value={{ tenant, loading }}>

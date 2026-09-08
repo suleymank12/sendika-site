@@ -198,26 +198,45 @@ export function parseHostname(hostname: string): HostnameMatch {
 }
 
 /**
- * Backward-compat wrapper.
- * Mevcut middleware/useTenant/tenant.ts kullanim sekli aynen calismaya
- * devam etsin diye eski imza ile slug doner.
+ * Istemci tarafi tenant sorgusu PLANI — hangi kolonla arayacagiz?
  *
- * - apex / custom_domain → "default"
- * - subdomain → slug
+ * TEK SORGU uretir; fallback ZINCIRI YOKTUR. Bu kasitli:
  *
- * NOT: custom_domain adaylari su an default'a duser. Asama B'de
- * middleware bu durumu DB lookup ile cozecek (header'a tenant.slug
- * yazilarak).
+ *   ESKI (bug) — useTenant once slug ile ariyordu:
+ *     custom_domain host'unda slug "default"a dusuruluyordu; "default"
+ *     tenant satiri HER ZAMAN var (014_protect_default_tenant), dolayisiyla
+ *     ilk sorgu daima dolu donuyor, arkasindaki custom_domain sorgusu
+ *     (`if (!data)` ile korunmus) HIC CALISMIYORDU. Sonuc: custom domain
+ *     uzerinden admin panelinde YANLIS TENANT.
+ *
+ *   YENI: host neyse onunla aranir. Bulunamazsa null doner — SESSIZCE
+ *   BASKA BIR TENANT'A DUSULMEZ. Yanlis tenant gostermektense hicbir sey
+ *   gostermemek dogrudur (cross-tenant sizinti > bos ekran).
  */
-export function extractSlugFromHostname(hostname: string): string {
+export type TenantQuery =
+  | { by: "custom_domain"; value: string }
+  | { by: "slug"; value: string };
+
+export function planTenantQuery(hostname: string): TenantQuery {
   const match = parseHostname(hostname);
   switch (match.type) {
-    case "apex":
-      return "default";
-    case "subdomain":
-      return match.slug;
     case "custom_domain":
-      // Asama A'da default'a duser (mevcut davranis korunur)
-      return "default";
+      return { by: "custom_domain", value: match.host };
+    case "subdomain":
+      return { by: "slug", value: match.slug };
+    case "apex":
+      return { by: "slug", value: "default" };
   }
+}
+
+/**
+ * Istemci sorgusu ATILMALI MI?
+ *
+ * Sunucu (middleware -> x-tenant-slug -> getCurrentTenant) tenant'i zaten
+ * cozduyse TenantProvider'a initialTenant olarak iner; istemcinin ayni isi
+ * ikinci bir yoldan tekrar cozmesi gereksiz VE tehlikelidir — iki yolun
+ * ayrisabilmesi bu bug'in ta kendisiydi (sunucu Kurmay, istemci default).
+ */
+export function needsClientResolve(initialTenant: unknown): boolean {
+  return !initialTenant;
 }

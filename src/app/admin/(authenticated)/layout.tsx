@@ -47,7 +47,7 @@ export default async function AuthenticatedAdminLayout({
     // Güvenli taraf: normal üyelik kontrolüne düş
   }
   if (isSuperAdmin) {
-    return <AdminShell>{children}</AdminShell>;
+    return <AdminShell initialTenant={tenant}>{children}</AdminShell>;
   }
 
   // 4) Tenant üyelik kontrolü
@@ -66,5 +66,8 @@ export default async function AuthenticatedAdminLayout({
     redirect("/admin/yetkisiz");
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  // initialTenant: istemci tenant'i hostname'den TEKRAR cozmesin. Custom
+  // domain'de istemci custom_domain'i cozemedigi icin default'a dusuyor,
+  // panel BASKA TENANT'IN verisini gosteriyordu (8 Eylul 2026 bug'i).
+  return <AdminShell initialTenant={tenant}>{children}</AdminShell>;
 }

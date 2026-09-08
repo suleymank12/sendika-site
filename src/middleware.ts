@@ -70,11 +70,23 @@ function buildCsp(nonce: string): string {
   ].join("; ");
 }
 
+/**
+ * FAIL-CLOSED hedefi: custom_domain hicbir tenant'a cozulemediginde admin
+ * yollarinin yonlendirildigi sayfa. ADMIN_PUBLIC_PATHS'e de ekli olmali,
+ * aksi halde auth guard'i /admin/giris'e atar ve dongu olusur.
+ */
+const TENANT_ERROR_PATH = "/admin/tenant-bulunamadi";
+
 export async function middleware(request: NextRequest) {
   // Hostname'i parse et (DB'siz, senkron). Server Component'ler tenant'i
   // x-tenant-slug header'i üzerinden okuyacak.
   const hostname = request.headers.get("host") || "localhost:3000";
   const match = parseHostname(hostname);
+
+  // pathname BURADA okunuyor (eskiden auth blogundan hemen once okunuyordu):
+  // custom_domain cozulemedigi durumda admin yollarini auth islemlerinden
+  // ONCE kesmek icin gerekli.
+  const { pathname } = request.nextUrl;
 
   // apex / custom_domain başlangıçta "default"; subdomain doğrudan slug.
   // custom_domain için final slug aşağıda DB sorgusuyla belirlenir.
@@ -144,6 +156,8 @@ export async function middleware(request: NextRequest) {
   // güncel slug'i taşır. Sorgu yalnızca custom_domain case'inde çalışır;
   // subdomain/apex DB'ye hiç gitmez. Anon key + tenants_public_select
   // (USING true) yeterli — service role gerekmez.
+  let tenantResolveFailed = false;
+
   if (match.type === "custom_domain") {
     const { data, error } = await supabase
       .from("tenants")
@@ -153,11 +167,38 @@ export async function middleware(request: NextRequest) {
 
     if (error) {
       console.error("[Middleware] custom_domain lookup hatasi:", error);
-      // tenantSlug "default" kalır (graceful degradation)
+      tenantResolveFailed = true;
     } else if (data?.slug) {
       tenantSlug = data.slug;
+    } else {
+      // Bulunamadi (data null)
+      tenantResolveFailed = true;
     }
-    // data null ise (bulunamadı): tenantSlug "default" kalır
+  }
+
+  // ==========================================================================
+  // FAIL-CLOSED — yalnizca /admin ve /super-admin
+  // ==========================================================================
+  // Public tarafta mevcut davranis KORUNUR: tenantSlug "default" kalir, ziyaretci
+  // default siteyi gorur (salt okuma, zarar yok, site tamamen kapanmaz).
+  //
+  // Admin tarafinda AYNI davranis TEHLIKELI: yonetici, yanlis tenant'in
+  // panelinde islem yapar. 8 Eylul 2026 bug'inin zarar mekanizmasi tam olarak
+  // "sessizce default'a dusme" idi. Burada yanlis panel acmaktansa hicbir
+  // panel acmamak dogru: hata sayfasina yonlendirilir.
+  //
+  // /admin/giris DAHIL: cozulemeyen bir host'ta giris yapmak da yanlis
+  // tenant'a girmek demektir. TENANT_ERROR_PATH'in kendisi haric tutulur
+  // (yoksa sonsuz yonlendirme).
+  if (
+    tenantResolveFailed &&
+    (pathname.startsWith("/admin") || pathname.startsWith("/super-admin")) &&
+    pathname !== TENANT_ERROR_PATH
+  ) {
+    const url = request.nextUrl.clone();
+    url.pathname = TENANT_ERROR_PATH;
+    url.search = "";
+    return NextResponse.redirect(url);
   }
 
   // Final slug belli. Forward edilen request header'ına yaz ve response'u
@@ -178,8 +219,6 @@ export async function middleware(request: NextRequest) {
   // tetiklenip supabaseResponse'u yeniden kurabiliyor.
   supabaseResponse.headers.set(CSP_HEADER_NAME, csp);
 
-  const { pathname } = request.nextUrl;
-
   // Admin giris ve davet-kabul/yetkisiz sayfalari haric tum admin rotalarini koru
   // (davet-kabul login OLMAYAN kullanici icin token ile session olusturur)
   const ADMIN_PUBLIC_PATHS = [
@@ -187,6 +226,7 @@ export async function middleware(request: NextRequest) {
     "/admin/davet-kabul",
     "/admin/sifremi-unuttum",
     "/admin/yetkisiz",
+    TENANT_ERROR_PATH,
   ];
   if (pathname.startsWith("/admin") && !ADMIN_PUBLIC_PATHS.includes(pathname)) {
     if (!user) {
