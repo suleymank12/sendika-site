@@ -28,7 +28,7 @@ import RichTextEditor from "@/components/admin/RichTextEditor";
 import FormField from "@/components/admin/FormField";
 import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
-import { GripVertical, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import { GripVertical, Plus, Pencil, Trash2, Eye, EyeOff, Info } from "lucide-react";
 import { Headline, News, Announcement } from "@/types";
 import {
   DndContext,
@@ -64,6 +64,18 @@ interface HeadlineForm {
   order: number;
   is_active: boolean;
 }
+
+// Manset modulunun SAHIP oldugu storage klasorleri.
+//
+// Kaynakli (haber/duyuru) manset, kaynagin cover_image URL'ini KOPYALAR —
+// dosya kopyalanmaz. O dosya {tenant}/news/... veya {tenant}/announcements/...
+// altindadir ve HABERE/DUYURUYA aittir; manset silinirken/degistirilirken
+// SILINMEMELIDIR (silinirse haberin kapagi geri getirilemez sekilde gider).
+//
+// Mansetin kendi yukledikleri headlines/ (kapak) ve headlines/videos (video)
+// altinda durur — "headlines" sahipligi segment bazli oldugu icin ikisini de
+// kapsar. Bunlar silinmeye devam eder.
+const HEADLINE_OWNED_FOLDERS = ["headlines"];
 
 const emptyForm: HeadlineForm = {
   title: "",
@@ -342,8 +354,24 @@ export default function AdminHeadlinePage() {
       // (youtube_url harici link, storage'da degil — temizlenmez)
       if (editingId) {
         const old = headlines.find((h) => h.id === editingId);
-        await cleanupReplacedFile(supabase, old?.image_url, form.image_url || null);
-        await cleanupReplacedFile(supabase, old?.video_url, form.video_url || null);
+        // ownerFolders: eski gorsel haberden kopyalanmissa ({tenant}/news/...)
+        // guard onu atlar — haberin kapagi korunur. Kaynak degistirme, yeni
+        // gorsel yukleme ve ImageUploader'daki X (onChange("")) uc yolu da
+        // form.image_url'i degistirip TAM BURADAN gecer; tek guard yeter.
+        await cleanupReplacedFile(
+          supabase,
+          old?.image_url,
+          form.image_url || null,
+          "images",
+          HEADLINE_OWNED_FOLDERS
+        );
+        await cleanupReplacedFile(
+          supabase,
+          old?.video_url,
+          form.video_url || null,
+          "images",
+          HEADLINE_OWNED_FOLDERS
+        );
       }
       toast.success(editingId ? "Manşet güncellendi." : "Manşet eklendi.");
       setModalOpen(false);
@@ -375,7 +403,14 @@ export default function AdminHeadlinePage() {
 
     // content_media (defansif — manset'te galeri yoksa bos doner) + storage temizligi
     const galleryPaths = await purgeContentMedia(supabase, tenant.id, "headline", deleteId);
-    await removeFilesFromStorage(supabase, "images", [coverPath, ...galleryPaths]);
+    // ownerFolders: kaynakli mansetin gorseli habere ait ({tenant}/news/...) —
+    // guard onu atlar, yalnizca mansetin kendi yukledikleri silinir.
+    await removeFilesFromStorage(
+      supabase,
+      "images",
+      [coverPath, ...galleryPaths],
+      HEADLINE_OWNED_FOLDERS
+    );
 
     toast.success("Manşet silindi.");
     setDeleteId(null);
@@ -613,9 +648,22 @@ export default function AdminHeadlinePage() {
                     maxHeight={600}
                   />
                 </FormField>
-                <p className="text-xs text-text-muted">
-                  Önerilen boyut: 1400 × 600 piksel.
-                </p>
+                {form.source_type === "custom" ? (
+                  <p className="text-xs text-text-muted">
+                    Önerilen boyut: 1400 × 600 piksel.
+                  </p>
+                ) : (
+                  // Kaynakli mansette gorsel HABERIN/DUYURUNUN dosyasidir —
+                  // admin burada degistirdigini sanip aslinda iliskiyi
+                  // koparmasin diye acikca soyluyoruz.
+                  <div className="flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2.5 text-xs text-text-dark">
+                    <Info className="h-4 w-4 shrink-0 text-primary mt-px" />
+                    <span>
+                      Görsel {form.source_type === "news" ? "haberden" : "duyurudan"} geliyor.
+                      Değiştirmek için {form.source_type === "news" ? "haberi" : "duyuruyu"} düzenleyin.
+                    </span>
+                  </div>
+                )}
               </section>
 
               {/* Ek Medya — yalnızca özel manşette */}

@@ -97,6 +97,56 @@ export function storagePathFromUrl(
   return cleanPath || null;
 }
 
+// ---------------------------------------------------------------------------
+// Sahiplik guard'i (9 Eylul 2026 — "manset silinince haberin kapagi gitti")
+// ---------------------------------------------------------------------------
+
+/**
+ * Bir storage path'inin, verilen klasorlerden birine ait olup olmadigini soyler.
+ *
+ * NEDEN VAR: Bazi kayitlar ayni fiziksel dosyayi PAYLASIR. Haberden uretilen
+ * manset, haberin cover_image URL'ini kopyalar (dosya kopyalanmaz) — iki DB
+ * satiri tek dosyayi gosterir. Manset silinirken o dosya storage'dan
+ * kaldirilirsa HABERIN kapagi da yok olur ve geri getirilemez (public bucket,
+ * versiyonlama yok).
+ *
+ * COZUM: Her modul kendi klasorune yukler (buildStoragePath ile
+ * {tenant_id}/{folder}/{dosya}) ve bu klasor adlari cakismaz:
+ *   news, news/gallery, news/videos, announcements, pages, headlines,
+ *   headlines/videos, gallery, gallery/{albumId}, sliders, branding,
+ *   board-members, branch-managers, homepage-sections
+ * Yani KLASOR SEGMENTI zaten sahibin adidir. Kural: bir modul yalnizca kendi
+ * klasorundeki dosyayi silebilir.
+ *
+ * Karsilastirma SEGMENT bazlidir: "headlines" sahipligi "headlines/videos"i
+ * kapsar ama "headlines-eski"yi KAPSAMAZ (prefix yanilmasi olmaz).
+ *
+ * FAIL-SAFE: Beklenmedik sekilli path (segment < 3) false doner — yani
+ * silinmez. Yanlis tarafa degil, guvenli tarafa duser.
+ *
+ * @param path - Bucket-goreli tam path ("{tenant_id}/{folder}/{dosya}")
+ * @param ownerFolders - Cagiran modulun sahip oldugu klasorler (orn. ["headlines"])
+ */
+export function isOwnedPath(path: string, ownerFolders: string[]): boolean {
+  if (!path || ownerFolders.length === 0) {
+    return false;
+  }
+
+  const segments = path.split("/");
+  // {tenant_id}/{folder}/{dosya} → en az 3 segment. Daha azi tanimadigimiz
+  // bir sekil demek; dokunmuyoruz (fail-safe).
+  if (segments.length < 3) {
+    return false;
+  }
+
+  // Ilk segment tenant_id, son segment dosya adi; arasi klasor yolu.
+  const folderPath = segments.slice(1, -1).join("/");
+
+  return ownerFolders.some(
+    (owner) => folderPath === owner || folderPath.startsWith(`${owner}/`)
+  );
+}
+
 /**
  * Supabase storage'tan dosyalari siler (best-effort, idempotent).
  *
@@ -105,16 +155,51 @@ export function storagePathFromUrl(
  * ETKILEMEZ — cagiran fonksiyon DB silmeyi onceden yapar; storage temizligi
  * best-effort tamamlayicidir, kritik path degildir.
  *
+ * SAHIPLIK GUARD'I (ownerFolders): Verilirse, cagiran modulun klasorune ait
+ * OLMAYAN path'ler sessizce atlanir (bkz. isOwnedPath). Paylasilan dosyayi
+ * silip baska bir kaydin gorselini yok etmeyi engeller.
+ *
+ * ownerFolders VERILMEZSE mevcut davranis korunur (her path silinir).
+ * Bu BILINCLI bir karar: parametre zorunlu yapilsaydi 20+ cagri noktasinin
+ * hepsi ayni anda degisecek, yanlis tahmin edilen bir klasor adi calisan
+ * temizligi sessizce durduracakti. Guard, paylasimin GERCEKTEN mumkun oldugu
+ * yerlere eklenir — paylasim yalnizca kodun bir URL'i kopyaladigi yerde dogar
+ * (bugun: manset). ImageUploader'da elle URL girisi yok, o yuzden admin
+ * kendiliginden paylasim yaratamaz.
+ *
+ * FAIL-SAFE: Yeni bir modul eklenip guard unutulursa sonuc "dosya silinmedi"
+ * (yetim) olur — "baskasinin dosyasi silindi" DEGIL. Yetim sonradan geri
+ * kazanilir; silinen gorsel geri gelmez.
+ *
  * @param supabase - Client (browser veya server, fark etmez)
  * @param bucket - Bucket adi (orn. "images")
  * @param paths - Bucket-goreli path'ler (storagePathFromUrl ciktisi); null'lar elenir
+ * @param ownerFolders - Opsiyonel sahiplik guard'i (orn. ["headlines"])
  */
 export async function removeFilesFromStorage(
   supabase: SupabaseClient,
   bucket: string,
-  paths: (string | null)[]
+  paths: (string | null)[],
+  ownerFolders?: string[]
 ): Promise<StorageRemovalResult> {
-  const validPaths = paths.filter((p): p is string => !!p);
+  const nonEmpty = paths.filter((p): p is string => !!p);
+
+  // Sahiplik guard'i: yabanci path'leri sessizce ele
+  const validPaths = ownerFolders
+    ? nonEmpty.filter((p) => isOwnedPath(p, ownerFolders))
+    : nonEmpty;
+
+  if (ownerFolders) {
+    const skipped = nonEmpty.filter((p) => !isOwnedPath(p, ownerFolders));
+    if (skipped.length > 0) {
+      // Sessizce atlandi ama izsiz degil: yetim dosya takibi icin loglanir.
+      console.info(
+        `[storage-cleanup] sahiplik guard'i ${skipped.length} dosyayi atladi ` +
+          `(sahip klasorler: ${ownerFolders.join(", ")}):`,
+        skipped
+      );
+    }
+  }
 
   if (validPaths.length === 0) {
     return { removed: false, reason: "no-files" };
@@ -240,16 +325,25 @@ export async function purgeContentMedia(
  *
  * Best-effort: hata yutulur, DB akisi etkilenmez (Sprint 3.6 disiplini).
  *
+ * SAHIPLIK GUARD'I (ownerFolders): removeFilesFromStorage'a aynen gecer.
+ * Replace yolu silme yolu kadar tehlikelidir — paylasilan bir gorsel
+ * degistirildiginde ESKI dosya silinir; o dosya baska bir kaydin kapagiysa
+ * o kayit kirilir. Silme guard'lanip replace guard'lanmazsa bug yarim kapanir.
+ *
+ * Verilmezse mevcut davranis korunur; gerekcesi removeFilesFromStorage'da.
+ *
  * @param supabase - Client
  * @param oldUrl - Eski URL (DB'den okunan, replace ONCE saklanan)
  * @param newUrl - Yeni URL (DB'ye yazilan veya null/"")
  * @param bucket - Bucket adi (default "images")
+ * @param ownerFolders - Opsiyonel sahiplik guard'i (orn. ["headlines"])
  */
 export async function cleanupReplacedFile(
   supabase: SupabaseClient,
   oldUrl: string | null | undefined,
   newUrl: string | null | undefined,
-  bucket: string = "images"
+  bucket: string = "images",
+  ownerFolders?: string[]
 ): Promise<void> {
   if (!oldUrl || oldUrl === newUrl) {
     return;
@@ -260,5 +354,5 @@ export async function cleanupReplacedFile(
     return;
   }
 
-  await removeFilesFromStorage(supabase, bucket, [oldPath]);
+  await removeFilesFromStorage(supabase, bucket, [oldPath], ownerFolders);
 }

@@ -5,6 +5,108 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🟠 BUG — Manşet silmek haberin kapak görselini siliyordu (9 Eylül 2026)
+
+**Durum:** Kod tarafı **düzeltildi**. SQL adımı **YOK**. Elle iş: aşağıdaki
+5 manuel test.
+
+**Hasar tespiti temiz (canlıda doğrulandı):** Paylaşılan dosya kullanan
+manşet↔haber çifti **0 satır**; tüm tablolarda kırık (404) görsel **0**.
+Bug canlıda hiç tetiklenmemiş — düzeltme önleyici.
+
+## Bug neydi?
+
+Haberden üretilen manşet, haberin `cover_image` **URL'ini kopyalıyordu** —
+dosya kopyalanmıyordu. İki DB satırı tek fiziksel dosyayı gösteriyordu:
+
+```
+news.cover_image     = ".../images/{tenant}/news/kapak.webp"
+headlines.image_url  = AYNI URL
+```
+
+Manşet silinirken bu dosya storage'dan kaldırılıyordu → **haber duruyor ama
+kapağı 404**. Public bucket, versiyonlama yok → **geri getirilemez**.
+
+**URL kopyalamanın üç tetikleyicisi vardı:**
+
+1. **Otomatik senkron (en yaygın yol).** Haber editöründeki "Manşete çıkar"
+   kutucuğu manşeti kendisi oluşturuyor —
+   [haberler/[id]:318,332](<src/app/admin/(authenticated)/haberler/[id]/page.tsx>),
+   [duyurular/[id]:279,292](<src/app/admin/(authenticated)/duyurular/[id]/page.tsx>).
+   Admin manşet ekranına hiç girmeden paylaşımı yaratıyor.
+2. **Manuel kaynak seçimi** — `manset/page.tsx` `handleSourceSelect`.
+3. **Manşet modalında görseli değiştirme** — silme bile gerektirmiyordu:
+   kaynağı A'dan B'ye çevirmek, yeni görsel yüklemek veya ImageUploader'da
+   **X'e basmak** üçü de eski (haberin) dosyasını siliyordu.
+
+## Neden bu çözüm (klasör sahipliği)
+
+Reddedilen alternatifler:
+
+- **Görseli kopyalamak:** senkron `haberler/[id]` içinde **her kayıtta**
+  çalışıyor → aynı görselin N kopyası birikirdi; kopyalamazsan haber kapağı
+  değişince manşet eskir (P4-iv yorumu tam bunu düzeltmek için yazılmış).
+- **Referans sayımı:** kullanılmadığını kanıtlamak için 12 tabloya sorgu,
+  her silmede, RLS altında. Yarın görselli yeni bir tablo eklenince listeyi
+  güncellemeyi unutan kişi bug'ı **sessizce** geri getirir.
+
+Seçilen: her modül kendi klasörüne yüklüyor (`{tenant_id}/{folder}/{dosya}`)
+ve klasör adları çakışmıyor → **klasör segmenti zaten sahibin adı.**
+
+## Kod tarafı (yapıldı)
+
+- **`lib/storage.ts`** → `isOwnedPath(path, ownerFolders)` eklendi. Segment
+  bazlı karşılaştırma: `"headlines"` sahipliği `"headlines/videos"`i kapsar,
+  `"headlines-eski"`yi **kapsamaz**. Segment < 3 ise `false` (fail-safe).
+- **`removeFilesFromStorage`** ve **`cleanupReplacedFile`** → opsiyonel
+  `ownerFolders` parametresi; yabancı path sessizce atlanır (`console.info`
+  ile loglanır, izsiz değil).
+- **Parametre verilmezse eski davranış korunur** — bilinçli karar: zorunlu
+  yapılsaydı 20+ çağrı noktası aynı anda değişecek, yanlış tahmin edilen bir
+  klasör adı çalışan temizliği sessizce durduracaktı. Guard, paylaşımın
+  gerçekten mümkün olduğu yere eklenir; paylaşım yalnızca **kodun bir URL
+  kopyaladığı** yerde doğar (bugün: yalnız manşet). ImageUploader'da elle URL
+  girişi yok, admin kendiliğinden paylaşım yaratamaz.
+- **`manset/page.tsx`** → `HEADLINE_OWNED_FOLDERS = ["headlines"]`; hem silme
+  hem replace yolu guard'lı. 3. tetikleyicinin üç varyantı (kaynak değiştirme
+  / yeni görsel / X ile temizleme) `form.image_url`'i değiştirip **tek
+  yoldan** geçiyor → tek guard yetiyor.
+- **`manset/page.tsx`** → kaynaklı manşette ImageUploader altına bilgi satırı:
+  *"Görsel haberden geliyor. Değiştirmek için haberi düzenleyin."*
+- **`scripts/test-storage-ownership.mjs`** → 42 vaka, `npm run test:storage`.
+
+**FAIL-SAFE:** Yeni bir modül eklenip guard unutulursa sonuç "dosya
+silinmedi" (yetim) olur — "başkasının dosyası silindi" **değil**. Yetim
+sonradan geri kazanılır; silinen görsel gelmez.
+
+## Bilinen ve kabul edilen: yetim dosya
+
+Kaynaklı manşetin kendi yüklediği görsel yoksa guard hiçbir şey silmez —
+sorun yok. Ama manşet **kapağı haberden gelirken** admin araya kendi görselini
+yükleyip sonra kaynağa dönerse, o `headlines/` dosyası yetim kalabilir.
+Manşet tenant başına **10 ile sınırlı** ve görseller WebP (~80–200 KB), yani
+hacim ihmal edilebilir. Asıl yetim kaynağı bu değil:
+`delete-tenant` **hiç** storage temizliği yapmıyor ve ImageUploader dosyayı
+anında yüklüyor (admin "İptal"e basarsa dosya kalıyor). Yetim toplayıcı
+yazılacaksa oradan başlanmalı — ayrı iş.
+
+## ⏰ ELLE — deploy sonrası manuel testler
+
+Hepsi **gizli pencerede**. Test 1 ve 2 bug'ın kendisi.
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 1 | Kapaklı bir haberi "Manşete çıkar" ile yayınla → Manşetler'den o manşeti **sil** | Haberin kapağı **yerinde**; haber listesi ve detayında görsel görünüyor |
+| 2 | Kaynaklı bir manşeti aç → ImageUploader'da **X**'e bas → Kaydet | Haberin kapağı **yerinde** |
+| 3 | Kaynaklı manşeti aç | ImageUploader altında **"Görsel haberden geliyor…"** bilgi satırı görünüyor |
+| 4 | **Özel** (custom) manşet oluştur, görsel yükle, sonra manşeti sil | Manşetin kendi görseli **silinmiş** (guard doğru dosyayı hâlâ siliyor) |
+| 5 | Haberi düzenle → kapağı değiştir → kaydet | Hem haberde hem manşette **yeni** kapak; eski dosya temizlenmiş |
+
+**Not:** Test 4 guard'ın fazla geniş olmadığını doğrular — yalnızca 1–3'ü
+yapmak yeterli değil.
+
+---
+
 # 🔴 CANLI BUG — Admin panelinde YANLIŞ TENANT (8 Eylül 2026)
 
 **Durum:** Kod tarafı **düzeltildi**. Elle iş: aşağıdaki manuel testler +
