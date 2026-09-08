@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Tenant } from "@/lib/tenant";
-import { extractSlugFromHostname } from "@/lib/tenant-hostname";
+import { parseHostname } from "@/lib/tenant-hostname";
 
 interface TenantContextValue {
   tenant: Tenant | null;
@@ -22,7 +22,13 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const fetchTenant = async () => {
       const supabase = createClient();
-      const slug = extractSlugFromHostname(window.location.hostname);
+
+      // parseHostname TEK KAYNAK: hem slug hem custom_domain host'u buradan
+      // gelir. Onceden custom_domain lookup'i window.location.hostname'i HAM
+      // kullaniyordu; "www." soyulmadigi icin www.musteri.com, DB'deki
+      // "musteri.com" ile eslesmeyip tenant default'a dusuyordu.
+      const match = parseHostname(window.location.hostname);
+      const slug = match.type === "subdomain" ? match.slug : "default";
 
       let { data } = await supabase
         .from("tenants")
@@ -30,13 +36,12 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
         .eq("slug", slug)
         .maybeSingle();
 
-      // Bulunamadıysa custom_domain ile dene
-      if (!data && slug === "default") {
-        const host = window.location.hostname.split(":")[0];
+      // Bulunamadıysa custom_domain ile dene (match.host www'suz normalize)
+      if (!data && match.type === "custom_domain") {
         const customRes = await supabase
           .from("tenants")
           .select("*")
-          .eq("custom_domain", host)
+          .eq("custom_domain", match.host)
           .maybeSingle();
         data = customRes.data;
       }

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 import { RESERVED_TENANT_SLUGS } from "@/lib/constants";
+import { normalizeCustomDomain } from "@/lib/tenant-hostname";
 
 interface RequestBody {
   name: string;
@@ -51,7 +52,10 @@ export async function POST(req: NextRequest) {
   const name = (body.name || "").trim();
   const slug = (body.slug || "").trim().toLowerCase();
   const adminEmail = (body.adminEmail || "").trim().toLowerCase();
-  const customDomain = (body.customDomain || "").trim().toLowerCase() || null;
+  // normalizeCustomDomain: trim + lowercase + "www." soyma. DB'de daima
+  // apex formu durmali — parseHostname okuma tarafinda www'yu soydugu icin
+  // "www.musteri.com" olarak yazilan kayit bir daha bulunamaz.
+  const customDomain = normalizeCustomDomain(body.customDomain);
   const enabledModules = {
     donations: !!body.enabledModules?.donations,
     membership: !!body.enabledModules?.membership,

@@ -5,6 +5,117 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🔴 CANLI BUG — `www.` ön eki tenant çözümünü kırıyordu (8 Eylül 2026)
+
+**Durum:** Kod tarafı **düzeltildi**. İki elle adım **BEKLİYOR** (aşağıda).
+
+## Bug neydi?
+
+Bir tenant'ın `custom_domain`'i `kurmayteknoloji.com` iken:
+
+- `https://kurmayteknoloji.com` → doğru tenant ✅
+- `https://www.kurmayteknoloji.com` → **DEFAULT tenant** ❌
+
+`parseHostname` "www." ön ekini **yalnızca** `www.{apex}` için ele alıyordu
+(hardcoded `host === "www." + rootDomain` kontrolü). custom_domain dalında
+www soyulmadığı için `.eq("custom_domain", "www.kurmayteknoloji.com")`
+DB'deki `kurmayteknoloji.com` ile eşleşmiyor, `maybeSingle()` null dönüyor,
+sistem **hata vermeden** default'a düşüyordu. **Her müşteride yaşanırdı.**
+
+Aynı kök neden `www.{slug}.{apex}` için de geçerliydi (pratikte erişilemez:
+wildcard DNS `A *` ve wildcard sertifika tek seviye kapsar).
+
+## Kod tarafı (yapıldı)
+
+- `src/lib/tenant-hostname.ts` — `stripWww()` eklendi, `parseHostname`
+  **girişinde** uygulanıyor (port temizleme + lowercase ile aynı satırda).
+  Kural: `"www."` ile başlıyor **ve** kalanda hâlâ nokta varsa soy.
+  Çağıranda değil girişte, çünkü üç çağıran var (middleware, /api/contact,
+  useTenant) — normalizasyon çağırana bırakılırsa dördüncüsünde unutulur.
+- `normalizeCustomDomain()` eklendi + `create-tenant` / `update-tenant`
+  bunu kullanıyor. **DB'de custom_domain daima apex formunda durmalı** —
+  okuma tarafı www'yu soyduğu için `www.x.com` yazılan kayıt bir daha
+  bulunamaz.
+- `src/hooks/useTenant.tsx` — custom_domain lookup'ı ham
+  `window.location.hostname` yerine `parseHostname(...).host` kullanıyor.
+- `scripts/test-parse-hostname.mjs` — 55 vaka, `npm run test:hostname`.
+
+## ⏰ ELLE ADIM 1 — DB'de www'lu custom_domain temizliği
+
+`custom_domain` **UNIQUE** (009_multi_tenant_foundation.sql:45), bu yüzden
+çakışma ön kontrolü şart. Sırayla:
+
+```sql
+-- A) TESPİT
+select id, slug, name, custom_domain
+from public.tenants
+where custom_domain ilike 'www.%';
+
+-- B) ÇAKIŞMA ÖN KONTROLÜ (A satır döndürdüyse — C'DEN ÖNCE)
+--    www'suz hali başka tenant'ta zaten varsa UPDATE unique ihlali verir.
+select t.id as www_tenant, t.custom_domain,
+       u.id as cakisan_tenant, u.custom_domain as cakisan_domain
+from public.tenants t
+join public.tenants u
+  on u.custom_domain = regexp_replace(t.custom_domain, '^www\.', '')
+ and u.id <> t.id
+where t.custom_domain ilike 'www.%';
+
+-- C) DÜZELTME (B boş döndüyse)
+update public.tenants
+set custom_domain = regexp_replace(custom_domain, '^www\.', '')
+where custom_domain ilike 'www.%';
+
+-- D) DOĞRULAMA — 0 dönmeli
+select count(*) from public.tenants where custom_domain ilike 'www.%';
+```
+
+## ⏰ ELLE ADIM 2 — Nginx www→apex 301 (müşteri başına)
+
+Kod düzeltmesinin **yerine değil, yanına**. Kod düzeltmesi bug'ı kapatır;
+301 ise (a) SEO'da aynı içeriğin iki adreste servis edilmesini bitirir,
+(b) **Supabase auth cookie'leri host bazlı** olduğu için www'da giriş yapan
+adminin apex'te çıkış yapmış görünmesini engeller.
+
+⚠️ Mevcut apex server bloğunda `server_name` satırında `www.<domain>`
+**varsa çıkarılmalı** — yoksa 301 bloğu hiç eşleşmez.
+
+```nginx
+# --- Müşteri: kurmayteknoloji.com — www → apex 301 ---
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name www.kurmayteknoloji.com;
+
+    ssl_certificate     /etc/letsencrypt/live/kurmayteknoloji.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kurmayteknoloji.com/privkey.pem;
+
+    return 301 https://kurmayteknoloji.com$request_uri;
+}
+
+# http → https (apex + www birlikte)
+server {
+    listen 80;
+    listen [::]:80;
+    server_name kurmayteknoloji.com www.kurmayteknoloji.com;
+    return 301 https://kurmayteknoloji.com$request_uri;
+}
+```
+
+Sertifika www'yu kapsamıyorsa (`openssl s_client` ile doğrula):
+
+```bash
+certbot certonly --nginx -d kurmayteknoloji.com -d www.kurmayteknoloji.com
+nginx -t && systemctl reload nginx
+```
+
+**Yeni müşteri eklerken checklist:** DNS `A` (apex + www) → sertifika
+(apex + www) → nginx apex bloğu + www 301 bloğu → süper admin panelden
+custom_domain (www'suz yaz; panel zaten soyar).
+
+---
+
 # 🔴 GÜVENLİK — K1: Süper admin yetkisi super_admins tablosuna taşındı
 
 **Durum:** Kod + migration hazır, **SQL elle apply edilmeli.** Deploy blokeri.

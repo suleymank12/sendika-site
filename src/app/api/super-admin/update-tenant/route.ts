@@ -8,6 +8,7 @@ import {
   SLUG_MAX_LENGTH,
   CUSTOM_DOMAIN_REGEX,
 } from "@/lib/constants";
+import { normalizeCustomDomain } from "@/lib/tenant-hostname";
 
 /**
  * Tenant alanlarini gunceller (name, slug, custom_domain, is_active, enabled_modules).
@@ -93,10 +94,10 @@ export async function POST(request: NextRequest) {
 
   const normalizedSlug = slug.trim().toLowerCase();
   const normalizedName = name.trim();
-  const normalizedCustomDomain =
-    customDomain && typeof customDomain === "string"
-      ? customDomain.trim().toLowerCase() || null
-      : null;
+  // normalizeCustomDomain: trim + lowercase + "www." soyma (string olmayan
+  // girdide null). DB'de daima apex formu durmali — parseHostname okuma
+  // tarafinda www'yu soydugu icin "www.musteri.com" kaydi bulunamaz.
+  const normalizedCustomDomain = normalizeCustomDomain(customDomain);
 
   // Slug format + uzunluk
   if (

@@ -37,6 +37,48 @@ export function getRootDomain(): string {
 }
 
 /**
+ * "www." on ekini soyar.
+ *
+ * KURAL: host "www." ile BASLIYOR **ve** kalan kisimda HALA nokta varsa
+ * soyulur. Ikinci kosul olmadan "www.com" gibi patolojik girdiler "com"a
+ * donerdi; "www" (noktasiz tek etiket) ise hic dokunulmaz.
+ *
+ * TEK SEVIYE soyar (www.www.x -> www.x). Ozyineleme BILEREK yok: gercek
+ * dunyada www.www yoktur, gelirse de ust katmanlar guvenli tarafa
+ * (custom_domain -> default) duser.
+ *
+ * "www" adinda bir tenant slug'i ile CAKISMAZ: constants.ts
+ * RESERVED_TENANT_SLUGS icinde "www" var, create/update-tenant reddediyor.
+ */
+function stripWww(host: string): string {
+  if (!host.startsWith("www.")) return host;
+  const rest = host.slice(4);
+  return rest.includes(".") ? rest : host;
+}
+
+/**
+ * tenants.custom_domain icin YAZMA tarafi normalizasyonu
+ * (create-tenant / update-tenant bunu kullanir).
+ *
+ * NEDEN GEREKLI: parseHostname okuma tarafinda www'yu soyar, yani DB
+ * lookup'i HER ZAMAN apex formuyla yapilir. DB'ye "www.example.com"
+ * yazilirsa o kayit BIR DAHA BULUNAMAZ (tenant default'a duser).
+ * Iki taraf ayni kurali (stripWww) kullanmali — DB'de daima apex formu
+ * dursun. Invariant: normalizeCustomDomain(h) === parseHostname(h).host
+ * (custom_domain case'inde).
+ *
+ * @returns normalize edilmis domain; bos/string olmayan girdide null
+ */
+export function normalizeCustomDomain(
+  input: string | null | undefined
+): string | null {
+  if (typeof input !== "string") return null;
+  const trimmed = input.trim().toLowerCase();
+  if (!trimmed) return null;
+  return stripWww(trimmed) || null;
+}
+
+/**
  * Tenant'in admin paneline cross-subdomain URL insa eder.
  *
  * Oncelik: custom_domain > {slug}.{apex}
@@ -89,7 +131,9 @@ export type HostnameMatch =
  *
  * Edge case'ler:
  * - Port (lvh.me:3000) otomatik temizlenir
- * - www. prefix'i apex sayilir
+ * - "www." on eki GIRISTE soyulur (stripWww) — apex, subdomain ve
+ *   custom_domain'in UCUNDE birden gecerli. Onceden yalnizca www.{apex}
+ *   ele alinirdi; www.{custom_domain} DB'de eslesmeyip default'a duserdi.
  * - localhost/127.0.0.1 apex sayilir
  * - .vercel.app deployment preview'lari (xxx-suleyman.vercel.app)
  *   apex sayilir (slug parse edilmez)
@@ -98,8 +142,13 @@ export type HostnameMatch =
  * @returns HostnameMatch — type'a gore handle edilir
  */
 export function parseHostname(hostname: string): HostnameMatch {
-  // 1) Port temizle, kucuk harfe cevir
-  const host = hostname.split(":")[0].toLowerCase().trim();
+  // 1) Port temizle, kucuk harfe cevir, "www." on ekini soy.
+  //    www soyma BURADA (giriste) yapilir, cagiran tarafta DEGIL:
+  //    parseHostname'in uc cagirani var (middleware, /api/contact,
+  //    useTenant); normalizasyon cagirana birakilirsa dorduncu caginda
+  //    yine unutulur. HostnameMatch.host zaten "DB'ye sorulacak deger"
+  //    sozlesmesini tasiyor — normalize etme yeri o degeri ureten fonksiyon.
+  const host = stripWww(hostname.split(":")[0].toLowerCase().trim());
 
   // 2) localhost / 127.0.0.1 → apex
   if (host === "localhost" || host === "127.0.0.1" || host === "") {
@@ -113,13 +162,17 @@ export function parseHostname(hostname: string): HostnameMatch {
     return { type: "apex" };
   }
 
-  // 4) www.{apex} → apex
-  if (host === `www.${rootDomain}`) {
-    return { type: "apex" };
-  }
-
-  // 5) {slug}.{apex} → subdomain
-  //    Apex'in tam endsWith kontrolu, sub kismi bos olmamali
+  // 4) {slug}.{apex} → subdomain
+  //    Apex'in tam endsWith kontrolu, sub kismi bos olmamali.
+  //
+  //    ESKI ADIM SILINDI: `host === "www." + rootDomain` kontrolu artik
+  //    ULASILAMAZ — www.{apex} giriste soyulup 3. adimda apex olarak
+  //    yakalaniyor.
+  //
+  //    `sub !== "www"` guard'i ise KALDI (olu degil): stripWww tek seviye
+  //    soydugu icin www.www.{apex} gibi patolojik host'ta sub yine "www"
+  //    olabilir. O durumda rezerve "www" slug'i donmesin diye custom_domain
+  //    dalina dusuruyoruz — eski davranisla birebir ayni sonuc.
   const apexSuffix = `.${rootDomain}`;
   if (host.endsWith(apexSuffix)) {
     const sub = host.slice(0, host.length - apexSuffix.length);
@@ -132,14 +185,14 @@ export function parseHostname(hostname: string): HostnameMatch {
     }
   }
 
-  // 6) Vercel preview deployment'lari (.vercel.app endsWith ama
+  // 5) Vercel preview deployment'lari (.vercel.app endsWith ama
   //    root_domain'den farkli olabilir, ornek: pr-1-suleyman.vercel.app)
   //    Bunlari apex say (gercek subdomain degil)
   if (host.endsWith(".vercel.app")) {
     return { type: "apex" };
   }
 
-  // 7) Ne apex ne subdomain → custom_domain adayi
+  // 6) Ne apex ne subdomain → custom_domain adayi
   //    (Asama A'da default'a duser; Asama B'de DB lookup yapilacak)
   return { type: "custom_domain", host };
 }

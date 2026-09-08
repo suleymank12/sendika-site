@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "test:sanitize": "node --conditions=react-server scripts/test-sanitize.mjs",
+    "test:hostname": "node scripts/test-parse-hostname.mjs",
     "migrate:storage:dry": "node scripts/migrate-storage-prefix.mjs --dry-run",
     "migrate:storage": "node scripts/migrate-storage-prefix.mjs"
   },
