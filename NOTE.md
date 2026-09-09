@@ -5,6 +5,104 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 💾 STORAGE YEDEĞİ — `scripts/backup-storage.mjs` (9 Eylül 2026)
+
+**Durum:** Script **hazır**, lint + build geçti. **Henüz çalıştırılmadı.**
+Elle iş: VPS'te ilk koşum + cron satırı (aşağıda).
+
+## Neden ayrı bir script
+
+`/usr/local/bin/supabase-yedek.sh` (her gece 04:00, gzip, 14 gün) **yalnızca
+veritabanını** yedekliyor. Storage dosyaları o dökümün içinde **değil**.
+Bucket public-read ve **versiyonlama yok** → silinen görsel geri gelmez.
+
+Ölçüm (9 Eylül 2026): `images` bucket'ı **124 dosya / 69 MB**. Bunun 48 dosya
+/ 34 MB'ı göç sonrası kalan prefix'siz kopyalar — yedek alındıktan sonra
+silinecek. Script bu ayrımı **bilmiyor**, hepsini indiriyor (bilinçli).
+
+## Nasıl çalışıyor
+
+- Ortam dosyası: `.env.local` yoksa `.env` (VPS'te ikincisi). Service-role.
+- Listeleme rekursif + sayfalamalı. **Tuzak:** `storage.list()` istenen
+  limitten az kayıt dönebilir; döngü "az geldi → bitti" **varsaymıyor**,
+  yalnızca boş sayfada duruyor. Aksi halde sunucu tarafı bir limit sessizce
+  dosya atlatır — yedekte bu, fark edilmeyen veri kaybıdır.
+- Dosya yapısı korunuyor: `{tenant_id}/{klasör}/{dosya}` aynen iniyor.
+- İndirme **imzalı URL + stream** ile (bellek dostu; 400 MB'lık video da
+  RAM'e alınmaz). Önce `.part`'a yazılıyor, bitince rename → nihai yolda
+  hiçbir zaman yarım dosya olmuyor.
+- Tek dosya inemezse yedek çökmüyor; sayılıp devam ediliyor. **Hata varsa
+  çıkış kodu 1** (cron log'unda görünsün).
+- Hedef dizine `yedek.log` satırı yazılıyor (DB yedeği deseni).
+
+## Karar 1 — Artımlı karşılaştırma: uzak `metadata.size` ↔ yerel dosya boyutu
+
+Uzak boyut `list()` cevabından **bedava** geliyor (dosya başına ek istek yok).
+Yerelde yalnızca "dosya var mı" bakmak **yetmez**: yarım kalmış bir indirme
+diskte kırpık dosya bırakır ve varlık kontrolü onu "yedeklenmiş" sayar.
+Boyut kontrolü bunu yakalar; `.part` + rename deseni de boyutu güvenilir bir
+imza hâline getiriyor. `metadata.size` yoksa dosya **her zaman** yeniden
+iniyor (fail-safe).
+
+**Reddedilen alternatif — eTag/MD5:** içerik değişimini boyuttan iyi yakalar
+ama S3 uyumlu depolamada multipart yüklemelerde eTag ham MD5 **değildir**
+(`"<md5>-<parça>"`). O durumda yerel MD5 asla eşleşmez ve script her gece
+**tüm** dosyaları yeniden indirir — sessizce çalışır ama artımlılık ölür.
+Kabul edilen sınır: aynı ad + aynı boyut + farklı içerik atlanır. Bu
+uygulamada dosya adları zaman damgalı üretildiği ve aynı yola tekrar
+yazılmadığı için bu durum pratikte oluşmuyor.
+
+## Karar 2 — Silinen dosyalar: silme yok, `_silinenler/{tarih}/` + 30 gün
+
+Storage'dan silinmiş ama yerelde duran dosya **silinmiyor**;
+`_silinenler/{YYYY-AA-GG}/` altına orijinal yolu korunarak taşınıyor ve
+**30 gün** sonra temizleniyor.
+
+- **Birebir ayna (silme) neden değil:** yedeğin varlık sebebi kazara silmeden
+  dönmek. Ayna mantığında kazara silinen görsel **ilk gece yedekten de**
+  silinir — yedek tam da koruması gereken senaryoda işe yaramaz.
+- **Sonsuza kadar tutmak neden değil:** dizin sürekli büyür ve "neyin ne
+  zaman silindiği" kaybolur. Tarihli klasör hem sınırlı büyüme hem silinme
+  günlüğü sağlıyor.
+- **Neden 30 gün (DB 14 iken):** DB'de her gece **tam döküm** alınıyor —
+  silinen bir satır 14 ayrı dosyanın içinde duruyor. Storage'da tek canlı
+  ayna var; `_silinenler` o kaybın **tek** kaydı. Tek kayıt olduğu ve görsel
+  geri getirilemediği için pencere geniş tutuldu. Maliyet ihmal edilebilir.
+
+**İlk kullanım:** 48 prefix'siz dosya silindikten sonraki ilk koşumda
+`_silinenler/{tarih}/` altına taşınacak ve 30 gün tutulacak — istenen davranış.
+
+## ⏰ ELLE — VPS'te yapılacaklar
+
+```bash
+# 1) İlk koşum (elle, çıktıyı izleyerek)
+cd /var/www/sendika-site        # uygulama dizini
+node scripts/backup-storage.mjs /var/backups/storage
+
+# 2) Doğrula: 124 dosya inmiş olmalı
+find /var/backups/storage -type f -not -name 'yedek.log' | wc -l
+du -sh /var/backups/storage
+cat /var/backups/storage/yedek.log
+
+# 3) İkinci koşum — artımlılık testi (hepsi "atlanan" olmalı, indirilen=0)
+node scripts/backup-storage.mjs /var/backups/storage
+
+# 4) Cron — DB yedeğinden (04:00) 30 dk sonra, çakışmasın
+crontab -e
+30 4 * * * cd /var/www/sendika-site && /usr/bin/node scripts/backup-storage.mjs /var/backups/storage >> /var/log/storage-yedek.log 2>&1
+```
+
+**Not:** `node` yolu farklıysa `which node` ile bakıp cron satırında tam yolu
+kullanın — cron'un PATH'i kabuktan dardır.
+
+## Geri yükleme (henüz TATBİKAT YAPILMADI)
+
+Yedekten dönüş `supabase storage cp` / API ile yeniden yükleme gerektirir;
+script tek yönlüdür (yalnızca indirir). **Geri yükleme denenmeden yedek
+sayılmaz** — ayrı iş olarak planlanmalı.
+
+---
+
 # 🔴 CANLI BUG — Admin eklerken davet maili hiç gönderilmiyordu (8 Eylül 2026)
 
 **Durum:** Kod tarafı **düzeltildi**. SQL adımı **YOK**. Elle iş: aşağıdaki
