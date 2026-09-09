@@ -61,17 +61,26 @@ export default function NewTenantPage() {
 
     const data = await res.json().catch(() => ({}));
 
-    if (!res.ok && res.status !== 207) {
+    // 207 (kısmi başarı) da res.ok kapsamındadır — ayrıca kontrol gerekmez.
+    if (!res.ok) {
       toast.error(data?.error || "Tenant oluşturulamadı.");
       setSaving(false);
       return;
     }
 
+    // Mesaj API'den gelir; "Admin'e davet gönderildi" sabiti KALDIRILDI —
+    // e-posta Auth'ta zaten kayıtlıysa davet gönderilmez (8 Eylül canlı bug).
+    const message: string =
+      data?.message || data?.error || "Kuruluş oluşturuldu.";
+
     if (res.status === 207) {
-      // Kısmi başarı
-      toast.success("Tenant oluşturuldu (admin bağlantısında sorun: " + (data?.error || "") + ")");
+      // Kısmi başarı: kuruluş kuruldu ama davet / menü / ayarlar eksik kaldı.
+      toast.error(message, { duration: 12000 });
+    } else if (data?.outcome === "linked_existing") {
+      // Mail GİTMEDİ — kişi mevcut şifresiyle girecek, bilinmesi şart.
+      toast(message, { icon: "ℹ️", duration: 9000 });
     } else {
-      toast.success("Tenant başarıyla oluşturuldu. Admin'e davet gönderildi.");
+      toast.success(message);
     }
 
     if (data?.tenant?.id) {
@@ -137,7 +146,7 @@ export default function NewTenantPage() {
             value={adminEmail}
             onChange={(e) => setAdminEmail(e.target.value)}
             placeholder="admin@kurulus.org.tr"
-            helperText="Bu e-postaya davet maili gönderilir. Kullanıcı yoksa otomatik oluşturulur."
+            helperText="Adres sistemde kayıtlı değilse hesap açılır ve davet maili gönderilir. Zaten kayıtlıysa kişi mevcut şifresiyle girer, mail gönderilmez."
             required
           />
         </section>
@@ -187,7 +196,11 @@ export default function NewTenantPage() {
             <ul className="mt-1 space-y-0.5 text-xs list-disc list-inside text-amber-800">
               <li>Tenant kaydı oluşturulur ve aktif edilir.</li>
               <li>Varsayılan menü, site ayarları ve renk teması kurulur.</li>
-              <li>Belirtilen e-postaya davet maili gönderilir.</li>
+              <li>
+                E-posta sistemde kayıtlı değilse davet maili gönderilir.
+                Kayıtlıysa kişi kuruma bağlanır ve mevcut şifresiyle girer —
+                bu durumda mail gitmez, sonucu işlem sonrası mesajda görürsünüz.
+              </li>
             </ul>
           </div>
         </div>

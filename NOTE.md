@@ -5,6 +5,151 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🔴 CANLI BUG — Admin eklerken davet maili hiç gönderilmiyordu (8 Eylül 2026)
+
+**Durum:** Kod tarafı **düzeltildi**. SQL adımı **YOK**. Elle iş: aşağıdaki
+env kontrolü + 4 manuel test.
+
+## Bug neydi?
+
+Süper admin panelden bir tenant'a admin eklerken, e-posta Supabase Auth'ta
+**zaten kayıtlıysa hiçbir mail gitmiyor**, panel yine de "Admin eklendi" /
+"Admin'e davet gönderildi" diyordu. Davet edilen kişi hiçbir şey almıyor,
+süper admin gönderildiğini sanıyordu.
+
+**Kök neden — yutulan hata değil, hiç yapılmayan çağrı:**
+
+```ts
+const existingUser = await findUserByEmail(admin, email);
+let userId = existingUser?.id ?? null;
+if (!userId) {                    // <-- kullanıcı VARSA blok atlanır
+  await admin.auth.admin.inviteUserByEmail(...)   // HİÇ ÇAĞRILMAZ
+}
+// ... insert ...
+toast.success("Admin eklendi.")   // panel sonucu SORMUYOR
+```
+
+Aynı desen `create-tenant/route.ts`'te de vardı; `tenants/yeni/page.tsx` ise
+API'ye hiç bakmadan sabit **"Admin'e davet gönderildi."** yazıyordu.
+
+## Mail mekanizması — ÖLÇÜLDÜ (9 Eylül 2026), tahmin değil
+
+Kod yazmadan önce canlı Supabase'te (custom SMTP → Resend,
+`noreply@buyukdirilis.org.tr`) daha önce hiç kullanılmamış iki `+alias`
+adresiyle ölçüldü. **Test hesapları ölçüm sonrası Auth'tan silindi.**
+
+| Auth durumu | `inviteUserByEmail` | Mail |
+|---|---|---|
+| kayıt yok | başarılı | **GELDİ** |
+| kayıtlı, daveti hiç kabul etmemiş | **başarılı** | **GELDİ** (yeniden gönderiyor) |
+| kayıtlı, şifresini belirlemiş / giriş yapmış | **422 `email_exists`** | yok |
+
+Ayrıca:
+
+- **`generateLink()` MAİL GÖNDERMEZ.** Taze adrese hiçbir şey ulaşmadı;
+  yalnızca link üretiyor. "Davet gönderiliyor" sanılıp kullanılamaz.
+- `resetPasswordForEmail` onaylanmamış kullanıcıda bile mail gönderiyor —
+  2. dal için alternatifti. Yeniden davet ölçümle çalıştığı için akış tek
+  çağrıda tutuldu (kişi "davet" bekliyor, "şifre sıfırlama" değil).
+- Daveti asıl reddettiren alan `email_confirmed_at`; bu uygulamada
+  `last_sign_in_at` ile birlikte dolar (davet linki `davet-kabul`'de
+  `setSession` çağırır). Ayırıcı olarak `last_sign_in_at` seçildi — süper
+  admin'e anlatılabilir tek alan bu. Ayırıcı yanılsa bile sonuç sessiz
+  kalmaz: davet denenir, hata `invite_failed` olarak raporlanır.
+
+## Kod tarafı (yapıldı)
+
+- **`lib/super-admin/admin-invite.ts`** (yeni) → `decideAdminInviteAction`
+  (saf fonksiyon, üç dal), `ADMIN_INVITE_MESSAGES`, `buildInviteRedirectUrl`.
+  Tek doğruluk kaynağı; iki route da buradan karar alıyor.
+- **`lib/supabase/admin-helpers.ts`** → `findUserByEmail` artık
+  `last_sign_in_at` + `invited_at` de döndürüyor (kararın girdisi).
+  Yeni `getUserEmailsByIds` — sayfalamalı e-posta eşleme.
+- **`api/super-admin/tenant-users` POST** → üç dal + `outcome` alanı:
+  `invited` / `reinvited` / `linked_existing` / `invite_failed`.
+  Davet, **bağlama başarılı olduktan sonra** gönderiliyor → zaten admin olan
+  birine (23505) gereksiz mail gitmiyor.
+- **`api/super-admin/create-tenant`** → aynı ayrım; ayrıca `site_settings`
+  ve `menu_items` insert sonuçları artık **kontrol ediliyor** (eskiden
+  tamamen atılıyordu → ayarsız/menüsüz kuruluş "başarıyla oluşturuldu"
+  görünebiliyordu). Eksikler 207 + uyarı olarak dönüyor.
+- **`api/super-admin/tenant-users/list`** → parametresiz `listUsers()`
+  yalnızca **ilk sayfayı** (varsayılan 50) getiriyordu; 50+ kullanıcıda
+  sonraki adminler panelde "(e-posta yok)" görünüyordu. Artık sayfalamalı,
+  hata durumunda fail-closed (500).
+- **Panel** → `tenants/[id]` ve `tenants/yeni` mesajı artık API'nin
+  `outcome`'undan alıyor. `yeni/page.tsx`'teki sabit "Admin'e davet
+  gönderildi." **kaldırıldı**; yardım metinleri de gerçeğe çekildi.
+- **`buildInviteRedirectUrl`** → `NEXT_PUBLIC_SITE_URL` tanımsızsa eskiden
+  `"undefined/admin/davet-kabul"` üretiliyordu. Artık `undefined` dönüyor
+  (Supabase proje Site URL'ine düşer) + sunucu log'una açık hata.
+- **`scripts/test-tenant-user-add.mjs`** → 47 vaka, `npm run test:tenant-user`.
+- **`.env.local.example`** → `NEXT_PUBLIC_SITE_URL` eklendi (prod'da tanımlı,
+  dokümanda yoktu).
+
+**Mesajlar (süper admin ne görecek):**
+
+| Durum | Mesaj |
+|---|---|
+| kayıt yok | "Davet gönderildi." |
+| kayıtlı, daveti kabul etmemiş | "…daveti hiç kabul etmemiş. Davet yeniden gönderildi." |
+| kayıtlı, giriş yapmış | "Bu kişi sistemde zaten kayıtlı. Mevcut şifresiyle girebilir — davet maili gönderilmedi." |
+| davet hata verdi | "…bağlandı fakat davet maili gönderilemedi." (207) |
+
+## ⏰ ELLE — deploy öncesi/sonrası
+
+1. **`NEXT_PUBLIC_SITE_URL` production'da tanımlı mı?** Tanımsızsa davet
+   linkleri Supabase proje Site URL'ine düşer. (Lokalde `.env.local`'de yok;
+   lokal zaten `{slug}.lvh.me:3000` kullanıyor — sorun değil.)
+2. **Supabase → Authentication → URL Configuration → Redirect URLs**
+   listesinde `{SITE_URL}/admin/davet-kabul` **tanımlı olmalı**; aksi halde
+   Supabase redirect'i kabul etmez.
+3. Manuel testler (gizli pencere, gerçek dış adresle):
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 1 | Hiç kayıtlı olmayan adresle admin ekle | Mail **gelir**; panel "Davet gönderildi." |
+| 2 | Daveti kabul etmemiş adresi başka bir tenant'a ekle | Mail **tekrar gelir**; panel "…davet yeniden gönderildi." |
+| 3 | Giriş yapmış bir admini başka tenant'a ekle | Mail **gelmez**; panel "…mevcut şifresiyle girebilir — davet maili gönderilmedi." |
+| 4 | Zaten o tenant'ın admini olan adresi tekrar ekle | 409 "zaten bu tenant'ın admini"; **mail gitmez** |
+
+**Not:** Test 3 bug'ın kendisi. Test 4 davetin bağlamadan sonra
+gönderildiğini doğrular — yalnızca 1–3'ü yapmak yeterli değil.
+
+## 📮 Bilinen — davet mailleri SPAM'e düşüyor
+
+Ölçümde davet mailleri **spam** klasörüne, şifre sıfırlama maili gelen
+kutusuna düştü. Gönderen alan adı için SPF/DKIM/DMARC ve Resend alan adı
+doğrulaması gözden geçirilmeli. **Ayrı konu — bu turda dokunulmadı.**
+
+## 📋 BACKLOG — bu turda UYGULANMADI
+
+**1. `davet-kabul/page.tsx:199-204` → `.limit(1)` çoklu üyelikte yanlış kurum**
+
+Davet kabul edildikten sonra kişinin gideceği kurum
+`tenant_users … .limit(1)` ile seçiliyor — **sıralama yok**. Birden fazla
+kuruma üye biri (veya iki kuruma arka arkaya davet edilen biri) daveti kabul
+edince **rastgele/ilk bulunan** kuruma düşüyor; davet ettiğiniz kurum
+olmayabilir. Davet edilen tenant akışta açıkça taşınmalı (örn. redirect
+URL'ine tenant bilgisi eklenip kabulde doğrulanmalı). Codex raporundaki
+P2 "Davet akışı ortam ayarlarına bağımlı" maddesiyle aynı kök.
+
+**2. `tenant-users` DELETE 207 → üyeliksiz ama yaşayan Auth kaydı (hayalet hesap)**
+
+Silme sırasında `cleanupOrphanUserIfNeeded` hata verirse (`reason: "error"`)
+üyelik satırı siliniyor, **Auth kaydı kalıyor**. Kişi hiçbir kuruma bağlı
+değil ama hesabı yaşıyor.
+
+Bu turdaki düzeltme **kullanıcıya görünen zararı kaldırdı**: aynı adres
+tekrar eklendiğinde artık "davet gönderildi" yalanı yazılmıyor — kişi daha
+önce giriş yaptıysa "mevcut şifresiyle girebilir" (doğru), hiç giriş
+yapmadıysa davet yeniden gidiyor. **Kalan iş:** yetim Auth kayıtlarının
+tespiti ve temizliği (süper admin'e görünür bir liste veya periyodik
+temizlik). Aynı yetim sorununun daha büyük kaynağı `delete-tenant`'ın
+storage temizliği yapmaması — birlikte ele alınmalı.
+
+---
+
 # 🟠 BUG — Manşet silmek haberin kapak görselini siliyordu (9 Eylül 2026)
 
 **Durum:** Kod tarafı **düzeltildi**. SQL adımı **YOK**. Elle iş: aşağıdaki

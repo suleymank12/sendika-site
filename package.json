@@ -11,6 +11,7 @@
     "test:hostname": "node scripts/test-parse-hostname.mjs",
     "test:tenant": "node scripts/test-tenant-resolve.mjs",
     "test:storage": "node scripts/test-storage-ownership.mjs",
+    "test:tenant-user": "node scripts/test-tenant-user-add.mjs",
     "migrate:storage:dry": "node scripts/migrate-storage-prefix.mjs --dry-run",
     "migrate:storage": "node scripts/migrate-storage-prefix.mjs"
   },

@@ -169,7 +169,20 @@ export default function TenantDetailPage() {
       setAddingUser(false);
       return;
     }
-    toast.success("Admin eklendi.");
+
+    // Sonuç API'nin `outcome` alanından okunur. Sabit "davet gönderildi"
+    // mesajı 8 Eylül canlı bug'ının görünen yüzüydü: e-posta Auth'ta zaten
+    // kayıtlıysa hiçbir mail gitmediği halde panel gönderildi diyordu.
+    const message: string = data?.message || "Admin eklendi.";
+    if (data?.outcome === "linked_existing") {
+      // Mail GİTMEDİ — süper admin'in bunu görüp kişiye söylemesi gerek.
+      toast(message, { icon: "ℹ️", duration: 9000 });
+    } else if (data?.outcome === "invite_failed") {
+      toast.error(message, { duration: 10000 });
+    } else {
+      toast.success(message);
+    }
+
     setNewUserEmail("");
     setAddingUser(false);
     fetchUsers();

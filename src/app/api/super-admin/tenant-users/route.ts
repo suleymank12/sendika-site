@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 import { cleanupOrphanUserIfNeeded } from "@/lib/super-admin/cleanup-orphan-user";
+import {
+  ADMIN_INVITE_MESSAGES,
+  buildInviteRedirectUrl,
+  decideAdminInviteAction,
+  type AdminInviteOutcome,
+} from "@/lib/super-admin/admin-invite";
 
 async function requireSuperAdmin() {
   const supabase = createClient();
@@ -58,20 +64,33 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Tenant bulunamadı." }, { status: 404 });
   }
 
-  // Kullanıcıyı bul, yoksa davet et
-  const existingUser = await findUserByEmail(admin, email);
+  // Kullanıcı Auth'ta var mı? Karar (davet / yeniden davet / sadece bağla)
+  // bu üç durum ayrımına dayanır — bkz. lib/super-admin/admin-invite.
+  let existingUser;
+  try {
+    existingUser = await findUserByEmail(admin, email);
+  } catch (err) {
+    console.error("[TenantUsers] findUserByEmail hatası:", err);
+    return NextResponse.json(
+      { error: "Kullanıcı kaydı sorgulanamadı. Lütfen tekrar deneyin." },
+      { status: 500 }
+    );
+  }
+
+  const action = decideAdminInviteAction(existingUser);
+  const inviteRedirectUrl = buildInviteRedirectUrl(tenant.slug);
+  const inviteOptions = inviteRedirectUrl
+    ? { redirectTo: inviteRedirectUrl }
+    : undefined;
+
   let userId: string | null = existingUser?.id ?? null;
+  let outcome: AdminInviteOutcome = action.outcome;
 
-  if (!userId) {
-    const inviteRedirectUrl =
-      process.env.NODE_ENV === "production"
-        ? `${process.env.NEXT_PUBLIC_SITE_URL}/admin/davet-kabul`
-        : `http://${tenant.slug}.lvh.me:3000/admin/davet-kabul`;
-
+  // "invite" dalı: kullanıcı YOK. Davet, kullanıcıyı oluşturan çağrı olduğu
+  // için bağlamadan ÖNCE yapılmak zorunda (user_id başka türlü yok).
+  if (action.kind === "invite") {
     const { data: invited, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: inviteRedirectUrl,
-      });
+      await admin.auth.admin.inviteUserByEmail(email, inviteOptions);
     if (inviteError || !invited?.user) {
       console.error("[TenantUsers] inviteUserByEmail hatası:", inviteError);
       return NextResponse.json(
@@ -102,7 +121,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ success: true, link }, { status: 201 });
+  // "reinvite" dalı: kullanıcı vardı ama daveti hiç kabul etmemiş. Davet
+  // BAĞLAMA BAŞARILI OLDUKTAN SONRA gönderilir — böylece zaten admin olan
+  // birine (23505) gereksiz mail gitmez.
+  if (action.kind === "reinvite") {
+    const { error: reinviteError } = await admin.auth.admin.inviteUserByEmail(
+      email,
+      inviteOptions
+    );
+    if (reinviteError) {
+      // Bağlantı kuruldu ama mail gitmedi → kısmi başarı. Sessizce
+      // "gönderildi" DEME: bu bug'ın ta kendisiydi.
+      console.error("[TenantUsers] yeniden davet hatası:", reinviteError);
+      outcome = "invite_failed";
+    }
+  }
+
+  return NextResponse.json(
+    { success: true, link, outcome, message: ADMIN_INVITE_MESSAGES[outcome] },
+    { status: outcome === "invite_failed" ? 207 : 201 }
+  );
 }
 
 // DELETE: tenant_users kaydını sil. Kullanıcı bu işlemden sonra HİÇBİR

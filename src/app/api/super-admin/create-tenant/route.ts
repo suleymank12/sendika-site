@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
+import {
+  ADMIN_INVITE_MESSAGES,
+  buildInviteRedirectUrl,
+  decideAdminInviteAction,
+  type AdminInviteOutcome,
+} from "@/lib/super-admin/admin-invite";
 import { RESERVED_TENANT_SLUGS } from "@/lib/constants";
 import { normalizeCustomDomain } from "@/lib/tenant-hostname";
 
@@ -135,9 +141,24 @@ export async function POST(req: NextRequest) {
     { key: "logo_url", value: "/placeholder-logo.png" },
   ];
 
-  await admin
+  // Insert sonucu KONTROL EDİLİR: eskiden tamamen atılıyordu, dolayısıyla
+  // ayarsız/menüsüz kurulan bir kuruluş "başarıyla oluşturuldu" görünüyordu.
+  // Kuruluş satırı zaten yazıldığı için geri sarmıyoruz — eksikler uyarı
+  // olarak toplanıp cevapta (207) süper admin'e bildiriliyor.
+  const setupWarnings: string[] = [];
+
+  const { error: settingsError } = await admin
     .from("site_settings")
     .insert(defaultSettings.map((s) => ({ ...s, tenant_id: tenantId })));
+
+  if (settingsError) {
+    console.error("[CreateTenant] site_settings insert hatası:", settingsError);
+    setupWarnings.push(
+      "Varsayılan site ayarları oluşturulamadı (" +
+        settingsError.message +
+        "). Ayarlar sayfasından elle tamamlanmalı."
+    );
+  }
 
   // 7) Varsayılan menü öğeleri
   const defaultMenu: Array<{ title: string; url: string; order: number }> = [
@@ -148,7 +169,7 @@ export async function POST(req: NextRequest) {
     { title: "İletişim", url: "/iletisim", order: 5 },
   ];
 
-  await admin.from("menu_items").insert(
+  const { error: menuError } = await admin.from("menu_items").insert(
     defaultMenu.map((m) => ({
       ...m,
       tenant_id: tenantId,
@@ -156,29 +177,68 @@ export async function POST(req: NextRequest) {
     }))
   );
 
-  // 8) Admin kullanıcıyı bul veya oluştur
-  const existingUser = await findUserByEmail(admin, adminEmail);
+  if (menuError) {
+    console.error("[CreateTenant] menu_items insert hatası:", menuError);
+    setupWarnings.push(
+      "Varsayılan menü oluşturulamadı (" +
+        menuError.message +
+        "). Menü yönetiminden elle eklenmeli."
+    );
+  }
+
+  // Aşağıdaki erken dönüşler de kurulum uyarılarını TAŞIMALI: admin davetiyle
+  // birlikte menü/ayar da eksik kaldıysa süper admin ikisini birden görmeli.
+  const warningSuffix =
+    setupWarnings.length > 0 ? " " + setupWarnings.join(" ") : "";
+  const warningField =
+    setupWarnings.length > 0 ? { warnings: setupWarnings } : {};
+
+  // 8) Admin kullanıcıyı bul veya oluştur.
+  //    Üç durum ayrımı tenant-users route'uyla AYNI — tek kaynak:
+  //    lib/super-admin/admin-invite. Eskiden davet yalnızca `if (!adminUserId)`
+  //    bloğunun içinde gönderiliyordu; e-posta zaten kayıtlıysa hiç mail
+  //    gitmediği halde panel "davet gönderildi" diyordu (8 Eylül canlı bug).
+  let existingUser;
+  try {
+    existingUser = await findUserByEmail(admin, adminEmail);
+  } catch (err) {
+    console.error("[CreateTenant] findUserByEmail hatası:", err);
+    return NextResponse.json(
+      {
+        error:
+          "Kuruluş oluşturuldu fakat admin kullanıcı kaydı sorgulanamadı. " +
+          "Kuruluş detay sayfasından admin ekleyin." +
+          warningSuffix,
+        tenant,
+        ...warningField,
+      },
+      { status: 207 }
+    );
+  }
+
+  const action = decideAdminInviteAction(existingUser);
+  const inviteRedirectUrl = buildInviteRedirectUrl(slug);
+  const inviteOptions = inviteRedirectUrl
+    ? { redirectTo: inviteRedirectUrl }
+    : undefined;
+
   let adminUserId: string | null = existingUser?.id ?? null;
+  let outcome: AdminInviteOutcome = action.outcome;
 
-  if (!adminUserId) {
-    // Kullanıcı yok — oluştur (davet maili ile)
-    const inviteRedirectUrl =
-      process.env.NODE_ENV === "production"
-        ? `${process.env.NEXT_PUBLIC_SITE_URL}/admin/davet-kabul`
-        : `http://${slug}.lvh.me:3000/admin/davet-kabul`;
-
+  if (action.kind === "invite") {
+    // Kullanıcı yok — davet çağrısı hem hesabı oluşturur hem maili gönderir.
     const { data: created, error: inviteError } =
-      await admin.auth.admin.inviteUserByEmail(adminEmail, {
-        redirectTo: inviteRedirectUrl,
-      });
+      await admin.auth.admin.inviteUserByEmail(adminEmail, inviteOptions);
     if (inviteError || !created?.user) {
       console.error("[CreateTenant] inviteUserByEmail hatası:", inviteError);
       return NextResponse.json(
         {
           error:
-            "Tenant oluşturuldu fakat admin kullanıcı davet edilemedi: " +
-            (inviteError?.message || "bilinmeyen hata"),
+            "Kuruluş oluşturuldu fakat admin kullanıcı davet edilemedi: " +
+            (inviteError?.message || "bilinmeyen hata") +
+            warningSuffix,
           tenant,
+          ...warningField,
         },
         { status: 207 } // Multi-Status — kısmi başarı
       );
@@ -200,12 +260,42 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         error:
-          "Tenant oluşturuldu fakat admin kullanıcı bağlanamadı: " + linkError.message,
+          "Kuruluş oluşturuldu fakat admin kullanıcı bağlanamadı: " +
+          linkError.message +
+          warningSuffix,
         tenant,
+        ...warningField,
       },
       { status: 207 }
     );
   }
 
-  return NextResponse.json({ success: true, tenant }, { status: 201 });
+  // 10) Kayıtlı ama daveti hiç kabul etmemiş kullanıcıya daveti YENİDEN
+  //     gönder. Bağlama başarılı olduktan sonra yapılır; hata yutulmaz.
+  if (action.kind === "reinvite") {
+    const { error: reinviteError } = await admin.auth.admin.inviteUserByEmail(
+      adminEmail,
+      inviteOptions
+    );
+    if (reinviteError) {
+      console.error("[CreateTenant] yeniden davet hatası:", reinviteError);
+      outcome = "invite_failed";
+    }
+  }
+
+  const partial = outcome === "invite_failed" || setupWarnings.length > 0;
+  const message = ["Kuruluş oluşturuldu.", ADMIN_INVITE_MESSAGES[outcome]]
+    .concat(setupWarnings)
+    .join(" ");
+
+  return NextResponse.json(
+    {
+      success: !partial,
+      tenant,
+      outcome,
+      message,
+      ...warningField,
+    },
+    { status: partial ? 207 : 201 }
+  );
 }

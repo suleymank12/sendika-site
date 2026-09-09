@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getUserEmailsByIds } from "@/lib/supabase/admin-helpers";
 
 // GET ?tenantId=...
 // Bir tenant'a bağlı kullanıcıları (email ile birlikte) döner.
@@ -37,16 +38,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Her user_id için email'i auth.users'tan al
+  // Her user_id için email'i auth.users'tan al.
+  // Eskiden burada parametresiz `listUsers()` vardı: yalnızca İLK SAYFAYI
+  // (varsayılan 50 kayıt) döndürür. Platformda 50'den fazla kullanıcı olunca
+  // sonraki sayfalardaki adminler panelde "(e-posta yok)" görünüyordu.
+  // Sayfalama artık getUserEmailsByIds'te — findUserByEmail ile aynı desen.
   const userIds = (links || []).map((l) => l.user_id);
-  const emailMap = new Map<string, string>();
+  let emailMap: Map<string, string>;
 
-  if (userIds.length > 0) {
-    // admin.listUsers — küçük platformlar için yeterli, pagination yok
-    const { data: usersList } = await admin.auth.admin.listUsers();
-    (usersList?.users || []).forEach((u) => {
-      if (userIds.includes(u.id)) emailMap.set(u.id, u.email || "");
-    });
+  try {
+    emailMap = await getUserEmailsByIds(admin, userIds);
+  } catch (err) {
+    // Fail-closed: e-postasız liste süper admin'i yanıltır (kimi sildiğini
+    // göremez). Eksik veri göstermek yerine hatayı bildiriyoruz.
+    console.error("[tenant-users:list] kullanıcı e-postaları alınamadı:", err);
+    return NextResponse.json(
+      { error: "Kullanıcı e-postaları alınamadı. Lütfen tekrar deneyin." },
+      { status: 500 }
+    );
   }
 
   const result = (links || []).map((l) => ({
