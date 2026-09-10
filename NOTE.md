@@ -657,38 +657,141 @@ panelde görünür.
 
 ---
 
-# 📋 BACKLOG — `delete-tenant` storage temizliği (Madde B — ayrı tur) (10 Eylül 2026)
+# ✅ KAPATILDI — `delete-tenant` storage temizliği (Madde B) (10 Eylül 2026)
 
-**Durum:** Teşhis tamam, **uygulanmadı**. **Önleyici:** canlıda silinmiş kuruma
-ait yetim dosya yok.
+**Durum:** Kod tarafı **tamam** — tsc + lint + build + 7 test script'i geçti.
+SQL adımı **YOK**. **Önleyici:** canlıda silinmiş kuruma ait yetim dosya yok
+(ölçüm aşağıda). Elle iş: ⚠️ yedek cron kontrolü + manuel testler (aşağıda).
 
-**Sorun:** `api/super-admin/delete-tenant` kurumu siliyor (`tenant_id` taşıyan
+**Sorun:** `api/super-admin/delete-tenant` kurumu siliyordu (`tenant_id` taşıyan
 18 tablonun hepsi `ON DELETE CASCADE` — DB'de yetim kalmıyor) ama storage'a
-**hiç** dokunmuyor: `images/{tenant_id}/…` bucket'ta kalıyor.
+**hiç** dokunmuyordu: `images/{tenant_id}/…` bucket'ta kalıyordu.
 
 **Ölçüm (10 Eylül 2026):** silinmiş kuruma ait yetim klasör **0**. Bucket:
 default 71 dosya / 36 MB, kurmay-teknoloji 5 dosya / 82 kB; prefix'siz eski
 dosya kalmamış. Toplam 36 MB / 1 GB.
 
-**Teşhiste kararlaşan tasarım:**
-- Storage silme, kurum DB'den **başarıyla silindikten SONRA**, en iyi çabayla.
-  Önce yapılıp kurum silme patlarsa yayındaki bir kurumun görselleri gider
-  (public bucket, versiyon yok).
-- Guard'lar (servis anahtarı storage RLS'ini atlar — koruma koddadır):
-  `tenantId` geçerli UUID (boş değer tüm bucket kökünü listeler); silmeden
-  hemen önce kurum `tenants`'ta **yok** olmalı (varsa dokunma); her yol için
-  `path.split("/")[0] === tenantId` (segment karşılaştırması — `isOwnedPath`
-  deseni); varsayılan kurumun UUID'si ayrıca reddedilir; silme yalnız Storage
-  API `.remove()` ile (`storage.objects`'ten SQL DELETE dosyayı depolamada
-  yetim bırakır).
-- Listeleme `backup-storage.mjs`'teki özyinelemeli + sayfalı desenle; silme
-  100'lük gruplar; süre bütçesi (~20 sn, nginx 60 sn zaman aşımı) — sığmayan
-  dosyalar 207 ile raporlanır.
-- Başarısızlıkta kurum silinmiş kalır (asıl iş ve erişimin kapanması); kalan
-  dosya 207 ile görünür, sonra süpürülür.
-- Geçmiş / kalan yetimler için rapor-önce (dry-run) bir süpürücü script.
-- **Ön şart karşılandı:** storage yedeği çalışıyor (9 Eylül; `_silinenler/` 30
-  gün) — yanlış silmeye karşı tek geri dönüş yolu.
+```sql
+-- Klasör (kurum) başına dosya sayısı
+SELECT split_part(name, '/', 1) AS klasor, count(*) AS dosya
+FROM storage.objects WHERE bucket_id = 'images' GROUP BY 1 ORDER BY 2 DESC;
+
+-- Yetim: kaydı olmayan kurum UUID'si altındaki dosyalar (0 satır beklenir)
+SELECT split_part(o.name, '/', 1) AS klasor, count(*) AS dosya
+FROM storage.objects o
+WHERE o.bucket_id = 'images'
+  AND split_part(o.name, '/', 1) ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+  AND NOT EXISTS (SELECT 1 FROM public.tenants t WHERE t.id::text = split_part(o.name, '/', 1))
+GROUP BY 1;
+```
+
+## Uygulanan tasarım
+
+- **Ortak modül `src/lib/super-admin/tenant-storage-purge.mjs`** — route,
+  süpürücü script ve test AYNI guard kodunu kullanır (kopyalanan güvenlik kodu
+  zamanla ayrışır). **Neden `.mjs`** (proje TS iken): VPS Node 20; `.ts`'yi
+  doğrudan çalıştırmak Node 22.6+ ister. Düz JS + JSDoc, `@ts-check` açık; TS
+  onu `allowJs` ile tipleriyle okur.
+- **`delete-tenant`, yeni 5. adım:** kurum DB'den başarıyla silindikten SONRA
+  `purgeTenantStorage` (20 sn bütçe). Önce yapılıp kurum silme patlasaydı
+  yayındaki bir kurumun görselleri giderdi (public bucket, versiyon yok).
+  Yanıt her durumda `storage` özeti taşır; hesap temizliği ya da storage eksikse
+  207.
+
+**Guard'lar** (servis anahtarı storage RLS'ini atlar — koruma koddadır):
+1. `tenantId` küçük harfli kanonik UUID olmalı — boş/bozuk değer **hiçbir
+   çağrı yapılmadan** reddedilir (`list("")` bucket kökünü, yani tüm kurumları
+   listelerdi).
+2. Varsayılan kurumun UUID'si (`00000000-…-0001`, tohumla aynı — testte
+   kilitli) her koşulda reddedilir.
+3. Kurum `tenants`'ta **varsa** hiçbir şeye dokunulmaz: listelemeden önce
+   **ve** silmeden hemen önce iki kez sorulur; sorgu hata verirse de
+   dokunulmaz (fail-closed).
+4. Silinecek her yol segment kontrolünden geçer (`isTenantOwnedPath`): ilk
+   segment tam olarak tenantId (düz prefix yanılması yok); `""`, `.`, `..` ya
+   da `/` içeren ad ne gezilir ne silinir — atlanır, raporlanır.
+5. Silme yalnız `storage.from("images").remove(...)` ile; `storage.objects`'ten
+   SQL DELETE yapılmaz (dosyayı depolamada yetim bırakırdı).
+
+**Listeleme:** özyinelemeli + sayfalı (`backup-storage.mjs` dersi) — yalnız
+BOŞ sayfada durulur, offset dönen kayıt kadar ilerler ("az geldi = bitti"
+varsayımı yok). `.emptyFolderPlaceholder` da silinir (klasör tamamen boşalsın).
+
+**Süre bütçesi — 20 sn (`ROUTE_STORAGE_BUDGET_MS`):** nginx isteği 60 sn'de
+keser; kurum silme + hesap temizliği + yanıt için pay bırakılır. Her `list` /
+`remove` çağrısından önce kontrol edilir; dolunca durulur (`timedOut`). Bugünkü
+hacim (kurum başına ≤ ~71 dosya) sınırın çok altında; 100'lük gruplarla birkaç
+bin dosya sığar. Sığmayanlar 207 ile raporlanır, süpürücü temizler.
+
+**Başarısızlıkta:** kurum silinmiş kalır; gruplar bağımsız (bir grup hata
+verirse diğerleri yine denenir). 207 uyarısı Madde A deseninde (⚠️, 12 sn):
+"Tenant silindi ancak 150 dosya depolamada kaldı (süre sınırı). Kalan dosyalar
+temizlik scriptiyle silinebilir." Listeleme bitmediyse "en az N". Hesaplar da
+kaldıysa aynı cümlede, "Bağlantısız Hesaplar" bağlantısıyla. Tam başarıda
+"Tenant silindi (N dosya)." Silme onay metni artık medya dosyalarının da
+silineceğini söylüyor. Geri dönüş: storage yedeği (`_silinenler/`, 30 gün).
+
+## Süpürücü — `scripts/sweep-orphan-storage.mjs`
+
+Geçmiş / kalan yetim klasörler (kaydı olmayan kurum UUID'leri) için. **Tam
+checkout'ta** çalışır (lokal / WSL; `.env.local` ya da `.env` canlıya bağlı,
+servis anahtarı gerekli) — VPS'teki uygulama dizini yalnız standalone çıktıyı
+tutar, `src/` orada yok.
+
+```bash
+node scripts/sweep-orphan-storage.mjs                        # RAPOR (varsayılan) — hiçbir şey silmez
+npm run sweep:storage                                         # = rapor
+node scripts/sweep-orphan-storage.mjs --sil <uuid>[,<uuid>]   # yalnız ADI VERİLEN yetim klasörleri siler
+```
+
+- **Rapor:** kök kayıt ve kayıtlı kurum sayısı; her yetim klasör için dosya
+  sayısı, boyut, ilk 3 yol; tanınmayan kök öğeler (UUID olmayan klasörler,
+  kök dosyaları — **asla silinmez**); kopyalanacak `--sil` komutu.
+- **Açık onay:** "hepsini sil" seçeneği bilerek yok. UUID'ler rapordan verilir;
+  her biri bu koşumda yeniden doğrulanır (hâlâ yetim mi) — değilse gerekçesiyle
+  reddedilir. Silme route'la aynı `purgeTenantStorage` ile (süre bütçesiz).
+- **Çıkış kodu:** 0 temiz · 1 silme eksik ya da reddedilen hedef · 2 kullanım hatası.
+
+**Test:** `npm run test:storage-purge` (73 test) — kimlik guard'ları, segment
+kontrolü (düz prefix tuzağı, `..`), özyinelemeli + sayfalı listeleme (sunucu az
+dönse de), kurum varken / kontrol hatasında / varsayılan kurumda **hiçbir**
+list/remove çağrısı yok (silmeden hemen önceki ikinci kontrol dahil),
+`.remove()` argümanları (yalnız o kurumun yolları; 100 / 100 / 50), süre
+bütçesi, grup hatası, süpürücünün yetim tespiti ve açık onayı.
+
+## ⚠️ Kontrol edilmeli — deploy yedek script'ini silmiş olabilir
+
+Deploy `rsync -avz --delete .next/standalone/ …:/var/www/sendika-site/` ile
+yapılıyor; `--delete` kaynakta olmayanı siler ve **`scripts/` standalone
+çıktıda yok**. Yedek cron'u `cd /var/www/sendika-site && node
+scripts/backup-storage.mjs …` çalıştırıyor → 9 Eylül'den sonraki ilk deploy
+script'i silmiş, yedek **sessizce** duruyor olabilir. (Bu yedek, storage
+silmenin tek geri dönüş yolu.) VPS'te:
+
+```bash
+ls -la /var/www/sendika-site/scripts/backup-storage.mjs
+tail -n 5 /var/log/storage-yedek.log      # "Cannot find module" var mı?
+tail -n 3 /var/backups/storage/yedek.log  # son gecenin satırı var mı?
+```
+
+Script yoksa: yeniden kopyalayın ve deploy komutuna `--exclude scripts/`
+ekleyin (VPS DEPLOY → "3. Deploy akışı"), ya da script'leri rsync hedefinin
+dışına taşıyıp cron satırını güncelleyin.
+
+## ⏰ ELLE — manuel testler
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 0 | **Önce** yukarıdaki yedek kontrolü | Script yerinde, son gecenin log satırı var |
+| 1 | Bir test tenant'ı oluşturun, admin panelinden 3-4 görsel yükleyin; yukarıdaki "klasör başına" sorgusu | Test tenant'ının UUID'si N dosyayla listede |
+| 2 | Süper admin → test tenant'ını silin | "Tenant silindi (N dosya)."; sorguda o UUID yok, yetim sorgusu 0 satır |
+| 3 | Rapor: `node scripts/sweep-orphan-storage.mjs` | "Yetim klasör YOK." |
+| 4 | **Yapay yetim:** Dashboard → Storage → `images` → yeni klasör, adı rastgele bir UUID (`SELECT gen_random_uuid();`), içine bir dosya → 3'ü tekrarlayın | Klasör "Yetim klasör" altında (1 dosya), `--sil` komutu önerilir |
+| 5 | `node scripts/sweep-orphan-storage.mjs --sil <o-uuid>` | "done — silinen 1/1, kalan 0"; tekrar rapor → "Yetim klasör YOK." |
+| 6 | **Guard:** `--sil <kurmay-uuid>` ve `--sil 00000000-0000-0000-0000-000000000001` | İkisi de REDDEDİLDİ (yetim değil / varsayılan kurum), çıkış kodu 1, hiçbir şey silinmez |
+
+207 (süre sınırı, grup hatası) canlıda pratik olarak üretilemez (binlerce dosya
+gerekir) — birim testlerinde kilitli.
 
 ---
 
@@ -1031,6 +1134,8 @@ hacim ihmal edilebilir. Asıl yetim kaynağı bu değil:
 `delete-tenant` **hiç** storage temizliği yapmıyor ve ImageUploader dosyayı
 anında yüklüyor (admin "İptal"e basarsa dosya kalıyor). Yetim toplayıcı
 yazılacaksa oradan başlanmalı — ayrı iş.
+> ✅ `delete-tenant` kısmı 10 Eylül 2026'da kapatıldı (bkz. "✅ KAPATILDI —
+> `delete-tenant` storage temizliği"). ImageUploader "İptal" yetimi hâlâ açık.
 
 ## ⏰ ELLE — deploy sonrası manuel testler
 

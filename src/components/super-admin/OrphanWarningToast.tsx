@@ -14,18 +14,31 @@ import { ORPHAN_ACCOUNTS_PATH } from "@/lib/super-admin/orphan-users";
  * deseniyle aynı; uzun süreli ve listeye giden bağlantılı.
  */
 export function showOrphanWarning(message: string) {
+  showPartialWarning(message, { orphanLink: true });
+}
+
+/**
+ * Aynı ⚠️ uyarı; bağlantı yalnız bağlantısız hesap kaldıysa eklenir
+ * (tenant silmede yalnız dosyalar kaldıysa listeye yönlendirmek yanıltır).
+ */
+export function showPartialWarning(message: string, { orphanLink = false } = {}) {
   toast(
     (t) => (
       <span>
-        {message}{" "}
-        <Link
-          href={ORPHAN_ACCOUNTS_PATH}
-          onClick={() => toast.dismiss(t.id)}
-          className="font-medium underline"
-        >
-          Bağlantısız Hesaplar
-        </Link>{" "}
-        sayfasından silebilirsiniz.
+        {message}
+        {orphanLink && (
+          <>
+            {" "}
+            <Link
+              href={ORPHAN_ACCOUNTS_PATH}
+              onClick={() => toast.dismiss(t.id)}
+              className="font-medium underline"
+            >
+              Bağlantısız Hesaplar
+            </Link>{" "}
+            sayfasından silebilirsiniz.
+          </>
+        )}
       </span>
     ),
     { icon: "⚠️", duration: 12000 }

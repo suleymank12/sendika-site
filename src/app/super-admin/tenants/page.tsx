@@ -10,8 +10,9 @@ import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
 import toast from "react-hot-toast";
 import DeleteModal from "@/components/admin/DeleteModal";
 import ListLoadError from "@/components/admin/ListLoadError";
-import { showOrphanWarning } from "@/components/super-admin/OrphanWarningToast";
+import { showPartialWarning } from "@/components/super-admin/OrphanWarningToast";
 import { describeOrphanAccounts } from "@/lib/super-admin/orphan-users";
+import { describeStorageLeftover } from "@/lib/super-admin/tenant-storage-purge.mjs";
 
 interface Tenant {
   id: string;
@@ -113,21 +114,32 @@ export default function SuperAdminTenantsPage() {
       return;
     }
 
-    // 200 tam başarı, 207 kısmi başarı (tenant silindi, bazı hesaplar
-    // temizlenemedi → Bağlantısız Hesaplar'da). failedUsers e-posta taşır.
+    // 200 tam başarı, 207 kısmi başarı: tenant silindi ama bazı hesaplar
+    // (→ Bağlantısız Hesaplar) ve/veya dosyalar (→ süpürücü script) kaldı.
+    // failedUsers e-posta, storage temizlik özeti taşır.
     if (response.status === 207) {
       const failed: { email?: string | null }[] = Array.isArray(data?.failedUsers)
         ? data.failedUsers
         : [];
-      showOrphanWarning(
-        failed.length > 0
-          ? `Tenant silindi ancak bazı hesaplar silinemedi: ${describeOrphanAccounts(
-              failed.map((f) => f.email)
-            )}.`
-          : "Tenant silindi ancak bazı hesaplar silinemedi."
+      const storageNote = describeStorageLeftover(data?.storage);
+      const parts: string[] = [];
+      if (failed.length > 0) {
+        parts.push(
+          `bazı hesaplar silinemedi: ${describeOrphanAccounts(failed.map((f) => f.email))}`
+        );
+      }
+      if (storageNote) parts.push(storageNote);
+      const summary = parts.length > 0 ? parts.join("; ") : "temizlik tamamlanamadı";
+      showPartialWarning(
+        `Tenant silindi ancak ${summary}.` +
+          (storageNote ? " Kalan dosyalar temizlik scriptiyle silinebilir." : ""),
+        { orphanLink: failed.length > 0 }
       );
     } else {
-      toast.success("Tenant silindi.");
+      const removedFiles = Number(data?.storage?.removed) || 0;
+      toast.success(
+        removedFiles > 0 ? `Tenant silindi (${removedFiles} dosya).` : "Tenant silindi."
+      );
     }
 
     setTenants((prev) => prev.filter((t) => t.id !== deleteItem.id));
@@ -294,7 +306,7 @@ export default function SuperAdminTenantsPage() {
         loading={deleting}
         description={
           deleteItem
-            ? `"${deleteItem.name}" tenant'ını silmek üzeresiniz. Bu işlem tenant'a bağlı TÜM içerikleri (haberler, duyurular, sayfalar, ayarlar vb.) ve YALNIZCA bu tenant'a bağlı admin kullanıcı hesaplarını kalıcı olarak siler. Bu işlem geri alınamaz!`
+            ? `"${deleteItem.name}" tenant'ını silmek üzeresiniz. Bu işlem tenant'a bağlı TÜM içerikleri (haberler, duyurular, sayfalar, ayarlar vb.), yüklenmiş TÜM medya dosyalarını (görseller, videolar) ve YALNIZCA bu tenant'a bağlı admin kullanıcı hesaplarını kalıcı olarak siler. Bu işlem geri alınamaz!`
             : ""
         }
       />

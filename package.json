@@ -13,7 +13,9 @@
     "test:storage": "node scripts/test-storage-ownership.mjs",
     "test:tenant-user": "node scripts/test-tenant-user-add.mjs",
     "test:orphan": "node scripts/test-orphan-users.mjs",
+    "test:storage-purge": "node scripts/test-tenant-storage-purge.mjs",
     "backup:storage": "node scripts/backup-storage.mjs",
+    "sweep:storage": "node scripts/sweep-orphan-storage.mjs",
     "migrate:storage:dry": "node scripts/migrate-storage-prefix.mjs --dry-run",
     "migrate:storage": "node scripts/migrate-storage-prefix.mjs"
   },

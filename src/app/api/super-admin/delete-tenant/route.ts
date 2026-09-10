@@ -6,6 +6,10 @@ import {
   type CleanupResult,
 } from "@/lib/super-admin/cleanup-orphan-user";
 import { getUserEmailsByIds } from "@/lib/supabase/admin-helpers";
+import {
+  purgeTenantStorage,
+  ROUTE_STORAGE_BUDGET_MS,
+} from "@/lib/super-admin/tenant-storage-purge.mjs";
 
 /**
  * Bir tenant'i tum bagimliliklariyla siler ve YALNIZCA bu tenant'a bagli
@@ -20,8 +24,11 @@ import { getUserEmailsByIds } from "@/lib/supabase/admin-helpers";
  *     sildigi icin excludeTenantId VERILMEZ — helper'in saf count'u
  *     sole-tenant'i dogru tespit eder (multi-tenant'lar korunur, super
  *     admin korunur).
- *  6. Sonuc raporu: 200 (tam) / 207 (kismi — reason="error") /
- *     4xx-5xx (tenant silinemedi)
+ *  6. Storage: {tenant_id}/ klasorunu temizle — kurum DB'den silindikten
+ *     SONRA, en iyi cabayla, 20 sn sure butceli (tenant-storage-purge.mjs;
+ *     guard'lar orada). Basarisizlikta kurum silinmis kalir.
+ *  7. Sonuc raporu: 200 (tam) / 207 (kismi — hesap reason="error" ya da
+ *     storage eksik) / 4xx-5xx (tenant silinemedi)
  *
  * NOT: Postgres + Auth arasinda transaction YOK. Tenant silmek asil hedef
  * oldugu icin ONCE tenant siliniyor (cascade), SONRA auth temizligi. Tersi
@@ -129,8 +136,22 @@ export async function POST(request: NextRequest) {
     userDeleteResults.push({ userId, result });
   }
 
-  // 5) Sonuc raporu — yalniz reason="error" durumu 207 tetikler.
-  //    (multi-tenant / super-admin korumalari BASARI sayilir.)
+  // 5) Storage: kurum DB'den silindi → {tenant_id}/ klasorunu temizle. En iyi
+  //    caba ve sure butceli (nginx 60 sn). Guard'lar ortak modulde: kurum
+  //    tenants'ta hala varsa, varsayilan kurumsa ya da yol baska kuruma
+  //    aitse HICBIR SEY silinmez. Basarisizlikta kurum silinmis kalir (asil
+  //    is + erisimin kapanmasi); kalan dosyalar 207 ile bildirilir,
+  //    scripts/sweep-orphan-storage.mjs sonra temizler.
+  const storage = await purgeTenantStorage(admin, tenantId, {
+    budgetMs: ROUTE_STORAGE_BUDGET_MS,
+  });
+  if (storage.status !== "done") {
+    console.error("[delete-tenant] storage temizligi eksik:", storage);
+  }
+
+  // 6) Sonuc raporu — 207'yi iki sey tetikler: hesap temizliginde
+  //    reason="error" (multi-tenant / super-admin korumalari BASARI sayilir)
+  //    ya da storage temizliginin eksik kalmasi.
   const errored = userDeleteResults.filter(
     (r) => !r.result.deleted && r.result.reason === "error"
   );
@@ -138,29 +159,32 @@ export async function POST(request: NextRequest) {
     .filter((r) => r.result.deleted)
     .map((r) => r.userId);
 
-  if (errored.length === 0) {
+  if (errored.length === 0 && storage.status === "done") {
     return NextResponse.json(
       {
         ok: true,
         deletedTenantId: tenantId,
         deletedUsers,
+        storage,
       },
       { status: 200 }
     );
   }
 
-  // Tenant gitti ama bazi user temizlemeleri patladi — 207 Multi-Status.
+  // Tenant gitti ama hesap ve/veya storage temizligi eksik — 207 Multi-Status.
   // Panel uyarisi KIMIN kaldigini gostersin diye e-postalar eklenir (hesaplar
   // silinemedigi icin Auth'ta hala duruyorlar). E-posta alinamazsa ID ile
   // devam — uyari yine gosterilir, kisi Baglantisiz Hesaplar listesinde.
   let failedEmails = new Map<string, string>();
-  try {
-    failedEmails = await getUserEmailsByIds(
-      admin,
-      errored.map((r) => r.userId)
-    );
-  } catch (err) {
-    console.error("[delete-tenant] temizlenemeyen hesaplarin e-postasi alinamadi:", err);
+  if (errored.length > 0) {
+    try {
+      failedEmails = await getUserEmailsByIds(
+        admin,
+        errored.map((r) => r.userId)
+      );
+    } catch (err) {
+      console.error("[delete-tenant] temizlenemeyen hesaplarin e-postasi alinamadi:", err);
+    }
   }
 
   return NextResponse.json(
@@ -177,7 +201,9 @@ export async function POST(request: NextRequest) {
             ? r.result.error
             : undefined,
       })),
-      message: "Tenant silindi ancak bazi kullanici hesaplari temizlenemedi.",
+      storage,
+      message:
+        "Tenant silindi ancak temizlik tamamlanamadi (kullanici hesaplari ve/veya dosyalar).",
     },
     { status: 207 }
   );
