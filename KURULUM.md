@@ -214,15 +214,45 @@ Dashboard → **Authentication → URL Configuration**:
 | Alan | Değer |
 |---|---|
 | Site URL | `https://<apex-domain>` |
-| Redirect URLs | `https://<apex-domain>/admin/davet-kabul` |
-| Redirect URLs | `https://*.<apex-domain>/admin/davet-kabul` |
+| Redirect URLs | `https://<apex-domain>/admin/davet-kabul*` |
+| Redirect URLs | `https://*.<apex-domain>/admin/davet-kabul*` |
+
+**Satır sonlarındaki `*` bilerek var.** Davet linkleri kurumu taşır
+(`/admin/davet-kabul?tenant=<uuid>`). Supabase bir dönüş adresini iki yoldan
+kabul eder:
+
+- Adres **Site URL ile aynı host**'taysa desene hiç bakmaz — path ve query serbest.
+- **Farklı host**'taysa (subdomain, custom domain, lokal `lvh.me`) adres bu
+  listedeki bir desenle **baştan sona** eşleşmek zorundadır. Sonda `*` yoksa
+  `?tenant=...` kısmı eşleşmez ve Supabase linki **hata vermeden** Site URL
+  köküne düşürür — davet "açılmıyor" gibi görünür.
+
+Desendeki `*`, `.` ve `/` karakterlerini geçemez: subdomain adına ve
+`?tenant=<uuid>`'e yeter, başka bir siteye yönlendirmeye izin vermez.
+
+Bugünkü akışta davetler `NEXT_PUBLIC_SITE_URL`'e (Adım 8) döner. Bu değer Site
+URL ile birebir aynıysa (şema + host) apex satırındaki `*` hiç devreye girmez;
+farklı yazılırsa (ör. `www.` ile) davetleri o `*` kurtarır — koymak bedava,
+koymamak o hatayı sessiz yapar. Şifre sıfırlama linkleri kurumun kendi
+adresine döner ve query taşımaz.
 
 **Wildcard satırı zorunludur.** Her kurum bir subdomain'de çalışır; wildcard
-yoksa subdomain'e düşen davet ve şifre sıfırlama linkleri Supabase tarafından
+yoksa subdomain'e düşen şifre sıfırlama linkleri Supabase tarafından
 reddedilir.
 
 Custom domain kullanan müşteriler için o domain de eklenmelidir:
-`https://musteridomain.com/admin/davet-kabul`.
+`https://musteridomain.com/admin/davet-kabul*` (eklenmezse o kurumda şifre
+sıfırlama çalışmaz).
+
+**Lokal geliştirme** aynı Supabase projesine bağlıysa şu satırlar da gerekir.
+Lokal davetler kurumun subdomain'ine döner (`http://{slug}.lvh.me:3000/...`) —
+Site URL'den farklı host, yani desenle eşleşmek zorundadır; **sonda `*`
+olmadan lokal davetler kırılır**:
+
+| Redirect URLs (lokal) |
+|---|
+| `http://*.lvh.me:3000/admin/davet-kabul*` |
+| `http://lvh.me:3000/admin/davet-kabul*` |
 
 Ayrıca **Authentication → Providers → Email**:
 

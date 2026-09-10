@@ -144,7 +144,7 @@ yeniden üretildi, 2. tur KURULUM.md baştan sona izlenerek temiz geçti:
   `ALTER DEFAULT PRIVILEGES` satırlarını çıkarmak kayıpsız
 - `000_baseline.sql` — `ON_ERROR_STOP=1 --single-transaction` → **0 hata**
 - `001_seed_default.sql` → **0 hata**; yalnızca "already a transaction in
-  progress" uyarısı (zararsız, veriler yazıldı — aşağıda 📋 BACKLOG)
+  progress" uyarısı (zararsız, veriler yazıldı — aşağıda, ✅ kapatıldı)
 - Doğrulama: 20 tablo, **4 storage policy** (1. turda 1'di), default tenant
   + 10 ayar + 5 menü
 - `images` bucket oluşturuldu; süper admin kaydı, `is_super_admin` → `true`
@@ -282,9 +282,9 @@ PostgreSQL 17.6'da kanıtlandı: 0 hata, 4 storage policy.
 
 Sonuçlar yukarıda, ⏰ ELLE madde 3.
 
-## 📋 BACKLOG — `001_seed_default.sql` içindeki `BEGIN;` / `COMMIT;`
+## ✅ KAPATILDI (10 Eylül 2026) — `001_seed_default.sql` içindeki `BEGIN;` / `COMMIT;`
 
-Seed kendi transaction'ını açıyor (`BEGIN;` satır 58, `COMMIT;` satır 113);
+Seed kendi transaction'ını açıyordu (`BEGIN;` satır 58, `COMMIT;` satır 113);
 KURULUM.md ise onu `psql --single-transaction` ile çalıştırtıyor. İkisi
 çakışıyor: psql'in açtığı transaction içinde dosyanın `BEGIN`'i "there is
 already a transaction in progress" uyarısı veriyor, dosyanın `COMMIT`'i dış
@@ -296,9 +296,152 @@ Gizli risk: `COMMIT`'ten sonra bir gün çalıştırılabilir bir satır eklenir
 satır transaction **dışında** çalışır; `--single-transaction`'ın "ya hep ya
 hiç" garantisi sessizce bozulur.
 
-**Yapılacak:** seed'den `BEGIN;` / `COMMIT;` çıkarılsın. Atomikliği
+**Yapıldı:** seed'den `BEGIN;` / `COMMIT;` çıkarıldı. Atomikliği
 `--single-transaction` sağlıyor; dosya zaten idempotent (`ON CONFLICT DO
-NOTHING` / `NOT EXISTS`). Bir sonraki kurulumda seed uyarısız geçmeli.
+NOTHING` / `NOT EXISTS`) — yarım kalmış bir koşum tekrar çalıştırılarak
+tamamlanır. Karar dosya başındaki "TRANSACTION" yorumunda yazılı ("geri
+eklemeyin"). Doğrulama: bir sonraki kurulumda seed **uyarısız** geçmeli
+(henüz koşulmadı).
+
+---
+
+# ✅ KAPATILDI — Davet kabulünde yanlış kurum (`.limit(1)`) (10 Eylül 2026)
+
+**Durum:** Kod tarafı **düzeltildi** — tsc + lint + build + 5 test script'i
+(275 test) geçti. SQL adımı **YOK**. Elle iş: Dashboard'da bir Redirect URLs
+deseni + manuel testler (aşağıda ⏰).
+
+## Bug neydi?
+
+`davet-kabul`, şifre belirlendikten sonra kişiyi `tenant_users … .limit(1)`
+ile **sıralamasız** seçtiği kuruma yolluyordu. Birden fazla kuruma üye (ya da
+arka arkaya iki kuruma davet edilen) kişi, davet edildiği kurum yerine
+rastgele birine düşebiliyordu. Davet linki kurum bilgisini **taşımıyordu**:
+`buildInviteRedirectUrl(slug)` slug'ı alıp production'da kullanmıyordu.
+Zarar: veri sızıntısı yok (kişi düştüğü kurumun da meşru üyesi); yanlış
+kurumda iş yapma / kafa karışıklığı. (Kaynak kayıt: "🔴 CANLI BUG — Admin
+eklerken davet maili..." → BACKLOG madde 1.)
+
+## Çözüm — davet linki kurumu taşıyor: `/admin/davet-kabul?tenant=<uuid>`
+
+- **`lib/super-admin/admin-invite.ts`** → `buildInviteRedirectUrl({ id, slug })`
+  linke `?tenant=<uuid>` ekliyor. Yeni saf fonksiyonlar: `parseInviteTenantId`
+  (yalnızca geçerli UUID) ve `chooseInviteTenant` (kurum seçimi). İki route
+  (`create-tenant`, `tenant-users`) yeni imzayla çağırıyor.
+- **`admin/davet-kabul/page.tsx`** → parametre, `replaceState` URL'i
+  temizlemeden **önce** okunuyor ve `sessionStorage`'da tutuluyor (şifre
+  formunda sayfa yenilenirse kaybolmasın). Taze bir davet linki parametresizse
+  depodaki eski değer siliniyor (aynı sekmede önceki davetten kalan kurum
+  karışmasın). Şifre sonrası **tek sorgu**: kişinin kendi üyelikleri
+  (`created_at DESC`) → `chooseInviteTenant`.
+- **`scripts/test-tenant-user-add.mjs`** → 47 → 71 test: link kurumu taşıyor
+  ve Supabase `#token` ekledikten sonra da okunuyor; link `…/davet-kabul*`
+  desenine uyuyor; UUID doğrulaması; seçim kuralının tüm dalları.
+
+**Seçim kuralı (`chooseInviteTenant`):**
+1. Linkteki kurum geçerli **ve kişi ona üye** → o kurum.
+2. Değilse → **en son eklenen üyelik** (`created_at` en büyük). Yeni gelen
+   davet çoğu zaman en son eklenen üyeliktir. **Kurum seçici ekranı YOK**
+   (bilinçli: gereksiz sürtünme). Bu dala düşülürse konsola uyarı yazılır
+   (`not_a_member`, ya da çoklu üyelikte `no_param`). Tarih okunamazsa
+   sorgunun `created_at DESC` sırası geçerli kalır.
+3. Hiç üyelik yok → `/admin/yetkisiz` (eski davranış).
+
+**Neden böyle** (teşhis — Supabase Auth kaynağından okundu):
+- **UUID, slug değil:** slug `update-tenant` ile değişebiliyor.
+- **Query parametresi, `user_metadata` değil:** Supabase, onaylanmamış mevcut
+  kullanıcıya yapılan yeniden davette `data`'yı **yok sayıyor** → "A'ya davet,
+  kabul etmeden B'ye ekle" senaryosunda metadata A'da kalırdı (tam da
+  düzeltilen durum). Yeniden davet eski token'ı geçersiz kıldığı için yalnızca
+  son link çalışır ve o da son kurumu taşır. Yan bulgu: davet mailine `data`
+  ile `tenant_name` konursa, yeniden davet mailinde **ilk kurumun adı** görünür.
+- **Parametre korunuyor mu:** auth-js adresi kodlayarak yollar → Supabase
+  doğrular, mail linkine kaçışlayarak gömer → `/verify` sonrası token'ları
+  `adres + "#" + ...` diye **sona ekler**. Query olduğu gibi kalır.
+- **Güvenlik:** parametre ipucu, yetki değil — yalnızca kişinin **kendi**
+  üyelikleri içinde aranır (sorgu `user_id` filtreli + RLS).
+
+## Redirect URLs deseni — ne zaman `*` gerekir
+
+Supabase bir dönüş adresini (1) **Site URL ile aynı host**'taysa desene hiç
+bakmadan kabul eder; (2) değilse adres bir desenle **baştan sona**
+eşleşmelidir (desenler `.` ve `/` ayırıcılı glob, `*` bu ikisini geçemez).
+Eşleşmezse link **hata vermeden** Site URL köküne düşer.
+
+| Desen (bugünkü hali) | `?tenant=`'lı adresle | Bu akışta |
+|---|---|---|
+| `https://buyukdirilis.org.tr/admin/davet-kabul` | Desen eşleşmez, **ama** apex = Site URL → kural (1) ile kabul | ✅ Çalışır — değişiklik zorunlu değil |
+| `https://*.buyukdirilis.org.tr/admin/davet-kabul` | Eşleşmez | ✅ Etkisiz — production'da subdomain'e query'li adres gitmiyor (davet apex'e döner, şifre sıfırlama query taşımaz) |
+| `http://*.lvh.me:3000/admin/davet-kabul` | Eşleşmez | ❌ **Lokal davetler kırılır** — lokal davet `{slug}.lvh.me`'ye döner (farklı host) |
+
+Apex satırı yalnızca build'deki `NEXT_PUBLIC_SITE_URL` Site URL ile birebir
+aynıyken (şema + host) güvende. Farklı yazılırsa (ör. `www.` ile) kural (1)
+devre dışı kalır ve davetler sessizce kırılır; sona `*` eklemek bu bağımlılığı
+kaldırır. Yeni kurulumlar için kural: KURULUM.md Adım 6.
+
+## ⏰ ELLE — Dashboard (canlı proje; lokal de aynı projeye bağlı)
+
+Authentication → URL Configuration → Redirect URLs:
+
+1. **ZORUNLU (lokal):** `http://*.lvh.me:3000/admin/davet-kabul` →
+   `http://*.lvh.me:3000/admin/davet-kabul*` (satır yoksa bu haliyle ekleyin)
+2. **ÖNERİLİR (production):** `https://buyukdirilis.org.tr/admin/davet-kabul`
+   → `https://buyukdirilis.org.tr/admin/davet-kabul*`
+3. İsteğe bağlı (bugün etkisi yok, tutarlılık için): wildcard subdomain satırı
+   ve `http://lvh.me:3000/admin/davet-kabul` sonuna da `*`.
+
+Deploy sırası serbest: production davetleri 1-2 yapılmadan da çalışır (kural
+1). Lokal testler 1'den **sonra**.
+
+## ⏰ ELLE — manuel testler (gizli pencere, `+alias` adresler)
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 1 | Lokal: yeni bir adresi kurum A'ya ekle, maildeki linke tıkla | Adres önce `…/admin/davet-kabul?tenant=<A-uuid>#…`; şifre sonrası **A**'nın paneli |
+| 2 | **Bug senaryosu:** yeni bir adresi A'ya ekle (kabul ETME), ~1 dk sonra B'ye ekle → **son** maildeki linke tıkla | **B**'nin paneli. İlk maildeki link "Davet Linki Geçersiz" demeli (yeniden davet eski token'ı iptal eder) |
+| 3 | 2'deki şifre formundayken sayfayı **yenile**, sonra şifreyi belirle | Yine **B** (sessionStorage) |
+| 4 | Production (deploy sonrası): tek bir davet | Maildeki linkin `redirect_to` değerinde `%3Ftenant%3D…` var; kişi doğru kurumun paneline düşüyor |
+| 5 | Test hesaplarını Auth'tan ve `tenant_users`'tan silin | — |
+
+Test 4, teşhisin dayandığı Supabase Auth davranışının (kaynağın master
+dalından okundu) **canlıdaki sürümde** de aynı olduğunu kanıtlar.
+
+---
+
+# 📋 BACKLOG — Custom domain'li kurumlarda şifre sıfırlama muhtemelen çalışmıyor (10 Eylül 2026)
+
+**Durum:** ⚠️ **ÖLÇÜLMEDİ** — kod okuması + bu dosyadaki Dashboard kaydından
+çıkarım. Bu turda uygulanmadı.
+
+Redirect URLs listesinde yalnızca apex ve `*.buyukdirilis.org.tr` var
+("VPS DEPLOY → 5. Supabase Auth URL Configuration"), müşteri domainleri yok.
+Şifre sıfırlama linki isteğin yapıldığı adrese döner
+(`SifremiUnuttumForm.tsx:20` → `window.location.origin`), örn.
+`https://kurmayteknoloji.com/admin/davet-kabul`. Bu adres ne Site URL
+host'unda ne de bir desenle eşleşiyor → Supabase adresi **hata vermeden**
+Site URL köküne düşürür (`https://buyukdirilis.org.tr/?code=…`). Sıfırlama
+PKCE akışıdır: kodu takas edecek doğrulayıcı (code verifier) custom domain'in
+tarayıcı deposunda kaldığı için **kod takası tamamlanamaz** — kişi şifre formu
+yerine ana sitenin anasayfasını görür.
+
+KURULUM.md Adım 6 custom domain'in listeye eklenmesini zaten söylüyor; canlı
+kayıtta eklendiğine dair iz yok.
+
+**Doğrulama:** `https://kurmayteknoloji.com/admin/sifremi-unuttum` üzerinden
+bir test sıfırlaması — maildeki linkin `redirect_to` değerine ve düşülen
+adrese bakın. Dashboard → Redirect URLs listesine bakmak da ipucu verir.
+Etkilenebilecek kurumlar:
+
+```sql
+SELECT slug, custom_domain FROM public.tenants
+WHERE custom_domain IS NOT NULL ORDER BY slug;
+```
+
+**Olası çözüm (ölçümden sonra):** her custom domain'i kurulumda Redirect
+URLs'e ekle (`https://<domain>/admin/davet-kabul*`) ve bunu müşteri kurulum
+kontrol listesine madde yap. (Sıfırlamayı tek adreste toplamak da mümkün ama
+PKCE doğrulayıcısı isteğin başladığı adreste tutulduğu için form da oraya
+taşınmalı — daha büyük iş.)
 
 ---
 
@@ -519,7 +662,11 @@ doğrulaması gözden geçirilmeli. **Ayrı konu — bu turda dokunulmadı.**
 
 ## 📋 BACKLOG — bu turda UYGULANMADI
 
-**1. `davet-kabul/page.tsx:199-204` → `.limit(1)` çoklu üyelikte yanlış kurum**
+**1. `davet-kabul/page.tsx:199-204` → `.limit(1)` çoklu üyelikte yanlış kurum
+— ✅ KAPATILDI (10 Eylül 2026)**
+
+> Davet linki artık kurumu taşıyor (`?tenant=<uuid>`); bkz. "✅ KAPATILDI —
+> Davet kabulünde yanlış kurum". Aşağıdaki metin tarihsel kayıttır.
 
 Davet kabul edildikten sonra kişinin gideceği kurum
 `tenant_users … .limit(1)` ile seçiliyor — **sıralama yok**. Birden fazla
@@ -1216,6 +1363,13 @@ Supabase Dashboard → Authentication → URL Configuration:
 Wildcard satırı olmadan subdomain'e düşen davet/şifre-sıfırlama linkleri
 reddedilir.
 
+> ⏰ **10 Eylül 2026 — desen güncellemesi:** davet linkleri artık
+> `?tenant=<uuid>` taşıyor. Apex satırı Site URL ile aynı host olduğu için
+> değişmeden de çalışır; sonuna `*` eklemek **önerilir**. Lokal
+> `http://*.lvh.me:3000/admin/davet-kabul` satırının sonuna `*` **zorunlu**.
+> Ayrıntı: "✅ KAPATILDI — Davet kabulünde yanlış kurum" → "Redirect URLs
+> deseni".
+
 ## 6. Sunucu hazırlığı (2 GB gerçeği)
 
 - ✅ **Swap — gerek kalmadı.** Sunucu **1.7 GB swap ile geldi** (`free -h`
@@ -1894,6 +2048,12 @@ http://*.lvh.me:3000/admin/davet-kabul
 http://lvh.me:3000/admin/davet-kabul
 https://sendika-site.vercel.app/admin/davet-kabul
 ```
+
+> ⏰ **10 Eylül 2026:** ilk satırın sonuna `*` eklenmeli
+> (`http://*.lvh.me:3000/admin/davet-kabul*`). Davet linkleri artık
+> `?tenant=<uuid>` taşıyor; `*` olmadan desen eşleşmez ve lokal davetler
+> sessizce Site URL'ine düşer. Bkz. "✅ KAPATILDI — Davet kabulünde yanlış
+> kurum".
 
 **NOT:** Production custom domain bağlandığında o domain için de pattern
 eklenmeli: `https://*.{custom-domain}/admin/davet-kabul`

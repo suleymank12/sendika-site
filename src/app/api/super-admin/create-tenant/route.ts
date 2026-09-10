@@ -217,7 +217,8 @@ export async function POST(req: NextRequest) {
   }
 
   const action = decideAdminInviteAction(existingUser);
-  const inviteRedirectUrl = buildInviteRedirectUrl(slug);
+  // Link kurumu taşır (?tenant=<uuid>) — davet-kabul kişiyi BU kuruma yollar.
+  const inviteRedirectUrl = buildInviteRedirectUrl({ id: tenantId, slug });
   const inviteOptions = inviteRedirectUrl
     ? { redirectTo: inviteRedirectUrl }
     : undefined;

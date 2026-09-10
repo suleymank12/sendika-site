@@ -37,12 +37,17 @@
  *   (a) decideAdminInviteAction — uc dal, olculen davranisla birebir
  *   (b) Mesajlar — "linked_existing" dalinda mail gonderildigi SOYLENMEZ
  *   (c) buildInviteRedirectUrl — NEXT_PUBLIC_SITE_URL yoksa "undefined/..."
- *       gibi bozuk URL uretilmez
+ *       gibi bozuk URL uretilmez; link kurumu (?tenant=<uuid>) tasir ve
+ *       Supabase token'lari "#" ile sona ekledikten sonra da okunur
  *   (d) findUserByEmail — karari besleyen last_sign_in_at/invited_at alanlari
  *       gercekten donuyor, sayfalama caliriyor (eski sozlesme korunuyor)
  *   (e) getUserEmailsByIds — listUsers() sayfalamasi: ilk sayfadan SONRAKI
  *       kullanicilarin e-postasi da bulunur (tenant-users/list bug'i)
  *   (f) Geriye uyumluluk — eski cagri sekilleri ve eski dal davranisi bozulmaz
+ *   (g) parseInviteTenantId — yalnizca gecerli UUID kabul edilir
+ *   (h) chooseInviteTenant — 10 Eylul 2026 davet-kabul ".limit(1)" bug'i:
+ *       kisi davet edildigi kuruma gider; link kurumu yoksa/uye degilse EN SON
+ *       eklenen uyelige duser (kurum secici ekrani bilerek yok)
  *
  * ⚠️ KAPSAM SINIRI (bilincli):
  *   Repoda HTTP/route kosucusu yok; API route'lari (create-tenant,
@@ -61,6 +66,9 @@ import {
   decideAdminInviteAction,
   ADMIN_INVITE_MESSAGES,
   buildInviteRedirectUrl,
+  INVITE_TENANT_PARAM,
+  parseInviteTenantId,
+  chooseInviteTenant,
 } from "../src/lib/super-admin/admin-invite.ts";
 import {
   findUserByEmail,
@@ -238,7 +246,20 @@ for (const outcome of ["invited", "reinvited", "linked_existing", "invite_failed
 }
 
 // ---------------------------------------------------------------------------
-console.log("\n(c) buildInviteRedirectUrl — bozuk URL uretmemeli\n");
+console.log("\n(c) buildInviteRedirectUrl — bozuk URL uretmemeli, kurumu tasimali\n");
+
+const INVITE_TENANT = { id: "3f6c2a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f", slug: "egitim-sen" };
+
+/**
+ * Supabase Redirect URLs desenleri '.' ve '/' ayiricili glob'dur ve TUM adresle
+ * eslesir; "…/davet-kabul*" desenindeki "*" bu iki karakteri GECEMEZ. Link
+ * "/admin/davet-kabul" sonrasina bunlari eklerse dev'de (farkli host) davet
+ * sessizce Site URL'ine duser. (Supabase Auth: glob.MustCompile(uri, '.', '/'))
+ */
+function globSafeSuffix(url) {
+  const suffix = url.split("/admin/davet-kabul")[1];
+  return typeof suffix === "string" && !/[./]/.test(suffix);
+}
 
 {
   const originalNodeEnv = process.env.NODE_ENV;
@@ -254,9 +275,15 @@ console.log("\n(c) buildInviteRedirectUrl — bozuk URL uretmemeli\n");
     delete process.env.NEXT_PUBLIC_SITE_URL;
     ok(
       "redirect",
-      "lokal → tenant subdomain (lvh.me)",
-      buildInviteRedirectUrl("egitim-sen"),
-      "http://egitim-sen.lvh.me:3000/admin/davet-kabul",
+      "lokal → tenant subdomain (lvh.me) + ?tenant=<uuid>",
+      buildInviteRedirectUrl(INVITE_TENANT),
+      "http://egitim-sen.lvh.me:3000/admin/davet-kabul?tenant=3f6c2a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f",
+      "NODE_ENV=development"
+    );
+    okTrue(
+      "redirect",
+      "lokal link '…/davet-kabul*' desenine uyar ('.' ve '/' yok)",
+      globSafeSuffix(buildInviteRedirectUrl(INVITE_TENANT)),
       "NODE_ENV=development"
     );
 
@@ -264,19 +291,47 @@ console.log("\n(c) buildInviteRedirectUrl — bozuk URL uretmemeli\n");
     process.env.NEXT_PUBLIC_SITE_URL = "https://buyukdirilis.org.tr";
     ok(
       "redirect",
-      "production → SITE_URL + /admin/davet-kabul",
-      buildInviteRedirectUrl("egitim-sen"),
-      "https://buyukdirilis.org.tr/admin/davet-kabul",
+      "production → SITE_URL + /admin/davet-kabul + ?tenant=<uuid>",
+      buildInviteRedirectUrl(INVITE_TENANT),
+      "https://buyukdirilis.org.tr/admin/davet-kabul?tenant=3f6c2a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f",
       "SITE_URL tanimli"
     );
 
     process.env.NEXT_PUBLIC_SITE_URL = "https://buyukdirilis.org.tr/";
+    const prodUrl = buildInviteRedirectUrl(INVITE_TENANT);
     ok(
       "redirect",
       "sondaki slash tekillestirilir",
-      buildInviteRedirectUrl("egitim-sen"),
-      "https://buyukdirilis.org.tr/admin/davet-kabul",
+      prodUrl,
+      "https://buyukdirilis.org.tr/admin/davet-kabul?tenant=3f6c2a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f",
       "SITE_URL sonda slash"
+    );
+
+    // Kabul sayfasi kurumu bu yolla okur — link ile sayfa ayni parametreyi
+    // konusmali.
+    ok(
+      "redirect",
+      "kurum linkten geri okunur (round-trip)",
+      parseInviteTenantId(new URL(prodUrl).searchParams.get(INVITE_TENANT_PARAM)),
+      INVITE_TENANT.id,
+      prodUrl
+    );
+    // Supabase Auth /verify sonrasi token'lari `adres + "#" + ...` diye SONA
+    // ekler (AsRedirectURL); query oldugu gibi kalir. Kabul sayfasinin gordugu
+    // adres budur.
+    const landed = `${prodUrl}#access_token=x&expires_in=3600&refresh_token=y&type=invite&sb=`;
+    ok(
+      "redirect",
+      "Supabase '#token' ekledikten sonra da kurum okunur",
+      parseInviteTenantId(new URL(landed).searchParams.get(INVITE_TENANT_PARAM)),
+      INVITE_TENANT.id,
+      landed
+    );
+    okTrue(
+      "redirect",
+      "production link '…/davet-kabul*' desenine uyar ('.' ve '/' yok)",
+      globSafeSuffix(prodUrl),
+      prodUrl
     );
 
     // ⬇ Eskiden burada "undefined/admin/davet-kabul" uretiliyordu: Supabase
@@ -286,7 +341,7 @@ console.log("\n(c) buildInviteRedirectUrl — bozuk URL uretmemeli\n");
     ok(
       "redirect",
       "SITE_URL yoksa undefined (bozuk URL YOK)",
-      buildInviteRedirectUrl("egitim-sen"),
+      buildInviteRedirectUrl(INVITE_TENANT),
       undefined,
       "SITE_URL tanimsiz"
     );
@@ -472,6 +527,119 @@ console.log("\n(f) Geriye uyumluluk\n");
       outcome
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+console.log("\n(g) parseInviteTenantId — yalnizca gecerli UUID\n");
+
+{
+  const id = "3f6c2a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f";
+  ok("param", "gecerli UUID aynen", parseInviteTenantId(id), id, id);
+  ok("param", "buyuk harf → kucuk harf (Postgres kucuk dondurur)", parseInviteTenantId(id.toUpperCase()), id, "UPPER");
+  ok("param", "bosluklar kirpilir", parseInviteTenantId(`  ${id} `), id, "bosluklu");
+  // Slug KABUL EDILMEZ: slug update-tenant ile degisebilir, link UUID tasir.
+  ok("param", "slug → null", parseInviteTenantId("egitim-sen"), null, "egitim-sen");
+  ok("param", "bos string → null", parseInviteTenantId(""), null, '""');
+  ok("param", "null → null", parseInviteTenantId(null), null, "null");
+  ok("param", "undefined → null", parseInviteTenantId(undefined), null, "undefined");
+  ok("param", "UUID + ek → null", parseInviteTenantId(`${id}/x`), null, `${id}/x`);
+  ok("param", "enjeksiyon denemesi → null", parseInviteTenantId("' OR 1=1 --"), null, "' OR 1=1 --");
+}
+
+// ---------------------------------------------------------------------------
+console.log("\n(h) chooseInviteTenant — davet edildigi kuruma gitmeli\n");
+
+{
+  const TA = "3f6c2a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f"; // once eklendi
+  const TB = "7d9e0f12-3456-4789-abcd-ef0123456789"; // sonra eklendi
+  const TX = "11111111-2222-4333-8444-555555555555"; // uye DEGIL
+  // created_at PostgREST'in dondurdugu bicimde (mikrosaniye + offset)
+  const A_OLD = { tenant_id: TA, created_at: "2026-09-01T10:00:00.000000+00:00" };
+  const B_NEW = { tenant_id: TB, created_at: "2026-09-10T12:35:00.123456+00:00" };
+
+  // ⬇ ASIL BUG: sorgu en yeni uyeligi ilk getirir; eski `.limit(1)` (sirasiz)
+  //   ilk satiri alirdi. A'nin davet linkine tiklayan kisi A'ya gitmeli.
+  ok(
+    "secim",
+    "iki uyelik + link A → A (davet linki kazanir)",
+    chooseInviteTenant([B_NEW, A_OLD], TA),
+    { tenantId: TA, source: "invite_link" },
+    "[B,A] link=A"
+  );
+  ok(
+    "secim",
+    "iki uyelik + link B → B",
+    chooseInviteTenant([B_NEW, A_OLD], TB),
+    { tenantId: TB, source: "invite_link" },
+    "[B,A] link=B"
+  );
+  ok(
+    "secim",
+    "link buyuk harfli UUID → yine eslesir",
+    chooseInviteTenant([B_NEW, A_OLD], TA.toUpperCase()),
+    { tenantId: TA, source: "invite_link" },
+    "link=UPPER(A)"
+  );
+
+  // Yedek davranis: en son eklenen uyelik
+  ok(
+    "secim",
+    "link yok → EN SON eklenen (girdi sirasindan bagimsiz)",
+    chooseInviteTenant([A_OLD, B_NEW], null),
+    { tenantId: TB, source: "latest_membership", reason: "no_param" },
+    "[A,B] link=yok"
+  );
+  ok(
+    "secim",
+    "link uye olunmayan kurum → en son eklenen, sebep not_a_member",
+    chooseInviteTenant([A_OLD, B_NEW], TX),
+    { tenantId: TB, source: "latest_membership", reason: "not_a_member" },
+    "[A,B] link=X"
+  );
+  ok(
+    "secim",
+    "link gecersiz (slug) → parametre yok sayilir",
+    chooseInviteTenant([A_OLD, B_NEW], "egitim-sen"),
+    { tenantId: TB, source: "latest_membership", reason: "no_param" },
+    "[A,B] link=egitim-sen"
+  );
+  ok(
+    "secim",
+    "tek uyelik + link yok → o kurum (eski davranis korunur)",
+    chooseInviteTenant([A_OLD], null),
+    { tenantId: TA, source: "latest_membership", reason: "no_param" },
+    "[A] link=yok"
+  );
+  ok("secim", "uyelik yok → null (/admin/yetkisiz)", chooseInviteTenant([], TA), null, "[]");
+
+  // created_at okunamayan satir en sona duser
+  ok(
+    "secim",
+    "created_at null → en sona",
+    chooseInviteTenant([{ tenant_id: TA, created_at: null }, B_NEW], null),
+    { tenantId: TB, source: "latest_membership", reason: "no_param" },
+    "[A(null),B]"
+  );
+  // Hicbir tarih okunamazsa girdi (= sorgunun created_at DESC) sirasi korunur
+  ok(
+    "secim",
+    "hic tarih yok → girdi sirasi (DB DESC) korunur",
+    chooseInviteTenant(
+      [
+        { tenant_id: TB, created_at: null },
+        { tenant_id: TA, created_at: "gecersiz" },
+      ],
+      null
+    ),
+    { tenantId: TB, source: "latest_membership", reason: "no_param" },
+    "[B(null),A(gecersiz)]"
+  );
+  okTrue(
+    "secim",
+    "PostgREST tarih bicimi (mikrosaniye + offset) okunuyor",
+    Number.isFinite(Date.parse(B_NEW.created_at)),
+    B_NEW.created_at
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
+import {
+  INVITE_TENANT_PARAM,
+  chooseInviteTenant,
+  parseInviteTenantId,
+} from "@/lib/super-admin/admin-invite";
 
 type Status = "loading" | "invalid" | "ready" | "saving";
 type Mode = "invite" | "recovery";
@@ -12,12 +17,18 @@ type Mode = "invite" | "recovery";
 // sayfa yenilenirse mode kaybolmasin diye sessionStorage'da tutulur.
 const RECOVERY_FLAG_KEY = "davet-kabul-recovery";
 
+// Davet linkinin kurumu (?tenant=<uuid>): replaceState URL'i temizledikten
+// sonra sayfa yenilenirse kaybolmasin diye sessionStorage'da tutulur.
+const INVITE_TENANT_KEY = "davet-kabul-tenant";
+
 export default function DavetKabulPage() {
   const [status, setStatus] = useState<Status>("loading");
   const [mode, setMode] = useState<Mode>("invite");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [formError, setFormError] = useState("");
+  // Davet linkinin tasidigi kurum (dogrulanmis UUID) — yoksa null.
+  const [inviteTenantId, setInviteTenantId] = useState<string | null>(null);
 
   useEffect(() => {
     // 1) Hash'ten parametreleri ÖNCE oku (Supabase temizlemeden önce)
@@ -34,6 +45,29 @@ export default function DavetKabulPage() {
     //    PKCE linkinde hash da type bilgisi de YOK — bu uygulamada ?code
     //    gorulmesi = recovery (tek tarayici-baslatmali PKCE akisi budur).
     const hasPkceCode = !!new URLSearchParams(window.location.search).get("code");
+
+    // 2b) Davet linkinin kurumu (?tenant=<uuid>, bkz. buildInviteRedirectUrl).
+    //     replaceState (asagida) URL'i path'e indirip query'yi de SILDIGI icin
+    //     burada, ONCE okunur ve sessionStorage'a yazilir. Sayfa yenilenirse
+    //     URL'de artik yoktur, depodan okunur. Taze bir davet linki (hash'te
+    //     token) parametresizse depodaki eski deger SILINIR — ayni sekmede
+    //     onceki bir davetten kalan kurum bu daveti yanlis yere yollamasin.
+    const tenantFromUrl = parseInviteTenantId(
+      new URLSearchParams(window.location.search).get(INVITE_TENANT_PARAM)
+    );
+    let requestedTenant = tenantFromUrl;
+    try {
+      if (tenantFromUrl) {
+        sessionStorage.setItem(INVITE_TENANT_KEY, tenantFromUrl);
+      } else if (accessToken) {
+        sessionStorage.removeItem(INVITE_TENANT_KEY);
+      } else {
+        requestedTenant = parseInviteTenantId(sessionStorage.getItem(INVITE_TENANT_KEY));
+      }
+    } catch {
+      // sessionStorage kapali olabilir — URL'deki degerle devam
+    }
+    setInviteTenantId(requestedTenant);
 
     let storedRecoveryFlag = false;
     try {
@@ -175,6 +209,7 @@ export default function DavetKabulPage() {
     if (mode === "recovery") {
       try {
         sessionStorage.removeItem(RECOVERY_FLAG_KEY);
+        sessionStorage.removeItem(INVITE_TENANT_KEY);
       } catch {
         // sessionStorage kapali olabilir — bayrak zaten yazilamamistir
       }
@@ -196,12 +231,18 @@ export default function DavetKabulPage() {
       return;
     }
 
-    // Kullanıcının ilk tenant'ını bul
-    const { data: links, error: linksError } = await supabase
+    // Hangi kuruma: davet linkinin kurumu (kişi ona gerçekten üyeyse), yoksa
+    // EN SON eklenen üyelik — karar saf fonksiyonda (chooseInviteTenant).
+    // Eskiden burada SIRALAMASIZ .limit(1) vardı: birden fazla kuruma üye
+    // kişi davet edildiği kurum yerine rastgele birine düşebiliyordu.
+    // Sorgu yalnızca kişinin KENDİ üyeliklerini döndürür (user_id filtresi +
+    // RLS); linkteki kurum bu liste içinde aranır — hedefli üyelik kontrolü
+    // ve created_at DESC yedeği tek istekte.
+    const { data: memberships, error: linksError } = await supabase
       .from("tenant_users")
-      .select("tenant_id")
+      .select("tenant_id, created_at")
       .eq("user_id", user.id)
-      .limit(1);
+      .order("created_at", { ascending: false });
 
     if (linksError) {
       console.error("[DavetKabul] tenant_users sorgusu hatası:", linksError);
@@ -209,16 +250,32 @@ export default function DavetKabulPage() {
       return;
     }
 
-    if (!links || links.length === 0) {
+    try {
+      sessionStorage.removeItem(INVITE_TENANT_KEY);
+    } catch {
+      // sessionStorage kapali olabilir — deger zaten state'te
+    }
+
+    const choice = chooseInviteTenant(memberships ?? [], inviteTenantId);
+    if (!choice) {
       console.warn("[DavetKabul] Kullanıcı herhangi bir tenant'a bağlı değil");
       window.location.href = "/admin/yetkisiz";
       return;
+    }
+    if (
+      choice.source === "latest_membership" &&
+      (choice.reason === "not_a_member" || (memberships?.length ?? 0) > 1)
+    ) {
+      console.warn(
+        "[DavetKabul] Davet linkinin kurumu kullanılamadı, en son üyeliğe yönlendiriliyor:",
+        choice.reason
+      );
     }
 
     const { data: tenant, error: tenantError } = await supabase
       .from("tenants")
       .select("slug, custom_domain")
-      .eq("id", links[0].tenant_id)
+      .eq("id", choice.tenantId)
       .single();
 
     if (tenantError || !tenant?.slug) {

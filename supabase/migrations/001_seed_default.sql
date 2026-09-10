@@ -10,6 +10,16 @@
 --   calistirilirsa idempotenttir (ON CONFLICT DO NOTHING / NOT EXISTS)
 --   ve hicbir mevcut degeri EZMEZ.
 --
+-- TRANSACTION: dosyada BEGIN/COMMIT YOK — bilincli. Atomiklik CAGIRANIN isi:
+--   psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f 001_seed_default.sql
+--   (KURULUM.md Adim 3). Dosya kendi BEGIN/COMMIT'ini acinca psql'in
+--   transaction'iyla cakisiyordu ("already a transaction in progress"); ic
+--   COMMIT dis transaction'i erken kapattigi icin ondan SONRA eklenecek her
+--   satir transaction DISINDA calisacak ve --single-transaction'in "ya hep ya
+--   hic" garantisi sessizce bozulacakti (tatbikat 2, 10 Eylul 2026). Buraya
+--   BEGIN/COMMIT GERI EKLEMEYIN. Yarim kalmis bir kosum (orn. baglanti koptu)
+--   dosya idempotent oldugu icin tekrar calistirilarak tamamlanir.
+--
 -- ---------------------------------------------------------------------------
 -- NE VAR, NEDEN
 -- ---------------------------------------------------------------------------
@@ -54,8 +64,6 @@
 --
 -- - storage bucket: SQL'in isi degil. KURULUM.md Adim 4.
 -- =============================================================================
-
-BEGIN;
 
 -- =============================================================================
 -- 1) VARSAYILAN TENANT  (sabit UUID — 009'daki degerin AYNISI)
@@ -109,8 +117,6 @@ WHERE NOT EXISTS (
   SELECT 1 FROM public.menu_items
   WHERE tenant_id = '00000000-0000-0000-0000-000000000001'
 );
-
-COMMIT;
 
 -- =============================================================================
 -- APPLY SONRASI DOGRULAMA — sirayla calistirin, beklenen degerler yaninda
