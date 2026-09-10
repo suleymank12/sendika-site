@@ -155,30 +155,45 @@ yardım metni Kurulum Durumu'na yönlendiriyor, örnek değer www'suz.
 
 ---
 
-# 📋 BACKLOG — E-posta şablonlarında bağlantı süresi çelişkisi (11 Eylül 2026)
+# ✅ KAPATILDI — E-posta şablonlarında bağlantı süresi çelişkisi (11 Eylül 2026)
 
-**Durum:** ⚠️ Açık — bu turda uygulanmadı. Kurulum Durumu tasarımında bulundu.
+**Durum:** ✅ **KAPATILDI** (11 Eylül 2026) — Dashboard'daki ayara bakıldı,
+yanlış şablon canlıda düzeltildi. (Kurulum Durumu tasarımında bulunmuştu.)
 
-Bu dosyada kayıtlı Supabase e-posta şablonları ("Sprint 1 Sonu Yapılacaklar"
-→ 2. Invite User / 3. Reset Password):
-- **Invite User:** "Bu bağlantı **24 saat** geçerlidir."
-- **Reset Password:** "Bağlantı **1 saat** geçerlidir."
+**Ölçüm:** Supabase → Authentication → Sign In / Providers → Email →
+**Email OTP Expiration = 3600 saniye (1 saat)**.
 
-Supabase (GoTrue) davet ve şifre sıfırlama bağlantılarına **aynı süreyi**
-uygular — tek ayar: Authentication → Email → **Email OTP Expiration** (Auth
-kaynağı: verify akışında ikisi de `config.Mailer.OtpExp`). İki metin aynı
-anda doğru olamaz; biri kullanıcıya yanlış süre söylüyor.
+| Şablon | Metin | Sonuç |
+|---|---|---|
+| Reset Password | "Bağlantı 1 saat geçerlidir." | ✅ **Doğruydu** |
+| Invite User | "Bu bağlantı 24 saat geçerlidir." | ❌ **Yanlıştı** → Dashboard'da **"1 saat"** olarak düzeltildi |
 
-**Yapılacak:**
-1. Dashboard → Authentication → Email → "Email OTP Expiration" değerine bakın
-   (saniye).
-2. Yanlış olan şablonun metnini o değere göre düzeltin (ör. 3600 ise davet
-   şablonu "1 saat" demeli; 86400 ise sıfırlama şablonu "24 saat").
-3. Bu dosyadaki şablon kayıtlarını da güncelleyin.
+Bu dosyadaki şablon kaydı ("Sprint 1 Sonu Yapılacaklar" → 2. Invite User
+Email Template) canlıyla eşitlendi. KURULUM.md'de şablon metni yok —
+değişiklik gerekmedi.
 
-Not: Kurulum Durumu'nun "Davet kabul edildi" maddesi bu yüzden sabit bir süre
-kullanmıyor — davet tarihini ve "süresi dolduysa kaldırıp yeniden ekleyin"
-ipucunu gösteriyor.
+**Karar: 3600 sn (1 saat) KALIYOR.** Davet için kısa, ama aynı ayar şifre
+sıfırlamayı da belirliyor ve sıfırlama linkinin uzun ömürlü olması güvenlik
+açısından istenmez. Süresi dolan davet panelden yeniden gönderilebiliyor
+(11 Eylül'de test edildi); Kurulum Durumu'nun "Davet kabul edildi" maddesi de
+kimse giriş yapmadıysa "süresi dolduysa kaldırıp yeniden ekleyin" ipucunu
+veriyor. Kurulum Durumu süreyi koda gömmüyor — ayar değişirse yanlış
+söylemesin diye yalnız davet tarihini gösteriyor.
+
+## ⚠️ OTP süresi TEK ayardır — davet ve sıfırlama BİRLİKTE değişir
+
+"Email OTP Expiration" Supabase'de **tek** bir değerdir; ayrı bir "davet
+süresi" ayarı **yoktur**. Davet (Invite User) ve şifre sıfırlama (Reset
+Password) bağlantıları aynı süreyle geçersizleşir (Auth kaynağı: verify
+akışında ikisi de `config.Mailer.OtpExp`).
+
+- **İleride "daveti uzatalım" denirse:** değer büyütüldüğünde **sıfırlama
+  linkleri de uzar** — ele geçirilen ya da yanlış kişiye düşen bir sıfırlama
+  maili daha uzun süre kullanılabilir. 1 saat bu yüzden bilinçli; süresi dolan
+  davetin çözümü yeniden davet (panel), süreyi uzatmak değil.
+- **Değer yine de değişirse:** iki şablonun metni de ("… saat geçerlidir")
+  **aynı anda** güncellenmeli — yoksa bu çelişki geri gelir. Bu dosyadaki
+  şablon kayıtları da.
 
 ---
 
@@ -2688,11 +2703,17 @@ tıklayarak şifrenizi belirleyebilir ve panele erişebilirsiniz.</p>
 
 <p><a href="{{ .ConfirmationURL }}">Şifre Belirle ve Panele Giriş Yap</a></p>
 
-<p>Bu bağlantı 24 saat geçerlidir. Eğer siz değilseniz bu maili
+<p>Bu bağlantı 1 saat geçerlidir. Eğer siz değilseniz bu maili
 görmezden gelebilirsiniz.</p>
 
 <p>İyi çalışmalar.</p>
 ```
+
+> **11 Eylül 2026:** metin eskiden "24 saat" diyordu — yanlıştı; canlı şablon
+> "1 saat" olarak düzeltildi. Süreyi **Email OTP Expiration** (Authentication
+> → Sign In / Providers → Email; = 3600 sn) belirler ve bu ayar şifre
+> sıfırlamayla **ORTAKTIR**. Bkz. "✅ KAPATILDI — E-posta şablonlarında
+> bağlantı süresi çelişkisi".
 
 **Link URL alanına dokunma** — kod tarafında `redirectTo` zaten doğru
 URL'e set ediyor (dev: `http://{slug}.lvh.me:3000/admin/davet-kabul`,
@@ -2720,6 +2741,10 @@ bağlantıya tıklayarak yeni şifrenizi belirleyebilirsiniz.</p>
 <p>Eğer bu talebi siz yapmadıysanız bu maili görmezden gelebilirsiniz.
 Bağlantı 1 saat geçerlidir.</p>
 ```
+
+> "1 saat" **Email OTP Expiration** (= 3600 sn) ile uyumlu (11 Eylül 2026'da
+> doğrulandı). Bu ayar davetle **ORTAKTIR** — değişirse Invite User şablonu da
+> güncellenmeli.
 
 **Link URL alanına dokunma** — kod tarafında zaten `redirectTo` set ediyor
 (`${origin}/admin/davet-kabul`).
