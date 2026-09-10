@@ -5,6 +5,7 @@ import {
   cleanupOrphanUserIfNeeded,
   type CleanupResult,
 } from "@/lib/super-admin/cleanup-orphan-user";
+import { getUserEmailsByIds } from "@/lib/supabase/admin-helpers";
 
 /**
  * Bir tenant'i tum bagimliliklariyla siler ve YALNIZCA bu tenant'a bagli
@@ -148,7 +149,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Tenant gitti ama bazi user temizlemeleri patladi — 207 Multi-Status
+  // Tenant gitti ama bazi user temizlemeleri patladi — 207 Multi-Status.
+  // Panel uyarisi KIMIN kaldigini gostersin diye e-postalar eklenir (hesaplar
+  // silinemedigi icin Auth'ta hala duruyorlar). E-posta alinamazsa ID ile
+  // devam — uyari yine gosterilir, kisi Baglantisiz Hesaplar listesinde.
+  let failedEmails = new Map<string, string>();
+  try {
+    failedEmails = await getUserEmailsByIds(
+      admin,
+      errored.map((r) => r.userId)
+    );
+  } catch (err) {
+    console.error("[delete-tenant] temizlenemeyen hesaplarin e-postasi alinamadi:", err);
+  }
+
   return NextResponse.json(
     {
       ok: true,
@@ -157,6 +171,7 @@ export async function POST(request: NextRequest) {
       deletedUsers,
       failedUsers: errored.map((r) => ({
         userId: r.userId,
+        email: failedEmails.get(r.userId) ?? null,
         error:
           !r.result.deleted && r.result.reason === "error"
             ? r.result.error

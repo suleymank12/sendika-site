@@ -10,6 +10,8 @@ import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
 import toast from "react-hot-toast";
 import DeleteModal from "@/components/admin/DeleteModal";
 import ListLoadError from "@/components/admin/ListLoadError";
+import { showOrphanWarning } from "@/components/super-admin/OrphanWarningToast";
+import { describeOrphanAccounts } from "@/lib/super-admin/orphan-users";
 
 interface Tenant {
   id: string;
@@ -111,11 +113,18 @@ export default function SuperAdminTenantsPage() {
       return;
     }
 
-    // 200 tam başarı, 207 kısmi başarı (tenant silindi, bazı user'lar temizlenemedi)
+    // 200 tam başarı, 207 kısmi başarı (tenant silindi, bazı hesaplar
+    // temizlenemedi → Bağlantısız Hesaplar'da). failedUsers e-posta taşır.
     if (response.status === 207) {
-      toast.success(
-        data?.message ||
-          "Tenant silindi ancak bazı kullanıcı hesapları temizlenemedi."
+      const failed: { email?: string | null }[] = Array.isArray(data?.failedUsers)
+        ? data.failedUsers
+        : [];
+      showOrphanWarning(
+        failed.length > 0
+          ? `Tenant silindi ancak bazı hesaplar silinemedi: ${describeOrphanAccounts(
+              failed.map((f) => f.email)
+            )}.`
+          : "Tenant silindi ancak bazı hesaplar silinemedi."
       );
     } else {
       toast.success("Tenant silindi.");

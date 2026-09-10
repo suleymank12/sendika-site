@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Building2, LogOut, X, ShieldCheck, type LucideIcon } from "lucide-react";
+import {
+  LayoutDashboard,
+  Building2,
+  LogOut,
+  X,
+  ShieldCheck,
+  UserX,
+  type LucideIcon,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +23,7 @@ interface MenuItem {
 const menu: MenuItem[] = [
   { label: "Özet", href: "/super-admin", icon: LayoutDashboard },
   { label: "Tenant'lar", href: "/super-admin/tenants", icon: Building2 },
+  { label: "Bağlantısız Hesaplar", href: "/super-admin/baglantisiz-hesaplar", icon: UserX },
 ];
 
 interface Props {

@@ -12,6 +12,7 @@ import Loading from "@/components/ui/Loading";
 import DeleteModal from "@/components/admin/DeleteModal";
 import { formatDate } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { showOrphanWarning } from "@/components/super-admin/OrphanWarningToast";
 
 interface Tenant {
   id: string;
@@ -202,12 +203,11 @@ export default function TenantDetailPage() {
     }
 
     // 200 tam başarı, 207 kısmi başarı (üyelik silindi ama hesap
-    // temizlenemedi). Mesaj server'dan gelir (kaldırıldı / kaldırıldı +
-    // hesap silindi / diğer tenant'larda aktif).
+    // temizlenemedi → Bağlantısız Hesaplar'da). 200 mesajı server'dan gelir
+    // (kaldırıldı / kaldırıldı + hesap silindi / diğer tenant'larda aktif).
     if (res.status === 207) {
-      toast.success(
-        data?.message ||
-          "Admin tenant'tan kaldırıldı ancak hesap tamamen temizlenemedi."
+      showOrphanWarning(
+        `Admin kaldırıldı ancak hesabı silinemedi: ${deleteUser.email || deleteUser.user_id}.`
       );
     } else {
       toast.success(data?.message || "Admin kaldırıldı.");

@@ -567,10 +567,137 @@ taşınmalı — daha büyük iş.)
 
 ---
 
+# ✅ KAPATILDI — Bağlantısız (yetim) Auth hesapları: liste + elle silme (10 Eylül 2026)
+
+**Durum:** Kod tarafı **tamam** — tsc + lint + build + 6 test script'i geçti.
+SQL adımı **YOK**. **Önleyici:** canlıda bağlantısız hesap yok (ölçüm
+aşağıda). Elle iş: manuel testler (aşağıda ⏰).
+
+## Sorun
+
+Admin kaldırılırken (`tenant-users` DELETE) ya da kurum silinirken
+(`delete-tenant`) `cleanupOrphanUserIfNeeded` `"error"` dönerse üyelik gider,
+Auth hesabı kalır → 207. Eskiden 207 **4 sn'lik yeşil** `toast.success` idi:
+kimin kaldığı yazmıyordu (`failedUsers` yalnız ID taşıyor ve gösterilmiyordu),
+kişi listeden düşüyordu — hesap bir daha panelde görünmüyordu. (Kaynak kayıt:
+"🔴 CANLI BUG — Admin eklerken davet maili..." → BACKLOG madde 2.)
+
+**Sıra bilinçli korunuyor:** hesap silinemese de üyelik kaldırılır. Erişimi
+kaldırmak hesabı silmekten önemli; bağlantısız hesabın hiçbir kuruma erişimi
+yok, üyeliği bırakmak ise çıkarılması gereken admini kurumda tutardı.
+
+## Ölçüm (10 Eylül 2026, canlı)
+
+- Bağlantısız hesap: **0**.
+- `auth.users`'a bağlanan **10 FK'nin hepsi `ON DELETE CASCADE`** →
+  `deleteUser`'ı kalıcı engelleyen sebep yok; `"error"` dalı yalnız **geçici**
+  hatada (ağ / zaman aşımı) tetiklenir.
+
+```sql
+-- Bağlantısız hesaplar (panelin gösterdiği küme)
+SELECT u.id, u.email, u.created_at, u.last_sign_in_at FROM auth.users u
+WHERE NOT EXISTS (SELECT 1 FROM public.tenant_users tu WHERE tu.user_id = u.id)
+  AND NOT EXISTS (SELECT 1 FROM public.super_admins sa WHERE sa.user_id = u.id);
+
+-- deleteUser'ı kalıcı engelleyebilecek FK'ler — hepsi CASCADE / SET NULL olmalı
+SELECT c.conrelid::regclass AS tablo, c.conname, pg_get_constraintdef(c.oid) AS tanim
+FROM pg_constraint c
+WHERE c.contype = 'f' AND c.confrelid = 'auth.users'::regclass ORDER BY 1;
+```
+
+## Çözüm
+
+- **Panel → "Bağlantısız Hesaplar"** (`/super-admin/baglantisiz-hesaplar`,
+  sidebar'da): hiçbir kuruluşa bağlı olmayan ve süper admin olmayan hesaplar.
+  E-posta araması, "Hiç giriş yapmamış / Giriş yapmış" filtresi, onaylı
+  "Hesabı Sil", yükleme hatası için `ListLoadError`, anlamlı boş durum.
+- **Uç nokta `api/super-admin/orphan-users`:**
+  - `GET` → liste. Fail-closed: veri eksikse 500, yarım liste yok.
+  - `DELETE ?userId=` → `cleanupOrphanUserIfNeeded`; silme **anında** üyelik +
+    süper admin kontrolü yeniden yapılır. Kişi bu arada bir kuruluşa
+    eklendiyse **409, silinmez**; süper admin 409; hesap yoksa 404; geçici hata
+    500 (tekrar denenebilir).
+- **Liste doğruluğu** (`lib/super-admin/orphan-users.ts`): önce Auth
+  kullanıcıları, **sonra** üyelikler (iki okuma arasında davetle eklenen biri
+  yanlışlıkla "bağlantısız" görünmesin). `tenant_users` / `super_admins`
+  birincil anahtarla sıralı `range` sayfalamayla okunur — PostgREST "Max rows"
+  yanıtı sessizce keserse kurumlu biri bağlantısız görünürdü (`listUsers`
+  ilk-sayfa bug'ının eşi).
+- **207 bildirimi:** ⚠️ uyarı, 12 sn — temizlenemeyen hesabın **e-postası** +
+  "Bağlantısız Hesaplar" sayfasına bağlantı. Yeşil başarı (kalan işi
+  saklıyordu) ya da kırmızı hata (asıl iş başarısız değil) değil; ℹ️ bilgi
+  toast'ı deseniyle aynı. `delete-tenant` `failedUsers`'a e-posta ekliyor
+  (alınamazsa ID ile devam, uyarı yine çıkar).
+- **Neden otomatik temizlik değil:** hesap silmek geri alınamaz; KURULUM Adım
+  5'te süper admin hesabı Auth'ta açılıp `super_admins`'e eklenene kadar geçen
+  sürede de bağlantısız görünür.
+- **Test:** `npm run test:orphan` (44 test) — seçim, sayfalama (Max rows
+  kesse de), okuma sırası, fail-closed, silme anındaki yeniden kontrol, uyarı
+  metni, panel yolu tutarlılığı.
+
+**Listenin yakaladığı üçüncü kaynak (bu turda düzeltilmedi):** davet hesabı
+oluşturur, ardından `tenant_users` eklemesi 23505 dışı bir hatayla düşerse
+hesap üyeliksiz kalır (`tenant-users` POST, `create-tenant`). Nadir; artık
+panelde görünür.
+
+## ⏰ ELLE — manuel testler (sırayla, `+alias` test adresiyle)
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 1 | **Üret:** `+alias` adresi bir test tenant'ına admin olarak ekleyin, sonra SQL ile yalnız üyeliğini silin: `DELETE FROM public.tenant_users WHERE user_id = (SELECT id FROM auth.users WHERE email = '<alias>');` → panel → Bağlantısız Hesaplar | Hesap listede, "Hiç giriş yapmadı"; arama ve filtre çalışıyor |
+| 2 | **Silme anı kontrolü:** liste açıkken kişiyi panelden tekrar bir tenant'a ekleyin, sonra (tazelemeden) listede "Sil" | "Bu hesap bu arada bir kuruluşa bağlanmış; silinmedi." — liste tazelenir, hesap düşer, **silinmez** |
+| 3 | **Listeden silme:** 1'deki SQL'i tekrarlayın → listede "Sil" | "Hesap silindi."; `SELECT count(*) FROM auth.users WHERE email = '<alias>'` → 0 |
+| 4 | **207 uyarısı (kontrollü engel):** kişiyi yeniden bir tenant'a ekleyin; hesabı geçici bir FK ile silinemez yapın: `CREATE TABLE public.zz_test_blok (user_id uuid REFERENCES auth.users(id)); INSERT INTO public.zz_test_blok SELECT id FROM auth.users WHERE email = '<alias>';` → panelden kişiyi tenant'tan kaldırın | ⚠️ "Admin kaldırıldı ancak hesabı silinemedi: <alias>. Bağlantısız Hesaplar sayfasından silebilirsiniz." — bağlantı listeye gider, hesap orada |
+| 5 | `DROP TABLE public.zz_test_blok;` → listede "Sil" | "Hesap silindi." |
+| 6 | (İsteğe bağlı) 4'ü bir **test tenant'ını silerek** tekrarlayın (tablo yine 5'teki gibi kaldırılır) | ⚠️ "Tenant silindi ancak bazı hesaplar silinemedi: <alias>." |
+
+> ⚠️ Test 4-6 canlı veritabanında geçici bir tablo açar (lokal de canlı
+> projeye bağlı). Yalnız test hesabıyla yapın ve `DROP TABLE`'ı unutmayın —
+> tablo durdukça o hesap silinemez.
+
+---
+
+# 📋 BACKLOG — `delete-tenant` storage temizliği (Madde B — ayrı tur) (10 Eylül 2026)
+
+**Durum:** Teşhis tamam, **uygulanmadı**. **Önleyici:** canlıda silinmiş kuruma
+ait yetim dosya yok.
+
+**Sorun:** `api/super-admin/delete-tenant` kurumu siliyor (`tenant_id` taşıyan
+18 tablonun hepsi `ON DELETE CASCADE` — DB'de yetim kalmıyor) ama storage'a
+**hiç** dokunmuyor: `images/{tenant_id}/…` bucket'ta kalıyor.
+
+**Ölçüm (10 Eylül 2026):** silinmiş kuruma ait yetim klasör **0**. Bucket:
+default 71 dosya / 36 MB, kurmay-teknoloji 5 dosya / 82 kB; prefix'siz eski
+dosya kalmamış. Toplam 36 MB / 1 GB.
+
+**Teşhiste kararlaşan tasarım:**
+- Storage silme, kurum DB'den **başarıyla silindikten SONRA**, en iyi çabayla.
+  Önce yapılıp kurum silme patlarsa yayındaki bir kurumun görselleri gider
+  (public bucket, versiyon yok).
+- Guard'lar (servis anahtarı storage RLS'ini atlar — koruma koddadır):
+  `tenantId` geçerli UUID (boş değer tüm bucket kökünü listeler); silmeden
+  hemen önce kurum `tenants`'ta **yok** olmalı (varsa dokunma); her yol için
+  `path.split("/")[0] === tenantId` (segment karşılaştırması — `isOwnedPath`
+  deseni); varsayılan kurumun UUID'si ayrıca reddedilir; silme yalnız Storage
+  API `.remove()` ile (`storage.objects`'ten SQL DELETE dosyayı depolamada
+  yetim bırakır).
+- Listeleme `backup-storage.mjs`'teki özyinelemeli + sayfalı desenle; silme
+  100'lük gruplar; süre bütçesi (~20 sn, nginx 60 sn zaman aşımı) — sığmayan
+  dosyalar 207 ile raporlanır.
+- Başarısızlıkta kurum silinmiş kalır (asıl iş ve erişimin kapanması); kalan
+  dosya 207 ile görünür, sonra süpürülür.
+- Geçmiş / kalan yetimler için rapor-önce (dry-run) bir süpürücü script.
+- **Ön şart karşılandı:** storage yedeği çalışıyor (9 Eylül; `_silinenler/` 30
+  gün) — yanlış silmeye karşı tek geri dönüş yolu.
+
+---
+
 # 💾 STORAGE YEDEĞİ — `scripts/backup-storage.mjs` (9 Eylül 2026)
 
-**Durum:** Script **hazır**, lint + build geçti. **Henüz çalıştırılmadı.**
-Elle iş: VPS'te ilk koşum + cron satırı (aşağıda).
+**Durum:** ✅ **ÇALIŞIYOR** — 9 Eylül 2026'da VPS'te ilk koşum yapıldı ve
+cron'a eklendi (her gece **04:30**, artımlı, silinenler `_silinenler/` altında
+30 gün). İlk koşum **124 dosya** indirdi; artımlılık testi geçti (ikinci koşum:
+indirilen=0, atlanan=124). Kalan: geri yükleme tatbikatı (aşağıda).
 
 ## Neden ayrı bir script
 
@@ -634,7 +761,7 @@ Storage'dan silinmiş ama yerelde duran dosya **silinmiyor**;
 **İlk kullanım:** 48 prefix'siz dosya silindikten sonraki ilk koşumda
 `_silinenler/{tarih}/` altına taşınacak ve 30 gün tutulacak — istenen davranış.
 
-## ⏰ ELLE — VPS'te yapılacaklar
+## ⏰ ELLE — VPS'te yapılacaklar (✅ 9 Eylül 2026'da yapıldı)
 
 ```bash
 # 1) İlk koşum (elle, çıktıyı izleyerek)
@@ -798,7 +925,13 @@ olmayabilir. Davet edilen tenant akışta açıkça taşınmalı (örn. redirect
 URL'ine tenant bilgisi eklenip kabulde doğrulanmalı). Codex raporundaki
 P2 "Davet akışı ortam ayarlarına bağımlı" maddesiyle aynı kök.
 
-**2. `tenant-users` DELETE 207 → üyeliksiz ama yaşayan Auth kaydı (hayalet hesap)**
+**2. `tenant-users` DELETE 207 → üyeliksiz ama yaşayan Auth kaydı (hayalet hesap)
+— ✅ KAPATILDI (10 Eylül 2026)**
+
+> Süper admin panelinde "Bağlantısız Hesaplar" listesi + elle silme, 207
+> uyarısı artık e-postayla ve listeye bağlantıyla; bkz. "✅ KAPATILDI —
+> Bağlantısız (yetim) Auth hesapları". `delete-tenant` storage kısmı ayrı
+> BACKLOG'da. Aşağıdaki metin tarihsel kayıttır.
 
 Silme sırasında `cleanupOrphanUserIfNeeded` hata verirse (`reason: "error"`)
 üyelik satırı siliniyor, **Auth kaydı kalıyor**. Kişi hiçbir kuruma bağlı
