@@ -10,7 +10,8 @@
 #   C) storage.objects policy'leri — pg_dump bunlari GETIREMEZ (Supabase'de
 #      storage semasinin sahibi supabase_storage_admin; semayi dumplamak
 #      Supabase'in kendi tablolarini da getirir ve hedefte catisir).
-#      Bu yuzden pg_policies'ten DDL yeniden uretilir.
+#      Bu yuzden pg_policies'ten DDL yeniden uretilir — search_path='' ile,
+#      yani ifadelerdeki fonksiyonlar semasiyla yazilir (bkz. BOLUM C).
 #
 # NE URETMEZ: VERI. --schema-only kullanilir; tek satir INSERT/COPY cikmaz.
 #   Sifirdan kurulum icin gereken tohum ayri dosyada: 001_seed_default.sql
@@ -82,12 +83,37 @@ pg_dump "$PGURI" \
   --no-security-labels \
   -f "$TMP/public.sql"
 
+# EMNIYET (asagidaki TEMIZLIK 4 icin, sed'den ONCE): sed yalnizca satir basina
+# bakar. "ALTER DEFAULT PRIVILEGES" baska bir girdide satir basinda gecseydi —
+# orn. plpgsql govdesinde gecerli bir ifade olarak — onu da siler ve fonksiyonu
+# SESSIZCE bozardi. Bu yuzden her eslesmenin bir "Type: DEFAULT ACL" girdisinde
+# oldugu dogrulanir (awk, pg_dump'in "-- Name: ...; Type: ...;" basliklarini
+# izler); degilse hicbir sey silinmeden DUR.
+stray="$(awk '/^-- Name: .*; Type: / { acl = ($0 ~ /; Type: DEFAULT ACL; /) }
+              /^ALTER DEFAULT PRIVILEGES / && !acl { print "  satir " NR ": " $0 }' "$TMP/public.sql")"
+if [ -n "$stray" ]; then
+  echo "HATA: DEFAULT ACL girdisi DISINDA 'ALTER DEFAULT PRIVILEGES' satiri var" >&2
+  echo "      (sed onu da silerdi). Elle inceleyin:" >&2
+  echo "$stray" >&2
+  exit 1
+fi
+
 # TEMIZLIK — her satirin gerekcesi:
 #  1) \restrict / \unrestrict : pg_dump 17.5+ psql meta-komutu ekler.
 #     Supabase SQL Editor'a yapistirilinca "syntax error at \" verir.
 #  2) COMMENT ON SCHEMA public : hedefte semanin sahibi pg_database_owner;
 #     "must be owner of schema public" hatasi verir. Kayipsiz — sadece yorum.
 #  3) CREATE SCHEMA public / ALTER SCHEMA public OWNER : hedefte zaten var.
+#  4) ALTER DEFAULT PRIVILEGES (pg_dump'ta "Type: DEFAULT ACL" girdileri).
+#     Canlida FOR ROLE postgres ve FOR ROLE supabase_admin icin 12'ser satir.
+#     supabase_admin'inkiler hedefte "permission denied to change default
+#     privileges" verir (postgres o role uye degil) ve SQL Editor ilk hatada
+#     TUM calistirmayi durdurur (tatbikat, 10 Eylul 2026). Ikisi de yeni
+#     Supabase projesinde zaten varsayilan. Baseline'in kendi nesneleri
+#     etkilenmez: onlarin yetkileri ayri GRANT satirlariyla geliyor (ACL dahil,
+#     yukarida). Etki yalnizca baseline'dan SONRA yaratilan nesnelerde — onlar
+#     Supabase'in o anki varsayilanina tabi; 027+ migration'larda GRANT'i acik
+#     yazin.
 #  NOT: "\" icin [\] bracket ifadesi kullaniliyor. '\\restrict' yazimi bazi
 #  ortamlarda (Windows/MSYS) argüman islenirken bozuluyor ve SESSIZCE hicbir
 #  satiri silmiyor; [\] her yerde dogru calisiyor (test edildi).
@@ -96,12 +122,28 @@ sed -i -e '/^[\]restrict/d' \
        -e '/^COMMENT ON SCHEMA public /d' \
        -e '/^CREATE SCHEMA public;$/d' \
        -e '/^ALTER SCHEMA public OWNER TO /d' \
+       -e '/^ALTER DEFAULT PRIVILEGES /d' \
        "$TMP/public.sql"
 
 # -----------------------------------------------------------------------------
 # C) storage.objects policy'leri — pg_policies'ten DDL uretimi
 # -----------------------------------------------------------------------------
+# SEMA ONEKI (tatbikat BUG 1, 10 Eylul 2026): pg_policies.qual/with_check
+# pg_get_expr() ciktisidir ve pg_get_expr bir nesneyi yalnizca O ANKI
+# search_path'te GORUNMUYORSA semasiyla yazar. Canli rolun search_path'i
+# ("$user", public, extensions) public'i icerdigi icin cagri semasiz geliyordu
+# (storage.foldername ise semali — storage path'te yok). Yuklemede ise Bolum
+# B'nin basindaki pg_dump satiri set_config('search_path', '', false) oturumu
+# bos search_path'e ceker -> "function user_has_tenant_access(uuid) does not
+# exist" -> uc tenant policy'si OLUSMUYORDU (storage tenant izolasyonu yok).
+# COZUM: pg_dump'in Bolum B icin yaptigini burada da yap — sorgudan ONCE
+# search_path'i bosalt. pg_get_expr o zaman pg_catalog disindaki HER nesneyi
+# (fonksiyon, operator, tip; public, extensions, auth...) semasiyla yazar.
+# Isim listesi ya da SQL metni uzerinde regex YOK. Alternatifler ve neden
+# secilmedikleri: NOTE.md. Sonucu DOGRULAMA'daki sema oneki kontrolleri denetler.
+# -q SART: -q olmadan psql SET'in "SET" etiketini de -o dosyasina yazar.
 psql "$PGURI" -Atq -o "$TMP/storage.sql" <<'SQL'
+SET search_path = '';
 SELECT string_agg(stmt, E'\n' ORDER BY policyname)
 FROM (
   SELECT policyname,
@@ -155,12 +197,18 @@ SQL
   echo "-- ============================================================================="
   echo "-- BOLUM B — public SEMASI (pg_dump ciktisi)"
   echo "-- ============================================================================="
+  echo "-- Bilerek cikarilanlar (gerekce: dump-baseline.sh TEMIZLIK): CREATE/ALTER/"
+  echo "-- COMMENT ON SCHEMA public ve TUM ALTER DEFAULT PRIVILEGES satirlari."
+  echo "-- Asagida govdesi bos kalan 'Type: SCHEMA', 'Type: COMMENT' ve"
+  echo "-- 'Type: DEFAULT ACL' basliklari bunlardan kalir."
   cat "$TMP/public.sql"
   echo
   echo "-- ============================================================================="
   echo "-- BOLUM C — storage.objects POLICY'LERI"
   echo "-- ============================================================================="
   echo "-- Kaynak: canli pg_policies (pg_dump storage semasini getiremez)."
+  echo "-- Ifadeler search_path='' ile uretildi: fonksiyonlar semasiyla yazili"
+  echo "-- (public.user_has_tenant_access) ve Bolum B'nin bos search_path'inde cozulur."
   echo "-- Policy'ler bucket_id degerine bakar; 'images' bucket'inin bu dosyadan"
   echo "-- once olusturulmasi SART DEGIL, ama yukleme yapilmadan once olmali"
   echo "-- (KURULUM.md Adim 4)."
@@ -191,6 +239,7 @@ echo "Dogrulama:"
 set +e
 grep -qiE '^(INSERT INTO|COPY .* FROM stdin)' "$OUT"; chk_absent $? "veri yok (INSERT/COPY satiri bulunmadi)"
 grep -qE '^[\](un)?restrict' "$OUT";                  chk_absent $? "psql meta-komutu yok (SQL Editor'a yapistirilabilir)"
+grep -q '^ALTER DEFAULT PRIVILEGES' "$OUT";            chk_absent $? "ALTER DEFAULT PRIVILEGES satiri yok (permission denied; tatbikat BUG 2)"
 
 grep -q 'CREATE EXTENSION' "$OUT";                          chk $? "eklenti satirlari var"
 grep -q 'CREATE TABLE public.tenants'  "$OUT";              chk $? "tenants tablosu var"
@@ -203,6 +252,17 @@ grep -q 'user_has_tenant_access' "$OUT";                    chk $? "user_has_ten
 grep -q 'prevent_default_tenant_deactivation' "$OUT";       chk $? "014 trigger fonksiyonu var"
 grep -q 'set_updated_at_timestamp' "$OUT";                  chk $? "009 updated_at trigger fonksiyonu var"
 grep -q 'images_tenant_insert' "$OUT";                      chk $? "storage tenant policy'leri var (017)"
+
+# Tatbikat BUG 1: Bolum C'de SEMASIZ public fonksiyon cagrisi, Bolum B'nin bos
+# search_path'inde "function ... does not exist" verir ve policy OLUSMAZ.
+# Fonksiyon listesi dump'in kendisinden alinir -> sonradan eklenenler de kapsanir.
+secC="$(awk '/^-- BOLUM C /{f=1} /^-- 000_baseline\.sql sonu/{f=0} f && !/^--/' "$OUT")"
+grep -q 'public\.user_has_tenant_access(' <<<"$secC"; chk $? "storage policy'leri public.user_has_tenant_access(...) cagiriyor (sema onekli)"
+unq=""
+for fn in $(grep -oE '^CREATE FUNCTION public\.[a-z_][a-z0-9_]*\(' "$OUT" | sed -E 's/^CREATE FUNCTION public\.//; s/\($//'); do
+  grep -qE "(^|[^.[:alnum:]_])$fn\(" <<<"$secC" && unq="$unq $fn"
+done
+[ -z "$unq" ]; chk $? "storage policy'lerinde semasiz public fonksiyon cagrisi yok${unq:+ (bulunan:$unq)}"
 
 # 7 kayip kolon — canlida vardi, hicbir migration'da yoktu (Faz 2 teshisi)
 for pair in "news:video_url" "news:youtube_url" "announcements:video_url" \

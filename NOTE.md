@@ -103,7 +103,7 @@ olmalı.** Aksi halde baseline yarım bir şemayı dondurur.
 
 ```bash
 export BASELINE_PGURI='postgresql://postgres.<ref>:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
-bash scripts/dump-baseline.sh   # -> ./000_baseline.sql + 20 doğrulama kontrolü
+bash scripts/dump-baseline.sh   # -> ./000_baseline.sql + 23 doğrulama kontrolü
 ```
 
 Sonra: yeni `000_baseline.sql` eskisinin üzerine yazılır, o tura kadarki
@@ -113,7 +113,9 @@ migration'lar `archive/`'a taşınır, numaralandırma kaldığı yerden devam e
 `scripts/dump-baseline.sh` çıktısını kendisi denetliyor: veri sızmış mı
 (INSERT/COPY), 7 kayıp kolon yerinde mi, `is_super_admin` doğru sürüm mü
 (`super_admins` okuyor mu, `raw_user_meta_data` değil), 022'nin REVOKE'u
-korunmuş mu, storage policy'leri gelmiş mi. Bir kontrol bile düşerse dosyayı
+korunmuş mu, storage policy'leri gelmiş mi — ve 1. tatbikattan beri: storage
+policy'lerindeki fonksiyon çağrıları şemalı mı, `ALTER DEFAULT PRIVILEGES`
+satırı kalmış mı (aşağıda "TATBİKAT 1"). Bir kontrol bile düşerse dosyayı
 repo'ya almayın.
 
 ## ⏰ ELLE — sırayla
@@ -130,11 +132,131 @@ olarak alın. Port **5432** (session pooler) — 6543'te pg_dump çalışmaz.
 
 **2) Arşiv taşıması (lokalde, `git mv`)** — komutlar bu turun raporunda.
 
-**3) Sıfırdan kurulum tatbikatı — HENÜZ YAPILMADI.** Baseline'ın gerçekten
+**3) Sıfırdan kurulum tatbikatı — 1. TUR YAPILDI (10 Eylül 2026), 2 bug
+çıktı, script düzeltildi; baseline YENİDEN ÜRETİLİP 2. tur yapılacak**
+(aşağıda "TATBİKAT 1"). Baseline'ın gerçekten
 çalıştığı, ancak boş bir Supabase projesinde `000` + `001` çalıştırılıp site
 ayağa kaldırılarak kanıtlanır. Ücretsiz bir test projesi açıp KURULUM.md'yi
 baştan sona takip edin; Adım 11'deki 10 sorgu + 8 uygulama kontrolü geçmeli.
 **Bu tatbikat yapılana kadar baseline "muhtemelen çalışıyor" statüsündedir.**
+
+## 🧪 TATBİKAT 1 — 2 bug, ikisi de script'te düzeltildi (10 Eylül 2026)
+
+Boş proje `sendika-test` (PostgreSQL 17.6), `000_baseline.sql` psql ile
+yüklendi: **15 hata** (3 + 12).
+
+> ⛔ **Repo'daki `000_baseline.sql` (10 Eylül 00:22 UTC üretimi) iki bug'ı da
+> HÂLÂ içeriyor.** Düzeltme script'te; dosya VPS'te yeniden üretilene kadar
+> kurulumda kullanmayın.
+
+### BUG 1 (KRİTİK) — storage policy'lerinde şema öneki yoktu
+
+`ERROR: function user_has_tenant_access(uuid) does not exist` →
+`images_tenant_delete/insert/update` **oluşmadı**, yalnızca
+`images_public_read` kuruldu. Yeni kurulumda storage tenant izolasyonu
+olmayacaktı.
+
+**Mekanizma — iki yarım, tek başına ikisi de zararsız:**
+1. Bölüm C'nin ifadeleri `pg_policies.qual/with_check` = `pg_get_expr()`
+   çıktısı. `pg_get_expr` bir nesneyi yalnızca **o anki search_path'te
+   görünmüyorsa** şemayla yazar. Script'in psql oturumu canlı rolün
+   search_path'iyle (`"$user", public, extensions`) çalıştı → `public.`
+   düştü. (`storage.foldername` şemalı geldi: storage path'te yok.)
+2. Yüklemede Bölüm B'nin başındaki pg_dump satırı
+   `set_config('search_path', '', false)` oturumun **geri kalanını** boş
+   search_path'e çekiyor → Bölüm C'deki şemasız ad çözülemiyor.
+
+Canlıda sorun çıkmamasının sebebi: policy oluşunca fonksiyonu OID ile saklar;
+ad çözümü yalnızca CREATE anında yapılır.
+
+**Seçilen düzeltme: dump oturumunda `SET search_path = '';`** (Bölüm C
+sorgusundan hemen önce). pg_dump'in Bölüm B için yaptığının aynısı — Bölüm
+B'deki 16 policy'nin `public.user_has_tenant_access(...)`, 7'sinin
+`public.is_super_admin(...)` diye şemalı gelmesinin sebebi bu. `pg_get_expr`
+pg_catalog dışındaki **her** nesneyi (fonksiyon, operatör, tip; public,
+extensions, auth...) şemasıyla yazar; isim listesi ya da regex yok.
+
+Değerlendirilen alternatifler:
+- **Qual metnine regex ile `public.` eklemek — reddedildi.** Hangi adın
+  hangi şemada olduğunu bilmez (extensions'taki bir pgcrypto fonksiyonuna da
+  `public.` yapıştırır), string literal'lerin içine dokunabilir (bu
+  policy'lerde regex literal'i var), zaten şemalı adları ayırt etmek için
+  SQL'i kaba bir parser'la yeniden yazmak gerekir; operatör/tipleri hiç
+  kapsamaz. Tutulan isim listesi de yeni fonksiyonda sessizce eskir.
+- **Baseline'a `SET search_path = public, ...` yazıp CREATE POLICY'yi öyle
+  çalıştırmak — reddedildi.** Yükleme hatasını giderir ama adı **yükleme
+  anında, hedefteki** path'e göre çözdürür: aynı adlı bir fonksiyon path'te
+  önde duran bir şemada varsa policy ona bağlanır (search_path ele geçirme
+  sınıfı, CVE-2018-1058 — RLS policy'sinde bu, tenant izolasyonu demek).
+  Dump anındaki path'i tahmin edip dosyaya gömmek gerekir; dosya da okuyana
+  hangi şemanın kastedildiğini söylemez.
+- **`pg_dump -t storage.objects` + `pg_restore -L` ile yalnızca POLICY
+  girdilerini süzmek — gereksiz.** Aynı deparse'ı verir (pg_dump da
+  search_path='' + `pg_get_expr` kullanır) ama storage tablosunu kilitler,
+  custom format ve ek adım getirir.
+
+**`is_super_admin` kontrol edildi — etkilenmiyor.** Bölüm C'de hiç
+çağrılmıyor; Bölüm B'deki tüm çağrıları (7 policy + `user_has_tenant_access`
+gövdesi) zaten `public.` önekli. İki fonksiyon da `SET search_path TO
+'public'` ile tanımlı → gövde içi ad çözümü çağıranın path'inden bağımsız
+(storage API rolüyle çağrılınca da doğru). Tarama: baseline'daki 4 public
+fonksiyonun yorum dışı tüm çağrıları — şemasız olan **yalnızca** Bölüm C'deki
+4 satır (3 policy).
+
+### BUG 2 (gürültü) — `ALTER DEFAULT PRIVILEGES`
+
+Baseline'da 24 satır: 12'si `FOR ROLE postgres` (hatasız geçti), 12'si
+`FOR ROLE supabase_admin` → `permission denied to change default privileges`
+(postgres o role üye değil). SQL Editor ilk hatada tüm çalıştırmayı
+durduruyor.
+
+**Düzeltme:** script TEMİZLİK'e `-e '/^ALTER DEFAULT PRIVILEGES /d'` — 24'ü
+de çıkar. **Emniyet:** sed'den önce awk, her eşleşmenin bir
+`Type: DEFAULT ACL` pg_dump girdisinde olduğunu doğruluyor; değilse (ör.
+plpgsql gövdesinde satır başında geçerli bir ifade) **hiçbir şey silmeden
+durur** — sed onu da silip fonksiyonu sessizce bozardı.
+
+**postgres'inkiler de neden çıktı:** hepsi yeni Supabase projesinde
+varsayılan. Baseline'ın kendi nesneleri etkilenmez (yetkileri ayrı GRANT
+satırlarıyla geliyor). Etki yalnızca **sonradan** yaratılan nesnelerde:
+027+ migration'ların tabloları Supabase'in o anki varsayılanına tabi →
+**migration'larda GRANT'ı açık yazın.** Varsayılanın gerçekten aynı olduğunu
+2. turda baseline'dan ÖNCE doğrulayın (canlıdaki çıktıyla aynı 6 satır):
+
+```sql
+SELECT pg_get_userbyid(d.defaclrole) AS rol, d.defaclobjtype AS tur, d.defaclacl
+FROM pg_default_acl d JOIN pg_namespace n ON n.oid = d.defaclnamespace
+WHERE n.nspname = 'public' ORDER BY 1, 2;
+```
+
+### Yeni doğrulama kontrolleri (20 → 23)
+
+- `ALTER DEFAULT PRIVILEGES satiri yok` — satır başında hiç kalmamalı (BUG 2)
+- `storage policy'leri public.user_has_tenant_access(...) cagiriyor` —
+  Bölüm C'de şemalı çağrı var (BUG 1, pozitif)
+- `storage policy'lerinde semasiz public fonksiyon cagrisi yok` — dump'taki
+  **tüm** `CREATE FUNCTION public.*` adları Bölüm C'de öneksiz aranır; liste
+  dump'tan geldiği için sonradan eklenen fonksiyonlar da kapsanır. Bulursa
+  adını yazar (BUG 1, genel)
+
+**Test:** stub `pg_dump`/`psql` (fixture'lar canlı dökümün kendisinden
+türetildi), Git Bash + WSL Ubuntu (gawk ve mawk) — 32/32. Doğrulanan: eski
+script iki hatayı da **exit 0** ile geçiriyordu; yeni çıktı eskisinden
+yalnızca 24 ADP satırının silinmesi ve 4 policy satırına `public.`
+eklenmesiyle ayrılıyor (başka satır kaybı yok); `SET` satırı ya da sed
+ifadesi silinince (mutasyon) yeni kontroller exit 1 veriyor; emniyet plpgsql
+gövdesini koruyor. **Gerçek PostgreSQL'e karşı DEĞİL** — `pg_get_expr`
+davranışı stub'da taklit edildi; asıl kanıt 2. tur.
+
+### ⏰ ELLE — 2. tur
+
+1. VPS'te baseline'ı yeniden üret (yukarıdaki 1. adım) — **23 kontrol OK**
+2. Repo'ya al, commit
+3. **Boş** bir proje (sendika-test'te 1. turun kalıntıları var — silip
+   yeniden açın); önce yukarıdaki `pg_default_acl` sorgusu
+4. `psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f 000_baseline.sql`
+   → **0 hata** beklenir; sonra `001_seed_default.sql`
+5. KURULUM.md Adım 11 — sorgu 8: **4 satır** (1. turda 1 olurdu)
 
 ---
 

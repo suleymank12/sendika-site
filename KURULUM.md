@@ -93,10 +93,17 @@ yarım kurulmuş bir şemayı elle temizlemek zorunda kalmazsınız.
 Dosyaların içeriğini kopyalayıp SQL Editor'a yapıştırın, sırayla çalıştırın.
 Baseline büyük bir dosyadır; editör takılırsa Yol A'yı kullanın.
 
-### Beklenen hata ve anlamı
+### Hata çıkarsa
+
+Güncel `scripts/dump-baseline.sh` ile üretilmiş baseline'ın boş bir Supabase
+projesinde **hatasız** yüklenmesi beklenir. İlk tatbikatta (10 Eylül 2026,
+PostgreSQL 17.6) çıkan 15 hata tablonun ilk iki satırıdır (3 + 12); ikisi de
+script'te düzeltildi — **artık çıkmamalı**.
 
 | Hata | Sebep | Çözüm |
 |---|---|---|
+| `function user_has_tenant_access(uuid) does not exist` | Baseline eski script'le üretilmiş: Bölüm C'deki storage policy'lerinde şema öneki yok. **`images_tenant_*` policy'leri oluşmaz → storage'da tenant izolasyonu olmaz** | Baseline'ı güncel script'le yeniden üretin (dosya elle düzenlenmez) |
+| `permission denied to change default privileges` | Baseline eski script'le üretilmiş: `ALTER DEFAULT PRIVILEGES` satırları var (`supabase_admin` rolü için). SQL Editor ilk hatada **tüm çalıştırmayı durdurur** | Baseline'ı güncel script'le yeniden üretin |
 | `syntax error at or near "\"` | Baseline `\restrict` satırı içeriyor (pg_dump 17.5+) | Baseline hatalı üretilmiş; `scripts/dump-baseline.sh` ile yeniden üretin |
 | `must be owner of schema public` | Şema yorumu/ACL satırı | O satır silinebilir, kayıp yok |
 | `must be owner of table objects` | `storage.objects` policy'leri | Bölüm C'yi atlayın, policy'leri Adım 4'te Dashboard'dan kurun |
