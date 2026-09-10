@@ -661,7 +661,8 @@ panelde görünür.
 
 **Durum:** Kod tarafı **tamam** — tsc + lint + build + 7 test script'i geçti.
 SQL adımı **YOK**. **Önleyici:** canlıda silinmiş kuruma ait yetim dosya yok
-(ölçüm aşağıda). Elle iş: ⚠️ yedek cron kontrolü + manuel testler (aşağıda).
+(ölçüm aşağıda). Elle iş: manuel testler (aşağıda). Yedek cron kontrolü ✅
+yapıldı — yanlış alarm, deploy yedeği etkilemiyor.
 
 **Sorun:** `api/super-admin/delete-tenant` kurumu siliyordu (`tenant_id` taşıyan
 18 tablonun hepsi `ON DELETE CASCADE` — DB'de yetim kalmıyor) ama storage'a
@@ -734,9 +735,11 @@ silineceğini söylüyor. Geri dönüş: storage yedeği (`_silinenler/`, 30 gü
 ## Süpürücü — `scripts/sweep-orphan-storage.mjs`
 
 Geçmiş / kalan yetim klasörler (kaydı olmayan kurum UUID'leri) için. **Tam
-checkout'ta** çalışır (lokal / WSL; `.env.local` ya da `.env` canlıya bağlı,
-servis anahtarı gerekli) — VPS'teki uygulama dizini yalnız standalone çıktıyı
-tutar, `src/` orada yok.
+checkout'ta** çalışır (`.env.local` ya da `.env` canlıya bağlı, servis anahtarı
+gerekli): lokal / WSL ya da VPS'te kaynak dizini `/opt/build/sendika-site`
+(Node 20 yeter — modül `.mjs`; oradaki kopya bu turun dosyalarını içerecek
+şekilde güncel olmalı). `/var/www/sendika-site`'de **çalışmaz** — orası yalnız
+standalone çıktı, `src/` ve `scripts/` yok.
 
 ```bash
 node scripts/sweep-orphan-storage.mjs                        # RAPOR (varsayılan) — hiçbir şey silmez
@@ -759,30 +762,31 @@ list/remove çağrısı yok (silmeden hemen önceki ikinci kontrol dahil),
 `.remove()` argümanları (yalnız o kurumun yolları; 100 / 100 / 50), süre
 bütçesi, grup hatası, süpürücünün yetim tespiti ve açık onayı.
 
-## ⚠️ Kontrol edilmeli — deploy yedek script'ini silmiş olabilir
+## ✅ Kontrol edildi — yanlış alarm: deploy yedeği etkilemiyor
 
-Deploy `rsync -avz --delete .next/standalone/ …:/var/www/sendika-site/` ile
-yapılıyor; `--delete` kaynakta olmayanı siler ve **`scripts/` standalone
-çıktıda yok**. Yedek cron'u `cd /var/www/sendika-site && node
-scripts/backup-storage.mjs …` çalıştırıyor → 9 Eylül'den sonraki ilk deploy
-script'i silmiş, yedek **sessizce** duruyor olabilir. (Bu yedek, storage
-silmenin tek geri dönüş yolu.) VPS'te:
+İlk raporda "deploy (`rsync --delete` → `/var/www/sendika-site`) yedek
+script'ini silmiş, yedek sessizce duruyor olabilir" uyarısı vardı — bu
+dosyadaki kurulum komutları `/var/www`'yu gösterdiği için. **Yanlış çıktı.**
+VPS'te kontrol edildi:
 
-```bash
-ls -la /var/www/sendika-site/scripts/backup-storage.mjs
-tail -n 5 /var/log/storage-yedek.log      # "Cannot find module" var mı?
-tail -n 3 /var/backups/storage/yedek.log  # son gecenin satırı var mı?
-```
+- Cron **kaynak dizinden** çalışıyor:
+  `30 4 * * * cd /opt/build/sendika-site && /usr/bin/node scripts/backup-storage.mjs /var/backups/storage >> /var/log/storage-yedek.log`
+- `/opt/build/sendika-site/scripts/backup-storage.mjs` yerinde (9 Eylül).
+- `/var/backups/storage/yedek.log` son satırı:
+  `2026-09-10T04:30:09 uzak=76 indirilen=0 atlanan=76 hata=0` → yedek çalışıyor.
+- `/var/www/sendika-site/scripts/` yok — zaten oradan çalışmıyor.
 
-Script yoksa: yeniden kopyalayın ve deploy komutuna `--exclude scripts/`
-ekleyin (VPS DEPLOY → "3. Deploy akışı"), ya da script'leri rsync hedefinin
-dışına taşıyıp cron satırını güncelleyin.
+`rsync --delete` yalnız `/var/www/sendika-site`'yi (standalone çıktı) etkiler;
+yedek script'i `/opt/build/sendika-site`'de durduğu için deploy'dan
+etkilenmez. Cron kurulurken kaynak dizin bilinçli seçilmişti. Dizin ayrımı
+artık "STORAGE YEDEĞİ" ve "VPS DEPLOY → 0. Canlı ortam / 3. Deploy akışı"
+bölümlerinde açıkça yazılı.
 
 ## ⏰ ELLE — manuel testler
 
 | # | Adım | Beklenen |
 |---|---|---|
-| 0 | **Önce** yukarıdaki yedek kontrolü | Script yerinde, son gecenin log satırı var |
+| 0 | ✅ Yedek kontrolü — yapıldı (yanlış alarm, yukarıda) | Cron `/opt/build/sendika-site`'den çalışıyor; `yedek.log` güncel, hata=0 |
 | 1 | Bir test tenant'ı oluşturun, admin panelinden 3-4 görsel yükleyin; yukarıdaki "klasör başına" sorgusu | Test tenant'ının UUID'si N dosyayla listede |
 | 2 | Süper admin → test tenant'ını silin | "Tenant silindi (N dosya)."; sorguda o UUID yok, yetim sorgusu 0 satır |
 | 3 | Rapor: `node scripts/sweep-orphan-storage.mjs` | "Yetim klasör YOK." |
@@ -798,9 +802,11 @@ gerekir) — birim testlerinde kilitli.
 # 💾 STORAGE YEDEĞİ — `scripts/backup-storage.mjs` (9 Eylül 2026)
 
 **Durum:** ✅ **ÇALIŞIYOR** — 9 Eylül 2026'da VPS'te ilk koşum yapıldı ve
-cron'a eklendi (her gece **04:30**, artımlı, silinenler `_silinenler/` altında
-30 gün). İlk koşum **124 dosya** indirdi; artımlılık testi geçti (ikinci koşum:
-indirilen=0, atlanan=124). Kalan: geri yükleme tatbikatı (aşağıda).
+cron'a eklendi (her gece **04:30**, **`/opt/build/sendika-site`'den**, artımlı,
+silinenler `_silinenler/` altında 30 gün). İlk koşum **124 dosya** indirdi;
+artımlılık testi geçti (ikinci koşum: indirilen=0, atlanan=124). Son doğrulama:
+`yedek.log` → `2026-09-10T04:30:09 uzak=76 indirilen=0 atlanan=76 hata=0`.
+Kalan: geri yükleme tatbikatı (aşağıda).
 
 ## Neden ayrı bir script
 
@@ -868,7 +874,7 @@ Storage'dan silinmiş ama yerelde duran dosya **silinmiyor**;
 
 ```bash
 # 1) İlk koşum (elle, çıktıyı izleyerek)
-cd /var/www/sendika-site        # uygulama dizini
+cd /opt/build/sendika-site      # KAYNAK dizini — /var/www DEĞİL (aşağıdaki not)
 node scripts/backup-storage.mjs /var/backups/storage
 
 # 2) Doğrula: 124 dosya inmiş olmalı
@@ -881,11 +887,19 @@ node scripts/backup-storage.mjs /var/backups/storage
 
 # 4) Cron — DB yedeğinden (04:00) 30 dk sonra, çakışmasın
 crontab -e
-30 4 * * * cd /var/www/sendika-site && /usr/bin/node scripts/backup-storage.mjs /var/backups/storage >> /var/log/storage-yedek.log 2>&1
+30 4 * * * cd /opt/build/sendika-site && /usr/bin/node scripts/backup-storage.mjs /var/backups/storage >> /var/log/storage-yedek.log 2>&1
 ```
 
 **Not:** `node` yolu farklıysa `which node` ile bakıp cron satırında tam yolu
 kullanın — cron'un PATH'i kabuktan dardır.
+
+**⚠️ Dizin — karıştırılmasın:** yedek script'i ve cron'u **`/opt/build/sendika-site`**
+(sunucudaki kaynak kod) üzerinden çalışır. Script'ler `/var/www/sendika-site`'de
+**yoktur** ve olmamalıdır: orası yalnız standalone çıktıdır ve her deploy'daki
+`rsync --delete` oraya konan her şeyi siler. Cron kaynak dizinden çalıştığı için
+deploy yedeği **etkilemez** (VPS'te doğrulandı — "delete-tenant storage
+temizliği" bölümündeki yanlış alarm notu). `scripts/backup-storage.mjs`
+değişirse `/opt/build`'deki kopya ayrıca güncellenmeli — deploy onu güncellemez.
 
 ## Geri yükleme (henüz TATBİKAT YAPILMADI)
 
@@ -1601,7 +1615,12 @@ kullanılmıyor — canlı ortam VPS.
 
 - **Sunucu:** isimtescil VDS-Eko — `185.33.234.67`, 1 core / 2 GB RAM
 - **İşletim sistemi:** Ubuntu 22.04.5 LTS
-- **Uygulama dizini:** `/var/www/sendika-site`
+- **Uygulama dizini:** `/var/www/sendika-site` — **yalnız standalone çıktı**
+  (PM2 buradan çalıştırır). Her deploy'da `rsync --delete` ile yeniden yazılır;
+  `src/` ve `scripts/` yok, buraya elle konan dosya bir sonraki deploy'da silinir.
+- **Kaynak dizini:** `/opt/build/sendika-site` — sunucudaki kaynak kod +
+  script'ler. Storage yedeği cron'u (`scripts/backup-storage.mjs`) buradan
+  çalışır; deploy'dan etkilenmez.
 - **Runtime:** Node 20 (NodeSource) + PM2 (`pm2 startup systemd` kurulu,
   proses adı `sendika`)
 - **Reverse proxy:** Nginx — config `/etc/nginx/sites-available/sendika`
@@ -1683,6 +1702,16 @@ değerleriyle sunucuda ayrıca oluşturulmalı (standalone `.env.local` taşıma
    ```bash
    pm2 restart sendika
    ```
+
+ℹ️ **İki dizin — rsync yalnız birini etkiler:**
+
+| Dizin | İçerik | Deploy'da |
+|---|---|---|
+| `/var/www/sendika-site` | Yalnız standalone çıktı (`server.js`, `.next`, trace edilmiş `node_modules`) — PM2 buradan çalışır | `rsync --delete` ile **yeniden yazılır**; kaynakta olmayan her şey silinir |
+| `/opt/build/sendika-site` | Kaynak kod + script'ler (storage yedeği cron'u, süpürücü) | **Dokunulmaz** — script değişikliği buraya ayrıca taşınmalı |
+
+Script'leri ya da elle dosyaları `/var/www`'ya koymayın; cron ve script'ler
+`/opt/build`'den çalışır.
 
 ## 4. İki tuzak (deploy sırasında yaşandı — tekrarlanmasın)
 
