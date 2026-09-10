@@ -2,7 +2,7 @@
 -- 000_baseline.sql — CANLI SEMANIN TAM DOKUMU (uretilmis dosya, ELLE DUZENLEMEYIN)
 -- =============================================================================
 --
--- Uretim tarihi : 2026-09-10 00:22 UTC
+-- Uretim tarihi : 2026-09-10 12:35 UTC
 -- Uretim araci  : scripts/dump-baseline.sh
 -- pg_dump       : pg_dump (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg22.04+2)
 -- Sunucu        : PostgreSQL 17.6
@@ -33,6 +33,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA extensions;
 -- =============================================================================
 -- BOLUM B — public SEMASI (pg_dump ciktisi)
 -- =============================================================================
+-- Bilerek cikarilanlar (gerekce: dump-baseline.sh TEMIZLIK): CREATE/ALTER/
+-- COMMENT ON SCHEMA public ve TUM ALTER DEFAULT PRIVILEGES satirlari.
+-- Asagida govdesi bos kalan 'Type: SCHEMA', 'Type: COMMENT' ve
+-- 'Type: DEFAULT ACL' basliklari bunlardan kalir.
 --
 -- PostgreSQL database dump
 --
@@ -1780,60 +1784,36 @@ GRANT ALL ON TABLE public.tenants TO service_role;
 -- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR SEQUENCES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON SEQUENCES TO service_role;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR FUNCTIONS; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON FUNCTIONS TO service_role;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 
 
 --
 -- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: public; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO postgres;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO anon;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON TABLES TO service_role;
 
 
 --
@@ -1846,6 +1826,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT ALL ON T
 -- BOLUM C — storage.objects POLICY'LERI
 -- =============================================================================
 -- Kaynak: canli pg_policies (pg_dump storage semasini getiremez).
+-- Ifadeler search_path='' ile uretildi: fonksiyonlar semasiyla yazili
+-- (public.user_has_tenant_access) ve Bolum B'nin bos search_path'inde cozulur.
 -- Policy'ler bucket_id degerine bakar; 'images' bucket'inin bu dosyadan
 -- once olusturulmasi SART DEGIL, ama yukleme yapilmadan once olmali
 -- (KURULUM.md Adim 4).
@@ -1869,22 +1851,22 @@ CREATE POLICY images_tenant_delete ON storage.objects
   AS PERMISSIVE
   FOR DELETE
   TO authenticated
-  USING (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND user_has_tenant_access(((storage.foldername(name))[1])::uuid)));
+  USING (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND public.user_has_tenant_access(((storage.foldername(name))[1])::uuid)));
 
 DROP POLICY IF EXISTS images_tenant_insert ON storage.objects;
 CREATE POLICY images_tenant_insert ON storage.objects
   AS PERMISSIVE
   FOR INSERT
   TO authenticated
-  WITH CHECK (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND user_has_tenant_access(((storage.foldername(name))[1])::uuid)));
+  WITH CHECK (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND public.user_has_tenant_access(((storage.foldername(name))[1])::uuid)));
 
 DROP POLICY IF EXISTS images_tenant_update ON storage.objects;
 CREATE POLICY images_tenant_update ON storage.objects
   AS PERMISSIVE
   FOR UPDATE
   TO authenticated
-  USING (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND user_has_tenant_access(((storage.foldername(name))[1])::uuid)))
-  WITH CHECK (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND user_has_tenant_access(((storage.foldername(name))[1])::uuid)));
+  USING (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND public.user_has_tenant_access(((storage.foldername(name))[1])::uuid)))
+  WITH CHECK (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND public.user_has_tenant_access(((storage.foldername(name))[1])::uuid)));
 
 
 -- =============================================================================
