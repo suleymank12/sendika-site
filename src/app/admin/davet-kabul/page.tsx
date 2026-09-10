@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
@@ -24,6 +24,37 @@ const RECOVERY_FLAG_KEY = "davet-kabul-recovery";
 // sonra sayfa yenilenirse kaybolmasin diye sessionStorage'da tutulur.
 const INVITE_TENANT_KEY = "davet-kabul-tenant";
 
+/**
+ * Gecersiz davet ekranindaki buton. `pending` iken href'siz, tiklanamayan bir
+ * span'dir: kurumun adresi henuz okunmadan apex'e gidilemesin. Etiket ve
+ * yerlesim ayni kalir (birkac yuz ms'lik bekleme icin yazi degismez, sayfa
+ * ziplamaz); yalniz soluklasir, imlec kapsayicida "bekle" olur.
+ */
+function PendingLink({
+  href,
+  pending,
+  className,
+  children,
+}: {
+  href: string;
+  pending: boolean;
+  className: string;
+  children: ReactNode;
+}) {
+  if (pending) {
+    return (
+      <span aria-disabled="true" className={`${className} pointer-events-none opacity-60`}>
+        {children}
+      </span>
+    );
+  }
+  return (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 export default function DavetKabulPage() {
   const [status, setStatus] = useState<Status>("loading");
   const [mode, setMode] = useState<Mode>("invite");
@@ -39,6 +70,8 @@ export default function DavetKabulPage() {
   const [tenantLinks, setTenantLinks] = useState<{ login: string; forgot: string } | null>(
     null
   );
+  // Kurum adresi okunurken true — butonlar tiklanamaz (bkz. PendingLink).
+  const [tenantLinksPending, setTenantLinksPending] = useState(false);
 
   useEffect(() => {
     // 1) Hash'ten parametreleri ÖNCE oku (Supabase temizlemeden önce)
@@ -86,6 +119,16 @@ export default function DavetKabulPage() {
         new URLSearchParams(window.location.search).get(INVITE_TENANT_PARAM)
       );
       if (errMode === "invite" && errTenant) {
+        // Sorgu surerken butonlar tiklanamaz: goreli yol apex'tir ve hizli
+        // tiklayan kurum admini oraya gidip "Yetkisiz Erisim"e duserdi. Goreli
+        // yola YALNIZCA sorgu basarisiz olursa (hata / satir yok / 5 sn yanit
+        // yok) dusulur; gec gelen yanit dogru adresi yine yazar.
+        setTenantLinksPending(true);
+        const fallback = window.setTimeout(() => setTenantLinksPending(false), 5000);
+        const done = () => {
+          window.clearTimeout(fallback);
+          setTenantLinksPending(false);
+        };
         createClient()
           .from("tenants")
           .select("slug, custom_domain")
@@ -96,7 +139,8 @@ export default function DavetKabulPage() {
               const base = buildTenantAdminUrl(data.slug, data.custom_domain);
               setTenantLinks({ login: `${base}/giris`, forgot: `${base}/sifremi-unuttum` });
             }
-          });
+            done();
+          }, done);
       }
 
       setStatus("invalid");
@@ -363,6 +407,8 @@ export default function DavetKabulPage() {
       : isRecovery
         ? "Bu sıfırlama linki geçersiz veya süresi dolmuş."
         : "Bu davet linki geçersiz veya süresi dolmuş.";
+    const primaryClass =
+      "block w-full rounded-lg bg-primary text-white text-center px-4 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors";
     const secondaryClass =
       "block w-full rounded-lg border border-border bg-white text-center px-4 py-2.5 text-sm font-medium text-text-muted hover:bg-bg-light transition-colors";
 
@@ -389,16 +435,24 @@ export default function DavetKabulPage() {
                 Yeniden Dene
               </Link>
             ) : (
-              <div className="space-y-2">
-                <Link
+              <div
+                className={`space-y-2 ${tenantLinksPending ? "cursor-wait" : ""}`}
+                aria-busy={tenantLinksPending}
+              >
+                <PendingLink
                   href={tenantLinks?.forgot ?? "/admin/sifremi-unuttum"}
-                  className="block w-full rounded-lg bg-primary text-white text-center px-4 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors"
+                  pending={tenantLinksPending}
+                  className={primaryClass}
                 >
                   Şifremi Unuttum
-                </Link>
-                <Link href={tenantLinks?.login ?? "/admin/giris"} className={secondaryClass}>
+                </PendingLink>
+                <PendingLink
+                  href={tenantLinks?.login ?? "/admin/giris"}
+                  pending={tenantLinksPending}
+                  className={secondaryClass}
+                >
                   Giriş Sayfasına Git
-                </Link>
+                </PendingLink>
               </div>
             )}
           </div>

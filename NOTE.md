@@ -454,9 +454,14 @@ yanıltıcıydı.
   bağlantı isteyin." + iki buton. Butonlar linkteki `?tenant=`'dan kurumun
   **kendi adresine** (subdomain / custom domain) gider: bu sayfa apex'te
   açılır ve apex'te giriş yapan kurum admini "Yetkisiz Erişim"e düşerdi (apex
-  = default kurum). `tenants` anon'a açık (`tenants_public_select`); okunamazsa
-  göreli bağlantılar kalır. (Custom domain'de "Şifremi Unuttum" aşağıdaki
-  BACKLOG'a takılabilir.)
+  = default kurum). `tenants` anon'a açık (`tenants_public_select`). Kurum
+  adresi okunurken (birkaç yüz ms) butonlar **tıklanamaz**: href'siz, soluk,
+  imleç "bekle" (`PendingLink`). Göreli bağlantılara **yalnızca** sorgu
+  başarısız olursa düşülür (hata / satır yok / 5 sn yanıt yok; geç gelen yanıt
+  doğru adresi yine yazar). Önceden bu pencerede butonlar apex'i gösteriyordu —
+  hızlı tıklayan kurum admini "Yetkisiz Erişim"e düşerdi. `?tenant=` yoksa
+  sorgu yapılmaz, göreli bağlantılar hemen gelir. (Custom domain'de "Şifremi
+  Unuttum" aşağıdaki BACKLOG'a takılabilir.)
 - **Yön (sıfırlama):** değişmedi — "Yeni bir sıfırlama talebi gönderin." +
   "Yeniden Dene" (aynı host'taki sıfırlama sayfası).
 - **Test:** `test-tenant-user-add.mjs` (i) grubu, 71 → 87: kullanılmış davet
@@ -497,13 +502,22 @@ Deploy sırası serbest: production davetleri 1-2 yapılmadan da çalışır (ku
 
 ## ⏰ ELLE — manuel testler (gizli pencere, `+alias` adresler)
 
+> ⚠️ **Adresin elle girildiği testlerde (5-7) sayfa YENİDEN YÜKLENMELİ.** Aynı
+> sekmede yalnızca `#…` kısmını değiştirmek sayfayı yeniden yüklemez: effect
+> tekrar çalışmaz, **önceki yüklemenin ekranı kalır** → yanlış negatif. 10
+> Eylül'de tam olarak bu yaşandı: butonlar apex'i gösterdi, aynı adres gizli
+> pencerede açılınca Kurmay'a gitti — kod doğruydu. Her denemede yeni bir
+> gizli pencere açın ya da adresi girdikten sonra **F5**. (`?` kısmı
+> değişirse tarayıcı zaten yeniden yükler; sorun yalnızca `#` sonrası
+> değiştiğinde.)
+
 | # | Adım | Beklenen |
 |---|---|---|
 | 1 | Lokal: yeni bir adresi kurum A'ya ekle, maildeki linke tıkla | Adres önce `…/admin/davet-kabul?tenant=<A-uuid>#…`; şifre sonrası **A**'nın paneli |
 | 2 | **Bug senaryosu:** yeni bir adresi A'ya ekle (kabul ETME), ~1 dk sonra B'ye ekle → önce **son** maildeki linke, sonra ilkine tıkla | Son link → **B**'nin paneli. Ardından ilk link → **"Davet Linki Geçersiz"** ("süresi dolmuş ya da daha önce kullanılmış", "Hata kodu: otp_expired"); şifre formu **görünmez**; "Şifremi Unuttum" / "Giriş Sayfasına Git" **A**'nın adresine gider. (Yan bulgu düzeltilmeden önceki ölçümde ilk link A'nın panelini açmıştı — bkz. "Davranış — ölçüldü". Şifre formu açılırsa token gerçekten geçerliydi → A'nın paneli; bu da doğru davranış) |
 | 3 | 2'de son linkle açılan şifre formundayken sayfayı **yenile**, sonra şifreyi belirle | Yine **B** (sessionStorage) |
 | 4 | Production (deploy sonrası): tek bir davet | Kişi doğru kurumun paneline düşüyor. ✅ Fiilen doğrulandı (10 Eylül): 2. testte ilk link Kurmay'a götürdü — yedek kural en son eklenen default'u seçerdi, yani parametre canlıda korunuyor. Maildeki `redirect_to`'da `%3Ftenant%3D…` kontrolü artık isteğe bağlı |
-| 5 | **Sahte hata adresi (mail gerekmez):** bir admin olarak giriş yapmışken, aynı tarayıcıda `https://buyukdirilis.org.tr/admin/davet-kabul?tenant=<kurum-uuid>#error=access_denied&error_code=otp_expired&error_description=x` adresini açın (UUID: `SELECT id, slug FROM public.tenants;`) | "Davet Linki Geçersiz" + "Hata kodu: otp_expired"; şifre formu **görünmez**; butonlar kurumun kendi adresine gider; başka sekmedeki panel oturumu **kapanmaz** |
+| 5 | **Sahte hata adresi (mail gerekmez):** bir admin olarak giriş yapmışken, aynı tarayıcıda `https://buyukdirilis.org.tr/admin/davet-kabul?tenant=<kurum-uuid>#error=access_denied&error_code=otp_expired&error_description=x` adresini açın (UUID: `SELECT id, slug FROM public.tenants;`) | "Davet Linki Geçersiz" + "Hata kodu: otp_expired"; şifre formu **görünmez**; butonlar kısa bir an soluk ve tıklanamaz, sonra kurumun kendi adresine gider (üzerine gelince `https://<kurum-adresi>/admin/...`); başka sekmedeki panel oturumu **kapanmaz** |
 | 6 | **Gerçek geçersiz link:** bir davet linkiyle şifre belirleyin, sonra **aynı** linke tekrar tıklayın (token kullanıldı). Alternatif: maildeki linkte `token=` değerinin bir harfini değiştirin | 5 ile aynı ekran (Supabase kullanılmış / bozuk token'da `otp_expired` döndürür) |
 | 7 | **Sıfırlama linki hatası:** `https://buyukdirilis.org.tr/admin/davet-kabul?error=access_denied&error_code=otp_expired&error_description=x#error=access_denied&error_code=otp_expired&error_description=x` | "Sıfırlama Linki Geçersiz" + "Yeniden Dene" (hata query'de de var = PKCE = sıfırlama) |
 | 8 | Test hesaplarını Auth'tan ve `tenant_users`'tan silin | — |
