@@ -308,8 +308,11 @@ eklemeyin"). Doğrulama: bir sonraki kurulumda seed **uyarısız** geçmeli
 # ✅ KAPATILDI — Davet kabulünde yanlış kurum (`.limit(1)`) (10 Eylül 2026)
 
 **Durum:** Kod tarafı **düzeltildi** — tsc + lint + build + 5 test script'i
-(275 test) geçti. SQL adımı **YOK**. Elle iş: Dashboard'da bir Redirect URLs
-deseni + manuel testler (aşağıda ⏰).
+(291 test) geçti. SQL adımı **YOK**. ✅ Canlı test (10 Eylül): her davet
+linki kendi kurumuna götürüyor (aşağıda "Davranış — ölçüldü"). ✅ Aynı gün
+çıkan yan bulgu (geçersiz linkte mevcut oturuma düşme) da kapatıldı. Kalan
+elle iş: Dashboard'da lokal Redirect URLs deseni + manuel test 1, 2 (tekrar),
+3, 5, 6, 7 (aşağıda ⏰).
 
 ## Bug neydi?
 
@@ -352,14 +355,113 @@ eklerken davet maili..." → BACKLOG madde 1.)
 - **Query parametresi, `user_metadata` değil:** Supabase, onaylanmamış mevcut
   kullanıcıya yapılan yeniden davette `data`'yı **yok sayıyor** → "A'ya davet,
   kabul etmeden B'ye ekle" senaryosunda metadata A'da kalırdı (tam da
-  düzeltilen durum). Yeniden davet eski token'ı geçersiz kıldığı için yalnızca
-  son link çalışır ve o da son kurumu taşır. Yan bulgu: davet mailine `data`
-  ile `tenant_name` konursa, yeniden davet mailinde **ilk kurumun adı** görünür.
+  düzeltilen durum). Üstelik metadata kişi başına **tek** alan; elinde aynı
+  anda birden fazla davet linki olan kişiyi temsil edemez — query parametresi
+  ise her linkte ayrı (aşağıda "Davranış — ölçüldü"). Yan bulgu: davet mailine
+  `data` ile `tenant_name` konursa, yeniden davet mailinde **ilk kurumun adı**
+  görünür.
 - **Parametre korunuyor mu:** auth-js adresi kodlayarak yollar → Supabase
   doğrular, mail linkine kaçışlayarak gömer → `/verify` sonrası token'ları
   `adres + "#" + ...` diye **sona ekler**. Query olduğu gibi kalır.
 - **Güvenlik:** parametre ipucu, yetki değil — yalnızca kişinin **kendi**
   üyelikleri içinde aranır (sorgu `user_id` filtreli + RLS).
+
+## Davranış — ölçüldü (10 Eylül 2026, canlı)
+
+> ⚠️ **Düzeltme:** bu bölümün ilk halinde "yeniden davet eski token'ı
+> geçersiz kılar, yalnızca son link çalışır" yazıyordu. Ölçümde **eski link de
+> açıldı** — o varsayım kaldırıldı.
+
+**Kural: her davet linki kendi kurumunu taşır; GEÇERLİ bir link kişiyi o
+kuruma götürür (kişi üyeyse). Elde aynı anda birden fazla davet linki
+olabilir.** Hesap bu linklerden biriyle onaylanınca Supabase kalan davet
+token'larını temizler (Auth kaynağı: `User.Confirm`; canlıda test 2 tekrarıyla
+doğrulanacak) — diğer linkler artık **"Davet Linki Geçersiz"** ekranına düşer
+ve kişiyi **o linkin kurumunun** giriş / şifremi unuttum sayfasına
+yönlendirir. Eski bug'da hangi linke tıklanırsa tıklansın rastgele/ilk kuruma
+düşülüyordu.
+
+Ölçüm (**yan bulgu düzeltilmeden ÖNCE**): aynı adres önce Kurmay'a eklendi
+(davet kabul edilmedi), 60 sn sonra default tenant'a; iki mail geldi.
+
+| Sıra | Link | Sonuç |
+|---|---|---|
+| 1 | İkinci (son) mail — default | Şifre belirlendi → **default** paneli ✅ |
+| 2 | Birinci mail — Kurmay (sonra, aynı tarayıcıda) | "Davet Linki Geçersiz" **demedi** → şifre formu → şifre değişti → **Kurmay Teknoloji** paneli. Sebep aşağıdaki yan bulguydu; düzeltmeden sonra bu link "Geçersiz" ekranını gösterir |
+
+2. satır aynı zamanda parametrenin canlıda Supabase'den geçip sayfaya
+ulaştığının kanıtıdır: yedek kural en son eklenen üyeliği (default) seçerdi,
+kişi Kurmay'a gitti.
+
+**Neden zarar yok:** kişi iki kurumun da meşru üyesi (`tenant_users`
+satırlarını süper admin ekledi) — ikisine de erişmesi normal. `?tenant=` yetki
+değil ipucu: yalnızca kişinin **kendi** üyelikleri içinde aranır; üye olmadığı
+bir kurumu gösterirse en son üyeliğe düşülür, hiçbir kuruma erişim açmaz.
+Şifre değişikliği de yalnızca oturumdaki kişinin kendi şifresini değiştirir.
+
+**Birinci link neden açıldı — "iki token da geçerli" olduğu için DEĞİL.**
+Tarayıcı tarafı yerel kodla doğrulandı: auth-js 2.101.1 URL'deki hatada
+mevcut oturumu **bilerek silmiyor** (`GoTrueClient._initialize`: "Don't
+remove existing session on URL login failure"). Supabase Auth kaynağına
+(master) göre de:
+- Kullanıcı onaylanınca (`User.Confirm()`) davet token'ı temizlenir
+  (`ConfirmationToken = ""` + `ClearAllOneTimeTokensForUser`). İkinci link
+  kullanıcıyı onayladığı için birinci linkin token'ı o anda geçersizleşmiş
+  olmalı.
+- Geçersiz linkte Supabase `redirect_to`'ya **query'yi koruyarak** döner,
+  hatayı hash'e yazar: `…/davet-kabul?tenant=<kurmay>#error=access_denied&error_code=otp_expired…`.
+- Kabul sayfası hash'teki `error`'u **okumuyordu**; hash'te token yoksa
+  tarayıcıdaki mevcut oturuma düşüyordu. İkinci linkin açtığı oturum aynı
+  tarayıcıda duruyordu → form göründü, aynı kişi kendi şifresini değiştirdi,
+  `?tenant=` Kurmay olduğu için Kurmay'a gitti.
+
+Kalan tek canlı doğrulama: **test 2'nin tekrarı**. İlk link artık "Davet
+Linki Geçersiz" + "Hata kodu: otp_expired" gösterirse açıklama kesinleşir.
+Yine şifre formu açılırsa token gerçekten geçerliydi demektir (adres çubuğunda
+`#access_token` görünür) — o durumda kişi Kurmay'a gider; bu da doğru
+davranış. "Yeniden davet eski linki henüz kullanılmadan iptal eder mi" sorusu
+ise ancak eski linke **önce** ve **oturumsuz** bir tarayıcıda tıklanarak
+ölçülür. Sonuç ne çıkarsa çıksın yukarıdaki kural ve "zarar yok"
+değerlendirmesi değişmez.
+
+**✅ KAPATILDI (10 Eylül 2026) — yan bulgu: geçersiz linkte mevcut oturuma
+düşme.** Eskiden `davet-kabul` hash'teki `#error=`'u görmezden gelip mevcut
+oturumla devam ediyordu: geçersiz ya da süresi dolmuş bir davet linkine
+tıklayan ve tarayıcısında oturumu açık olan herkes "Şifrenizi Belirleyin"
+formunu görüyor, **oturumdaki kişinin** şifresi değişiyordu. Yetki
+yükseltmiyordu (kendi şifresi, kendi üyelikleri) ama ortak bilgisayarda
+yanıltıcıydı.
+
+- **`admin-invite.ts` → `parseAuthLinkError(hash, search)`** (saf): Supabase
+  hatası var mı, kodu ne, hangi akıştan. Supabase hatayı **her zaman hash'e**
+  yazar; PKCE akışında **query'ye de** yazar (Auth kaynağı:
+  `prepErrorRedirectURL`). Bu uygulamada PKCE = şifre sıfırlama, implicit =
+  davet → ekran başlığı buna göre ("Sıfırlama Linki Geçersiz" / "Davet Linki
+  Geçersiz").
+- **`davet-kabul/page.tsx`**: hata kontrolü `getSession()`'dan, kurum ve
+  kurtarma bayraklarından **önce**. Hata varsa mevcut "Geçersiz" ekranı
+  gösterilir, oturuma **dokunulmaz** (ne kullanılır ne kapatılır), bayraklar
+  temizlenir. Ekran yeniden yazılmadı, genişletildi: neden cümlesi + yön +
+  küçük puntoyla "Hata kodu: …" (destek için).
+- **Mesaj kararı — `describeAuthLinkError`:** `otp_expired` → "Bu bağlantının
+  süresi dolmuş ya da bağlantı daha önce kullanılmış." Yalnız "süresi dolmuş"
+  **denmiyor**: Supabase bu kodu hem süresi dolmuş hem **bulunamayan** token
+  için döndürüyor (tek mesaj: "Email link is invalid or has expired") ve bu
+  uygulamada en sık durum ikincisi (birden fazla davet maili). Diğer kodlar →
+  "Bu bağlantı doğrulanamadı."
+- **Yön (davet):** "Şifrenizi daha önce belirlediyseniz giriş yapabilirsiniz.
+  Belirlemediyseniz ya da hatırlamıyorsanız “Şifremi Unuttum” ile yeni bir
+  bağlantı isteyin." + iki buton. Butonlar linkteki `?tenant=`'dan kurumun
+  **kendi adresine** (subdomain / custom domain) gider: bu sayfa apex'te
+  açılır ve apex'te giriş yapan kurum admini "Yetkisiz Erişim"e düşerdi (apex
+  = default kurum). `tenants` anon'a açık (`tenants_public_select`); okunamazsa
+  göreli bağlantılar kalır. (Custom domain'de "Şifremi Unuttum" aşağıdaki
+  BACKLOG'a takılabilir.)
+- **Yön (sıfırlama):** değişmedi — "Yeni bir sıfırlama talebi gönderin." +
+  "Yeniden Dene" (aynı host'taki sıfırlama sayfası).
+- **Test:** `test-tenant-user-add.mjs` (i) grubu, 71 → 87: kullanılmış davet
+  linkinin gerçek adres biçimi, PKCE ayrımı, başarılı linklerin hata
+  sayılmaması, kodsuz/boş hata, mesaj kararı.
 
 ## Redirect URLs deseni — ne zaman `*` gerekir
 
@@ -398,13 +500,19 @@ Deploy sırası serbest: production davetleri 1-2 yapılmadan da çalışır (ku
 | # | Adım | Beklenen |
 |---|---|---|
 | 1 | Lokal: yeni bir adresi kurum A'ya ekle, maildeki linke tıkla | Adres önce `…/admin/davet-kabul?tenant=<A-uuid>#…`; şifre sonrası **A**'nın paneli |
-| 2 | **Bug senaryosu:** yeni bir adresi A'ya ekle (kabul ETME), ~1 dk sonra B'ye ekle → **son** maildeki linke tıkla | **B**'nin paneli. İlk maildeki link "Davet Linki Geçersiz" demeli (yeniden davet eski token'ı iptal eder) |
-| 3 | 2'deki şifre formundayken sayfayı **yenile**, sonra şifreyi belirle | Yine **B** (sessionStorage) |
-| 4 | Production (deploy sonrası): tek bir davet | Maildeki linkin `redirect_to` değerinde `%3Ftenant%3D…` var; kişi doğru kurumun paneline düşüyor |
-| 5 | Test hesaplarını Auth'tan ve `tenant_users`'tan silin | — |
+| 2 | **Bug senaryosu:** yeni bir adresi A'ya ekle (kabul ETME), ~1 dk sonra B'ye ekle → önce **son** maildeki linke, sonra ilkine tıkla | Son link → **B**'nin paneli. Ardından ilk link → **"Davet Linki Geçersiz"** ("süresi dolmuş ya da daha önce kullanılmış", "Hata kodu: otp_expired"); şifre formu **görünmez**; "Şifremi Unuttum" / "Giriş Sayfasına Git" **A**'nın adresine gider. (Yan bulgu düzeltilmeden önceki ölçümde ilk link A'nın panelini açmıştı — bkz. "Davranış — ölçüldü". Şifre formu açılırsa token gerçekten geçerliydi → A'nın paneli; bu da doğru davranış) |
+| 3 | 2'de son linkle açılan şifre formundayken sayfayı **yenile**, sonra şifreyi belirle | Yine **B** (sessionStorage) |
+| 4 | Production (deploy sonrası): tek bir davet | Kişi doğru kurumun paneline düşüyor. ✅ Fiilen doğrulandı (10 Eylül): 2. testte ilk link Kurmay'a götürdü — yedek kural en son eklenen default'u seçerdi, yani parametre canlıda korunuyor. Maildeki `redirect_to`'da `%3Ftenant%3D…` kontrolü artık isteğe bağlı |
+| 5 | **Sahte hata adresi (mail gerekmez):** bir admin olarak giriş yapmışken, aynı tarayıcıda `https://buyukdirilis.org.tr/admin/davet-kabul?tenant=<kurum-uuid>#error=access_denied&error_code=otp_expired&error_description=x` adresini açın (UUID: `SELECT id, slug FROM public.tenants;`) | "Davet Linki Geçersiz" + "Hata kodu: otp_expired"; şifre formu **görünmez**; butonlar kurumun kendi adresine gider; başka sekmedeki panel oturumu **kapanmaz** |
+| 6 | **Gerçek geçersiz link:** bir davet linkiyle şifre belirleyin, sonra **aynı** linke tekrar tıklayın (token kullanıldı). Alternatif: maildeki linkte `token=` değerinin bir harfini değiştirin | 5 ile aynı ekran (Supabase kullanılmış / bozuk token'da `otp_expired` döndürür) |
+| 7 | **Sıfırlama linki hatası:** `https://buyukdirilis.org.tr/admin/davet-kabul?error=access_denied&error_code=otp_expired&error_description=x#error=access_denied&error_code=otp_expired&error_description=x` | "Sıfırlama Linki Geçersiz" + "Yeniden Dene" (hata query'de de var = PKCE = sıfırlama) |
+| 8 | Test hesaplarını Auth'tan ve `tenant_users`'tan silin | — |
 
-Test 4, teşhisin dayandığı Supabase Auth davranışının (kaynağın master
-dalından okundu) **canlıdaki sürümde** de aynı olduğunu kanıtlar.
+Test 1 ve 3 hâlâ geçerli ve bekliyor (1, Dashboard'daki lokal desen
+değişikliğinden sonra). Test 2 yan bulgu düzeltmesinden sonra **tekrar**
+edilmeli (beklenti değişti). Test 4'ün amacı — teşhisin dayandığı Supabase
+davranışının canlıdaki sürümde de geçerli olması — 2. testteki Kurmay
+sonucuyla karşılandı. Test 5-7 yeni (geçersiz link ekranı).
 
 ---
 

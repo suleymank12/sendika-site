@@ -7,7 +7,10 @@ import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
 import {
   INVITE_TENANT_PARAM,
   chooseInviteTenant,
+  describeAuthLinkError,
+  parseAuthLinkError,
   parseInviteTenantId,
+  type AuthLinkError,
 } from "@/lib/super-admin/admin-invite";
 
 type Status = "loading" | "invalid" | "ready" | "saving";
@@ -29,6 +32,13 @@ export default function DavetKabulPage() {
   const [formError, setFormError] = useState("");
   // Davet linkinin tasidigi kurum (dogrulanmis UUID) — yoksa null.
   const [inviteTenantId, setInviteTenantId] = useState<string | null>(null);
+  // Supabase linki reddettiyse (#error=...) hatanin kodu/akisi — yoksa null.
+  const [linkError, setLinkError] = useState<AuthLinkError | null>(null);
+  // Gecersiz davet ekraninda kurumun KENDI adresindeki giris / sifremi
+  // unuttum baglantilari — okunamazsa goreli baglantilar kullanilir.
+  const [tenantLinks, setTenantLinks] = useState<{ login: string; forgot: string } | null>(
+    null
+  );
 
   useEffect(() => {
     // 1) Hash'ten parametreleri ÖNCE oku (Supabase temizlemeden önce)
@@ -45,6 +55,53 @@ export default function DavetKabulPage() {
     //    PKCE linkinde hash da type bilgisi de YOK — bu uygulamada ?code
     //    gorulmesi = recovery (tek tarayici-baslatmali PKCE akisi budur).
     const hasPkceCode = !!new URLSearchParams(window.location.search).get("code");
+
+    // 2a) Supabase linki REDDETTIYSE (kullanilmis / suresi dolmus token) donus
+    //     adresine hata ekler: ?tenant=<uuid>#error=access_denied&error_code=
+    //     otp_expired&... Bu durumda "Gecersiz" ekrani gosterilir ve tarayicidaki
+    //     mevcut oturuma DUSULMEZ. auth-js URL hatasinda oturumu bilerek
+    //     silmiyor; eskiden asagidaki getSession() o oturumu bulup gecersiz
+    //     linke sifre formu gosteriyordu — oturumdaki kisinin sifresi degisiyordu
+    //     (10 Eylul 2026 yan bulgusu). Hata hash'te + query'de = PKCE = sifre
+    //     sifirlama linki; yalniz hash'te = davet linki.
+    const linkErr = parseAuthLinkError(window.location.hash, window.location.search);
+    if (linkErr) {
+      const errMode: Mode = linkErr.flow === "pkce" ? "recovery" : "invite";
+      setMode(errMode);
+      setLinkError(linkErr);
+      try {
+        // Bu linkle devam edilmeyecek — onceki yuklemelerden kalan bayraklar
+        // sonraki bir linki etkilemesin.
+        sessionStorage.removeItem(RECOVERY_FLAG_KEY);
+        sessionStorage.removeItem(INVITE_TENANT_KEY);
+      } catch {
+        // sessionStorage kapali olabilir
+      }
+
+      // Davet linkiyse "Giris" / "Sifremi Unuttum" kurumun KENDI adresine
+      // gitsin: bu sayfa apex'te (SITE_URL) acilir, apex'te giris yapan kurum
+      // admini ise "Yetkisiz Erisim"e duser (apex = default kurum). tenants
+      // anon'a acik (tenants_public_select); okunamazsa goreli baglantilar kalir.
+      const errTenant = parseInviteTenantId(
+        new URLSearchParams(window.location.search).get(INVITE_TENANT_PARAM)
+      );
+      if (errMode === "invite" && errTenant) {
+        createClient()
+          .from("tenants")
+          .select("slug, custom_domain")
+          .eq("id", errTenant)
+          .maybeSingle()
+          .then(({ data }) => {
+            if (data?.slug) {
+              const base = buildTenantAdminUrl(data.slug, data.custom_domain);
+              setTenantLinks({ login: `${base}/giris`, forgot: `${base}/sifremi-unuttum` });
+            }
+          });
+      }
+
+      setStatus("invalid");
+      return;
+    }
 
     // 2b) Davet linkinin kurumu (?tenant=<uuid>, bkz. buildInviteRedirectUrl).
     //     replaceState (asagida) URL'i path'e indirip query'yi de SILDIGI icin
@@ -298,28 +355,52 @@ export default function DavetKabulPage() {
   }
 
   if (status === "invalid") {
+    const isRecovery = mode === "recovery";
+    // Neden cümlesi: Supabase hatası geldiyse koduna göre (otp_expired =
+    // "süresi dolmuş ya da kullanılmış"), gelmediyse (token/oturum yok) genel.
+    const reason = linkError
+      ? describeAuthLinkError(linkError.code)
+      : isRecovery
+        ? "Bu sıfırlama linki geçersiz veya süresi dolmuş."
+        : "Bu davet linki geçersiz veya süresi dolmuş.";
+    const secondaryClass =
+      "block w-full rounded-lg border border-border bg-white text-center px-4 py-2.5 text-sm font-medium text-text-muted hover:bg-bg-light transition-colors";
+
     return (
       <div className="flex min-h-screen items-center justify-center bg-bg-light px-4">
         <div className="w-full max-w-md">
           <div className="rounded-xl bg-white p-8 shadow-sm border border-border">
             <div className="text-center mb-6">
               <h1 className="text-2xl font-bold text-text-dark tracking-tight">
-                {mode === "recovery"
-                  ? "Sıfırlama Linki Geçersiz"
-                  : "Davet Linki Geçersiz"}
+                {isRecovery ? "Sıfırlama Linki Geçersiz" : "Davet Linki Geçersiz"}
               </h1>
               <p className="text-sm text-text-muted mt-3 leading-relaxed">
-                {mode === "recovery"
-                  ? "Bu sıfırlama linki geçersiz veya süresi dolmuş. Yeni bir sıfırlama talebi gönderin."
-                  : "Bu davet linki geçersiz veya süresi dolmuş. Yetkili kişiden yeni bir davet talep edin."}
+                {reason}{" "}
+                {isRecovery
+                  ? "Yeni bir sıfırlama talebi gönderin."
+                  : "Şifrenizi daha önce belirlediyseniz giriş yapabilirsiniz. Belirlemediyseniz ya da hatırlamıyorsanız “Şifremi Unuttum” ile yeni bir bağlantı isteyin."}
               </p>
+              {linkError?.code && (
+                <p className="text-xs text-text-muted mt-3">Hata kodu: {linkError.code}</p>
+              )}
             </div>
-            <Link
-              href={mode === "recovery" ? "/admin/sifremi-unuttum" : "/admin/giris"}
-              className="block w-full rounded-lg border border-border bg-white text-center px-4 py-2.5 text-sm font-medium text-text-muted hover:bg-bg-light transition-colors"
-            >
-              {mode === "recovery" ? "Yeniden Dene" : "Giriş Sayfasına Dön"}
-            </Link>
+            {isRecovery ? (
+              <Link href="/admin/sifremi-unuttum" className={secondaryClass}>
+                Yeniden Dene
+              </Link>
+            ) : (
+              <div className="space-y-2">
+                <Link
+                  href={tenantLinks?.forgot ?? "/admin/sifremi-unuttum"}
+                  className="block w-full rounded-lg bg-primary text-white text-center px-4 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors"
+                >
+                  Şifremi Unuttum
+                </Link>
+                <Link href={tenantLinks?.login ?? "/admin/giris"} className={secondaryClass}>
+                  Giriş Sayfasına Git
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>

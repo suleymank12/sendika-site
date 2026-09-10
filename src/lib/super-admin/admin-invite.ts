@@ -108,8 +108,14 @@ export const ADMIN_INVITE_MESSAGES: Record<AdminInviteOutcome, string> = {
  * NEDEN QUERY PARAMETRESİ (user_metadata değil): Supabase Auth, onaylanmamış
  * mevcut kullanıcıya yapılan yeniden davette `data`'yı YOK SAYIYOR (yalnızca
  * yeni kullanıcıda uygulanıyor) — "A'ya davet, kabul etmeden B'ye ekle"
- * senaryosunda metadata A'da kalırdı. Yeniden davet eski token'ı geçersiz
- * kıldığı için yalnızca son link çalışır; o da son kurumu taşır.
+ * senaryosunda metadata A'da kalırdı. Üstelik metadata kişi başına TEK alan;
+ * query parametresi her linkte ayrı: GEÇERLİ bir link kişiyi kendi kurumuna
+ * götürür. Kişinin elinde aynı anda birden fazla davet linki olabilir. Biri
+ * kullanılınca hesap onaylanır ve Supabase kalan davet token'larını temizler
+ * (Auth kaynağı: User.Confirm) — diğer linkler "Davet Linki Geçersiz"
+ * ekranına düşer (bkz. parseAuthLinkError). 10 Eylül 2026 canlı ölçümünde
+ * eski link yine de açılmıştı: sayfa `#error=`'u okumayıp tarayıcıdaki mevcut
+ * oturuma düşüyordu — düzeltildi (NOTE.md "Davranış — ölçüldü").
  *
  * NEDEN KORUNUYOR (Supabase Auth kaynağından okundu): auth-js `redirect_to`'yu
  * kodlayarak yollar; sunucu adresi doğrular, mail linkine kaçışlayarak gömer ve
@@ -233,4 +239,66 @@ export function chooseInviteTenant(
     source: "latest_membership",
     reason: requested ? "not_a_member" : "no_param",
   };
+}
+
+/** Supabase'in /verify hatasında dönüş adresine eklediği bilgi. */
+export interface AuthLinkError {
+  /** Supabase hata kodu (örn. "otp_expired"); gelmediyse null. */
+  code: string | null;
+  /**
+   * Hatanın geldiği akış. Supabase hatayı HER ZAMAN hash'e yazar; PKCE
+   * akışında ayrıca query'ye de yazar (Auth kaynağı: prepErrorRedirectURL).
+   * Bu uygulamada PKCE = tarayıcıdan başlayan şifre sıfırlama, implicit =
+   * sunucudan gönderilen davet.
+   */
+  flow: "implicit" | "pkce";
+}
+
+const AUTH_ERROR_KEYS = ["error", "error_code", "error_description"] as const;
+
+/**
+ * Davet / sıfırlama linkinin dönüş adresinde Supabase hatası var mı?
+ * Örnek (kullanılmış davet linki):
+ *   `?tenant=<uuid>#error=access_denied&error_code=otp_expired&error_description=...&sb=`
+ *
+ * NEDEN GEREKLİ: auth-js URL'deki hatada tarayıcıdaki mevcut oturumu bilerek
+ * SİLMİYOR ("Don't remove existing session on URL login failure"). Kabul
+ * sayfası hatayı görmezse `getSession()` ile o oturuma düşer ve geçersiz
+ * linke tıklayan kişiye şifre formu gösterir — oturumdaki kişinin şifresi
+ * değişir (10 Eylül 2026 yan bulgusu). Hata varsa sayfa "Geçersiz" ekranını
+ * gösterir, oturuma DÜŞMEZ. Boş değerli anahtarlar hata sayılmaz.
+ */
+export function parseAuthLinkError(hash: string, search: string): AuthLinkError | null {
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ""));
+  const queryParams = new URLSearchParams(search);
+  const hasError = (params: URLSearchParams) =>
+    AUTH_ERROR_KEYS.some((key) => (params.get(key) ?? "").trim() !== "");
+
+  const inHash = hasError(hashParams);
+  const inQuery = hasError(queryParams);
+  if (!inHash && !inQuery) return null;
+
+  const code =
+    (hashParams.get("error_code") ?? "").trim() ||
+    (queryParams.get("error_code") ?? "").trim() ||
+    null;
+  return { code, flow: inQuery ? "pkce" : "implicit" };
+}
+
+/**
+ * "Geçersiz" ekranının neden cümlesi.
+ *
+ * `otp_expired` için "süresi dolmuş" DEMİYORUZ: Supabase bu kodu hem süresi
+ * dolmuş token'da hem BULUNAMAYAN token'da (daha önce kullanılmış, ya da hesap
+ * başka bir davet linkiyle onaylanıp token'lar temizlenmiş) döndürüyor — mesajı
+ * da tek: "Email link is invalid or has expired". Bu uygulamada en sık görülen
+ * durum ikincisi (birden fazla davet maili). Diğer kodlar nadir ve kullanıcı
+ * için ayrıştırılacak bir anlam taşımıyor → genel cümle. Kod ekranda ayrıca
+ * gösterilir (destek için).
+ */
+export function describeAuthLinkError(code: string | null): string {
+  if (code === "otp_expired") {
+    return "Bu bağlantının süresi dolmuş ya da bağlantı daha önce kullanılmış.";
+  }
+  return "Bu bağlantı doğrulanamadı.";
 }

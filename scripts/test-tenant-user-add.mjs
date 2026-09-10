@@ -48,6 +48,9 @@
  *   (h) chooseInviteTenant — 10 Eylul 2026 davet-kabul ".limit(1)" bug'i:
  *       kisi davet edildigi kuruma gider; link kurumu yoksa/uye degilse EN SON
  *       eklenen uyelige duser (kurum secici ekrani bilerek yok)
+ *   (i) parseAuthLinkError / describeAuthLinkError — 10 Eylul 2026 yan
+ *       bulgusu: Supabase linki reddettiyse (#error=...) sayfa "Gecersiz"
+ *       ekranini gosterir, tarayicidaki mevcut oturuma DUSMEZ
  *
  * ⚠️ KAPSAM SINIRI (bilincli):
  *   Repoda HTTP/route kosucusu yok; API route'lari (create-tenant,
@@ -69,6 +72,8 @@ import {
   INVITE_TENANT_PARAM,
   parseInviteTenantId,
   chooseInviteTenant,
+  parseAuthLinkError,
+  describeAuthLinkError,
 } from "../src/lib/super-admin/admin-invite.ts";
 import {
   findUserByEmail,
@@ -639,6 +644,120 @@ console.log("\n(h) chooseInviteTenant — davet edildigi kuruma gitmeli\n");
     "PostgREST tarih bicimi (mikrosaniye + offset) okunuyor",
     Number.isFinite(Date.parse(B_NEW.created_at)),
     B_NEW.created_at
+  );
+}
+
+// ---------------------------------------------------------------------------
+console.log("\n(i) parseAuthLinkError — gecersiz link oturuma DUSMEMELI\n");
+
+{
+  const T = "3f6c2a1e-8b4d-4c2a-9e1f-0a1b2c3d4e5f";
+  // Supabase Auth prepErrorRedirectURL'in urettigi bicim: hata HER ZAMAN
+  // hash'e yazilir; implicit akista (davet) query AYNEN kalir.
+  const ERR_HASH =
+    "#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired&sb=";
+  const ERR_QUERY =
+    "?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired";
+
+  // ⬇ YAN BULGU: kullanilmis davet linki + tarayicida acik oturum. auth-js
+  //   URL hatasinda oturumu silmiyor; sayfa hatayi gormezse getSession() ile
+  //   o oturuma dusup sifre formu gosteriyordu.
+  ok(
+    "hata",
+    "kullanilmis davet linki → hata (implicit, otp_expired)",
+    parseAuthLinkError(ERR_HASH, `?tenant=${T}`),
+    { code: "otp_expired", flow: "implicit" },
+    ERR_HASH
+  );
+
+  // Uctan uca: kabul sayfasinin gordugu gercek adres. Hata varken kurum
+  // parametresi de okunabilmeli (Gecersiz ekrani kurumun giris adresini kurar).
+  const landed = new URL(`https://buyukdirilis.org.tr/admin/davet-kabul?tenant=${T}${ERR_HASH}`);
+  ok(
+    "hata",
+    "gercek adres: hash + query ayri ayri okunur",
+    parseAuthLinkError(landed.hash, landed.search),
+    { code: "otp_expired", flow: "implicit" },
+    landed.href
+  );
+  ok(
+    "hata",
+    "hata varken kurum parametresi yine okunur",
+    parseInviteTenantId(landed.searchParams.get(INVITE_TENANT_PARAM)),
+    T,
+    landed.href
+  );
+
+  // PKCE (sifre sifirlama): Supabase hatayi query'ye DE yazar → recovery ekrani
+  ok(
+    "hata",
+    "hata query'de de var → pkce (sifre sifirlama linki)",
+    parseAuthLinkError(ERR_HASH, ERR_QUERY),
+    { code: "otp_expired", flow: "pkce" },
+    ERR_QUERY
+  );
+  ok(
+    "hata",
+    "yalniz query'de hata → pkce",
+    parseAuthLinkError("", ERR_QUERY),
+    { code: "otp_expired", flow: "pkce" },
+    ERR_QUERY
+  );
+
+  // Basarili linkler hata SAYILMAMALI (akisi bozmamali)
+  ok(
+    "hata",
+    "basarili davet linki (#access_token) → hata yok",
+    parseAuthLinkError(
+      "#access_token=x&expires_in=3600&refresh_token=y&token_type=bearer&type=invite&sb=",
+      `?tenant=${T}`
+    ),
+    null,
+    "#access_token=...&type=invite"
+  );
+  ok("hata", "basarili PKCE linki (?code) → hata yok", parseAuthLinkError("", "?code=abc123"), null, "?code=abc123");
+  ok("hata", "yalniz kurum parametresi → hata yok", parseAuthLinkError("", `?tenant=${T}`), null, "?tenant=...");
+  ok("hata", "bos adres → hata yok", parseAuthLinkError("", ""), null, '"" ""');
+  ok(
+    "hata",
+    "anahtarlar var ama degerler bos → hata yok",
+    parseAuthLinkError("#error=&error_code=&error_description=", ""),
+    null,
+    "#error=&error_code=&error_description="
+  );
+
+  // Kodsuz hata yine hata — ekran genel cumleyi gosterir
+  ok(
+    "hata",
+    "kodsuz hata → code null",
+    parseAuthLinkError("#error=server_error&error_description=Bir+hata", ""),
+    { code: null, flow: "implicit" },
+    "#error=server_error"
+  );
+  ok(
+    "hata",
+    "basinda '#' olmayan hash de okunur",
+    parseAuthLinkError("error_code=otp_expired&error_description=x", ""),
+    { code: "otp_expired", flow: "implicit" },
+    "error_code=otp_expired"
+  );
+}
+
+{
+  // ⬇ MESAJ KARARI: Supabase otp_expired'i hem suresi dolmus hem BULUNAMAYAN
+  //   (kullanilmis / hesap baska linkle onaylanmis) token icin donduruyor.
+  //   Yalniz "suresi dolmus" demek en sik durumda (birden fazla davet maili)
+  //   yanlis olurdu — ikisi birlikte soylenmeli.
+  const expired = describeAuthLinkError("otp_expired");
+  okTrue("mesaj-hata", "otp_expired 'süresi dolmuş' diyor", expired.includes("süresi dolmuş"), expired);
+  okTrue("mesaj-hata", "otp_expired 'kullanılmış' da diyor", expired.includes("kullanılmış"), expired);
+  ok("mesaj-hata", "kodsuz → genel cumle", describeAuthLinkError(null), "Bu bağlantı doğrulanamadı.", "null");
+  ok(
+    "mesaj-hata",
+    "bilinmeyen kod → genel cumle",
+    describeAuthLinkError("unexpected_failure"),
+    "Bu bağlantı doğrulanamadı.",
+    "unexpected_failure"
   );
 }
 
