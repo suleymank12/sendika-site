@@ -240,9 +240,44 @@ adresine döner ve query taşımaz.
 yoksa subdomain'e düşen şifre sıfırlama linkleri Supabase tarafından
 reddedilir.
 
-Custom domain kullanan müşteriler için o domain de eklenmelidir:
-`https://musteridomain.com/admin/davet-kabul*` (eklenmezse o kurumda şifre
-sıfırlama çalışmaz).
+### 6.1 — Custom domain'li her kurum: iki satır daha (ZORUNLU)
+
+Kurum kendi alan adıyla çalışıyorsa (süper admin → kurum → Custom Domain),
+**o domain için ayrı satırlar eklenmelidir — wildcard işe YARAMAZ.**
+`https://*.<apex-domain>/...` deseni yalnız platformun kendi subdomain'lerini
+kapsar: Supabase'in glob'unda `*` `.` ve `/` karakterlerini geçmez;
+`musteridomain.com` gibi bambaşka bir alan adını ise hiç eşleyemez.
+
+| Redirect URLs (kurum başına) | |
+|---|---|
+| `https://musteridomain.com/admin/davet-kabul*` | **ZORUNLU** |
+| `https://www.musteridomain.com/admin/davet-kabul*` | savunma |
+
+- **Neden zorunlu:** şifre sıfırlama linki isteğin yapıldığı adrese döner
+  (`window.location.origin` + `/admin/davet-kabul`); www → apex 301 yüzünden
+  bu adres her zaman apex'tir. Satır yoksa Supabase adresi **hata vermeden**
+  Site URL köküne düşürür.
+- **Canlı örnek (Kurmay Teknoloji, 11 Eylül 2026):** satır yokken
+  `kurmayteknoloji.com`'da istenen sıfırlama linki
+  `https://buyukdirilis.org.tr/?code=…` adresine düştü — kişi şifre formu
+  yerine ana sitenin **anasayfasını** gördü. Kod takası da tamamlanamaz:
+  gereken doğrulayıcı custom domain'in tarayıcı deposunda kalır. Satırlar
+  eklendi, test edildi, çalışıyor.
+- **www satırı:** www → apex 301 kurulmadan önce ya da bozulursa sıfırlama www
+  adresinden istenebilir; satır o durumu karşılar.
+- **Davetler** bu satırlara ihtiyaç duymaz — Site URL'e (apex) döner.
+- **Yalnız Custom Domain alanındaki domain için:** müşterinin başka alan
+  adları (ör. `.com.tr` → `.com` 301) sıfırlama sayfası açmadığı için satır
+  istemez. `http://` satırı **eklemeyin** (sıfırlama kodu şifresiz
+  bağlantıdan geçer).
+- **Domain değişince / kaldırılınca eski satırlar SİLİNMELİ:** listede kalan
+  domain el değiştirirse (süresi dolup başkası alırsa), biri o adresi
+  kullanarak kurum adminine gerçek bir sıfırlama maili tetikleyebilir.
+
+Satırlar panelde hazır: süper admin → kurum sayfası → **Kurulum Durumu**
+satırları domain'e göre üretir (Kopyala) ve eklenip eklenmediğini Supabase'e
+canlı sorar ("Supabase dönüş adresi" maddesi). Domain değişince kayıttan
+sonra açılan pencere silinecek eski satırları listeler.
 
 **Lokal geliştirme** aynı Supabase projesine bağlıysa şu satırlar da gerekir.
 Lokal davetler kurumun subdomain'ine döner (`http://{slug}.lvh.me:3000/...`) —
@@ -343,10 +378,23 @@ Lokal geliştirmede `NEXT_PUBLIC_ROOT_DOMAIN=lvh.me` kullanılır; kurumlara
      oluşturur ve admini davet eder.
    - `default`, `www`, `admin`, `api`, `app`, `auth`, `static`, `cdn` slug'ları
      rezervedir, kullanılamaz.
-3. **DNS:** yeni subdomain için wildcard A kaydı (`*.<apex-domain>`) olmalı.
-   Custom domain bağlanacaksa müşterinin domain'i sunucuya yönlendirilmeli,
-   Nginx'e `www` → apex 301 kuralı eklenmeli (NOTE.md'de örnek var).
-4. Kurumun admin panelinden yapılacaklar (kurum admini yapar):
+3. **Kurulum Durumu:** kayıttan sonra panel kurum sayfasına geçer; üstteki
+   **Kurulum Durumu** bölümü kalan adımları her açılışta **canlı ölçer** (onay
+   kutusu yok — ölçülemeyen madde "Belirlenemedi" olur):
+   - **Subdomain:** wildcard A kaydı (`*.<apex-domain>`) varsa ek iş yok;
+     bölüm adresi, platform sertifikasının bitişini ve subdomain dönüş
+     satırını yoklar.
+   - **Admin daveti:** gönderildi mi, kabul edildi mi (ilk giriş).
+   - **Custom domain** bağlanacaksa önce Custom Domain alanına yazıp kaydedin
+     (hazır metinler o domain'den üretilir). Sıra: DNS A (apex + www) →
+     sertifika (`certbot certonly --nginx`) → Nginx (apex bloğu + www → apex
+     301 + http → https; apex bloğunda www **yok**) → Supabase Redirect URLs
+     (Adım 6.1). Her adımın hazır metni (DNS kayıtları, certbot komutu, tam
+     Nginx dosyası, Supabase satırları) Kopyala ile alınır.
+   - Custom domain değiştirilir ya da silinirse kayıttan sonra açılan pencere
+     eski Supabase satırlarını ve sunucu temizliğini listeler.
+4. Kurumun admin panelinden yapılacaklar (kurum admini yapar; Kurulum Durumu
+   bunları bilgi olarak gösterir):
    - **Ayarlar:** logo, favicon, renk, iletişim bilgileri, sosyal medya
    - **Kategoriler:** haber kategorileri (tohum kategori oluşturmaz — bilinçli)
    - **Menü:** varsayılan 5 öğe düzenlenir/genişletilir

@@ -5,6 +5,183 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🧭 KURULUM DURUMU — Yeni kurum kurulum kontrol listesi (11 Eylül 2026)
+
+**Durum:** ✅ Uygulandı — tsc + build + lint + 8 test script'i geçti
+(`npm run test:setup` 185 kontrol). Canlı manuel test (tablo aşağıda)
+**bekliyor**.
+
+**Neden:** yeni müşteri kurulumunun bir kısmı kod dışında (DNS, Nginx, SSL,
+Supabase Dashboard) ve unutuluyordu. Kurmay'da Supabase Redirect URLs satırı
+atlanmıştı → custom domain'de şifre sıfırlama sessizce çalışmıyordu (bkz.
+"✅ KAPATILDI — Custom domain'li kurumlarda şifre sıfırlama"). KURULUM.md'yi
+kimse açmıyor; durum panelde görünür olmalı.
+
+## Nerede / nasıl
+
+- **tenants/[id] sayfasının en üstünde "Kurulum Durumu" bölümü.** Kayıttan
+  sonra tenants/yeni zaten buraya yönlendiriyor. Başlıkta özet ("1 eksik" /
+  "Tamam"); eksik varsa kendiliğinden açılır, eksikli maddenin hazır metni de
+  açık gelir. Ayrı sayfa / menü öğesi yok.
+- **Onay kutusu / DB kaydı YOK.** Her madde her açılışta yeniden ölçülür —
+  elle işaretlenen "yapıldı" niyeti saklar, gerçeği değil, zamanla bayatlar.
+  Ölçülemeyen madde **"Belirlenemedi"** olur, asla sahte "Tamam".
+- **Custom domain değiştirilince / silinince** kayıttan sonra pencere açılır
+  (overlay / Esc ile kapanmaz, "Anladım" kapatır): silinecek eski Supabase
+  satırları, eklenecek yeniler, sunucu temizliği (nginx blokları → reload →
+  `certbot delete` EN SON). İlk kez girilen domain'de pencere yok (adımlar
+  zaten bölümde). Eski domain DB'de saklanmaz — pencere kapanınca hatırlatma
+  biter (bilinçli).
+
+## Maddeler ve kaynakları
+
+| Grup | Madde | Nasıl ölçülür |
+|---|---|---|
+| Kurum ve subdomain | Kurum aktif | DB `is_active` (pasif → Uyarı) |
+| | Subdomain adresi | Canlı: `https://<slug>.<kök>/admin/giris` → 200 + `x-tenant-slug` = slug |
+| | Platform sertifikası (wildcard) | Canlı TLS: bitiş tarihi + "kendiliğinden YENİLENMEZ" hatırlatması; 30 günden az → Uyarı |
+| | Şifre sıfırlama dönüş adresi (subdomain) | Canlı Supabase yoklaması (wildcard satırı) |
+| Admin | Admin davet edildi | `tenant_users` + Auth (yoksa Eksik) |
+| | Davet kabul edildi (ilk giriş) | Auth `last_sign_in_at`; kimse girmediyse Uyarı + davet tarihi + "kaldırıp yeniden ekleyin" |
+| Custom domain | DNS A kayıtları (apex + www) | Canlı: A = kök domain'in A kaydı (IP koda gömülmez); yabancı AAAA → Eksik |
+| | SSL sertifikası (apex + www) | Canlı TLS: iki ad için geçerlilik + bitiş; 30 günden az → Uyarı (certbot 30 gün kala yeniler) |
+| | Nginx apex bloğu | Canlı: `https://<d>/admin/giris` → 200 + doğru `x-tenant-slug` (DNS + sertifika + Nginx + kayıt uçtan uca) |
+| | www → apex, http → https | Canlı: iki yönlendirme, 301/308 + hedef (302/307 → Uyarı) |
+| | Supabase dönüş adresi | Canlı Supabase yoklaması |
+| Kurum admininin işleri | Logo, İletişim, Haber Kategorileri, Site Menüsü, Anasayfa Bölümleri | DB — bilgi amaçlı; yalnız "Anasayfa Bölümleri = 0" Uyarı (public anasayfa boş görünür) |
+
+Custom domain yoksa grup tek "Bilgi" maddesidir ("önce alana yazıp
+kaydedin"). Bilinçli olarak listede yok: renk, favicon, sosyal medya
+(boş / varsayılan bırakmak seçim olabilir — "eksik" saymak onay kutusu
+tarlası olurdu), e-posta / storage / yedek (platform geneli, kurum başına iş
+yok).
+
+## Yoklamaların davranışı
+
+- **Akış:** sayfa açılınca iki istek paralel — `GET
+  /api/super-admin/tenant-setup-check?tenantId=` (DB/Auth, hızlı) ve
+  `…&probe=1` (canlı). Yoklamalar paralel, her biri 5 sn zaman aşımlı (Kurmay
+  için gerçek ağda ~1,7 sn). "Yeniden kontrol et" butonu; her kayıttan sonra
+  da yeniden.
+- **Supabase yoklaması:** `GET <SUPABASE_URL>/auth/v1/verify?type=recovery
+  &token=kurulum-kontrolu-gecersiz-token&redirect_to=https://<d>/admin/davet-kabul`,
+  yönlendirme takip edilmeden. Geçersiz token'da Supabase hatayı
+  `redirect_to`'ya yollar; adres listede yoksa Site URL'e düşürür (GoTrue
+  `GetReferrer` → `IsRedirectURLValid`). **11 Eylül canlı ölçüm:**
+
+  | redirect_to | Yanıt |
+  |---|---|
+  | `https://kurmayteknoloji.com/admin/davet-kabul` | 303 → aynı adres `#error=…otp_expired` → **Tamam** |
+  | `https://www.kurmayteknoloji.com/admin/davet-kabul` | 303 → aynı adres |
+  | `https://kurmay-teknoloji.buyukdirilis.org.tr/admin/davet-kabul` | 303 → aynı adres (wildcard satırı) |
+  | `https://listede-olmayan-ornek.com/admin/davet-kabul` | 303 → `https://buyukdirilis.org.tr#error=…` → **Eksik** |
+
+  Yan etkisi yok: token geçersiz, kullanıcıya dokunmaz, mail gitmez (Supabase
+  loglarında başarısız doğrulama olarak görünür); apikey gerekmez. Belgelenmiş
+  API değil, kaynaktan okunmuş davranış — beklenmeyen yanıt / 429 →
+  "Belirlenemedi".
+- **Güvenlik (SSRF):** route yalnız `tenantId` alır, host her zaman DB'den;
+  yalnız süper admin (oturumsuz → 401, yerelde doğrulandı); sabit yollar,
+  yalnız 80/443; cevap gövdesi okunmaz. Domain özel / yerel IP'ye çözülürse
+  hiç bağlanılmaz. **DNS kapısı:** A kaydı bu sunucuyu göstermeyen host'a
+  TLS/HTTP yoklaması yapılmaz (başkasının sunucusunu ölçmemek için) → o
+  maddeler "Belirlenemedi — DNS bu sunucuyu göstermiyor".
+- **Yerel geliştirme (kök `lvh.me`):** DNS / TLS / Nginx yoklanmaz
+  ("Belirlenemedi — yerel geliştirme"); Supabase yoklaması yerelde de gerçek
+  sonuç verir.
+- **Varsayım — hairpin:** canlıda yoklamalar sunucudan kendi public IP'sine
+  gider. Sunucuda doğrulama: `curl -sI https://kurmayteknoloji.com/admin/giris
+  | grep -i x-tenant-slug` → `x-tenant-slug: kurmay-teknoloji`. Çıkmazsa panel
+  "Belirlenemedi" gösterir (sahte sonuç yok); o durumda yoklama 127.0.0.1'e
+  SNI ile bağlanacak şekilde değiştirilir.
+
+## Canlı ölçüm (11 Eylül, geliştirme makinesinden, gerçek ağ, gerçek yoklama kodu)
+
+Kurmay için beklenen panel görüntüsü — **"1 eksik"**:
+- ✅ DNS (apex + www → 185.33.234.67, AAAA yok) · ✅ SSL (7 Aralık 2026, apex
+  + www) · ✅ Nginx apex (200, `x-tenant-slug: kurmay-teknoloji`) · ✅
+  Supabase · ✅ Subdomain · ✅ Wildcard (24 Kasım 2026, 74 gün — elle
+  yenilenecek)
+- ❌ **www → apex:** `https://www.kurmayteknoloji.com/` **200** dönüyor, 301
+  yok — canlı apex bloğunun `server_name` satırında www var (kullanıcı
+  teyidi). `http://kurmayteknoloji.com/` → https 301 ✅ (certbot'un bloğu;
+  `http://www…` ise `https://www…`'ya gidiyor). **Düzeltme:** paneldeki Nginx
+  metni — apex bloğu www'suz + ayrı 301 bloğu tek dosyada; kurulum
+  komutlarındaki `grep -Rn` eski blokları bulur.
+
+## Hazır metinler (domain'den üretilir, Kopyala)
+
+- **Supabase:** `https://<d>/admin/davet-kabul*` (ZORUNLU) +
+  `https://www.<d>/admin/davet-kabul*` (savunma) — satır satır kopyalanır
+  (Dashboard'da her URL ayrı alan).
+- **DNS:** `A @ <IP>`, `A www <IP>` — IP kök domain'in A kaydından.
+- **certbot:** `certbot certonly --nginx -d <d> -d www.<d>` + `certbot renew
+  --dry-run --cert-name <d>`.
+- **Nginx:** tam dosya `/etc/nginx/sites-available/<d>`, 3 blok: (1) apex →
+  uygulama — canlıdaki bloğun aynısı (450M, `/_next/static/` immutable, proxy
+  başlıkları) + `listen 443 ssl` + certbot SSL satırları, **server_name
+  yalnız apex**; (2) www → apex 301; (3) 80 → https apex (apex + www).
+  Komutlar: dosyaya yapıştır → `ln -s` → `grep -Rn "<d>"
+  /etc/nginx/sites-enabled/` ile eski blokları bul, sil → `nginx -t &&
+  systemctl reload nginx` (hepsi bitince tek seferde — arada site kesilmez).
+- **Domain değişince:** eski satırlar (SİLİN) + yeni satırlar (EKLEYİN) +
+  sunucu temizliği.
+
+Kaynak: `src/lib/super-admin/setup-checklist.ts` (saf: metinler + durum
+çevirimi + pencere içeriği), `setup-probes.ts` (yoklama; ağ bağımlılıkları
+dışarıdan), `setup-probe-deps.ts` (Node DNS / TLS / fetch),
+`api/super-admin/tenant-setup-check`, `components/super-admin/`
+`SetupChecklist`, `CopyBlock`, `DomainChangeDialog`. update-tenant cevabı
+artık kaydedilen (normalize) `customDomain`'i de döner. Custom Domain alanının
+yardım metni Kurulum Durumu'na yönlendiriyor, örnek değer www'suz.
+
+## ⏰ Manuel test
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 1 | Süper admin → Kurmay Teknoloji sayfası | Üstte "Kurulum Durumu", başlıkta **"1 eksik"** (kırmızı), bölüm **kendiliğinden açık**. Önce birkaç saniye "Kontrol ediliyor", sonra sonuçlar |
+| 2 | "www → apex ve http → https yönlendirmesi" | **Eksik**: "https://www.kurmayteknoloji.com kendi başına açılıyor … server_name …"; hazır metin **kendiliğinden açık** (Nginx dosyası + komutlar) |
+| 3 | Diğer custom domain maddeleri | DNS / SSL (7 Aralık 2026) / Nginx apex / Supabase → **Tamam** |
+| 4 | Kurum ve subdomain | Subdomain **Tamam**; wildcard "24 Kasım 2026 … YENİLENMEZ"; subdomain Supabase **Tamam** |
+| 5 | Kopyala | Supabase satırının Kopyala'sı → "Kopyalandı", yapıştırınca tek satır; Nginx dosyası tek parça kopyalanır |
+| 6 | Sunucuda hairpin | `curl -sI https://kurmayteknoloji.com/admin/giris \| grep -i x-tenant-slug` → `kurmay-teknoloji` |
+| 7 | Nginx'i panel metniyle düzelt → "Yeniden kontrol et" | www maddesi **Tamam**, başlık **"Tamam"** (yeşil), bölüm açık kalır. Tarayıcıda `https://www.kurmayteknoloji.com/haberler` → `https://kurmayteknoloji.com/haberler` |
+| 8 | Custom domain'i olmayan bir kurum | Custom domain grubu tek **Bilgi** maddesi; özet onu saymaz |
+| 9 | Test kurumu oluştur (custom domain yok) | Kurum sayfası: "Davet kabul edildi" **Uyarı** (henüz giriş yok, davet tarihi), Anasayfa Bölümleri **Uyarı**, kategoriler / logo **Bilgi** |
+| 10 | O kuruma `deneme-yok.example` yaz, kaydet | Pencere **açılmaz** (ilk kez). Grup: DNS **Eksik** ("A kaydı yok"), sertifika / Nginx / yönlendirme **Belirlenemedi** ("DNS bu sunucuyu göstermediği için…"), Supabase **Eksik** (Site URL köküne düşüyor) |
+| 11 | Domain'i başka bir değerle değiştir, kaydet | **Pencere açılır**: eski 2 satır SİLİN, yeni 2 satır EKLEYİN, sunucu temizliği; overlay tıklaması / Esc kapatmaz, "Anladım" kapatır |
+| 12 | Domain alanını boşalt, kaydet | "Custom domain kaldırıldı" penceresi — yalnız silinecek satırlar + temizlik. Sonra test kurumunu silin |
+| 13 | Oturumsuz `/api/super-admin/tenant-setup-check?tenantId=<uuid>` | 401 (yerelde doğrulandı) |
+
+---
+
+# 📋 BACKLOG — E-posta şablonlarında bağlantı süresi çelişkisi (11 Eylül 2026)
+
+**Durum:** ⚠️ Açık — bu turda uygulanmadı. Kurulum Durumu tasarımında bulundu.
+
+Bu dosyada kayıtlı Supabase e-posta şablonları ("Sprint 1 Sonu Yapılacaklar"
+→ 2. Invite User / 3. Reset Password):
+- **Invite User:** "Bu bağlantı **24 saat** geçerlidir."
+- **Reset Password:** "Bağlantı **1 saat** geçerlidir."
+
+Supabase (GoTrue) davet ve şifre sıfırlama bağlantılarına **aynı süreyi**
+uygular — tek ayar: Authentication → Email → **Email OTP Expiration** (Auth
+kaynağı: verify akışında ikisi de `config.Mailer.OtpExp`). İki metin aynı
+anda doğru olamaz; biri kullanıcıya yanlış süre söylüyor.
+
+**Yapılacak:**
+1. Dashboard → Authentication → Email → "Email OTP Expiration" değerine bakın
+   (saniye).
+2. Yanlış olan şablonun metnini o değere göre düzeltin (ör. 3600 ise davet
+   şablonu "1 saat" demeli; 86400 ise sıfırlama şablonu "24 saat").
+3. Bu dosyadaki şablon kayıtlarını da güncelleyin.
+
+Not: Kurulum Durumu'nun "Davet kabul edildi" maddesi bu yüzden sabit bir süre
+kullanmıyor — davet tarihini ve "süresi dolduysa kaldırıp yeniden ekleyin"
+ipucunu gösteriyor.
+
+---
+
 # 🧱 MIGRATION BASELINE — 001-026 arşivlendi (10 Eylül 2026)
 
 **Durum:** ✅ **TAMAMLANDI — baseline KANITLANMIŞ** (10 Eylül 2026).
@@ -530,10 +707,35 @@ sonucuyla karşılandı. Test 5-7 yeni (geçersiz link ekranı).
 
 ---
 
-# 📋 BACKLOG — Custom domain'li kurumlarda şifre sıfırlama muhtemelen çalışmıyor (10 Eylül 2026)
+# ✅ KAPATILDI — Custom domain'li kurumlarda şifre sıfırlama çalışmıyordu (10 → 11 Eylül 2026)
 
-**Durum:** ⚠️ **ÖLÇÜLMEDİ** — kod okuması + bu dosyadaki Dashboard kaydından
-çıkarım. Bu turda uygulanmadı.
+**Durum:** ✅ **KAPATILDI — canlıda ölçüldü ve düzeltildi** (11 Eylül 2026).
+Aşağıdaki 10 Eylül çıkarımı birebir doğrulandı.
+
+**Ölçüm (canlı, kurmayteknoloji.com):** şifre sıfırlama linki
+`https://buyukdirilis.org.tr/?code=…` adresine düşüyordu — kişi şifre formu
+yerine ana sitenin **anasayfasını** görüyordu. Mekanizma tahmin edilenin
+aynısı: adres Redirect URLs'te yok → Supabase Site URL köküne düşürüyor; PKCE
+doğrulayıcısı custom domain'de kaldığı için kod takası da tamamlanamıyor.
+
+**Çözüm:** Supabase → Authentication → URL Configuration → Redirect URLs'e
+Kurmay için **4 satır** eklendi (apex/www varyantları, sonda `*`); test
+edildi, **çalışıyor**. 4 satır özel bir gerekçeyle değil "her varyantı ekle"
+refleksiyle eklendi — kodun istediği **2 satır**: apex (zorunlu) + www
+(savunma). Kural artık bu (KURULUM.md Adım 6.1). `kurmayteknoloji.com.tr`
+.com'a 301 yönlendiği ve kendi başına sıfırlama sayfası açmadığı için satır
+gerektirmez.
+
+**Kalıcı önlem:** süper admin → kurum sayfası → **Kurulum Durumu** — satırın
+varlığını Supabase'e canlı sorar ("Supabase dönüş adresi" maddesi) ve
+satırları domain'den üretir. Bkz. "🧭 KURULUM DURUMU".
+
+---
+
+**10 Eylül'deki ilk kayıt (çıkarım aşaması — tarihsel):**
+
+**İlk durum:** ⚠️ ÖLÇÜLMEDİ — kod okuması + bu dosyadaki Dashboard kaydından
+çıkarım.
 
 Redirect URLs listesinde yalnızca apex ve `*.buyukdirilis.org.tr` var
 ("VPS DEPLOY → 5. Supabase Auth URL Configuration"), müşteri domainleri yok.
@@ -1354,6 +1556,15 @@ nginx -t && systemctl reload nginx
 (apex + www) → nginx apex bloğu + www 301 bloğu → süper admin panelden
 custom_domain (www'suz yaz; panel zaten soyar).
 
+> **11 Eylül 2026:** bu checklist artık panelde — süper admin → kurum sayfası
+> → **Kurulum Durumu** (her adımı canlı ölçer, hazır metinleri üretir; bkz.
+> "🧭 KURULUM DURUMU"). Güncel **tam** Nginx şablonu oradadır: apex bloğu
+> (www'suz) + www 301 + http → https tek dosyada; custom_domain artık ÖNCE
+> yazılır (metinler ondan üretilir). Canlıda Kurmay apex bloğunun
+> `server_name` satırında **www hâlâ var** (kullanıcı teyidi) →
+> `https://www.kurmayteknoloji.com` 200 dönüyor, 301 devrede değil (11 Eylül
+> ölçümü); panel bunu "Eksik" gösterir.
+
 ---
 
 # 🔴 GÜVENLİK — K1: Süper admin yetkisi super_admins tablosuna taşındı
@@ -1758,6 +1969,12 @@ reddedilir.
 > `http://*.lvh.me:3000/admin/davet-kabul` satırının sonuna `*` **zorunlu**.
 > Ayrıntı: "✅ KAPATILDI — Davet kabulünde yanlış kurum" → "Redirect URLs
 > deseni".
+
+> ✅ **11 Eylül 2026 — custom domain satırları:** kurmayteknoloji.com için
+> 4 satır eklendi (apex/www varyantları, sonda `*`) — şifre sıfırlama artık
+> çalışıyor. Kural: custom domain başına **2 satır** (apex zorunlu + www
+> savunma); panel üretir ve canlı kontrol eder (KURULUM.md Adım 6.1;
+> "🧭 KURULUM DURUMU"). Domain değişince eski satırlar silinmeli.
 
 ## 6. Sunucu hazırlığı (2 GB gerçeği)
 

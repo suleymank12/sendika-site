@@ -13,6 +13,12 @@ import DeleteModal from "@/components/admin/DeleteModal";
 import { formatDate } from "@/lib/utils";
 import toast from "react-hot-toast";
 import { showOrphanWarning } from "@/components/super-admin/OrphanWarningToast";
+import SetupChecklist from "@/components/super-admin/SetupChecklist";
+import DomainChangeDialog from "@/components/super-admin/DomainChangeDialog";
+import {
+  buildDomainChangeNotice,
+  type DomainChangeNotice,
+} from "@/lib/super-admin/setup-checklist";
 
 interface Tenant {
   id: string;
@@ -57,6 +63,10 @@ export default function TenantDetailPage() {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [addingUser, setAddingUser] = useState(false);
   const [deleteUser, setDeleteUser] = useState<TenantUser | null>(null);
+
+  // Kurulum Durumu: kayıttan sonra yeniden ölçülsün diye artırılır.
+  const [setupRefreshKey, setSetupRefreshKey] = useState(0);
+  const [domainNotice, setDomainNotice] = useState<DomainChangeNotice | null>(null);
 
   const fetchTenant = useCallback(async () => {
     const supabase = createClient();
@@ -146,6 +156,18 @@ export default function TenantDetailPage() {
     // Banner'i sifirla: kaydedilen (normalize) slug artik yeni "original"
     setOriginalSlug(normalizedSlug);
     setSlug(normalizedSlug);
+
+    // Custom domain: kaydedilen (normalize, www'suz) değer yeni "eski" değer
+    // olur. Önceki kayıtlı değer doluysa ve değiştiyse yapılacaklar penceresi
+    // açılır — eski Supabase satırları geçersiz, yenileri eklenmeli.
+    if (data && "customDomain" in data) {
+      const savedDomain: string | null = data.customDomain ?? null;
+      const notice = buildDomainChangeNotice(tenant?.custom_domain ?? null, savedDomain);
+      setTenant((prev) => (prev ? { ...prev, custom_domain: savedDomain } : prev));
+      setCustomDomain(savedDomain ?? "");
+      if (notice) setDomainNotice(notice);
+    }
+    setSetupRefreshKey((k) => k + 1);
     setSaving(false);
   };
 
@@ -247,6 +269,9 @@ export default function TenantDetailPage() {
         </div>
       </div>
 
+      {/* Kurulum Durumu — kod dışı adımlar dahil, her açılışta canlı ölçülür */}
+      <SetupChecklist tenantId={tenantId} refreshKey={setupRefreshKey} />
+
       {/* Tenant Bilgileri */}
       <div className="rounded-xl bg-white border border-border p-5 lg:p-6 space-y-5">
         <section className="space-y-3">
@@ -282,8 +307,8 @@ export default function TenantDetailPage() {
             label="Custom Domain (opsiyonel)"
             value={customDomain}
             onChange={(e) => setCustomDomain(e.target.value.toLowerCase())}
-            placeholder="www.kurulus.org.tr"
-            helperText="Kuruluş kendi alan adını bağlamak isterse buraya yazın. DNS ayarları ayrıca yapılmalı."
+            placeholder="kurulus.org.tr"
+            helperText="Kuruluş kendi alan adını bağlamak isterse buraya yazın (www'suz). Kaydedince DNS, sertifika, Nginx ve Supabase adımları yukarıdaki Kurulum Durumu bölümünde görünür."
           />
         </section>
 
@@ -398,6 +423,8 @@ export default function TenantDetailPage() {
           </ul>
         )}
       </div>
+
+      <DomainChangeDialog notice={domainNotice} onClose={() => setDomainNotice(null)} />
 
       <DeleteModal
         isOpen={!!deleteUser}

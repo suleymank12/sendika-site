@@ -265,6 +265,9 @@ export async function POST(request: NextRequest) {
       ok: true,
       tenantId,
       slug: normalizedSlug,
+      // Kaydedilen (normalize) değer — panel eskisiyle karşılaştırıp custom
+      // domain değiştiyse "yapılacaklar" penceresini açar (Kurulum Durumu).
+      customDomain: normalizedCustomDomain,
     },
     { status: 200 }
   );
