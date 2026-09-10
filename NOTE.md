@@ -5,6 +5,139 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🧱 MIGRATION BASELINE — 001-026 arşivlendi (10 Eylül 2026)
+
+**Durum:** Karar verildi, dosyalar hazır. Baseline'ın **üretilmesi** ve
+arşiv taşıması elle yapılacak (aşağıda ⏰ bloklar).
+
+## Sorun neydi
+
+Repo'daki 25 migration dosyası **sırayla çalıştırıldığında boş bir
+veritabanında çalışan bir şema üretmiyordu.** Altı kırılma noktası
+(ayrıntı + dosya/satır referansları: `supabase/migrations/archive/README.md`):
+
+1. `005` → `homepage_section_items`'a ALTER; tablo `025`'te yaratılıyor
+2. `005` → `quick_access.slug/content/image_url/video_url/youtube_url`
+   kolonlarını okuyor; **hiçbir migration bu kolonları yaratmıyor**
+   (numara sırasındaki `006` boşluğu da buraya işaret ediyor)
+3. `012:138` → `content_media` üzerinde policy; tablo `019`'da yaratılıyor
+4. **`012` ↔ `019` karşılıklı bağımlılık** — 012'nin 019'a ihtiyacı var,
+   019 ise 009/012'nin önce koşmuş olmasını varsayıyor. **Hiçbir dosya
+   sıralaması ikisini birden memnun etmiyor** — asıl tıkanma bu
+5. 7 kolon hiçbir migration'da yok (canlıda var, doğrulandı):
+   `news`/`announcements` → `video_url`, `youtube_url`;
+   `headlines` → `content`, `video_url`, `youtube_url`
+6. `025` iki kez çalıştırılmak zorunda (kendi başlığında yazıyor)
+
+Kök sebep hepsinde aynı: **tablolar Dashboard'dan elle yaratıldı, migration'a
+sonradan geri yazıldı** (019 ve 025 bu drift'i kapatma denemeleriydi).
+Tek tek yamamak madde 4'ü çözmüyor.
+
+## Karar — canlı DB tek doğruluk kaynağı
+
+Canlı şema `pg_dump --schema-only` ile dökülüp `000_baseline.sql` yapıldı.
+001-026 `archive/`'a taşındı (tarihsel kayıt — okunur, çalıştırılmaz).
+
+```
+000_baseline.sql        şema (ÜRETİLMİŞ dosya, elle düzenlenmez)
+001_seed_default.sql    minimum tohum (yalnızca yeni kurulum)
+027_*.sql               yeni migration'lar buradan devam
+archive/                001-026
+archive/rollback/       013, 016, 018
+```
+
+**Neden numara 002'den değil 027'den devam ediyor:** `005`, `012`, `022` gibi
+numaralar bu NOTE'ta ve kod yorumlarında onlarca kez geçiyor. Aynı numarayı
+ikinci bir dosyaya vermek o referansları sessizce yanlış hale getirirdi.
+
+**Baseline neden `--no-acl` ile alınmıyor:** `022`'deki
+`REVOKE EXECUTE ON is_super_admin FROM PUBLIC/anon` bir **ACL**'dir.
+`--no-acl` ile düşerse anon rolü `is_super_admin`'i çağırabilir hale gelir —
+K1'in kapattığı kapı yeni kurulumlarda açık doğar. ACL'ler bilerek dahil.
+
+**`storage.objects` policy'leri neden ayrı:** Supabase'de `storage` şemasının
+sahibi `supabase_storage_admin`; şemayı dumplamak Supabase'in kendi
+tablolarını da getirir ve hedefte çakışır. Policy DDL'i `pg_policies`'ten
+yeniden üretiliyor (script BÖLÜM C).
+
+## Tohumda ne var, ne yok
+
+`001_seed_default.sql` → **default tenant** (zorunlu: `get-tenant.ts:18-24`
+bu satır yoksa `throw` eder, site komple açılmaz) + **10 site_settings** +
+**5 menu_items**. Anahtar/menü kümesi `api/super-admin/create-tenant`
+route'uyla birebir aynı tutuldu: elle kurulan default tenant ile panelden
+kurulan tenant aynı yerden başlasın.
+
+**Bilerek YOK:** demo haber/duyuru (eski `001`'deki uydurma içerikler
+müşterinin canlı sitesinde yayınlanıyordu), `news_categories` (kuruma özel
+taksonomi; panelden kurulan tenant'lar da kategorisiz başlıyor),
+`homepage_sections`/`sliders`/`headlines` (tasarım kararı, hepsi boş duruma
+dayanıklı), `super_admins` satırı (auth.users boşken FK ihlali —
+KURULUM.md Adım 5).
+
+## 🔑 BAKIM STRATEJİSİ — şema değişince ne yapılacak
+
+**Karar: baseline DONDURULUR. Şema değişikliği her zaman YENİ migration'dır
+(027, 028, ...). Baseline elle düzenlenmez.**
+
+Gerekçe: baseline canlıya **bir daha uygulanmayacak** bir dosyadır. Şema
+değişikliği baseline'a yazılırsa canlıya asla inmez → repo ile canlı yeniden
+ayrışır. **Bu projeyi tam olarak buraya getiren hata budur.** Yeni migration
+ise iki hedefi birden vurur: canlıya elle apply edilir, sıfırdan kurulumda
+baseline'ın üstüne sırayla uygulanır.
+
+Her yeni migration için akış:
+
+1. `027_aciklayici_ad.sql` yaz — idempotent (`IF NOT EXISTS`,
+   `DROP POLICY IF EXISTS`), başında ne/neden, sonunda doğrulama sorguları
+2. Canlıya elle apply et (SQL Editor), doğrulama sorgularını çalıştır
+3. NOTE.md'ye kaydet
+4. Commit
+
+**Baseline ne zaman yeniden üretilir:** biriken migration sayısı ~15'i
+geçtiğinde, **veya** yeni bir müşteri kurulumundan hemen önce (kurulumun
+adım sayısı azalsın), **veya** yılda bir.
+
+Yeniden üretim ön şartı: **bekleyen tüm migration'lar canlıya uygulanmış
+olmalı.** Aksi halde baseline yarım bir şemayı dondurur.
+
+```bash
+export BASELINE_PGURI='postgresql://postgres.<ref>:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
+bash scripts/dump-baseline.sh   # -> ./000_baseline.sql + 20 doğrulama kontrolü
+```
+
+Sonra: yeni `000_baseline.sql` eskisinin üzerine yazılır, o tura kadarki
+migration'lar `archive/`'a taşınır, numaralandırma kaldığı yerden devam eder
+(sıfırlanmaz).
+
+`scripts/dump-baseline.sh` çıktısını kendisi denetliyor: veri sızmış mı
+(INSERT/COPY), 7 kayıp kolon yerinde mi, `is_super_admin` doğru sürüm mü
+(`super_admins` okuyor mu, `raw_user_meta_data` değil), 022'nin REVOKE'u
+korunmuş mu, storage policy'leri gelmiş mi. Bir kontrol bile düşerse dosyayı
+repo'ya almayın.
+
+## ⏰ ELLE — sırayla
+
+**1) Baseline'ı üret (VPS'te, pg_dump 17.11 orada kurulu)**
+
+```bash
+export BASELINE_PGURI='postgresql://postgres.jqwmnawzehyvpwrtdvku:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
+bash scripts/dump-baseline.sh "$BASELINE_PGURI" /tmp/000_baseline.sql
+```
+
+Tüm kontroller OK ise dosyayı repo'ya `supabase/migrations/000_baseline.sql`
+olarak alın. Port **5432** (session pooler) — 6543'te pg_dump çalışmaz.
+
+**2) Arşiv taşıması (lokalde, `git mv`)** — komutlar bu turun raporunda.
+
+**3) Sıfırdan kurulum tatbikatı — HENÜZ YAPILMADI.** Baseline'ın gerçekten
+çalıştığı, ancak boş bir Supabase projesinde `000` + `001` çalıştırılıp site
+ayağa kaldırılarak kanıtlanır. Ücretsiz bir test projesi açıp KURULUM.md'yi
+baştan sona takip edin; Adım 11'deki 10 sorgu + 8 uygulama kontrolü geçmeli.
+**Bu tatbikat yapılana kadar baseline "muhtemelen çalışıyor" statüsündedir.**
+
+---
+
 # 💾 STORAGE YEDEĞİ — `scripts/backup-storage.mjs` (9 Eylül 2026)
 
 **Durum:** Script **hazır**, lint + build geçti. **Henüz çalıştırılmadı.**
