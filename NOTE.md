@@ -7,8 +7,10 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 # 🧱 MIGRATION BASELINE — 001-026 arşivlendi (10 Eylül 2026)
 
-**Durum:** Karar verildi, dosyalar hazır. Baseline'ın **üretilmesi** ve
-arşiv taşıması elle yapılacak (aşağıda ⏰ bloklar).
+**Durum:** ✅ **TAMAMLANDI — baseline KANITLANMIŞ** (10 Eylül 2026).
+Baseline üretildi (23 kontrol OK), 001-026 arşive taşındı ve boş bir Supabase
+projesinde sıfırdan kurulum tatbikatıyla uçtan uca doğrulandı (2. tur —
+aşağıda ⏰ ELLE madde 3).
 
 ## Sorun neydi
 
@@ -118,9 +120,10 @@ policy'lerindeki fonksiyon çağrıları şemalı mı, `ALTER DEFAULT PRIVILEGES
 satırı kalmış mı (aşağıda "TATBİKAT 1"). Bir kontrol bile düşerse dosyayı
 repo'ya almayın.
 
-## ⏰ ELLE — sırayla
+## ⏰ ELLE — sırayla (✅ üçü de tamamlandı)
 
-**1) Baseline'ı üret (VPS'te, pg_dump 17.11 orada kurulu)**
+**1) Baseline'ı üret (VPS'te, pg_dump 17.11 orada kurulu)** — ✅ son üretim
+10 Eylül 12:35 UTC, 23 kontrol OK (`497f446`)
 
 ```bash
 export BASELINE_PGURI='postgresql://postgres.jqwmnawzehyvpwrtdvku:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
@@ -130,24 +133,50 @@ bash scripts/dump-baseline.sh "$BASELINE_PGURI" /tmp/000_baseline.sql
 Tüm kontroller OK ise dosyayı repo'ya `supabase/migrations/000_baseline.sql`
 olarak alın. Port **5432** (session pooler) — 6543'te pg_dump çalışmaz.
 
-**2) Arşiv taşıması (lokalde, `git mv`)** — komutlar bu turun raporunda.
+**2) Arşiv taşıması (lokalde, `git mv`)** — ✅ yapıldı (`3e136ba`).
 
-**3) Sıfırdan kurulum tatbikatı — 1. TUR YAPILDI (10 Eylül 2026), 2 bug
-çıktı, script düzeltildi; baseline YENİDEN ÜRETİLİP 2. tur yapılacak**
-(aşağıda "TATBİKAT 1"). Baseline'ın gerçekten
-çalıştığı, ancak boş bir Supabase projesinde `000` + `001` çalıştırılıp site
-ayağa kaldırılarak kanıtlanır. Ücretsiz bir test projesi açıp KURULUM.md'yi
-baştan sona takip edin; Adım 11'deki 10 sorgu + 8 uygulama kontrolü geçmeli.
-**Bu tatbikat yapılana kadar baseline "muhtemelen çalışıyor" statüsündedir.**
+**3) Sıfırdan kurulum tatbikatı — ✅ TAMAMLANDI (10 Eylül 2026, 2. tur).**
+1. tur iki bug buldu (aşağıda "TATBİKAT 1"); script düzeltildi, baseline
+yeniden üretildi, 2. tur KURULUM.md baştan sona izlenerek temiz geçti:
+
+- Boş proje `sendika-test2` (PostgreSQL 17.6, Frankfurt)
+- `pg_default_acl` (baseline'dan önce): **6 satır, canlıyla aynı** →
+  `ALTER DEFAULT PRIVILEGES` satırlarını çıkarmak kayıpsız
+- `000_baseline.sql` — `ON_ERROR_STOP=1 --single-transaction` → **0 hata**
+- `001_seed_default.sql` → **0 hata**; yalnızca "already a transaction in
+  progress" uyarısı (zararsız, veriler yazıldı — aşağıda 📋 BACKLOG)
+- Doğrulama: 20 tablo, **4 storage policy** (1. turda 1'di), default tenant
+  + 10 ayar + 5 menü
+- `images` bucket oluşturuldu; süper admin kaydı, `is_super_admin` → `true`
+- Uygulama test DB'sine bağlandı (ayrı dizin `/opt/test-kurulum`, port
+  3001): HTTP 200, `x-tenant-slug: default`
+- Uçtan uca: süper admin girişi, tenant oluşturma, admin panelden haber +
+  görsel yükleme, public sitede görüntüleme — **hepsi çalıştı**. Görsel
+  yükleme tarayıcı istemcisiyle (anon key + oturum, service-role DEĞİL)
+  yapıldığı için BUG 1'de kurulamayan `images_tenant_insert` policy'si
+  gerçek yüklemede sınanmış oldu (izin yolu; tenant'lar arası ret yolu bu
+  turda denenmedi).
+- **Canlı kanıt — 8 Eylül'deki sessiz başarısızlık bug'ı kapalı:** tenant
+  oluştururken geçersiz e-posta (`kl@gmail.com`) girildi → Supabase
+  `email_address_invalid` (400) döndü ve panel bunu **doğru şekilde
+  bildirdi**. Eskiden `tenants/yeni` API sonucuna bakmadan sabit "Admin'e
+  davet gönderildi." yazıyordu (bkz. "🔴 CANLI BUG — Admin eklerken davet
+  maili hiç gönderilmiyordu").
+- Temizlik: test dizini silindi, firewall kuralı kaldırıldı, Supabase
+  projesi silindi.
+
+**Baseline statüsü: KANITLANMIŞ.** Boş bir Supabase projesinde `000` + `001`
+hatasız yükleniyor ve site uçtan uca çalışıyor. "Muhtemelen çalışıyor"
+statüsü kapandı. (Kanıt bu üretim için geçerli; baseline yeniden
+üretildiğinde 23 kontrol yine OK olmalı.)
 
 ## 🧪 TATBİKAT 1 — 2 bug, ikisi de script'te düzeltildi (10 Eylül 2026)
 
 Boş proje `sendika-test` (PostgreSQL 17.6), `000_baseline.sql` psql ile
 yüklendi: **15 hata** (3 + 12).
 
-> ⛔ **Repo'daki `000_baseline.sql` (10 Eylül 00:22 UTC üretimi) iki bug'ı da
-> HÂLÂ içeriyor.** Düzeltme script'te; dosya VPS'te yeniden üretilene kadar
-> kurulumda kullanmayın.
+> ✅ Düzeltilmiş script'le baseline yeniden üretildi (10 Eylül 12:35 UTC,
+> 23 kontrol OK) ve 2. turda doğrulandı — iki hata da çıkmadı.
 
 ### BUG 1 (KRİTİK) — storage policy'lerinde şema öneki yoktu
 
@@ -220,8 +249,8 @@ durur** — sed onu da silip fonksiyonu sessizce bozardı.
 varsayılan. Baseline'ın kendi nesneleri etkilenmez (yetkileri ayrı GRANT
 satırlarıyla geliyor). Etki yalnızca **sonradan** yaratılan nesnelerde:
 027+ migration'ların tabloları Supabase'in o anki varsayılanına tabi →
-**migration'larda GRANT'ı açık yazın.** Varsayılanın gerçekten aynı olduğunu
-2. turda baseline'dan ÖNCE doğrulayın (canlıdaki çıktıyla aynı 6 satır):
+**migration'larda GRANT'ı açık yazın.** ✅ 2. turda doğrulandı: yeni projede
+baseline'dan ÖNCE 6 satır, canlıyla aynı. Yeni kurulumlarda aynı kontrol:
 
 ```sql
 SELECT pg_get_userbyid(d.defaclrole) AS rol, d.defaclobjtype AS tur, d.defaclacl
@@ -246,17 +275,30 @@ yalnızca 24 ADP satırının silinmesi ve 4 policy satırına `public.`
 eklenmesiyle ayrılıyor (başka satır kaybı yok); `SET` satırı ya da sed
 ifadesi silinince (mutasyon) yeni kontroller exit 1 veriyor; emniyet plpgsql
 gövdesini koruyor. **Gerçek PostgreSQL'e karşı DEĞİL** — `pg_get_expr`
-davranışı stub'da taklit edildi; asıl kanıt 2. tur.
+davranışı stub'da taklit edildi; asıl kanıt 2. tur. ✅ 2. turda gerçek
+PostgreSQL 17.6'da kanıtlandı: 0 hata, 4 storage policy.
 
-### ⏰ ELLE — 2. tur
+### ✅ 2. tur — yapıldı (10 Eylül 2026)
 
-1. VPS'te baseline'ı yeniden üret (yukarıdaki 1. adım) — **23 kontrol OK**
-2. Repo'ya al, commit
-3. **Boş** bir proje (sendika-test'te 1. turun kalıntıları var — silip
-   yeniden açın); önce yukarıdaki `pg_default_acl` sorgusu
-4. `psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f 000_baseline.sql`
-   → **0 hata** beklenir; sonra `001_seed_default.sql`
-5. KURULUM.md Adım 11 — sorgu 8: **4 satır** (1. turda 1 olurdu)
+Sonuçlar yukarıda, ⏰ ELLE madde 3.
+
+## 📋 BACKLOG — `001_seed_default.sql` içindeki `BEGIN;` / `COMMIT;`
+
+Seed kendi transaction'ını açıyor (`BEGIN;` satır 58, `COMMIT;` satır 113);
+KURULUM.md ise onu `psql --single-transaction` ile çalıştırtıyor. İkisi
+çakışıyor: psql'in açtığı transaction içinde dosyanın `BEGIN`'i "there is
+already a transaction in progress" uyarısı veriyor, dosyanın `COMMIT`'i dış
+transaction'ı erken kapatıyor (sondaki psql `COMMIT`'i için "there is no
+transaction in progress" uyarısı da beklenir). 2. turda **zararsızdı, veriler
+yazıldı** — `COMMIT`'ten sonra dosyada yalnızca yorum var.
+
+Gizli risk: `COMMIT`'ten sonra bir gün çalıştırılabilir bir satır eklenirse o
+satır transaction **dışında** çalışır; `--single-transaction`'ın "ya hep ya
+hiç" garantisi sessizce bozulur.
+
+**Yapılacak:** seed'den `BEGIN;` / `COMMIT;` çıkarılsın. Atomikliği
+`--single-transaction` sağlıyor; dosya zaten idempotent (`ON CONFLICT DO
+NOTHING` / `NOT EXISTS`). Bir sonraki kurulumda seed uyarısız geçmeli.
 
 ---
 
