@@ -62,8 +62,12 @@ export default function MediaUploader({
         return;
       }
 
+      // Sinir = Supabase Free planinin dosya basina siniri (lib/constants.ts).
+      // Burada durdurulmazsa yukleme dakikalarca surup 413 ile dusuyor.
       if (file.size > MAX_UPLOAD_MB.VIDEO * 1024 * 1024) {
-        toast.error(`Video boyutu ${MAX_UPLOAD_MB.VIDEO}MB'dan küçük olmalıdır.`);
+        toast.error(
+          `Video boyutu ${MAX_UPLOAD_MB.VIDEO}MB'dan küçük olmalıdır. Daha büyük videolar için YouTube bağlantısı kullanın.`
+        );
         return;
       }
 
@@ -174,7 +178,7 @@ export default function MediaUploader({
                   Video yüklemek için tıklayın veya sürükleyin
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  {`MP4, WEBM, MOV (maks. ${MAX_UPLOAD_MB.VIDEO}MB)`}
+                  {`MP4, WEBM, MOV — en fazla ${MAX_UPLOAD_MB.VIDEO}MB. Daha büyük videolar için YouTube bağlantısı kullanın.`}
                 </p>
               </div>
             </>

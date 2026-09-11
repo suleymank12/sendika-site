@@ -126,7 +126,7 @@ Dashboard → **Storage** → **New bucket**:
 |---|---|---|
 | Name | `images` | Kodda sabit |
 | Public bucket | ✅ **açık** | Site görselleri anonim okunuyor (`images_public_read`) |
-| File size limit | **400 MB** | `MAX_UPLOAD_MB.VIDEO = 400` (`lib/constants.ts`). Görsel sınırı 50 MB, ikisi de aynı bucket'ta |
+| File size limit | **400 MB** | Etkili sınır Free planda **50 MB** (aşağıdaki uyarı). Uygulama da 50 MB'da durduruyor: `MAX_UPLOAD_MB` → `IMAGE` ve `VIDEO` = 50 (`lib/constants.ts`, 12 Eylül 2026). Bucket 400 MB bırakılır — Pro'ya geçilirse Dashboard'da değişiklik gerekmez |
 | Allowed MIME types | **boş bırakın** | Görsel + video birlikte; kısıtlama uygulamada yapılıyor |
 
 > ⚠️ **Free planda dosya başına 50 MB üst sınırı vardır** ve bucket ayarı bunu

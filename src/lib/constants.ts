@@ -16,10 +16,19 @@ export const STORAGE_BUCKETS = {
  * Dosya yukleme boyut sinirlari (MB). TEK KAYNAK: ImageUploader,
  * MediaUploader, MediaSection, RichTextEditor ve galeri coklu yukleme
  * bu degerleri kullanir — limit degisecekse yalniz burasi degisir.
+ *
+ * VIDEO 50 (12 Eylul 2026): Supabase FREE plani dosya basina 50 MB'i
+ * REDDEDIYOR ve Pro'ya gecilmeyecek (musteri karari) — sinir KALICI.
+ * Eskiden 400'du: 50-400 MB arasi video istemci kontrolunden geciyor,
+ * dakikalarca yukleniyor, Supabase 413 ile reddedince kullanici yalnizca
+ * "Video yuklenirken hata olustu." goruyordu. 50'de dosya secilir secilmez
+ * sebebi ve caresi yaziliyor (MediaUploader). Pro'ya gecilirse UC yer
+ * birlikte guncellenir: burasi, KURULUM Adim 4 bucket satiri, NOTE.md
+ * "SUPABASE PLANI" kaydi.
  */
 export const MAX_UPLOAD_MB = {
   IMAGE: 50,
-  VIDEO: 400,
+  VIDEO: 50,
 } as const;
 
 // Varsayilan meta tag degerleri

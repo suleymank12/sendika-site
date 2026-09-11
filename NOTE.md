@@ -28,7 +28,34 @@ ping cron'u kuruldu (aşağıda); harici izleme BACKLOG'da.
 | Storage | 1 GB | şu an ~36 MB |
 | Egress | 5 GB | — |
 | Aktif proje | 2 | Tatbikat projesi açıkken üçüncüsü **açılamaz** — önce biri silinmeli (tatbikat planı adım 9 zaten siliyor) |
-| Dosya başına yükleme | 50 MB | Koddaki video sınırı 400 MB, ama Free'de 50 MB'ı aşan yükleme reddedilir (KURULUM Adım 4) |
+| Dosya başına yükleme | 50 MB | Kod da 50 MB'da durduruyor (12 Eylül kararı — aşağıda "Video yükleme"); eskiden 400'dü |
+
+## Video yükleme: kalıcı 50 MB sınırı (12 Eylül 2026)
+
+**Bulgu:** kodda `MAX_UPLOAD_MB.VIDEO = 400` idi; Supabase Free planı dosya
+başına 50 MB'ı reddediyor. 50–400 MB arası bir video istemci kontrolünden
+geçiyor, yavaş hatta dakikalarca yükleniyor ve Supabase 413 ile reddedince
+kullanıcı `MediaUploader`'ın genel mesajını görüyordu: "Video yüklenirken hata
+oluştu." — sebep yok, çare yok.
+
+**Karar:** sınır **50**'ye çekildi (`lib/constants.ts`). Pro'ya
+geçilmeyeceği için bu **kalıcı** bir sınır; "400 MB neden çalışmıyor" diye
+aranmasın. Artık dosya seçilir seçilmez, Supabase'e hiç gitmeden:
+"Video boyutu 50MB'dan küçük olmalıdır. **Daha büyük videolar için YouTube
+bağlantısı kullanın.**" Aynı yönlendirme yükleme kutusunun yardım satırında da
+duruyor ("MP4, WEBM, MOV — en fazla 50MB. …"), ayrı satır eklenmedi.
+
+**Neden ortam değişkeni değil:** değer istemcide okunuyor → `NEXT_PUBLIC_*`
+olurdu, build'e gömülür; plan değişince yine yeniden build gerekir. Sabiti
+düzenlemeye göre kazancı yok, üstüne yanlış değer riski ekler (gerçek tavan
+zaten Supabase'de). Pro'ya geçilirse üç yer birlikte güncellenir:
+`lib/constants.ts`, KURULUM Adım 4 bucket satırı, bu kayıt.
+
+**Dokunulmayanlar:** görsel sınırı zaten 50 MB'dı (`IMAGE`) — uyumlu.
+`images` bucket'ının Dashboard'daki 400 MB ayarı da değişmedi; etkili tavan
+planın 50 MB'ı, Pro'ya geçilirse bucket hazır. YouTube alanı video
+yükleyicinin hemen altında ve `onYoutubeChange` verilen her yerde var
+(haber / duyuru / sayfa editörleri + manşet).
 
 ## Çözüm — uptime ping cron'u (VPS, 12 Eylül 2026)
 
