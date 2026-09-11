@@ -51,6 +51,14 @@ düzenlemeye göre kazancı yok, üstüne yanlış değer riski ekler (gerçek t
 zaten Supabase'de). Pro'ya geçilirse üç yer birlikte güncellenir:
 `lib/constants.ts`, KURULUM Adım 4 bucket satırı, bu kayıt.
 
+**Video ve YouTube birlikte (12 Eylül):** ikisi de doldurulursa public tarafta
+**ikisi de** gösteriliyor — `DetailPageLayout` (98-101) medya listesine hem
+dosyayı hem gömülü YouTube'u ekliyor; ilişki "veya" değil. Panel metinleri
+buna göre düzeltildi: `MediaSection` video bölümü açıklaması ve manşetteki
+"Ek Medya" bloğuna eklenen açıklama — ikisi de "ikisi de doldurulursa ikisi de
+gösterilir" diyor. Yerleşim işi (YouTube alanını yükleme kutusuyla eş
+görünürlüğe çıkarma) BACKLOG'a alındı.
+
 **Dokunulmayanlar:** görsel sınırı zaten 50 MB'dı (`IMAGE`) — uyumlu.
 `images` bucket'ının Dashboard'daki 400 MB ayarı da değişmedi; etkili tavan
 planın 50 MB'ı, Pro'ya geçilirse bucket hazır. YouTube alanı video
@@ -76,6 +84,24 @@ yükleyicinin hemen altında ve `onYoutubeChange` verilen her yerde var
 site zaten kapalıdır ve **kimse haber almaz**; sunucu 7 günden uzun kapalı
 kalırsa geri geldiğinde Supabase projesi de duraklatılmış olur (Dashboard'dan
 elle başlatılır). → "📋 BACKLOG — Harici uptime izleme yok".
+
+---
+
+# 📋 BACKLOG — Panel: YouTube alanı yükleme kutusuyla eş görünürlükte değil (12 Eylül 2026)
+
+**Durum:** ⚠️ Açık — tasarım kararı, **bilerek ertelendi**: gerçek ihtiyaç
+panel kullanılınca netleşir.
+
+Video yükleme kutusu büyük ve görsel (sürükle-bırak alanı); YouTube alanı onun
+altında küçük bir metin kutusu. Oysa dosya sınırı **50 MB** ve kalıcı
+("🧾 SUPABASE PLANI" → "Video yükleme"), yani uzun videolarda YouTube artık
+istisna değil, ana yol.
+
+**Çözüm yönü:** iki seçeneği görsel olarak eşitlemek (yan yana iki kart ya da
+sekme) + YouTube etiketine "50 MB üzeri videolar için" ipucu. Metinler 12
+Eylül'de düzeltildi (ikisinin birlikte kullanılabildiği yazıyor); kalan iş
+yalnızca yerleşim. `MediaUploader` tek bileşen olduğu için düzen değişikliği
+dört yeri birden etkiler: haber / duyuru / sayfa editörleri + manşet.
 
 ---
 

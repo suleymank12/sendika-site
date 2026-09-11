@@ -670,6 +670,10 @@ export default function AdminHeadlinePage() {
               {form.source_type === "custom" && (
                 <section className="space-y-3">
                   <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Ek Medya</p>
+                  <p className="text-xs text-text-muted">
+                    Video dosyası yükleyin ve/veya YouTube bağlantısı yapıştırın — ikisi de
+                    doldurulursa ikisi de manşetin detay sayfasında gösterilir. Zorunlu değil.
+                  </p>
                   <MediaUploader
                     value={form.video_url}
                     onChange={(url) => setForm((p) => ({ ...p, video_url: url }))}

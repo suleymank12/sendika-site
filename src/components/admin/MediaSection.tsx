@@ -245,7 +245,8 @@ export default function MediaSection({
         <div className="mb-3">
           <h4 className="text-sm font-semibold text-text-dark">Video</h4>
           <p className="text-xs text-text-muted mt-0.5">
-            Dosya yükle veya YouTube bağlantısı yapıştır. İçerikte oynatılır. Zorunlu değil.
+            Video dosyası yükleyin ve/veya YouTube bağlantısı yapıştırın — ikisi de
+            doldurulursa ikisi de içerikte gösterilir. Zorunlu değil.
           </p>
         </div>
         <div className="max-w-lg">
