@@ -439,7 +439,11 @@ storage dosyaları `scripts/restore-storage.mjs`, DB'deki tam görsel adresleri
 
 ## Adım 11 — Kurulum doğrulama
 
-Sırayla çalıştırın; beklenen sonuçlar yanında.
+Sırayla çalıştırın; beklenen sonuçlar yanında. **10 sorgunun 10'unun sonucunu
+tek tek not edin** (tatbikatta NOTE.md'ye de) — "temiz geçti" demek için
+hepsi gerekir. Biri bile beklenenden farklıysa **kurulum tamamlanmamıştır.**
+Hatasız yükleme tek başına kanıt değildir: sorgu 4'ün yakaladığı açık,
+baseline'ın 0 hatayla yüklendiği bir kurulumda bulundu.
 
 ```sql
 -- 1) Tablolar geldi mi?  -> 20+ satır, aralarında tenants, super_admins,
@@ -456,6 +460,7 @@ WHERE schemaname = 'public' AND rowsecurity = false;
 SELECT prosrc FROM pg_proc WHERE proname = 'is_super_admin';
 
 -- 4) anon, is_super_admin'i çağıramamalı  -> false
+--    true ise KURULUM TAMAMLANMADI — bu bloğun altındaki kurtarmaya bakın
 SELECT has_function_privilege('anon', 'public.is_super_admin(uuid)', 'EXECUTE');
 
 -- 5) Default tenant  -> 1 satır, is_active = true
@@ -489,6 +494,19 @@ ORDER BY table_name, column_name;
 -- 10) Süper admin  -> 1 satır
 SELECT u.email FROM public.super_admins sa JOIN auth.users u ON u.id = sa.user_id;
 ```
+
+> **Sorgu 4 `true` dönerse kurulum TAMAMLANMAMIŞTIR.** Giriş yapmamış herkes
+> (anon) "bu kullanıcı süper admin mi?" diye sorabiliyor demektir. Sebep:
+> baseline, 11 Eylül 2026'daki düzeltmeden (NOTE.md → "TATBİKAT 3 / BUG 3")
+> önceki `dump-baseline.sh` ile üretilmiş. Kurtarma — SQL Editor'da tek satır,
+> ardından sorgu 4'ü tekrarlayın (→ `false`):
+>
+> ```sql
+> REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;
+> ```
+>
+> Kalıcı çözüm: baseline'ı güncel script'le yeniden üretin — dosya elle
+> düzenlenmez.
 
 **Uygulama tarafı:**
 

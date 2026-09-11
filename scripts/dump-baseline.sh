@@ -3,7 +3,7 @@
 # dump-baseline.sh — canli semanin baseline dokumunu uretir
 # =============================================================================
 #
-# NE URETIR: supabase/migrations/000_baseline.sql adayi, uc parcadan olusur:
+# NE URETIR: supabase/migrations/000_baseline.sql adayi, dort parcadan olusur:
 #   A) Eklentiler  — canlida hangi semada kuruluysa aynen (uuid-ossp, pgcrypto)
 #   B) public sema — pg_dump --schema-only (tablo, index, constraint, RLS,
 #                    policy, fonksiyon, trigger, GRANT/REVOKE, COMMENT)
@@ -12,6 +12,10 @@
 #      Supabase'in kendi tablolarini da getirir ve hedefte catisir).
 #      Bu yuzden pg_policies'ten DDL yeniden uretilir — search_path='' ile,
 #      yani ifadelerdeki fonksiyonlar semasiyla yazilir (bkz. BOLUM C).
+#   D) Rol bazli REVOKE'lar — pg_dump bunlari da URETEMEZ: ACL'i PostgreSQL'in
+#      sabit varsayilanina gore fark olarak yazar, bir rolun YOKLUGUNU yazamaz.
+#      Canlida bir API rolune (anon/authenticated/service_role) verilmemis her
+#      fonksiyon yetkisi canlidan okunup acik REVOKE olarak yazilir (BOLUM D).
 #
 # NE URETMEZ: VERI. --schema-only kullanilir; tek satir INSERT/COPY cikmaz.
 #   Sifirdan kurulum icin gereken tohum ayri dosyada: 001_seed_default.sql
@@ -69,9 +73,16 @@ SQL
 #   --no-subscriptions   : yok ama garanti
 #   --no-tablespaces     : Supabase'de anlamsiz
 #   --no-security-labels : pgsodium/anon etiketleri hedefte catisabilir
-#   ACL (GRANT/REVOKE) BILEREK DAHIL — --no-acl KULLANMIYORUZ. 022'deki
-#     "REVOKE EXECUTE ON is_super_admin FROM PUBLIC/anon" bir ACL'dir;
-#     --no-acl ile duserse anon rolu is_super_admin'i cagirabilir hale gelir.
+#   ACL (GRANT/REVOKE) BILEREK DAHIL — --no-acl KULLANMIYORUZ: tablo ve
+#     fonksiyon GRANT'lari ile 022'nin "REVOKE ... FROM PUBLIC"u buradan gelir.
+#     AMA TEK BASINA YETMEZ (tatbikat BUG 3, 11 Eylul 2026). pg_dump ACL'i
+#     PostgreSQL'in SABIT varsayilanina (acldefault: sahip + PUBLIC) gore FARK
+#     olarak yazar — kaynagin ALTER DEFAULT PRIVILEGES'ine gore degil. O
+#     varsayilanda bulunmayan bir rolun YOKLUGU fark sayilmaz, dump'a girmez:
+#     022'nin "REVOKE ... FROM anon"u bu yuzden hic gelmez. Hedef proje ise
+#     fonksiyonu Supabase'in ADP'si altinda yaratir; anon EXECUTE'u CREATE
+#     aninda alir ve "FROM PUBLIC" onu KALDIRMAZ (ACL girdileri grantee
+#     bazlidir). O yariyi BOLUM D canlidan uretir.
 #   COMMENT'ler BILEREK DAHIL (super_admins tablosunun uyari metni orada).
 pg_dump "$PGURI" \
   --schema-only \
@@ -109,11 +120,14 @@ fi
 #     supabase_admin'inkiler hedefte "permission denied to change default
 #     privileges" verir (postgres o role uye degil) ve SQL Editor ilk hatada
 #     TUM calistirmayi durdurur (tatbikat, 10 Eylul 2026). Ikisi de yeni
-#     Supabase projesinde zaten varsayilan. Baseline'in kendi nesneleri
-#     etkilenmez: onlarin yetkileri ayri GRANT satirlariyla geliyor (ACL dahil,
-#     yukarida). Etki yalnizca baseline'dan SONRA yaratilan nesnelerde — onlar
-#     Supabase'in o anki varsayilanina tabi; 027+ migration'larda GRANT'i acik
-#     yazin.
+#     Supabase projesinde zaten varsayilan — silmek KAYIPSIZ: hedefte ayni ADP
+#     zaten var, biraksak da ayni grant'lari yeniden yazardi.
+#     YANLIS VARSAYIM (BUG 3'e kadar burada yaziliydi): "baseline'in kendi
+#     nesneleri ADP'den etkilenmez". Etkilenir — her CREATE hedefin ADP'si
+#     altinda calisir, anon/authenticated/service_role yetkiyi CREATE aninda
+#     alir. GRANT satirlari yalnizca EKLER; canlida bundan KISITLI olan yetki
+#     ancak BOLUM D'nin acik REVOKE'uyla gelir. 027+ migration'larda GRANT'i
+#     da REVOKE'u da acik yazin.
 #  NOT: "\" icin [\] bracket ifadesi kullaniliyor. '\\restrict' yazimi bazi
 #  ortamlarda (Windows/MSYS) argüman islenirken bozuluyor ve SESSIZCE hicbir
 #  satiri silmiyor; [\] her yerde dogru calisiyor (test edildi).
@@ -160,6 +174,74 @@ FROM (
 SQL
 
 # -----------------------------------------------------------------------------
+# D) ROL BAZLI REVOKE'lar — pg_dump'in URETEMEDIGI kisitlar (tatbikat BUG 3)
+# -----------------------------------------------------------------------------
+# Neden (BOLUM B'deki ACL notu): pg_dump bir rolun YOKLUGUNU yazamaz; hedefte o
+# rol yetkiyi CREATE aninda Supabase'in ADP'sinden alir. Olculen (11 Eylul 2026):
+#   canli       is_super_admin -> {postgres, authenticated, service_role}
+#   yeni proje  is_super_admin -> + anon=X/postgres  (anon cagirabiliyordu)
+# COZUM: canlinin yoklugunu ACIKCA yaz. Liste canlidan uretilir — isim listesi
+# yok; sonradan eklenen ya da kisitlanan fonksiyonlar kendiliginden kapsanir.
+# has_function_privilege ETKIN yetkiye bakar (PUBLIC ve rol uyeligi dahil):
+# canlida bir rol fonksiyonu PUBLIC uzerinden cagirabiliyorsa REVOKE uretilmez
+# — dogru, cunku pg_dump o durumda PUBLIC'i de korur.
+# Roller: Supabase'in API rolleri (ADP'nin yetki verdigi uc rol).
+# SEMA ONEKI: regprocedure bir fonksiyonu yalnizca search_path'te
+# GORUNMUYORSA semasiyla yazar — BUG 1 ile ayni tuzak (yuklemede search_path
+# bos; semasiz ad "does not exist" verir). Sorgudan once search_path bosaltilir.
+# -q SART (Bolum C ile ayni gerekce).
+psql "$PGURI" -Atq -o "$TMP/revoke.sql" <<'SQL'
+SET search_path = '';
+SELECT format('REVOKE ALL ON %s %s FROM %I;',
+              CASE p.prokind WHEN 'p' THEN 'PROCEDURE' ELSE 'FUNCTION' END,
+              p.oid::pg_catalog.regprocedure, r.rolname)
+FROM pg_catalog.pg_proc p
+JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+JOIN pg_catalog.pg_roles r ON r.rolname IN ('anon', 'authenticated', 'service_role')
+WHERE n.nspname = 'public'
+  AND NOT pg_catalog.has_function_privilege(r.oid, p.oid, 'EXECUTE')
+ORDER BY 1;
+SQL
+
+# TABLO DEDEKTORU — ayni sinif, tablo/gorunum/sequence icin. Canlida 0 satir
+# (11 Eylul 2026 olculdu: 20 tablonun hepsinde uc rol de tum yetkilere sahip).
+# Bir gun biri kisitlarsa (orn. REVOKE INSERT ON x FROM anon) pg_dump bunu da
+# yazamaz ve hedefte ADP yetkiyi geri verir. Burada REVOKE URETILMEZ, script
+# DURUR: tabloda "REVOKE <yetki> ON TABLE" o yetkinin KOLON grant'larini da
+# siler — Bolum B'den SONRA calisan otomatik bir REVOKE, canlidaki kolon
+# bazli grant'lari sessizce yok ederdi. O gun Bolum D bu durumu (kolon
+# grant'lari dahil) bilerek kapsayacak sekilde genisletilir.
+# MAINTAIN yalnizca PostgreSQL 17+'da var (eski sunucuda sorulursa hata verir).
+tbl_gap="$(psql "$PGURI" -Atq <<'SQL'
+SET search_path = '';
+SELECT format('%s  rol=%s  yetki=%s', c.oid::pg_catalog.regclass, r.rolname, pr.priv)
+FROM pg_catalog.pg_class c
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+JOIN pg_catalog.pg_roles r ON r.rolname IN ('anon', 'authenticated', 'service_role')
+CROSS JOIN LATERAL unnest(
+  CASE WHEN c.relkind = 'S' THEN ARRAY['USAGE', 'SELECT', 'UPDATE']
+       ELSE ARRAY['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']
+            || CASE WHEN current_setting('server_version_num')::int >= 170000
+                    THEN ARRAY['MAINTAIN'] ELSE ARRAY[]::text[] END
+  END) AS pr(priv)
+WHERE n.nspname = 'public'
+  AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+  AND NOT CASE WHEN c.relkind = 'S'
+               THEN pg_catalog.has_sequence_privilege(r.oid, c.oid, pr.priv)
+               ELSE pg_catalog.has_table_privilege(r.oid, c.oid, pr.priv) END
+ORDER BY 1;
+SQL
+)"
+if [ -n "$tbl_gap" ]; then
+  echo "HATA: canlida Supabase varsayilanindan KISITLI tablo/sequence yetkisi var." >&2
+  echo "      pg_dump bunu yazamaz; baseline'la kurulan projede yetki GERI GELIR." >&2
+  echo "      Bolum D bu durumu henuz kapsamiyor (kolon grant'lari — yukaridaki not):" >&2
+  echo "$tbl_gap" | sed 's/^/  /' >&2
+  exit 1
+fi
+echo "tablo/sequence dedektoru: canlida Supabase varsayilanindan kisitli yetki yok"
+
+# -----------------------------------------------------------------------------
 # BIRLESTIR
 # -----------------------------------------------------------------------------
 {
@@ -177,7 +259,8 @@ SQL
   echo "-- olarak archive/ altinda duruyor."
   echo "--"
   echo "-- ICERIK: eklentiler + public sema (tablo/index/constraint/RLS/policy/"
-  echo "-- fonksiyon/trigger/GRANT/COMMENT) + storage.objects policy'leri."
+  echo "-- fonksiyon/trigger/GRANT/COMMENT) + storage.objects policy'leri +"
+  echo "-- rol bazli REVOKE'lar (Bolum D — pg_dump'in yazamadigi kisitlar)."
   echo "-- VERI ICERMEZ. Tohum icin: 001_seed_default.sql (baseline'dan SONRA)."
   echo "--"
   echo "-- CALISTIRMA (KURULUM.md Adim 3):"
@@ -223,6 +306,20 @@ SQL
   cat "$TMP/storage.sql"
   echo
   echo "-- ============================================================================="
+  echo "-- BOLUM D — ROL BAZLI REVOKE'LAR (pg_dump'in yazamadigi kisitlar)"
+  echo "-- ============================================================================="
+  echo "-- Kaynak: canli pg_proc. Canlida ilgili rolun EXECUTE'u OLMAYAN her public"
+  echo "-- fonksiyon icin bir satir. Neden: pg_dump ACL'i PostgreSQL'in sabit"
+  echo "-- varsayilanina (sahip + PUBLIC) gore fark olarak yazar ve bir rolun"
+  echo "-- YOKLUGUNU yazamaz. Bu proje ise fonksiyonlari Supabase'in ALTER DEFAULT"
+  echo "-- PRIVILEGES'i altinda yaratir: anon/authenticated/service_role EXECUTE'u"
+  echo "-- CREATE aninda alir ve Bolum B'deki 'REVOKE ... FROM PUBLIC' bunlari"
+  echo "-- KALDIRMAZ. Bu satirlar olmadan canlida 022 ile anon'dan alinan"
+  echo "-- is_super_admin EXECUTE'u yeni kurulumda GERI GELIR (tatbikat BUG 3)."
+  echo "-- Dogrulama: KURULUM.md Adim 11, sorgu 4 (anon -> false)."
+  cat "$TMP/revoke.sql"
+  echo
+  echo "-- ============================================================================="
   echo "-- 000_baseline.sql sonu"
   echo "-- ============================================================================="
 } > "$OUT"
@@ -247,7 +344,11 @@ grep -q 'CREATE TABLE public.super_admins' "$OUT";          chk $? "super_admins
 grep -q 'CREATE TABLE public.homepage_sections' "$OUT";     chk $? "homepage_sections var (025 drift)"
 grep -q 'CREATE TABLE public.content_media' "$OUT";         chk $? "content_media var (019 drift)"
 grep -q 'FROM public.super_admins' "$OUT";                  chk $? "is_super_admin DOGRU surum (super_admins okuyor, 022)"
-grep -q 'REVOKE ALL ON FUNCTION public.is_super_admin' "$OUT"; chk $? "022 REVOKE korunmus (ACL dahil)"
+# BUG 3: bu kontrol eskiden "022 REVOKE korunmus (ACL dahil)" etiketiyle yalniz
+# 'REVOKE ALL ON FUNCTION public.is_super_admin' ariyordu — FROM PUBLIC
+# satirina uyup 022'nin iki REVOKE'undan YALNIZ BIRINI kanitliyordu. Artik
+# yalniz o yariyi iddia ediyor; anon yarisi en alttaki 24-26'da.
+grep -qE '^REVOKE ALL ON FUNCTION public\.is_super_admin\([^)]*\) FROM PUBLIC;$' "$OUT"; chk $? "022'nin FROM PUBLIC yarisi var (tek basina YETMEZ — anon yarisi: Bolum D, asagida)"
 grep -q 'user_has_tenant_access' "$OUT";                    chk $? "user_has_tenant_access fonksiyonu var"
 grep -q 'prevent_default_tenant_deactivation' "$OUT";       chk $? "014 trigger fonksiyonu var"
 grep -q 'set_updated_at_timestamp' "$OUT";                  chk $? "009 updated_at trigger fonksiyonu var"
@@ -256,7 +357,7 @@ grep -q 'images_tenant_insert' "$OUT";                      chk $? "storage tena
 # Tatbikat BUG 1: Bolum C'de SEMASIZ public fonksiyon cagrisi, Bolum B'nin bos
 # search_path'inde "function ... does not exist" verir ve policy OLUSMAZ.
 # Fonksiyon listesi dump'in kendisinden alinir -> sonradan eklenenler de kapsanir.
-secC="$(awk '/^-- BOLUM C /{f=1} /^-- 000_baseline\.sql sonu/{f=0} f && !/^--/' "$OUT")"
+secC="$(awk '/^-- BOLUM C /{f=1} /^-- BOLUM D /{f=0} /^-- 000_baseline\.sql sonu/{f=0} f && !/^--/' "$OUT")"
 grep -q 'public\.user_has_tenant_access(' <<<"$secC"; chk $? "storage policy'leri public.user_has_tenant_access(...) cagiriyor (sema onekli)"
 unq=""
 for fn in $(grep -oE '^CREATE FUNCTION public\.[a-z_][a-z0-9_]*\(' "$OUT" | sed -E 's/^CREATE FUNCTION public\.//; s/\($//'); do
@@ -272,6 +373,44 @@ for pair in "news:video_url" "news:youtube_url" "announcements:video_url" \
   awk "/^CREATE TABLE public\\.$tbl \\(/,/^\\);/" "$OUT" | grep -qw "$col"
   chk $? "$tbl.$col kolonu baseline'da"
 done
+
+# Tatbikat BUG 3: pg_dump bir rolun YOKLUGUNU yazamaz; Bolum D yazar.
+secD="$(awk '/^-- BOLUM D /{f=1} /^-- 000_baseline\.sql sonu/{f=0} f && NF && !/^--/' "$OUT")"
+
+# (24) SABIT DEGISMEZ, CANLIYA sorulur. Bolum D ve (26) canliyi AYNALAR: canlida
+#      biri anon'a EXECUTE verirse baseline bunu sadakatle kopyalar ve veri
+#      gudumlu her kontrol yine gecer. Bu kontrol o korlugu kapatir.
+live_anon="$(psql "$PGURI" -Atqc "SELECT has_function_privilege('anon', 'public.is_super_admin(uuid)', 'EXECUTE')" 2>&1)"
+if [ "$live_anon" = "f" ]; then ek=""; else ek=" — donen: ${live_anon:-bos}"; fi
+[ -z "$ek" ]; chk $? "CANLIDA anon is_super_admin'i cagiramiyor (022 canlida yerinde)$ek"
+
+# (25) Dosyada: Bolum D anon'un EXECUTE'unu ACIKCA aliyor (satir birebir).
+grep -qxF 'REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;' <<<"$secD"; chk $? "Bolum D: REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;"
+
+# (26) Genel: Bolum D == canlidaki kisitlarin BAGIMSIZ turetimi. Bolum D
+#      has_function_privilege'e sorar; bu kontrol ham ACL'i (proacl ->
+#      aclexplode) okur — ayni listeye farkli yoldan varilmali. Bolum D bos
+#      kalirsa, BIRLESTIR'den duserse ya da sorgusu bozulursa yakalar; sonradan
+#      eklenen / kisitlanan her fonksiyonu kapsar. grantee 0 = PUBLIC;
+#      proacl NULL = acldefault (PUBLIC cagirabilir) -> REVOKE beklenmez.
+beklenen="$(psql "$PGURI" -Atq <<'SQL'
+SET search_path = '';
+SELECT format('REVOKE ALL ON %s %s FROM %I;',
+              CASE p.prokind WHEN 'p' THEN 'PROCEDURE' ELSE 'FUNCTION' END,
+              p.oid::pg_catalog.regprocedure, r.rolname)
+FROM pg_catalog.pg_proc p
+JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+JOIN pg_catalog.pg_roles r ON r.rolname IN ('anon', 'authenticated', 'service_role')
+WHERE n.nspname = 'public'
+  AND p.proacl IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM pg_catalog.aclexplode(p.proacl) a
+                  WHERE a.privilege_type = 'EXECUTE' AND a.grantee IN (r.oid, 0))
+ORDER BY 1;
+SQL
+)"
+fark="$(diff <(LC_ALL=C sort <<<"$secD") <(LC_ALL=C sort <<<"$beklenen"))"
+[ -z "$fark" ]; chk $? "Bolum D = canlidaki fonksiyon kisitlari (proacl'den bagimsiz turetim, $(grep -c . <<<"$beklenen") satir)"
+if [ -n "$fark" ]; then echo "    (< Bolum D'de fazla, > Bolum D'de eksik)"; sed 's/^/    /' <<<"$fark"; fi
 set -e
 
 echo

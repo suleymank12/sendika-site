@@ -225,10 +225,14 @@ node scripts/rewrite-storage-urls.mjs --env /root/tatbikat.env --eski jqwmnawzeh
 ## Geri yükleme sırası (boş Supabase projesine)
 
 Şema **baseline'dan**, veri **yedekten** (ikisi birden şema kurarsa her
-CREATE çakışır; baseline tatbikatla kanıtlı, ACL + 4 storage policy içinde).
+CREATE çakışır; baseline tatbikatla kanıtlı, ACL + 4 storage policy içinde —
+ACL'nin rol bazlı yarısı hariç, bkz. 2. adım).
 
 1. Proje — aynı bölge (eu-west-1), PostgreSQL 17.
-2. `000_baseline.sql`.
+2. `000_baseline.sql`. ⚠️ **BUG 3:** baseline yeniden üretilene kadar hemen
+   ardından `REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;` —
+   repodaki baseline bunu taşımıyor, geri yüklenen canlıda `anon`
+   `is_super_admin`'i çağırabilir ("🧪 TATBİKAT 3 / BUG 3").
 3. **`001_seed_default.sql` ÇALIŞTIRILMAZ** — varsayılan kurum yedekte; aynı UUID çakışır.
 4. **Süper admin (KURULUM Adım 5) oluşturulmaz** — yedekten gelir; önceden
    açılırsa e-posta/ID çakışır.
@@ -262,7 +266,7 @@ C'den); (b) kullanıcılar için Admin API
 | # | Adım | Doğrulama |
 |---|---|---|
 | 1 | Test projesi aç; Auth: Site URL `http://lvh.me:3000`, lvh.me Redirect satırları, signup kapalı | — |
-| 2 | Baseline | KURULUM Adım 11 sorgu 1-4, 8: RLS açık, anon `is_super_admin` çağıramaz, 4 storage policy |
+| 2 | Baseline | KURULUM Adım 11 sorgu 1-4, 8: RLS açık, anon `is_super_admin` çağıramaz, 4 storage policy. **Sorgu 4 → `t` çıktı (BUG 3, 11 Eylül 2026)**: baseline yeniden üretilene kadar kurtarma satırı (komutlarda) → tekrar `f` |
 | 3 | Bucket + auth verisi + public verisi (`ON_ERROR_STOP`, tek transaction) | **0 hata**. Dökümdeki COPY satır sayıları ↔ her tablonun `count(*)`'u **birebir** (20 public + auth.users + auth.identities). Yetim satır 0 |
 | 4 | URL dönüşümü | Eski ref geçen kolon **0** |
 | 5 | restore-storage: rapor → `--yukle` → tekrar | 2. koşum 0 yükleme; bucket = ayna; DB'nin gösterdiği **her** storage adresi test projesinden 200 |
@@ -290,6 +294,9 @@ cd /opt/build/sendika-site && umask 077
 
 # 2) Şema
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/000_baseline.sql
+#    BUG 3: baseline yeniden üretilene kadar ŞART (sonrasında zararsız no-op)
+psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon'
+psql -X -At -c "SELECT has_function_privilege('anon', 'public.is_super_admin(uuid)', 'EXECUTE')"   # f
 
 # 3) Bucket + veri — tek transaction, FK sırası için replica
 #    (çıktıdaki "set_config" satırları normal)
@@ -371,6 +378,7 @@ rm -f /root/tatbikat-*            # + /root/.pgpass'teki test satırı, test pro
 | 7 | Yedek başarısızlığı kimseye bildirilmiyor (yalnız log) | 📋 BACKLOG (aşağıda) |
 | 8 | Proje ayarları yedekte değil: Auth URL'leri (custom domain satırları dahil), SMTP, e-posta şablonları, OTP süresi, API anahtarları | Belgeli (KURULUM + NOTE). Yeni projede anahtarlar değişir → `.env` + **yeniden build** (`NEXT_PUBLIC_*` build'e gömülü) + deploy. Tatbikat kontrol listesinde |
 | 9 | Canlı projenin Supabase planı kayıtlı değil | ❓ Açık: Pro ise Supabase'in kendi günlük yedeği de var (Dashboard'dan) — bizim yedeğin yanına, yerine değil; Free ise yok |
+| 10 | **Baseline rol bazlı REVOKE'u taşımıyor** (tatbikat adım 2, 11 Eylül): yüklenen projede `anon` `is_super_admin`'i çağırabiliyor, canlıda çağıramıyor (BUG 3) | ✅ Script düzeltildi (Bölüm D, 26 kontrol) — **baseline yeniden üretimi bekliyor** (ELLE). Kök neden + çözüm: "🧪 TATBİKAT 3 / BUG 3" |
 
 ---
 
@@ -610,10 +618,15 @@ akışında ikisi de `config.Mailer.OtpExp`).
 
 # 🧱 MIGRATION BASELINE — 001-026 arşivlendi (10 Eylül 2026)
 
-**Durum:** ✅ **TAMAMLANDI — baseline KANITLANMIŞ** (10 Eylül 2026).
+**Durum:** ⚠️ **BUG 3 — repodaki baseline yeniden üretilmeli** (11 Eylül 2026).
 Baseline üretildi (23 kontrol OK), 001-026 arşive taşındı ve boş bir Supabase
 projesinde sıfırdan kurulum tatbikatıyla uçtan uca doğrulandı (2. tur —
-aşağıda ⏰ ELLE madde 3).
+aşağıda ⏰ ELLE madde 3). **Ama** geri yükleme tatbikatı (11 Eylül) bu
+baseline'la kurulan projede `anon`'un `is_super_admin`'i çağırabildiğini
+buldu — canlıda çağıramıyor. Script düzeltildi (Bölüm D + 26 kontrol);
+**yeniden üretim bekliyor** (⏰ ELLE madde 4). O zamana kadar her yeni
+kurulumda KURULUM Adım 11 sorgu 4'ün kurtarma satırı şart. Ayrıntı: aşağıda
+"🧪 TATBİKAT 3 / BUG 3".
 
 ## Sorun neydi
 
@@ -655,10 +668,18 @@ archive/rollback/       013, 016, 018
 numaralar bu NOTE'ta ve kod yorumlarında onlarca kez geçiyor. Aynı numarayı
 ikinci bir dosyaya vermek o referansları sessizce yanlış hale getirirdi.
 
-**Baseline neden `--no-acl` ile alınmıyor:** `022`'deki
-`REVOKE EXECUTE ON is_super_admin FROM PUBLIC/anon` bir **ACL**'dir.
-`--no-acl` ile düşerse anon rolü `is_super_admin`'i çağırabilir hale gelir —
-K1'in kapattığı kapı yeni kurulumlarda açık doğar. ACL'ler bilerek dahil.
+**Baseline neden `--no-acl` ile alınmıyor:** tablo ve fonksiyon GRANT'ları ile
+`022`'nin `REVOKE ... FROM PUBLIC`'i ACL'dir; `--no-acl` ile hepsi düşer.
+ACL'ler bilerek dahil.
+
+> ⚠️ **Düzeltme (BUG 3, 11 Eylül 2026):** bu paragraf eskiden "022'nin
+> `REVOKE ... FROM PUBLIC/anon`'u ACL olarak baseline'a gelir" diyordu —
+> **yanlıştı.** ACL'yi dahil etmek **yetmez**: pg_dump ACL'yi PostgreSQL'in
+> sabit varsayılanına (`acldefault`: sahip + PUBLIC) göre **fark** olarak
+> yazar; o varsayılanda olmayan bir rolün **yokluğunu** yazamaz. 022'nin
+> `FROM anon` yarısı bu yüzden dump'a hiç girmedi; hedef projede Supabase'in
+> ADP'si `anon`'a EXECUTE'u CREATE anında veriyor. O yarıyı artık script
+> Bölüm D canlıdan üretiyor ("🧪 TATBİKAT 3 / BUG 3").
 
 **`storage.objects` policy'leri neden ayrı:** Supabase'de `storage` şemasının
 sahibi `supabase_storage_admin`; şemayı dumplamak Supabase'in kendi
@@ -708,7 +729,7 @@ olmalı.** Aksi halde baseline yarım bir şemayı dondurur.
 
 ```bash
 export BASELINE_PGURI='postgresql://postgres.<ref>:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
-bash scripts/dump-baseline.sh   # -> ./000_baseline.sql + 23 doğrulama kontrolü
+bash scripts/dump-baseline.sh   # -> ./000_baseline.sql + 26 doğrulama kontrolü
 ```
 
 Sonra: yeni `000_baseline.sql` eskisinin üzerine yazılır, o tura kadarki
@@ -717,16 +738,22 @@ migration'lar `archive/`'a taşınır, numaralandırma kaldığı yerden devam e
 
 `scripts/dump-baseline.sh` çıktısını kendisi denetliyor: veri sızmış mı
 (INSERT/COPY), 7 kayıp kolon yerinde mi, `is_super_admin` doğru sürüm mü
-(`super_admins` okuyor mu, `raw_user_meta_data` değil), 022'nin REVOKE'u
-korunmuş mu, storage policy'leri gelmiş mi — ve 1. tatbikattan beri: storage
-policy'lerindeki fonksiyon çağrıları şemalı mı, `ALTER DEFAULT PRIVILEGES`
-satırı kalmış mı (aşağıda "TATBİKAT 1"). Bir kontrol bile düşerse dosyayı
-repo'ya almayın.
+(`super_admins` okuyor mu, `raw_user_meta_data` değil), 022'nin
+`FROM PUBLIC` REVOKE'u korunmuş mu, storage policy'leri gelmiş mi — 1.
+tatbikattan beri: storage policy'lerindeki fonksiyon çağrıları şemalı mı,
+`ALTER DEFAULT PRIVILEGES` satırı kalmış mı (aşağıda "TATBİKAT 1") — ve BUG
+3'ten beri: canlıda `anon` `is_super_admin`'i çağıramıyor mu, Bölüm D
+`anon`'un REVOKE'unu yazıyor mu, Bölüm D canlıdaki tüm fonksiyon
+kısıtlarıyla (ham ACL'den bağımsız türetimle) birebir mi. Canlıda bir
+tablo/sequence yetkisi Supabase varsayılanından kısıtlıysa script dosya
+üretmeden durur (aşağıda "TATBİKAT 3 / BUG 3"). Bir kontrol bile düşerse
+dosyayı repo'ya almayın.
 
-## ⏰ ELLE — sırayla (✅ üçü de tamamlandı)
+## ⏰ ELLE — sırayla (1-3 ✅, 4 ⏳ BUG 3 sonrası yeniden üretim)
 
 **1) Baseline'ı üret (VPS'te, pg_dump 17.11 orada kurulu)** — ✅ son üretim
-10 Eylül 12:35 UTC, 23 kontrol OK (`497f446`)
+10 Eylül 12:35 UTC, 23 kontrol OK (`497f446`). ⚠️ Bu üretimde BUG 3 var —
+madde 4.
 
 ```bash
 export BASELINE_PGURI='postgresql://postgres.jqwmnawzehyvpwrtdvku:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
@@ -772,6 +799,29 @@ yeniden üretildi, 2. tur KURULUM.md baştan sona izlenerek temiz geçti:
 hatasız yükleniyor ve site uçtan uca çalışıyor. "Muhtemelen çalışıyor"
 statüsü kapandı. (Kanıt bu üretim için geçerli; baseline yeniden
 üretildiğinde 23 kontrol yine OK olmalı.)
+
+> ⚠️ **Şerh (11 Eylül 2026, BUG 3):** "KANITLANMIŞ" **yükleme + uçtan uca
+> çalışma** için geçerliydi, **güvenlik duruşu için değil.** Bu üretimle
+> kurulan projede `anon` `is_super_admin`'i çağırabiliyordu (canlıda
+> çağıramıyor) ve 2. tur bunu yakalamadı: yukarıdaki kayıt KURULUM Adım 11'in
+> **1, 5, 6, 8 ve 10**'unu listeliyor — **2, 3, 4, 7, 9 kaydedilmemiş**
+> (koşulup koşulmadığı bilinmiyor). Açığı yakalayan tam da 4 numara. Statü,
+> madde 4'teki yeniden üretim + Adım 11'in 10 sorgusunun 10'unun kaydıyla
+> yeniden verilir.
+
+**4) BUG 3 sonrası yeniden üretim — ⏳ BEKLİYOR (VPS'te).** Güncel script'le
+(Bölüm D + 26 kontrol):
+
+```bash
+grep -q 'BOLUM D' scripts/dump-baseline.sh && echo "script guncel"   # BUG 3 duzeltmesi VPS'teki kopyada mi?
+export BASELINE_PGURI='postgresql://postgres.jqwmnawzehyvpwrtdvku:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
+bash scripts/dump-baseline.sh "$BASELINE_PGURI" /tmp/000_baseline.sql
+```
+
+Beklenen: `tablo/sequence dedektoru: ... kisitli yetki yok`, **26 × OK**,
+Bölüm D'de tek satır `REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;`.
+Sonra dosya repo'ya `supabase/migrations/000_baseline.sql` olarak alınır ve bir
+boş projede Adım 11'in 10 sorgusu kaydedilir (sorgu 4 → `f`).
 
 ## 🧪 TATBİKAT 1 — 2 bug, ikisi de script'te düzeltildi (10 Eylül 2026)
 
@@ -849,10 +899,13 @@ plpgsql gövdesinde satır başında geçerli bir ifade) **hiçbir şey silmeden
 durur** — sed onu da silip fonksiyonu sessizce bozardı.
 
 **postgres'inkiler de neden çıktı:** hepsi yeni Supabase projesinde
-varsayılan. Baseline'ın kendi nesneleri etkilenmez (yetkileri ayrı GRANT
-satırlarıyla geliyor). Etki yalnızca **sonradan** yaratılan nesnelerde:
-027+ migration'ların tabloları Supabase'in o anki varsayılanına tabi →
-**migration'larda GRANT'ı açık yazın.** ✅ 2. turda doğrulandı: yeni projede
+varsayılan — silmek kayıpsız (hedefte aynı ADP zaten var). Burada eskiden
+"baseline'ın kendi nesneleri etkilenmez (yetkileri ayrı GRANT satırlarıyla
+geliyor)" yazıyordu — ⚠️ **YANLIŞTI (BUG 3):** baseline'ın nesneleri de
+hedefin ADP'si altında yaratılır, `anon`/`authenticated`/`service_role`
+yetkiyi CREATE anında alır; GRANT satırları yalnızca **ekler**. Canlıda daha
+kısıtlı olan yetki ancak açık REVOKE ile gelir (script Bölüm D). 027+
+migration'larda **GRANT'ı da REVOKE'u da açık yazın.** ✅ 2. turda doğrulandı: yeni projede
 baseline'dan ÖNCE 6 satır, canlıyla aynı. Yeni kurulumlarda aynı kontrol:
 
 ```sql
@@ -884,6 +937,151 @@ PostgreSQL 17.6'da kanıtlandı: 0 hata, 4 storage policy.
 ### ✅ 2. tur — yapıldı (10 Eylül 2026)
 
 Sonuçlar yukarıda, ⏰ ELLE madde 3.
+
+## 🧪 TATBİKAT 3 / BUG 3 — baseline rol bazlı REVOKE'u taşımıyordu (11 Eylül 2026)
+
+**Durum:** 🔧 Script düzeltildi ve gerçek PostgreSQL'de sınandı. **Bekleyen:**
+baseline'ın VPS'te yeniden üretimi (⏰ ELLE madde 4). O zamana kadar
+baseline'la kurulan / geri yüklenen her projede kurtarma satırı şart
+(KURULUM Adım 11 sorgu 4).
+
+### Bulgu
+
+Geri yükleme tatbikatı, adım 2: boş Supabase projesine `000_baseline.sql`
+yüklendi, KURULUM Adım 11 sorgu 4:
+`has_function_privilege('anon', 'public.is_super_admin(uuid)', 'EXECUTE')` →
+**`t`** (canlıda `f`). Yeni projedeki `proacl`:
+`{postgres=X/postgres, anon=X/postgres, authenticated=X/postgres, service_role=X/postgres}`
+— `anon`'a **role özel** grant. Baseline'daki tek REVOKE:
+`REVOKE ALL ON FUNCTION public.is_super_admin(user_id uuid) FROM PUBLIC;`
+
+### Ölçüm — canlı (11 Eylül)
+
+| fonksiyon | anon | authenticated | service_role | proacl |
+|---|---|---|---|---|
+| `is_super_admin(uuid)` | **f** | t | t | `{postgres=X, authenticated=X, service_role=X}` — **anon YOK, PUBLIC (`=X`) YOK** |
+| `prevent_default_tenant_deactivation()` | t | t | t | `=X` (PUBLIC) + anon + authenticated + service_role |
+| `set_updated_at_timestamp()` | t | t | t | aynı |
+| `user_has_tenant_access(uuid)` | t | t | t | aynı |
+
+Tablo kapsamı (A3 — Supabase varsayılanının vereceği ama canlıda olmayan
+tablo yetkisi): **0 satır**. Sorun yalnızca `is_super_admin`'de: Supabase
+varsayılanından bilerek saptığımız tek nesne. `022` canlıda **tam** çalışmış.
+
+### Kök neden — pg_dump ACL'yi FARK olarak yazar
+
+pg_dump bir nesnenin ACL'sini olduğu gibi dökmez; PostgreSQL'in **sabit**
+varsayılanına (`acldefault`; fonksiyon için sahip + PUBLIC) göre fark yazar —
+kaynağın `pg_default_acl`'ine göre **değil**. Canlı ↔ `acldefault` farkı:
+PUBLIC var→yok (`REVOKE ... FROM PUBLIC`), authenticated ve service_role
+yok→var (`GRANT`). `anon` **iki tarafta da yok** → yazılacak bir şey yok. Bir
+rolün yokluğu pg_dump'ın dilinde ifade edilemiyor.
+
+Hedefte ise `CREATE FUNCTION` Supabase'in ADP'si altında çalışır ve yeni
+fonksiyon `{=X, postgres=X, anon=X, authenticated=X, service_role=X}` ile
+doğar (canlıdaki diğer üç fonksiyonun ACL'si tam olarak bu). `REVOKE ...
+FROM PUBLIC` PUBLIC girdisini **kaldırır** (etkili — yoksa anon PUBLIC
+üzerinden de çağırırdı), ama ACL girdileri grantee bazlıdır: `anon=X`'e
+dokunmaz. 022'nin kendi yorumu tersini söylüyordu ("yalnız `FROM anon`
+yetmez") — simetriği ("yalnız `FROM PUBLIC` de yetmez") bizi ısırdı.
+
+**BUG 2'nin (ADP satırlarını silmek) etkisi YOK:** silinen satırlar hedefte
+zaten var olan varsayılanın kopyasıydı; bıraksak aynı grant'ları yazardı.
+
+**Şiddet:** yetki yükseltmesi **değil** — yetki kaynağı hâlâ `super_admins`
+tablosu; süper admin policy'lerinin hepsi `TO authenticated` ve
+`is_super_admin(auth.uid())` çağırıyor (anon'da `auth.uid()` NULL → false).
+Etki: giriş yapmamış biri, bildiği bir kullanıcı UUID'si için "süper admin
+mi?" diye sorabiliyor (oracle / bilgi sızıntısı) ve 022'nin kurduğu savunma
+hattı yeni kurulumda yok doğuyor. Asıl sorun sınıfsal: **canlıdan daha
+kısıtlı hiçbir yetki baseline'a geçmiyordu.**
+
+### Neden kaçtı
+
+1. **Script'in kontrolü yanlış şeyi kanıtlıyordu.** "022 REVOKE korunmuş (ACL
+   dahil)" yalnızca `REVOKE ALL ON FUNCTION public.is_super_admin` arıyordu
+   → `FROM PUBLIC` satırına uydu; 022'nin iki REVOKE'undan biri kanıtlandı.
+   Script yorumu ve bu NOTE'taki `--no-acl` paragrafı "ACL dahilse 022 gelir"
+   diye yanlış varsayımı yazıya geçirmişti (ikisi de düzeltildi).
+2. **2. tur kaydında Adım 11 sorgu 4 yok** (şerh: yukarıda, ⏰ ELLE madde 3).
+   Açığı yakalayan tam olarak o sorgu; bu tatbikatta koşuldu ve yakaladı.
+
+### Çözüm — script'te (BUG 1 ve 2 ile aynı yer)
+
+Bu bir şema değişikliği değil, **üretici hatası**: canlı zaten doğru,
+baseline canlıyı yeniden üretemiyor. BUG 1/2 gibi script'te düzeltildi;
+baseline elle düzenlenmedi.
+
+- **Bölüm D (yeni):** canlıda `anon`/`authenticated`/`service_role`'ün
+  EXECUTE'u **olmayan** her public fonksiyon için açık
+  `REVOKE ALL ON FUNCTION|PROCEDURE ... FROM <rol>;`. Liste canlıdan
+  (`has_function_privilege` — etkin yetki, PUBLIC dahil) üretilir; isim
+  listesi yok, ileride kısıtlanan fonksiyonlar kendiliğinden kapsanır.
+  Sorgudan önce `SET search_path = ''` — `regprocedure` da `pg_get_expr` gibi
+  şemayı yalnız görünmüyorsa yazar (BUG 1 tuzağı). Bugünkü çıktı tek satır:
+  `REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;`
+- **Tablo dedektörü:** aynı sınıf tablo/görünüm/sequence için (MAINTAIN
+  yalnız PG17+). Canlıda Supabase varsayılanından kısıtlı bir yetki bulursa
+  script **dosya üretmeden durur** ve nesne/rol/yetkiyi yazar. REVOKE
+  **üretmez**, çünkü tabloda `REVOKE <yetki> ON TABLE` o yetkinin kolon
+  grant'larını da siler: Bölüm B'den sonra çalışan otomatik bir REVOKE,
+  canlıdaki kolon bazlı grant'ları sessizce yok ederdi. O gün Bölüm D bilinçli
+  genişletilir.
+- **Kontroller 23 → 26** (ve 10. kontrolün etiketi düzeltildi: artık yalnız
+  "022'nin FROM PUBLIC yarısı var (tek başına YETMEZ)" diyor, satır
+  başına/sonuna sabitli):
+  - **24** — **canlıya sorar:** `anon` `is_super_admin`'i çağıramıyor.
+    Sabit değişmez: Bölüm D ve 26 canlıyı **aynalar**; canlıda biri
+    `anon`'a grant verirse baseline bunu sadakatle kopyalar ve veri güdümlü
+    her kontrol yine geçer. 24 o körlüğü kapatır.
+  - **25** — dosyada Bölüm D'de satır birebir:
+    `REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;`
+  - **26** — Bölüm D == canlıdaki kısıtların **bağımsız** türetimi (ham
+    `proacl` → `aclexplode`; PUBLIC = grantee 0). Bölüm D boş kalırsa,
+    birleştirmeden düşerse ya da sorgusu bozulursa yakalar.
+- **Runtime kanıtı KURULUM Adım 11 sorgu 4'te kalıyor** (statik kontrol
+  dosyanın satırı içerdiğini, yalnız o sorgu hedefin o duruma geldiğini
+  kanıtlar). Adım 11'e: "10 sorgunun 10'u kaydedilir, biri bile farklıysa
+  kurulum tamamlanmadı" + sorgu 4 için tek satırlık kurtarma.
+
+**Neden `027` migration'ı DEĞİL:** canlıda hiçbir şey yapmaz (anon girdisi
+zaten yok); KURULUM Adım 3 iki dosya çalıştırıyor, üçüncüsü unutulacak adım
+olur; ve asıl sebep: baseline yeniden üretilince 027 `archive/`'a gider,
+yeni dump yine `FROM anon` içermez → **açık geri gelir.** Kendi çözümünü
+imha eden düzeltme. Tohum (`001`) da değil: veri dosyası, canlıda koşmaz.
+
+### Test — gerçek PostgreSQL 18.3 (yerel, geçici küme)
+
+"Canlı" = repodaki baseline + 022'nin etkisi, Supabase ADP'li boş bir DB'de
+(roller, `auth`/`storage`/`extensions` iskeleti, ADP: 3 nesne türü × 4 rol).
+Windows `psql.exe` CRLF yazdığı için script'i Linux'taki gibi koşturan ince
+bir `\r` silici katman kullanıldı (yalnız satır sonu; VPS'te gereksiz).
+
+| senaryo | sonuç |
+|---|---|
+| "canlı" matrisi | canlı ölçümüyle **birebir** (yukarıdaki tablo, A3 = 0) |
+| repodaki baseline → boş DB | `is_super_admin` anon = **t**, `proacl` tatbikattakiyle aynı — **bulgu yeniden üretildi** |
+| eski script → boş DB | exit 0, **23/23 OK** ("022 REVOKE korunmuş" dahil), anon = **t** — eski hat açığı kontrollerden geçiriyordu |
+| yeni script → boş DB | exit 0, **26/26 OK**, Bölüm D = 1 satır; anon = **f**, `proacl` canlıyla birebir, 4 fonksiyonun etkin yetkileri canlıyla **aynı** |
+| eski ↔ yeni çıktı farkı | yalnız başlıktaki İÇERİK satırı + Bölüm D (başka satır kaybı yok) |
+| dedektör: canlıda `REVOKE INSERT ON news FROM anon` | exit 1, `public.news rol=anon yetki=INSERT`, dosya **oluşmadı** |
+| canlı gerilemesi: canlıda `GRANT ... TO anon` | exit 1 — 24 (`donen: t`) ve 25 düştü; 26 geçti (canlıyı aynalıyor — 24'ün varlık sebebi) |
+| mutasyon: Bölüm D'nin `SET search_path` satırı silinir | 25 + 26 düştü (`is_super_admin(uuid)` şemasız); o dosya yüklenince `function is_super_admin(uuid) does not exist` |
+| mutasyon: birleştirmedeki `cat revoke.sql` silinir | 25 + 26 düştü |
+| mutasyon: Bölüm D rol filtresi bozulur (boş liste) | 25 + 26 düştü |
+| genellik: yalnız-servis fonksiyonu + PUBLIC'li fonksiyon + procedure | 26/26 OK, Bölüm D 4 satır (`... FROM anon`, `... FROM authenticated`, `ON PROCEDURE ...`); PUBLIC'li fonksiyon için satır **yok** (anon PUBLIC üzerinden çağırabiliyor — doğru); yüklenen DB'nin etkin yetkileri canlıyla **aynı** |
+
+Repo doğrulaması: tsc + lint + build + 11 test script'i (`test:backup-db`
+WSL'de 58/58) geçti.
+
+**Gerçek Supabase'e karşı DEĞİL** — asıl kanıt ⏰ ELLE madde 4 (VPS'te 26 ×
+OK) + yeni baseline'la bir boş projede Adım 11 sorgu 4 → `f`.
+
+### Süreç kuralı (bu bug'dan)
+
+**Tatbikat kaydı KURULUM Adım 11'in 10 sorgusunun 10'unun sonucunu tek tek
+yazar.** "Temiz geçti" yalnız o zaman yazılır. 2. tur bu kural olmadığı için
+bir güvenlik açığını "KANITLANMIŞ" etiketiyle geçirdi.
 
 ## ✅ KAPATILDI (10 Eylül 2026) — `001_seed_default.sql` içindeki `BEGIN;` / `COMMIT;`
 
