@@ -5,11 +5,61 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🧾 SUPABASE PLANI = FREE — sınırlar ve 7 gün duraklatma riski (12 Eylül 2026)
+
+**Durum:** ✅ Ölçüldü (Dashboard, 12 Eylül 2026): canlı proje **Free**
+planda. **Karar (müşteri):** Pro'ya şimdilik geçilmiyor; ilk gerçek müşteri
+gelirinde yeniden değerlendirilecek. 7 gün duraklatma riskine karşı VPS'te
+ping cron'u kuruldu (aşağıda); harici izleme BACKLOG'da.
+
+## Free'de olmayanlar — sonuçları
+
+| Pro özelliği | Free'de | Sonucu |
+|---|---|---|
+| Supabase'in kendi günlük yedeği | **YOK** | VPS'teki yedek (`backup-db.sh` 04:00 + storage aynası 04:30) **TEK koruma**. 11 Eylül'deki yedek altyapısı ve geri yükleme tatbikatı bu yüzden kritikti; "sunucu dışı kopya yok" BACKLOG'unun önemi arttı |
+| Oturum "Inactivity timeout" / "Time-box" | **YOK** | Oturum zaman aşımı yalnız tarayıcı katmanında (bkz. "⏱️ OTURUM ZAMAN AŞIMI" → sunucu tarafı) |
+| Duraklatılmama | **YOK** — ⚠️ "Free projects are paused after 1 week of inactivity" | 7 gün sorgu gelmezse proje **durur, site kapanır** → ping cron'u |
+
+## Sınırlar (Free)
+
+| kaynak | sınır | not |
+|---|---|---|
+| Veritabanı | 500 MB | — |
+| Storage | 1 GB | şu an ~36 MB |
+| Egress | 5 GB | — |
+| Aktif proje | 2 | Tatbikat projesi açıkken üçüncüsü **açılamaz** — önce biri silinmeli (tatbikat planı adım 9 zaten siliyor) |
+| Dosya başına yükleme | 50 MB | Koddaki video sınırı 400 MB, ama Free'de 50 MB'ı aşan yükleme reddedilir (KURULUM Adım 4) |
+
+## Çözüm — uptime ping cron'u (VPS, 12 Eylül 2026)
+
+```
+0 */6 * * * curl -s -o /dev/null https://buyukdirilis.org.tr/haberler
+```
+
+- 6 saatte bir: haftada 28 istek, 7 günlük sınıra geniş pay.
+- **Neden `/haberler`:** sayfa dinamik (build çıktısında `ƒ`) ve her istekte
+  Supabase'e sorgu yapıyor (`getCurrentTenant` + `news`) → hareketsizlik
+  sayacı sıfırlanır. Önbellekten sunulan statik bir sayfa seçilseydi curl 200
+  dönse bile Supabase istek görmeyebilirdi (kodla doğrulandı, 12 Eylül).
+- Elle test: 200 döndü. İsteğe bağlı ek kanıt: Supabase Dashboard → Logs'ta
+  6 saatte bir istek görünmeli.
+- Tüm cron'lar: "📦 VPS DEPLOY" → "0. Canlı ortam" → "Cron işleri".
+
+**SINIR:** cron sunucunun kendisinde çalışıyor. Sunucu çökerse ping de durur —
+site zaten kapalıdır ve **kimse haber almaz**; sunucu 7 günden uzun kapalı
+kalırsa geri geldiğinde Supabase projesi de duraklatılmış olur (Dashboard'dan
+elle başlatılır). → "📋 BACKLOG — Harici uptime izleme yok".
+
+---
+
 # ⏱️ OTURUM ZAMAN AŞIMI — 30 dk işlem yoksa otomatik çıkış (12 Eylül 2026)
 
-**Durum:** ✅ Kod tamam — tsc + lint + build + 12 test script'i (yeni
-`test:idle` 83/83; 13 mutasyonun 13'ü yakalandı). ⏳ **Bekleyen:** manuel
-testler (aşağıdaki tablo) ve Supabase planı kontrolü (sunucu tarafı, ayrı tur).
+**Durum:** ✅ **CANLIDA** (`2b5587a`, 12 Eylül 2026) — tsc + lint + build + 12
+test script'i (yeni `test:idle` 83/83; 13 mutasyonun 13'ü yakalandı). ✅ Manuel
+testlerin 9'u geçti (12 Eylül, lokalde `SURE_DK=1`, sonra 30'a geri alındı —
+`test:idle` 83/83 ile doğrulandı); 5'i yapılmadı (tablo aşağıda). Sunucu
+tarafı **yapılamaz**: plan Free (bkz. "🧾 SUPABASE PLANI") — yalnız tarayıcı
+katmanı.
 
 Müşteri isteği: admin panelinde belli süre işlem yapılmazsa otomatik çıkış.
 
@@ -22,7 +72,7 @@ Müşteri isteği: admin panelinde belli süre işlem yapılmazsa otomatik çık
 | Kaydedilmemiş form | **Erteleme yok**; giriş sayfasında kayıp bildirimi | Erteleme, korumayı tam gerektiği anda kaldırırdı (iş ortasında kalkıp gidilen ekran). Taslak kurtarma: BACKLOG (aşağıda) |
 | Çıkış kapsamı | Otomatik: `signOut({ scope: "local" })`; manuel: `global` (dokunulmadı) | Ofis bilgisayarında süre dolması kişinin telefondaki oturumunu düşürmemeli. Manuel çıkışın `global` olması ayrı karar (BACKLOG) |
 | Süper admin | Aynı 30 dk | Süper admin token'ı tüm kurumların verisini açıyor |
-| Sunucu tarafı | Ayrı tur; Pro değilse middleware çerezi **istenmiyor** | Hassas middleware çerez mantığına yeni çıkış yolu eklerdi |
+| Sunucu tarafı | **Yok** — plan Free (12 Eylül ölçüldü), inaktivite ayarı Pro'da; middleware çerezi **istenmiyor** | Middleware çerezi hassas çerez mantığına yeni çıkış yolu eklerdi. Pro alınırsa yapılacak: aşağıda "sunucu tarafı" |
 
 ## Nasıl çalışıyor
 
@@ -94,11 +144,12 @@ test:idle`). Değişen: `lib/constants.ts` (sabit), `hooks/useDirtyForm.tsx`
 
 ## Bilinen sınırlar
 
-1. **Tarayıcı katmanı** — sunucu tarafı ayrı turda. Kapatılıp açılan sekmede
-   sayfa önce sunucuda oturumla çizilir, JS yüklenince çıkış olur (kısa
-   görünme). Kopyalanmış çerez / token'ı bu katman durduramaz (saldırgan
-   Supabase'e doğrudan gider). Gerçek zorlama yalnız Supabase Auth'ta: Pro
-   plan "Inactivity timeout" + JWT süresini kısaltma (aşağıda ⏰).
+1. **Yalnız tarayıcı katmanı** — plan Free, sunucu tarafı yapılamaz.
+   Kapatılıp açılan sekmede sayfa önce sunucuda oturumla çizilir, JS
+   yüklenince çıkış olur (kısa görünme). Kopyalanmış çerez / token'ı bu katman
+   durduramaz (saldırgan Supabase'e doğrudan gider). Gerçek zorlama yalnız
+   Supabase Auth'ta: Pro plan "Inactivity timeout" + JWT süresini kısaltma
+   (aşağıda "sunucu tarafı").
 2. `signOut` ağ hatasıyla dönerse auth-js yerel oturumu **silmez**
    (`GoTrueClient._signOut` — 404/401/403 dışındaki hatada erken döner);
    yönlendirme yine yapılır, sonraki yüklemede kayıt dolmuş göründüğü için
@@ -135,42 +186,53 @@ WSL aynı anda) SONUÇ satırından SONRA Node'un çıkışında libuv iddiasıy
 düştü (`UV_HANDLE_CLOSING`); 7 tekrarda (dosyaya, boruya, npm'le) yok — test
 mantığıyla ilgisiz.
 
-**Tarayıcıda denenmedi** — asıl kanıt aşağıdaki manuel testler.
+**Tarayıcıda:** manuel testlerin 9'u geçti (aşağıda).
 
-## ⏰ ELLE — manuel testler (⏳ bekliyor)
+## ✅ ELLE — manuel testler (12 Eylül 2026: 9 ✅, 5 yapılmadı)
 
-Hazırlık: `lib/constants.ts` → `SURE_DK: 1` (kontrol 15 sn'de bir → çıkış
-60–75 sn arası), `npm run dev`. Bitince **30'a geri alın** — `npm run
-test:idle` 30 değilse FAIL verir (commit koruması). Kayıt: DevTools →
+Lokalde `lib/constants.ts` → `SURE_DK: 1` ile yapıldı, sonra **30'a geri
+alındı** (`npm run test:idle` 83/83 — sabit kontrolü dahil). Aynı hazırlıkla
+tekrarlanabilir: kontrol 15 sn'de bir → çıkış 60–75 sn arası; kayıt DevTools →
 Application → Local Storage → `oturum-son-etkinlik`.
 
-| # | Adım | Beklenen |
-|---|---|---|
-| 1 | Hiç dokunmayın (fare dahil) | 60–75 sn'de giriş sayfası + zaman aşımı mesajı; adreste `next`; giriş → aynı sayfa |
-| 2 | Yalnız fareyi gezdirin | Yine çıkış (`mousemove` sayılmaz) |
-| 3 | 40 sn'de bir tuş / tıklama / kaydırma | Çıkış yok |
-| 4 | Haber editöründe yazın, kaydetmeyin, dokunmayın | Çıkış; "Siteden ayrılınsın mı?" **çıkmaz**; giriş sayfasında ek satır "Kaydedilmemiş değişiklikleriniz kaydedilemedi." |
-| 5 | DevTools → Network → Slow 3G, büyük video yükleyin, dokunmayın | Yükleme bitene kadar çıkış yok; bittikten ~1 dk sonra çıkış |
-| 6 | İki sekme: A'da 40 sn'de bir tıklayın, B'ye dokunmayın | İkisi de açık kalır |
-| 7 | İki sekme, ikisine de dokunmayın | İkisi de mesajlı giriş sayfasına (gizli sekme ~1 dk gecikebilir; sekmeye geçince hemen) |
-| 8 | İki sekme: A'da elle "Çıkış" | A eskisi gibi; B ~1,5 sn içinde giriş sayfasına (mesajsız) |
-| 9 | Panel sekmesini kapatın, 2 dk bekleyin, aynı tarayıcıda /admin açın | Sayfa bir an görünür, hemen mesajlı giriş sayfası |
-| 10 | 9'dan sonra tekrar giriş yapın | **Atılmaz** (yeni oturum, yeni sayaç) |
-| 11 | İkinci tarayıcıda aynı hesapla giriş; birincide zaman aşımı | İkinci tarayıcı **açık kalır** (`scope: local`) |
-| 12 | `/super-admin` | 1 ile aynı |
-| 13 | Çıkıştan sonra tarayıcı GERİ tuşu | Panel verisi görünmez |
-| 14 | (Bilinen sınır) kirli formda menüye tıklayıp onayı açık bırakın | Çıkış **olmaz** — BACKLOG |
+| # | Adım | Beklenen | Sonuç |
+|---|---|---|---|
+| 1 | Hiç dokunmayın (fare dahil) | 60–75 sn'de giriş sayfası + zaman aşımı mesajı; adreste `next`; giriş → aynı sayfa | ✅ |
+| 2 | Yalnız fareyi gezdirin | Yine çıkış (`mousemove` sayılmaz) | ✅ |
+| 3 | 40 sn'de bir tuş / tıklama / kaydırma | Çıkış yok | ✅ |
+| 4 | Haber editöründe yazın, kaydetmeyin, dokunmayın | Çıkış; "Siteden ayrılınsın mı?" **çıkmaz**; giriş sayfasında ek satır "Kaydedilmemiş değişiklikleriniz kaydedilemedi." | ✅ diyalog çıkmadı, kayıp bildirimi göründü |
+| 5 | DevTools → Network → Slow 3G, büyük video yükleyin, dokunmayın | Yükleme bitene kadar çıkış yok; bittikten ~1 dk sonra çıkış | — yapılmadı |
+| 6 | İki sekme: A'da 40 sn'de bir tıklayın, B'ye dokunmayın | İkisi de açık kalır | — yapılmadı |
+| 7 | İki sekme, ikisine de dokunmayın | İkisi de mesajlı giriş sayfasına (gizli sekme ~1 dk gecikebilir; sekmeye geçince hemen) | ✅ |
+| 8 | İki sekme: A'da elle "Çıkış" | A eskisi gibi; B ~1,5 sn içinde giriş sayfasına (mesajsız) | ✅ |
+| 9 | Panel sekmesini kapatın, 2 dk bekleyin, aynı tarayıcıda /admin açın | Sayfa bir an görünür, hemen mesajlı giriş sayfası | ✅ |
+| 10 | 9'dan sonra tekrar giriş yapın | **Atılmaz** (yeni oturum, yeni sayaç) | ✅ |
+| 11 | İkinci tarayıcıda aynı hesapla giriş; birincide zaman aşımı | İkinci tarayıcı **açık kalır** (`scope: local`) | — yapılmadı |
+| 12 | `/super-admin` | 1 ile aynı | ✅ |
+| 13 | Çıkıştan sonra tarayıcı GERİ tuşu | Panel verisi görünmez | — yapılmadı |
+| 14 | (Bilinen sınır) kirli formda menüye tıklayıp onayı açık bırakın | Çıkış **olmaz** — BACKLOG | — yapılmadı |
 
-## ⏰ ELLE — sunucu tarafı (ayrı tur)
+**Yapılmayanların kapsamı:** 5 (yükleme tutması) ve 6 (bir sekmedeki
+etkinliğin ötekini canlı tutması) mantık olarak `test:idle` senaryolarında
+var, tarayıcıda kanıtlanmadı; 11 (`scope: local` — başka cihaz düşmez) yalnız
+kaynak kontrolüyle güvencede; 13 (geri tuşu) ve 14 (bilinen sınır) hiç
+denenmedi. Sıradaki fırsatta önce 5 ve 11.
 
-Supabase planı kontrolü (Dashboard → Organization → Billing; "Tespit edilen
-boşluklar" 9 da kapanır). **Pro ise** önce test projesinde: Auth → Sessions →
+## ✅ KAPATILDI — sunucu tarafı: Free planda YAPILAMAZ (12 Eylül 2026)
+
+Plan ölçüldü: **Free** (bkz. "🧾 SUPABASE PLANI"). "Inactivity timeout" /
+"Time-box" oturum ayarları yalnız Pro'da → oturum zaman aşımı **tarayıcı
+katmanıyla kalıyor**. Pro değilken önerilen middleware çerezi de istenmedi
+(hassas middleware çerez mantığına yeni çıkış yolu eklerdi).
+
+**Pro alınırsa** yapılacak (önce test projesinde): Auth → Sessions →
 Inactivity timeout **30 dk** + access token (JWT) süresi **600 sn**. JWT
 kısaltılmadan açılırsa aktif kullanıcılar da atılır: Supabase kontrolü yalnız
 token yenilemede yapıyor ve istemci 1 saatlik token'ı ~58 dk'da bir
 yeniliyor. Public site etkilenmez (ziyaretçi anon anahtarla gelir); ayar
-proje geneli — tüm kurumların adminleri + süper admin. **Pro değilse**
-middleware çerezi istenmedi — tarayıcı katmanıyla kalınır.
+proje geneli — tüm kurumların adminleri + süper admin. Doğrulama: aktif
+kullanıcı 1 saat boyunca atılmıyor mu, kapalı sekme 30+ dk sonra giriş
+sayfasına düşüyor mu.
 
 ---
 
@@ -661,7 +723,7 @@ ayarları — Auth URL'leri, SMTP, e-posta şablonları — ve canlı deploy bun
 | 6 | DB yedek script'i repoda yok, şifre düz metin | ✅ Repoda, şifre `.pgpass`'te, cron'da — **eski script'in silinmesi bekliyor** (cron geçişi 7. adım: birkaç gece OK sonrası; eski script ve `.bak`'ta şifre düz metin) |
 | 7 | Yedek başarısızlığı kimseye bildirilmiyor (yalnız log) | 📋 BACKLOG (aşağıda) |
 | 8 | Proje ayarları yedekte değil: Auth URL'leri (custom domain satırları dahil), SMTP, e-posta şablonları, OTP süresi, API anahtarları | Belgeli (KURULUM + NOTE). Yeni projede anahtarlar değişir → `.env` + **yeniden build** (`NEXT_PUBLIC_*` build'e gömülü) + deploy. Tatbikat kontrol listesinde |
-| 9 | Canlı projenin Supabase planı kayıtlı değil | ❓ Açık: Pro ise Supabase'in kendi günlük yedeği de var (Dashboard'dan) — bizim yedeğin yanına, yerine değil; Free ise yok |
+| 9 | Canlı projenin Supabase planı kayıtlı değil | ✅ **Kapatıldı** (12 Eylül 2026): plan **Free** → Supabase'in kendi günlük yedeği **yok**, VPS'teki yedek tek koruma. 7 gün duraklatma riski + ping cron'u: "🧾 SUPABASE PLANI" |
 | 10 | **Baseline rol bazlı REVOKE'u taşımıyor** (tatbikat adım 2, 11 Eylül): yüklenen projede `anon` `is_super_admin`'i çağırabiliyor, canlıda çağıramıyor (BUG 3) | ✅ **KAPATILDI** — script düzeltildi (Bölüm D, 26 kontrol, `6ab8730`), baseline yeniden üretildi (`233c1af`), tatbikatta sorgu 4 → `f`. Kök neden + çözüm: "🧪 TATBİKAT 3 / BUG 3" |
 | 11 | Pooler host'u projeye göre değişiyor (tatbikat projesi `aws-1`, canlı `aws-0`); NOTE / KURULUM / script örnekleri `aws-0` yazıyor | 📋 Belgelendi ("Pooler host'u" notu, yukarıda) — örnekler canlı projeye ait, yeni projede Dashboard'daki host kullanılır |
 
@@ -679,6 +741,9 @@ service_role anahtarı (`/opt/build/sendika-site/.env`) ve DB şifresi
 
 - **Disk / sağlayıcı kaybı:** yedekler gider. Supabase'deki veri kalır — tek
   arıza veri kaybettirmez, ama ikinci bir kopya da kalmaz.
+- ⚠️ **12 Eylül 2026 — plan Free:** Supabase'in kendi günlük yedeği yok.
+  Supabase tarafındaki bir kayıpta (yanlışlıkla silme, bozulma) tek kopya bu
+  VPS'teki yedek — bu backlog'un önemi arttı ("🧾 SUPABASE PLANI").
 - **Sunucu ele geçirilirse:** saldırgan service_role anahtarıyla Supabase
   verisini VE yerel yedekleri silebilir — iki kopya birlikte gider. Asıl risk bu.
 
@@ -706,6 +771,27 @@ başarılı koşumun sonunda harici bir izleme adresine ping; sinyal
 belirlenen sürede gelmezse e-posta. Yalnız "hata olunca e-posta" yetmez — cron
 hiç çalışmadığında hata da oluşmaz. `backup-db.sh` ve `backup-storage.mjs`
 başarıda ping atacak şekilde genişletilir.
+
+---
+
+# 📋 BACKLOG — Harici uptime izleme yok (12 Eylül 2026)
+
+**Durum:** ⚠️ Açık — Supabase Free planının 7 gün duraklatma riskine karşı
+VPS'te ping cron'u kuruldu ("🧾 SUPABASE PLANI"); sunucu dışı izleme ayrı iş.
+
+Ping cron'u sunucunun kendisinde çalışıyor. Sunucu çökerse (disk, bellek,
+sağlayıcı arızası, PM2 düşmesi) site kapanır, ping de durur ve **kimse haber
+almaz**. Kapalılık 7 günü geçerse Supabase projesi de duraklatılır; sunucu
+geri geldiğinde site yine açılmaz (Dashboard'dan elle başlatma gerekir).
+
+**Çözüm yönü:** sunucu dışından izleme (UptimeRobot vb. ücretsiz katmanlar):
+birkaç dakikada bir site adresine istek + düşünce e-posta. Ek kazanç: izleme
+de `/haberler`'e istek atarsa site ayaktayken Supabase'i canlı tutar (cron'un
+yedeği). Sunucu tamamen kapalıyken bile projeyi canlı tutmak istenirse izleme
+Supabase'e doğrudan (anon anahtarla bir REST sorgusu) atabilir — o zaman
+sunucu dönüşünde duraklatma sorunu kalmaz. Aynı hizmet "Yedek başarısızlığı
+kimseye bildirilmiyor" backlog'undaki "başarı sinyali gelmezse alarm"
+ihtiyacını da karşılayabilir — ikisi birlikte ele alınmalı.
 
 ---
 
@@ -2740,6 +2826,23 @@ kullanılmıyor — canlı ortam VPS.
 - **Reverse proxy:** Nginx — config `/etc/nginx/sites-available/sendika`
 - **Domain:** `buyukdirilis.org.tr` (kayıt: isimtescil, DNS paneli: dnsenable.com)
 
+### Cron işleri (root crontab)
+
+Liste 12 Eylül 2026'da derlendi — ilk iki satır kendi bölümlerinden birebir;
+canlıdaki gerçek hâl `crontab -l` ile teyit edilir.
+
+```
+0 4 * * * /bin/bash /opt/build/sendika-site/scripts/backup-db.sh >> /var/log/supabase-yedek.log 2>&1
+30 4 * * * cd /opt/build/sendika-site && /usr/bin/node scripts/backup-storage.mjs /var/backups/storage >> /var/log/storage-yedek.log 2>&1
+0 */6 * * * curl -s -o /dev/null https://buyukdirilis.org.tr/haberler
+```
+
+| zaman | iş | ayrıntı |
+|---|---|---|
+| 04:00 | DB yedeği (custom format) | "💾 YEDEKTEN GERİ YÜKLEME" → "canlı cron'u yeni script'e geçirme" |
+| 04:30 | Storage aynası | "STORAGE YEDEĞİ" |
+| 6 saatte bir | Supabase Free 7 gün duraklatmasına karşı ping | "🧾 SUPABASE PLANI" — sınır: sunucu çökerse durur, harici izleme BACKLOG'da |
+
 **Kurulumda yaşananlar** (yeni sunucu açılırsa tekrar gerekebilir):
 - Sunucu **CentOS 7** ile geldi; Ubuntu 22.04'e çevrilmesi için isimtescil'e
   **ticket açıldı**.
@@ -2912,7 +3015,9 @@ değil, yeniden üretilir).
   şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat)
 - b4: `news`/`announcements` composite index migration'ı +
   `homepage_section_items(section_id)` index'i
-- Uptime monitor (Supabase Free 7 gün inaktivite pause + genel sağlık)
+- Uptime monitor (Supabase Free 7 gün inaktivite pause + genel sağlık) — ✅
+  kısmen (12 Eylül 2026): VPS'te 6 saatlik ping cron'u (0. bölüm → Cron
+  işleri); sunucu dışı izleme + alarm → "📋 BACKLOG — Harici uptime izleme yok"
 
 ⏰ Deploy tamamlandığına göre bu liste artık **aktif** — sırayla ele alınacak.
 
