@@ -4,6 +4,7 @@ import Sidebar from "@/components/admin/Sidebar";
 import ToastProvider from "@/components/ui/Toast";
 import { SidebarProvider, useSidebar } from "@/hooks/useAdminSidebar";
 import { DirtyFormProvider } from "@/hooks/useDirtyForm";
+import { IdleTimeoutProvider } from "@/hooks/useIdleTimeout";
 import { TenantProvider } from "@/hooks/useTenant";
 import type { Tenant } from "@/lib/tenant";
 
@@ -37,7 +38,10 @@ export default function AdminShell({
     <TenantProvider initialTenant={initialTenant}>
       <SidebarProvider>
         <DirtyFormProvider>
-          <AdminShellInner>{children}</AdminShellInner>
+          {/* Zaman asimi kirli form durumunu okur -> DirtyFormProvider'in ICINDE. */}
+          <IdleTimeoutProvider>
+            <AdminShellInner>{children}</AdminShellInner>
+          </IdleTimeoutProvider>
         </DirtyFormProvider>
       </SidebarProvider>
     </TenantProvider>

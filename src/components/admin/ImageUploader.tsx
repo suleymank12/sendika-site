@@ -5,6 +5,7 @@ import SafeImage from "@/components/SafeImage";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
+import { useIdleHold } from "@/hooks/useIdleTimeout";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
 import { compressImage } from "@/lib/image-compress";
 import { MAX_UPLOAD_MB } from "@/lib/constants";
@@ -33,6 +34,8 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const { tenant } = useTenant();
   const [uploading, setUploading] = useState(false);
+  // Yukleme surerken oturum zaman asimi sayaci durur (hooks/useIdleTimeout.tsx).
+  useIdleHold(uploading);
   const [dragOver, setDragOver] = useState(false);
 
   const uploadFile = useCallback(

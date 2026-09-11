@@ -22,6 +22,10 @@ export default function AdminLoginForm({ initialTitle }: { initialTitle: string 
 
   // Şifre sıfırlama sonrası davet-kabul buraya ?reset=success ile yönlendirir.
   const resetSuccess = searchParams.get("reset") === "success";
+  // Oturum zaman aşımı (hooks/useIdleTimeout.tsx) buraya ?oturum=zaman-asimi
+  // ile yönlendirir; çıkış anında kaydedilmemiş form varsa &kaydedilmemis=1.
+  const idleExpired = searchParams.get("oturum") === "zaman-asimi";
+  const unsavedLost = searchParams.get("kaydedilmemis") === "1";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,6 +103,20 @@ export default function AdminLoginForm({ initialTitle }: { initialTitle: string 
             {resetSuccess && (
               <div className="rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
                 Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.
+              </div>
+            )}
+            {(idleExpired || unsavedLost) && (
+              <div
+                role="status"
+                className="space-y-1 rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text-dark"
+              >
+                {idleExpired && (
+                  <p>
+                    Uzun süre işlem yapılmadığı için oturumunuz kapatıldı. Lütfen tekrar
+                    giriş yapın.
+                  </p>
+                )}
+                {unsavedLost && <p>Kaydedilmemiş değişiklikleriniz kaydedilemedi.</p>}
               </div>
             )}
             <Input

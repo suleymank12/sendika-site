@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
+import { useIdleHold } from "@/hooks/useIdleTimeout";
 import {
   buildStoragePath,
   generateFileName,
@@ -122,6 +123,8 @@ export default function AdminGalleryDetailPage() {
   const [initialCoverImage, setInitialCoverImage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Coklu fotograf yuklemesi surerken oturum zaman asimi sayaci durur.
+  useIdleHold(uploading);
   const [deleteImage, setDeleteImage] = useState<GalleryImage | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [captionImage, setCaptionImage] = useState<GalleryImage | null>(null);

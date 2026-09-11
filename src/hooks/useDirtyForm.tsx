@@ -34,6 +34,12 @@ interface DirtyFormContextValue {
    * bayragi temizleyip true doner (ayni gecis ikinci kez sormasin).
    */
   confirmLeave: () => boolean;
+  /**
+   * Anlik kirli durum (ref'ten okunur, render tetiklemez). Oturum zaman
+   * asimi (hooks/useIdleTimeout.tsx) cikistan once okur, sonra
+   * setDirty(false) ile ONAY SORMADAN temizler.
+   */
+  isDirty: () => boolean;
 }
 
 const DirtyFormContext = createContext<DirtyFormContextValue | null>(null);
@@ -59,10 +65,17 @@ export function DirtyFormProvider({ children }: { children: React.ReactNode }) {
     return ok;
   }, []);
 
+  const isDirtyNow = useCallback(() => dirtyRef.current, []);
+
   // Sekme kapatma / yenileme / harici URL — yalniz kirliyken dinlenir.
   useEffect(() => {
     if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => {
+      // Ref kontrolu: setDirty(false) state commit'ini beklemeden dinleyiciyi
+      // etkisizlestirir. Oturum zaman asimi bayragi temizleyip AYNI adimda
+      // sayfadan cikiyor; bu satir olmadan "Siteden ayrilinsin mi?"
+      // diyalogu cikisi durdurabilirdi.
+      if (!dirtyRef.current) return;
       e.preventDefault();
       // Eski tarayicilar returnValue ister; metin tarayici tarafindan yoksayilir.
       e.returnValue = "";
@@ -71,7 +84,10 @@ export function DirtyFormProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
-  const value = useMemo(() => ({ setDirty, confirmLeave }), [setDirty, confirmLeave]);
+  const value = useMemo(
+    () => ({ setDirty, confirmLeave, isDirty: isDirtyNow }),
+    [setDirty, confirmLeave, isDirtyNow]
+  );
 
   return <DirtyFormContext.Provider value={value}>{children}</DirtyFormContext.Provider>;
 }
@@ -82,6 +98,14 @@ export function useDirtyForm(): DirtyFormContextValue {
     throw new Error("useDirtyForm, DirtyFormProvider icinde kullanilmali");
   }
   return ctx;
+}
+
+/**
+ * Saglayicinin OLMAYABILECEGI yerler icin (SuperAdminShell'de
+ * DirtyFormProvider yok): saglayici disinda null doner, hata firlatmaz.
+ */
+export function useOptionalDirtyForm(): DirtyFormContextValue | null {
+  return useContext(DirtyFormContext);
 }
 
 /**

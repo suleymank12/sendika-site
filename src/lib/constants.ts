@@ -97,3 +97,15 @@ export const SETTING_KEYS = {
   TWITTER_URL: "twitter_url",
   INSTAGRAM_URL: "instagram_url",
 } as const;
+
+/**
+ * Oturum zaman asimi — admin + super admin paneli (12 Eylul 2026).
+ * TEK KAYNAK: hooks/useIdleTimeout.tsx. Degisirse NOTE.md "OTURUM ZAMAN
+ * ASIMI" kaydini da guncelleyin; Supabase'de inaktivite ayari acildiysa o da
+ * ayni degere cekilir. Elle test icin yerelde gecici kisaltilabilir —
+ * scripts/test-idle-timeout.mjs 30'dan farkli degeri commit'ten once yakalar.
+ */
+export const OTURUM_ZAMAN_ASIMI = {
+  /** Bu kadar dakika islem yapilmazsa oturum UYARISIZ kapatilir. */
+  SURE_DK: 30,
+} as const;

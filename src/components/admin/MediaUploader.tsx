@@ -5,6 +5,7 @@ import SafeImage from "@/components/SafeImage";
 import { Upload, X, Film } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
+import { useIdleHold } from "@/hooks/useIdleTimeout";
 import { buildStoragePath, generateFileName } from "@/lib/storage";
 import { MAX_UPLOAD_MB } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,8 @@ export default function MediaUploader({
 }: MediaUploaderProps) {
   const { tenant } = useTenant();
   const [uploading, setUploading] = useState(false);
+  // Yukleme surerken oturum zaman asimi sayaci durur (hooks/useIdleTimeout.tsx).
+  useIdleHold(uploading);
   const [dragOver, setDragOver] = useState(false);
 
   const isVideo = value && /\.(mp4|webm|ogg|mov)$/i.test(value);

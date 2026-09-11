@@ -5,6 +5,208 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# ⏱️ OTURUM ZAMAN AŞIMI — 30 dk işlem yoksa otomatik çıkış (12 Eylül 2026)
+
+**Durum:** ✅ Kod tamam — tsc + lint + build + 12 test script'i (yeni
+`test:idle` 83/83; 13 mutasyonun 13'ü yakalandı). ⏳ **Bekleyen:** manuel
+testler (aşağıdaki tablo) ve Supabase planı kontrolü (sunucu tarafı, ayrı tur).
+
+Müşteri isteği: admin panelinde belli süre işlem yapılmazsa otomatik çıkış.
+
+## Kararlar (12 Eylül 2026)
+
+| konu | karar | gerekçe |
+|---|---|---|
+| Süre | **30 dk**, kodda tek sabit: `lib/constants.ts` → `OTURUM_ZAMAN_ASIMI.SURE_DK` | Kurum ayarı olsaydı kısıtlanan kişi (kurum admini) kendi kısıtını gevşetebilirdi; süper admin panelinin kurumu yok; Supabase tarafındaki değer proje genelinde tek. Ortam değişkeni de değil: `NEXT_PUBLIC_*` build'e gömülü, kazanç yok |
+| Uyarı | **YOK** — geri sayım / "oturumu sürdür" diyaloğu yazılmadı | Müşteri sade istedi. WCAG 2.2.1 (süre dolmadan uyarı) gerekçesi değerlendirildi; nedeni giriş sayfası söylüyor |
+| Kaydedilmemiş form | **Erteleme yok**; giriş sayfasında kayıp bildirimi | Erteleme, korumayı tam gerektiği anda kaldırırdı (iş ortasında kalkıp gidilen ekran). Taslak kurtarma: BACKLOG (aşağıda) |
+| Çıkış kapsamı | Otomatik: `signOut({ scope: "local" })`; manuel: `global` (dokunulmadı) | Ofis bilgisayarında süre dolması kişinin telefondaki oturumunu düşürmemeli. Manuel çıkışın `global` olması ayrı karar (BACKLOG) |
+| Süper admin | Aynı 30 dk | Süper admin token'ı tüm kurumların verisini açıyor |
+| Sunucu tarafı | Ayrı tur; Pro değilse middleware çerezi **istenmiyor** | Hassas middleware çerez mantığına yeni çıkış yolu eklerdi |
+
+## Nasıl çalışıyor
+
+- **Tek sağlayıcı** `IdleTimeoutProvider` (`src/hooks/useIdleTimeout.tsx`):
+  `AdminShell`'de `DirtyFormProvider`'ın içinde, `SuperAdminShell`'de en
+  dışta. Layout sayfa geçişlerinde yeniden kurulmaz → sayaç kesintisiz.
+  Giriş / davet-kabul / şifremi-unuttum / yetkisiz shell dışında → sayaç yok.
+- **Etkinlik sayılan olaylar:** `keydown`, `pointerdown`, `touchstart`,
+  `wheel`, `scroll`, `input` (document'a capture ile) + sayfa geçişi.
+  **Sayılmayanlar:** `mousemove` (masa titreşimi / optik fare ekranı sonsuza
+  dek açık tutar), API ve arka plan istekleri (token yenileme, okunmamış
+  mesaj sayacı), sekmeye dönme (o anda yalnız süre kontrol edilir).
+- **Kontrol:** 15 sn'de bir + sekme görünür olunca / odakta / geri-ileri
+  önbelleğinden dönüşte / başka sekme kaydı güncelleyince. Tek bir 30 dk'lık
+  zamanlayıcı değil — uyku ve arka plan kısıtlaması onu kaydırırdı; her
+  kontrolde saat karşılaştırılır. Kayıt en fazla 10 sn'de bir yazılır.
+- **Yükleme sürerken sayaç durur** (`useIdleHold(uploading)`): ImageUploader,
+  MediaSection, MediaUploader, RichTextEditor, galeri çoklu yükleme. Tutma iş
+  bitince kalkar; 30 dk o andan başlar. Kirli form için tutma YOK (süresiz
+  olurdu).
+- **Oturuma bağlı kayıt:** `localStorage["oturum-son-etkinlik"] = {t, s}` —
+  `s` = access token'daki `session_id` (imza doğrulanmaz; yalnız sayacı
+  oturuma bağlamak için). Sonuçları:
+  - Panel sekmesi kapatılıp 30+ dk sonra aynı tarayıcıda açılırsa kayıt aynı
+    oturumun ve dolmuş → **açılır açılmaz çıkış** (ortak bilgisayar
+    senaryosu). Oturum çözülmeden gelen tıklama sayılmaz (dolmuş oturumu
+    kurtarmasın).
+  - Yeni giriş (şifre, davet, şifre sıfırlama) yeni `session_id` → eski kayıt
+    yok sayılır, **yeni giriş hemen atılmaz**.
+  - Başka sekmenin ileri tarihli kaydı (saat oynanmış) yok sayılır — kırpmak
+    yetmezdi, her kontrolde "şimdi" görünüp oturumu süresiz tutardı.
+- **Çıkış sırası:** (1) kirli bayrak ONAY SORMADAN temizlenir — başında kimse
+  yokken `window.confirm` sonsuza dek bekler, `beforeunload` tam sayfa geçişi
+  durdurur; `useDirtyForm`'daki `beforeunload` dinleyicisi artık ref'e
+  bakıyor, temizlik anında etkisiz. (2) `signOut({ scope: "local" })`. (3)
+  `location.replace("/admin/giris?oturum=zaman-asimi[&kaydedilmemis=1]&next=…")`
+  — replace: geri tuşu dolmuş sayfaya dönmez; geri-ileri önbelleğinden dönen
+  sayfa yeniden giriş sayfasına gider.
+- **Giriş sayfası** (`AdminLoginForm`): "Uzun süre işlem yapılmadığı için
+  oturumunuz kapatıldı. Lütfen tekrar giriş yapın." + kirliyse "Kaydedilmemiş
+  değişiklikleriniz kaydedilemedi." `next` ile aynı sayfaya dönülür.
+
+## Çoklu sekme
+
+- Tüm sekmeler aynı kaydı okur: **birindeki etkinlik hepsini canlı tutar**,
+  süre dolunca hepsi kapanır. `storage` olayı diğer sekmelerde 15 sn
+  beklemeden yeniden değerlendirme tetikler.
+- Bir sekmede çıkış olunca auth-js oturum olayını sekmeler arasında yayıyor
+  (BroadcastChannel); sağlayıcı `SIGNED_OUT`'u dinleyip diğer sekmeleri
+  **1,5 sn** sonra giriş sayfasına yollar. Aynı sekmedeki elle çıkış
+  değişmez: kendi `router.push`'u sağlayıcıyı kaldırır, bekleyen yönlendirme
+  iptal olur. Paylaşılan kayıt dolmuşsa mesajlı, değilse (elle çıkış / oturum
+  düştü) sade giriş sayfası. Bu, eski bir boşluğu da kapattı: elle çıkışta
+  öbür sekmeler veriyi göstermeye devam ediyordu.
+- `localStorage` bu uygulamada serbest (emsal: davet-kabul'daki
+  `sessionStorage`, aynı try/catch deseni). Saklanan: zaman damgası + oturum
+  kimliği, kişisel veri yok. Kapalıysa (gizli mod / politika) sekme kendi
+  sayacıyla çalışır. Her kurum ayrı köken + çerez host'a özel → her kurumun
+  paneli kendi oturumu ve kendi sayacı.
+
+## Değişen dosyalar
+
+Yeni: `src/lib/idle-timeout.ts` (saf mantık), `src/hooks/useIdleTimeout.tsx`
+(sağlayıcı + `useIdleHold`), `scripts/test-idle-timeout.mjs` (`npm run
+test:idle`). Değişen: `lib/constants.ts` (sabit), `hooks/useDirtyForm.tsx`
+(`isDirty()`, `useOptionalDirtyForm`, ref'e bakan `beforeunload`),
+`AdminShell.tsx`, `SuperAdminShell.tsx`, 5 yükleme noktası,
+`AdminLoginForm.tsx`, `package.json`.
+
+## Bilinen sınırlar
+
+1. **Tarayıcı katmanı** — sunucu tarafı ayrı turda. Kapatılıp açılan sekmede
+   sayfa önce sunucuda oturumla çizilir, JS yüklenince çıkış olur (kısa
+   görünme). Kopyalanmış çerez / token'ı bu katman durduramaz (saldırgan
+   Supabase'e doğrudan gider). Gerçek zorlama yalnız Supabase Auth'ta: Pro
+   plan "Inactivity timeout" + JWT süresini kısaltma (aşağıda ⏰).
+2. `signOut` ağ hatasıyla dönerse auth-js yerel oturumu **silmez**
+   (`GoTrueClient._signOut` — 404/401/403 dışındaki hatada erken döner);
+   yönlendirme yine yapılır, sonraki yüklemede kayıt dolmuş göründüğü için
+   çıkış yeniden denenir.
+3. `window.confirm` açıkken JS durur → sayaç da durur (BACKLOG, aşağıda).
+4. Gizli sekmede tarayıcı zamanlayıcıyı dakikada bire kadar seyreltir → çıkış
+   ~1 dk gecikebilir; sekme görünür olunca kontrol hemen yapılır.
+5. `session_id` çözülemezse (beklenmeyen token biçimi) sayaç kullanıcı
+   kimliğine bağlanır: sayaç yine çalışır, ama temiz bitmemiş eski oturumun
+   kaydı yeni bir girişi bir kez atabilir.
+6. iframe içindeki etkileşim (ör. YouTube önizlemesi) sayılmaz.
+
+## Süreyi değiştirmek
+
+`lib/constants.ts` → `SURE_DK` (tek satır) + `scripts/test-idle-timeout.mjs`
+beklentisi + bu kayıt; Supabase'de inaktivite açıldıysa o da aynı değere.
+Kurum başına farklı süre gerekirse: `tenants`'ta süper adminin yönettiği
+kolon — kurum admininin değil.
+
+## Test
+
+`npm run test:idle` **83/83**: kayıt ayrıştırma, `session_id` çözme
+(base64url, dolgu, Türkçe metadata), oturum bağlama, ileri tarihli kayıt,
+sınır (tam 30 dk = dolmuş), tutma, çoklu sekme, giriş adresi (güvensiz `next`
+reddi) + kaynakta kararlar (iki shell'de sağlayıcı, 5 tutma noktası,
+`scope: "local"`, onay sormama, uyarı diyaloğu YOK, `SURE_DK = 30`).
+**Mutasyon:** 13/13 yakalandı — süre 1 dk, `mousemove` eklemek, ileri tarih
+kontrolünü / tutmayı / oturum bağlamayı / kırpmayı kaldırmak, `>=` → `>`,
+`//host` kabulü, `global` kapsam, `beforeunload` ref kontrolünü /
+MediaUploader tutmasını / AdminShell sağlayıcısını kaldırmak, giriş
+parametresini bozmak. Her mutasyondan sonra dosyalar bayt bayt geri yüklendi.
+Not: Windows'ta testin bir koşumu, ağır paralel yük altında (tsc + build +
+WSL aynı anda) SONUÇ satırından SONRA Node'un çıkışında libuv iddiasıyla
+düştü (`UV_HANDLE_CLOSING`); 7 tekrarda (dosyaya, boruya, npm'le) yok — test
+mantığıyla ilgisiz.
+
+**Tarayıcıda denenmedi** — asıl kanıt aşağıdaki manuel testler.
+
+## ⏰ ELLE — manuel testler (⏳ bekliyor)
+
+Hazırlık: `lib/constants.ts` → `SURE_DK: 1` (kontrol 15 sn'de bir → çıkış
+60–75 sn arası), `npm run dev`. Bitince **30'a geri alın** — `npm run
+test:idle` 30 değilse FAIL verir (commit koruması). Kayıt: DevTools →
+Application → Local Storage → `oturum-son-etkinlik`.
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 1 | Hiç dokunmayın (fare dahil) | 60–75 sn'de giriş sayfası + zaman aşımı mesajı; adreste `next`; giriş → aynı sayfa |
+| 2 | Yalnız fareyi gezdirin | Yine çıkış (`mousemove` sayılmaz) |
+| 3 | 40 sn'de bir tuş / tıklama / kaydırma | Çıkış yok |
+| 4 | Haber editöründe yazın, kaydetmeyin, dokunmayın | Çıkış; "Siteden ayrılınsın mı?" **çıkmaz**; giriş sayfasında ek satır "Kaydedilmemiş değişiklikleriniz kaydedilemedi." |
+| 5 | DevTools → Network → Slow 3G, büyük video yükleyin, dokunmayın | Yükleme bitene kadar çıkış yok; bittikten ~1 dk sonra çıkış |
+| 6 | İki sekme: A'da 40 sn'de bir tıklayın, B'ye dokunmayın | İkisi de açık kalır |
+| 7 | İki sekme, ikisine de dokunmayın | İkisi de mesajlı giriş sayfasına (gizli sekme ~1 dk gecikebilir; sekmeye geçince hemen) |
+| 8 | İki sekme: A'da elle "Çıkış" | A eskisi gibi; B ~1,5 sn içinde giriş sayfasına (mesajsız) |
+| 9 | Panel sekmesini kapatın, 2 dk bekleyin, aynı tarayıcıda /admin açın | Sayfa bir an görünür, hemen mesajlı giriş sayfası |
+| 10 | 9'dan sonra tekrar giriş yapın | **Atılmaz** (yeni oturum, yeni sayaç) |
+| 11 | İkinci tarayıcıda aynı hesapla giriş; birincide zaman aşımı | İkinci tarayıcı **açık kalır** (`scope: local`) |
+| 12 | `/super-admin` | 1 ile aynı |
+| 13 | Çıkıştan sonra tarayıcı GERİ tuşu | Panel verisi görünmez |
+| 14 | (Bilinen sınır) kirli formda menüye tıklayıp onayı açık bırakın | Çıkış **olmaz** — BACKLOG |
+
+## ⏰ ELLE — sunucu tarafı (ayrı tur)
+
+Supabase planı kontrolü (Dashboard → Organization → Billing; "Tespit edilen
+boşluklar" 9 da kapanır). **Pro ise** önce test projesinde: Auth → Sessions →
+Inactivity timeout **30 dk** + access token (JWT) süresi **600 sn**. JWT
+kısaltılmadan açılırsa aktif kullanıcılar da atılır: Supabase kontrolü yalnız
+token yenilemede yapıyor ve istemci 1 saatlik token'ı ~58 dk'da bir
+yeniliyor. Public site etkilenmez (ziyaretçi anon anahtarla gelir); ayar
+proje geneli — tüm kurumların adminleri + süper admin. **Pro değilse**
+middleware çerezi istenmedi — tarayıcı katmanıyla kalınır.
+
+---
+
+# 📋 BACKLOG — Oturum zaman aşımından kalanlar (12 Eylül 2026)
+
+**Durum:** ⚠️ Açık — bu turda bilinçli olarak yapılmadı.
+
+## 1. Kaydedilmemiş değişiklik onayı uygulama içi modal olmalı
+
+`confirmLeave` `window.confirm` kullanıyor (`hooks/useDirtyForm.tsx`).
+Tarayıcının kendi onay kutusu açıkken **tüm JS durur**; oturum zaman aşımı
+sayacı da. Senaryo: kirli formda menüye / çıkışa tıklanır, onay açık bırakılıp
+gidilir → oturum kapanmaz, form ekranda kalır. Çözüm yönü: `confirmLeave`'i
+uygulama içi modal döndüren Promise'e çevirmek (Sidebar / AdminHeader
+çağıranları async olur); modal açıkken sayaç çalışır, süre dolunca modal ve
+form birlikte gider. `beforeunload` tarayıcının kendi diyaloğudur, bu kapsamda
+değil.
+
+## 2. Taslak kurtarma — ertelendi
+
+Zaman aşımında editördeki kaydedilmemiş içerik kaybolur (giriş sayfası
+bildirir). Seçenek: haberler / duyurular / sayfalar (+ ayarlar) için yerel
+taslak — oturuma bağlı anahtar, girişte "geri yükle / sil". **Bedeli:** ortak
+bilgisayarda yayımlanmamış metin tarayıcıda kalır. Sunucuya otomatik "taslak
+kaydet" **reddedildi**: yayındaki bir haberin gözden geçirilmemiş düzenlemesi
+yayına çıkar.
+
+## 3. Karar — manuel çıkışın `global` olması bilinçli mi, varsayılan mı?
+
+AdminHeader, Sidebar ve SuperAdminSidebar `signOut()` çağırıyor; supabase-js
+varsayılanı `scope: "global"` → kullanıcının **tüm cihazlarındaki** oturumlar
+kapanır. Otomatik çıkış bilinçli olarak `local`. Karar verilince tek satır
+(üç yerde `{ scope: "local" }` ya da olduğu gibi bırakıp gerekçeyi yazmak).
+
+---
+
 # 💾 YEDEKTEN GERİ YÜKLEME — yeni DB yedeği + geri yükleme araçları (11 Eylül 2026)
 
 **Durum:** ✅ **TATBİKAT TAMAMLANDI — geri yükleme uçtan uca kanıtlandı**
@@ -3065,6 +3267,12 @@ bırakıldı. Kapsanan çıkışlar: sekme kapatma/yenileme/harici URL
 geri/breadcrumb/çıkış, haber editöründeki "Kategoriler sayfasından"
 linki. İleride Next resmi bir API sunarsa (`useRouter` interception)
 buradan tamamlanabilir.
+
+**İKİNCİ SINIR (12 Eylül 2026, oturum zaman aşımıyla ortaya çıktı):** onay
+`window.confirm` ile soruluyor; kutu açıkken tüm JS durur, oturum zaman aşımı
+sayacı da durur. → "📋 BACKLOG — Oturum zaman aşımından kalanlar", madde 1.
+Zaman aşımının kendisi onay sormaz: kirli bayrağı temizleyip çıkar
+(`beforeunload` dinleyicisi artık ref'e bakıyor).
 
 ---
 
