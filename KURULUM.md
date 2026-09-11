@@ -407,15 +407,33 @@ Lokal geliştirmede `NEXT_PUBLIC_ROOT_DOMAIN=lvh.me` kullanılır; kurumlara
 
 Yeni proje **yedeksiz başlar**. İki yedek ayrı ayrı kurulmalıdır:
 
-**Veritabanı** — VPS'te `/usr/local/bin/supabase-yedek.sh`, cron **04:00**,
-gzip, 14 gün saklama. Yeni projede script'in içindeki bağlantı adresi (Adım 2)
-güncellenmeli.
+**Veritabanı** — `scripts/backup-db.sh`, cron **04:00**, 14 gün saklama:
+public + auth + storage şemaları, custom format (kendi sıkıştırır), ACL dahil;
+her koşumda kendi doğrulamasını yapar (auth.users verisi, public tablo sayısı,
+`is_super_admin` ACL'i) ve `yedek.log`'a satır yazar. Şifre script'te değil,
+`/root/.pgpass`'te (izin **600** — libpq gevşek izinli dosyayı yok sayar):
+
+```
+aws-0-eu-west-1.pooler.supabase.com:5432:postgres:postgres.<ref>:<şifre>
+```
+
+Yeni projede bağlantı (Adım 2) `PGHOST` / `PGUSER` ortam değişkenleriyle ya
+da script'teki varsayılanlar değiştirilerek verilir. Cron (root):
+
+```
+0 4 * * * /bin/bash /opt/build/sendika-site/scripts/backup-db.sh >> /var/log/supabase-yedek.log 2>&1
+```
 
 **Storage** — `scripts/backup-storage.mjs`, cron **04:30** (DB yedeğiyle
 çakışmasın), artımlı, silinenler `_silinenler/{tarih}/` altında 30 gün arşivli.
 `npm run backup:storage`. Ayrıntı: NOTE.md → "STORAGE YEDEĞİ".
 
 > Bucket'ta **versiyonlama yoktur**: silinen görsel yedek yoksa geri gelmez.
+
+**Geri yükleme:** şema baseline'dan, veri yedekten (`pg_restore --data-only`),
+storage dosyaları `scripts/restore-storage.mjs`, DB'deki tam görsel adresleri
+`scripts/rewrite-storage-urls.mjs`. Sıra, komutlar ve tatbikat: NOTE.md →
+"YEDEKTEN GERİ YÜKLEME".
 
 ---
 

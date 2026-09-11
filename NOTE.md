@@ -5,6 +5,417 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 💾 YEDEKTEN GERİ YÜKLEME — yeni DB yedeği + geri yükleme araçları (11 Eylül 2026)
+
+**Durum:** 🔧 Araçlar hazır ve test edildi (tsc + build + lint + tüm test
+script'leri). **Bekleyen iki elle iş:** (1) canlı cron'un yeni yedek script'ine
+geçirilmesi (komutlar aşağıda — kullanıcı yapacak), (2) boş test projesinde
+tatbikat. Geri yükleme **hâlâ denenmedi** — denenmeden yedek sayılmaz.
+
+## Ölçüm — eski DB yedeği (11 Eylül, VPS)
+
+Eski komut (`/usr/local/bin/supabase-yedek.sh` — repoda yoktu):
+```
+PGPASSWORD=*** pg_dump -h aws-0-eu-west-1.pooler.supabase.com -p 5432 \
+  -U postgres.jqwmnawzehyvpwrtdvku -d postgres --no-owner --no-acl -f "$DOSYA"
+```
+
+| # | Bulgu | Anlamı |
+|---|---|---|
+| 1 | Şema seçimi yok — **tam döküm** | auth.users, auth.identities, storage.buckets, storage.objects COPY ile içinde → kullanıcılar ve şifre hash'leri yedekte ✅ ("`-n public` → kullanıcılar yok" riski YOK) |
+| 2 | `--no-acl` → GRANT/REVOKE = **0** | 022'nin `REVOKE EXECUTE ON is_super_admin FROM anon` satırı yok → şema bu yedekten kurulursa **K1 açığı geri gelir** |
+| 3 | CREATE SCHEMA: auth, extensions, graphql, graphql_public, pgbouncer, realtime, storage, vault | Yeni projede hepsi zaten var → çakışma; plain format → seçici yükleme yok |
+| 4 | Dosya `\unrestrict …` ile bitiyor | psql meta-komutu (pg_dump 17.6+) — SQL Editor'da syntax error, yalnız psql 17.6+ okur |
+| 5 | Script repoda yok, **şifre içinde düz metin** | VPS kaybında yeniden yazılmalı |
+
+**Sonuç:** veri tam, ama bu yedek şema kaynağı olarak güvensiz ve ancak el
+yordamıyla (COPY blokları ayıklanarak) kullanılabilirdi.
+
+## Yeni DB yedeği — `scripts/backup-db.sh`
+
+```
+pg_dump --format=custom --schema=public --schema=auth --schema=storage \
+  --no-owner --no-publications --no-subscriptions --no-security-labels \
+  --file=/var/backups/supabase/yedek-YYYY-AA-GG_SSDDss.dump
+```
+
+- **Custom format:** `pg_restore -l` ile içerik listesi; `-n` / `-t` /
+  `--data-only` / `--section` ile seçici geri yükleme (tek tablo, tek şema).
+  Tablo verisi **gzip ile sıkıştırılır — ayrı gzip yok**. Ölçüldü: arşiv
+  başlığında `Compression: gzip` (yerel PostgreSQL 17.11 ile alınan döküm).
+- **Açık şema listesi:** public + auth (kullanıcılar, hash'ler) + storage
+  (bucket/nesne bilgisi + storage.objects policy'leri). realtime, vault,
+  graphql… projeye özgü, taşınmaz → alınmaz.
+- **ACL dahil** (`--no-acl` yok) → K1 REVOKE'u yedekte. `--no-owner` custom
+  formatta pg_dump tarafından yok sayılır (sahiplik arşive hep yazılır) —
+  geri yüklemede `pg_restore --no-owner` verilir.
+- **Şifre: `/root/.pgpass`** (izin 600) — env dosyası DEĞİL. Gerekçe:
+  - PostgreSQL belgesi `PGPASSWORD`'u önermiyor (bazı sistemlerde süreç
+    ortamı görülebilir); `.pgpass` ile şifre ne script'te ne ortamda.
+  - libpq izni kendisi denetler (gevşek izinli `.pgpass`'ı YOK SAYAR); script
+    bunu baştan kontrol edip açık mesajla durur.
+  - `pg_dump` / `pg_restore` / `psql` aynı dosyayı kendiliğinden okur —
+    tatbikat komutları da (test projesi için ikinci satır).
+  - Env dosyasını `source` etmek kod çalıştırmaktır; `.pgpass` yalnız veri.
+  - Script `PGPASSWORD`'u bilerek unset eder (kabukta kalmış şifre sızmasın).
+- **Kendi doğrulaması** — biri düşerse log `durum=HATA`, çıkış 1, dosya
+  **SİLİNMEZ** (o gecenin tek yedeği olabilir):
+  1. şifre dosyası var + izin 600/400; araçlar kurulu; kilit (elle + cron aynı anda koşmaz)
+  2. `pg_dump` çıkış 0 (önce `.part`'a yazılır, bitince rename — yarım dosya kalmaz)
+  3. `pg_restore -l`: Format CUSTOM; `auth.users`, `auth.identities`,
+     `storage.buckets`, `storage.objects` verisi var; **public TABLE DATA
+     sayısı = canlıdaki public tablo sayısı** (`pg_tables`'tan o an okunur —
+     tablo eklenince kendiliğinden uyar); `is_super_admin` ACL girdisi var
+     (ACL'lerin gerçekten alındığının kanıtı)
+- **Saklama:** 14 günden eski `yedek-*.dump` **ve eski biçim
+  `yedek-*.sql.gz`** (+ yarım `.part`) silinir — **yalnız o gecenin yedeği
+  doğrulamayı geçtiyse**. Yedekler üst üste bozulursa eski sağlamlar silinmez.
+- **İzin:** `umask 077` → yedek ve log 600 (şifre hash'leri + kişisel veri).
+- **Log** (`/var/backups/supabase/yedek.log`, storage yedeğiyle aynı desen):
+  `2026-09-12T04:00:14 durum=OK dosya=yedek-2026-09-12_040001.dump boyut=1.4M sure=11s public=20/20 kullanici=14 sikistirma=gzip silinen=1`
+- **Bağlantı:** varsayılan canlı proje (session pooler 5432, `PGSSLMODE=require`);
+  `PGHOST` / `PGUSER` / … ortamdan değiştirilebilir.
+
+**Doğrulandı:**
+- **Gerçek PostgreSQL 17.11'e karşı uçtan uca** (WSL'de kullanıcı alanına
+  kurulan yerel küme, `.pgpass` ile, PGPASSWORD yok): OK koşumu; saklama (20
+  günlük `.sql.gz` + `.dump` silindi, 3 günlük ve ilgisiz dosya kaldı); dosya
+  600; `pg_restore --data-only --schema=auth --table=users` ile seçici okuma;
+  644 izinli şifre dosyası ve yanlış şifre → açık HATA satırı.
+- Stub testi `npm run test:backup-db` **58/58** (Linux ister: WSL/VPS; Git
+  Bash'te chmod etkisiz olduğu için test reddeder. PowerShell/cmd'den `npm`
+  WSL'in bash'ini kullanır).
+- Mutasyon: `--no-acl` eklemek, ACL kontrolünü kaldırmak, saklamayı
+  doğrulamadan önceye almak, `.part` silmeyi kaldırmak, `umask`'ı kaldırmak,
+  `unset PGPASSWORD`'u kaldırmak, auth.users kontrolünü kaldırmak → hepsinde
+  test **FAIL**.
+
+**Gerçek TOC biçimi** (doğrulamanın dayandığı — pg_restore 17.11):
+```
+;     Compression: gzip
+;     Format: CUSTOM
+3508; 0 16397 TABLE DATA auth identities <sahip>
+3507; 0 16390 TABLE DATA auth users <sahip>
+3523; 0 0 ACL public FUNCTION is_super_admin(user_id uuid) <sahip>
+```
+Boş tablolar da `TABLE DATA` girdisi alır (sayım doğru). ⚠️ TABLE DATA
+girdileri **ada göre sıralı** — `auth identities`, `auth users`'tan ÖNCE
+(public'te announcements, tenants'tan önce). Yalnız veri yüklenirken FK
+sırası kendiliğinden sağlanmaz — ölçüldü: replica olmadan identities COPY'si
+FK hatasıyla düştü, `SET session_replication_role = replica` ile geçti
+(yerel PostgreSQL 17.11).
+
+## ⏰ ELLE — canlı cron'u yeni script'e geçirme (VPS, root)
+
+Eski script'e dokunulmaz, yenisi elle denenir, sonra cron değişir. Geri
+dönüş: cron satırını eskiye çevirmek (eski script 7. adıma kadar yerinde).
+
+```bash
+# 0) Kaynak dizininde yeni script (deploy /opt/build'i güncellemez)
+cd /opt/build/sendika-site && git pull          # ya da scripts/backup-db.sh'i elle kopyalayın
+ls -l scripts/backup-db.sh
+
+# 1) Şifre dosyası — şifre ESKİ script'teki PGPASSWORD değeri. Komut
+#    satırına yazmayın (history'ye düşer); editörle:
+umask 077 && nano /root/.pgpass
+#    tek satır:
+#    aws-0-eu-west-1.pooler.supabase.com:5432:postgres:postgres.jqwmnawzehyvpwrtdvku:<ŞİFRE>
+#    (şifrede ':' ya da '\' varsa önüne '\')
+chmod 600 /root/.pgpass
+PGSSLMODE=require psql -h aws-0-eu-west-1.pooler.supabase.com -p 5432 \
+  -U postgres.jqwmnawzehyvpwrtdvku -d postgres -Atc 'select 1'   # şifre SORMADAN → 1
+
+# 2) Eski script'in yedeği (cron'a henüz dokunulmadı)
+cp -p /usr/local/bin/supabase-yedek.sh /usr/local/bin/supabase-yedek.sh.bak
+
+# 3) Yeni script'i ELLE bir kez koştur
+bash /opt/build/sendika-site/scripts/backup-db.sh; echo "exit=$?"       # 0
+tail -n 1 /var/backups/supabase/yedek.log                               # durum=OK … public=20/20
+F=$(ls -t /var/backups/supabase/yedek-*.dump | head -n 1)
+pg_restore -l "$F" | grep -E 'Format|Compression|TABLE DATA auth users|ACL public FUNCTION is_super_admin'
+pg_restore -l "$F" | grep -c ' TABLE DATA public '                      # 20
+ls -l "$F"                                                              # -rw------- (600)
+
+# 4) Cron satırını değiştir
+crontab -l | grep -n yedek                                              # eski satırı gör
+crontab -e
+#   ESKİ (…/usr/local/bin/supabase-yedek.sh…) → silin
+#   YENİ:
+#   0 4 * * * /bin/bash /opt/build/sendika-site/scripts/backup-db.sh >> /var/log/supabase-yedek.log 2>&1
+
+# 5) Eski .sql.gz'ler 14 gün geçerli yedek olarak kalır (yeni script süresi
+#    dolunca onları da siler). İçlerinde şifre hash'leri var → izni daralt:
+chmod 600 /var/backups/supabase/yedek-*.sql.gz
+
+# 6) Ertesi sabah
+tail -n 2 /var/backups/supabase/yedek.log
+tail -n 20 /var/log/supabase-yedek.log
+
+# 7) Birkaç gece OK geldikten sonra — eski script'te ve .bak'ta şifre DÜZ METİN:
+rm /usr/local/bin/supabase-yedek.sh /usr/local/bin/supabase-yedek.sh.bak
+```
+
+**Risk:** düşük — pg_dump salt okurdur, değişiklik yalnız
+`/var/backups/supabase`'e yazılan dosyayı etkiler. Yeni script başarısız
+olursa HATA satırı yazar, çıkış 1 verir ve **eski yedekleri silmez**.
+
+## Geri yükleme araçları
+
+### `scripts/restore-storage.mjs` — storage aynası → bucket
+
+```bash
+node scripts/restore-storage.mjs --env /root/tatbikat.env --hedef <test-ref>            # RAPOR
+node scripts/restore-storage.mjs --env /root/tatbikat.env --hedef <test-ref> --yukle    # YÜKLE
+#   --kaynak <dizin> (varsayılan /var/backups/storage)   --onek <tenant-uuid>
+#   --silinenler-dahil <YYYY-AA-GG>
+```
+- `--env` ve `--hedef` **zorunlu**; env'deki URL'in ref'i `--hedef` ile aynı
+  değilse **hiçbir şey yapmadan** çıkış 2. `.env` / `.env.local`
+  kendiliğinden okunmaz (VPS'teki `.env` CANLIYI gösterir); ortam
+  değişkenleri yok sayılır.
+- Varsayılan RAPOR. Aynı yol + aynı boyut → atla; boyut farklı →
+  **ÇAKIŞMA, üzerine yazılmaz**; eksik → yükle (stream, `x-upsert: false`,
+  içerik tipi uzantıdan, cache 3600, 4 paralel; 5xx/429/ağ → 3 deneme;
+  409 → atlandı; boyut sınırı ayrı sayılır — Free planda dosya başına 50 MB).
+- `_silinenler/`, `yedek.log`, `.part`, nokta dosyaları hariç.
+  `--silinenler-dahil <tarih>`: o tarih ve sonrasında silinenler orijinal
+  yollarına döner (aynı yol birden çok günde → en yeni; aynada da varsa ayna
+  kazanır). **Ne zaman:** N gün önceki DB dökümü yükleniyorsa, o günden sonra
+  silinen dosyaları DB hâlâ gösterir → `--silinenler-dahil <dökümün tarihi>`.
+- Bucket **oluşturulmaz** (yoksa KURULUM Adım 4). Sonda hedef yeniden
+  listelenir; sayı + boyut aynayla karşılaştırılır.
+- Çıkış: 0 tamam; 1 hata / çakışma / boyut sınırı / doğrulama farkı; 2
+  kullanım / hedef hatası. Mantık `scripts/lib/storage-restore.mjs`.
+- Test `npm run test:restore` **72/72**; mutasyon (çakışanı yüklemek, kısa
+  sayfada durmak, ref kontrolünü kaldırmak) → FAIL. **Salt okuma** canlı
+  kontrol: canlı bucket listesi **76 dosya** (storage yedek log'u `uzak=76` ile
+  aynı). Yükleyici gerçek Supabase'e karşı **denenmedi** (canlıya yazardı) —
+  ilk gerçek koşum tatbikat.
+
+### `scripts/rewrite-storage-urls.mjs` — DB'deki storage adresleri → yeni proje
+
+```bash
+node scripts/rewrite-storage-urls.mjs --env /root/tatbikat.env --eski jqwmnawzehyvpwrtdvku --yeni <test-ref>        # RAPOR
+node scripts/rewrite-storage-urls.mjs --env /root/tatbikat.env --eski jqwmnawzehyvpwrtdvku --yeni <test-ref> --yaz  # UYGULA
+```
+- **Neden şart:** görseller DB'de tam adresle durur
+  (`https://<ref>.supabase.co/storage/v1/object/public/images/...` —
+  getPublicUrl çıktısı). Host kontrolleri joker (`*.supabase.co`: next/image,
+  CSP, sanitize) → yeni projede eski adresler **hata vermeden** eski projeden
+  yüklenir: tatbikatta **sahte başarı**, gerçek felakette kırık görsel.
+- public şemadaki TÜM metin / jsonb / dizi kolonları taranır (tablolar
+  PostgREST OpenAPI'sinden — ileride eklenenler de); **HTML içindeki
+  adresler dahil**. Yalnız `https://<eski>.supabase.co/storage/v1/` öneki
+  değişir; eski ref'in başka biçimdeki geçişleri "DOKUNULMAYAN" diye raporlanır
+  (çıkış 1 — elle bakılmalı). Yalnız değişen kolonlar, PK ile güncellenir;
+  `updated_at` değişmez (tenants dışında trigger yok).
+- `--yeni` = bağlanılan proje: env'deki ref `--yeni` değilse çıkış 2 (bir DB
+  yalnız KENDİ storage'ını gösterecek şekilde dönüştürülür — ayrı `--hedef`
+  gereksiz). `--yaz` sonrası yeniden taranır: eski önekli adres 0 olmalı.
+- **Canlı ölçüm (RAPOR, yazma yok):** 20 tablo; 9 kolonda 28 satırda **30
+  adres** — `news.cover_image` 9, `content_media.url` 5,
+  `homepage_section_items.image_url` 5, `sliders.image_url` 5,
+  `headlines.image_url` 2, `news.content` (HTML) 1, `pages.cover_image` 1,
+  `pages.video_url` 1, `site_settings.value` (logo) 1; dokunulmayan 0.
+- Test `npm run test:rewrite-urls` **42/42**; mutasyon (yalnız ilk adresi
+  değiştirmek, jsonb'yi atlamak, RAPOR'da yazmak, ref kontrolünü kaldırmak) →
+  FAIL. Mantık `scripts/lib/storage-url-rewrite.mjs`; ortak hedef guard'ı
+  `scripts/lib/target-env.mjs`.
+
+## Geri yükleme sırası (boş Supabase projesine)
+
+Şema **baseline'dan**, veri **yedekten** (ikisi birden şema kurarsa her
+CREATE çakışır; baseline tatbikatla kanıtlı, ACL + 4 storage policy içinde).
+
+1. Proje — aynı bölge (eu-west-1), PostgreSQL 17.
+2. `000_baseline.sql`.
+3. **`001_seed_default.sql` ÇALIŞTIRILMAZ** — varsayılan kurum yedekte; aynı UUID çakışır.
+4. **Süper admin (KURULUM Adım 5) oluşturulmaz** — yedekten gelir; önceden
+   açılırsa e-posta/ID çakışır.
+5. Bucket: yedekteki `storage.buckets` satırı (ayarlar birebir) ya da KURULUM Adım 4.
+6. Veri: `auth.users` + `auth.identities` + public'in 20 tablosu — **tek
+   transaction, `SET session_replication_role = replica`** (TOC ada göre
+   sıralı, FK sırası kendiliğinden sağlanmaz; Supabase'in kendi taşıma
+   rehberindeki yöntem). Trigger'lar (yalnız tenants'ta, BEFORE UPDATE) veri
+   yüklemede zaten çalışmaz; sequence yok. auth'un geri kalanı (sessions,
+   refresh_tokens, one_time_tokens, schema_migrations…) YÜKLENMEZ.
+   `storage.objects` satırları YÜKLENMEZ — dosyasız hayalet nesne olur,
+   aynı yola upload 409 verir; upload satırı kendisi oluşturur (policy'ler
+   yol tabanlı, `owner`'a bakmaz → kurum adminleri geri yüklenen dosyaları silebilir).
+7. URL dönüşümü.
+8. Storage dosyaları.
+9. Doğrulama + uçtan uca.
+
+**Supabase kısıtları — tatbikatta İLK doğrulanacak:** postgres rolünün auth
+tablolarına COPY yapabilmesi ve `session_replication_role` ayarlayabilmesi
+(Supabase rehberine göre mümkün). bcrypt hash'leri taşınır → aynı şifreyle
+giriş; JWT secret farklı → herkes yeniden giriş yapar (beklenen). Olmazsa:
+(a) replica yerine `pg_restore --section=pre-data` → `--section=data` →
+`--section=post-data` (kısıtlar veriden SONRA — şema o zaman yedekten gelir;
+yeni yedek ACL'li olduğu için güvenli; storage policy'leri baseline Bölüm
+C'den); (b) kullanıcılar için Admin API
+`createUser({ id, email, password_hash, email_confirm })` — UUID'ler korunmalı
+(`tenant_users` onlara bağlı).
+
+## ⏰ Tatbikat planı (boş test projesi — canlıya YAZMA YOK)
+
+| # | Adım | Doğrulama |
+|---|---|---|
+| 1 | Test projesi aç; Auth: Site URL `http://lvh.me:3000`, lvh.me Redirect satırları, signup kapalı | — |
+| 2 | Baseline | KURULUM Adım 11 sorgu 1-4, 8: RLS açık, anon `is_super_admin` çağıramaz, 4 storage policy |
+| 3 | Bucket + auth verisi + public verisi (`ON_ERROR_STOP`, tek transaction) | **0 hata**. Dökümdeki COPY satır sayıları ↔ her tablonun `count(*)`'u **birebir** (20 public + auth.users + auth.identities). Yetim satır 0 |
+| 4 | URL dönüşümü | Eski ref geçen kolon **0** |
+| 5 | restore-storage: rapor → `--yukle` → tekrar | 2. koşum 0 yükleme; bucket = ayna; DB'nin gösterdiği **her** storage adresi test projesinden 200 |
+| 6 | Uygulamayı test projesine bağla | Ortam değişkenleriyle `npm run dev` — Next, ayarlı ortam değişkenini `.env.local` ile ezmez; `.env.local`'e dokunulmaz. ÜÇÜ de verilmeli: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
+| 7 | Uçtan uca | Kendi şifrenle süper admin girişi + kurumlar listesi; bir kurum admini girişi; default ve kurmay sitesi (lvh.me): haberler, galeri, video; DevTools'ta **görsellerin host'u test projesi** (canlı değil); panelden görsel yükle + sil |
+| 8 | Süre ölç, buraya yaz | RTO (toplam süre), RPO ≤ 24 saat |
+| 9 | **Temizlik** | Test projesi silinir — içinde gerçek kişisel veri var (e-postalar, şifre hash'leri, iletişim mesajları; KVKK). VPS'teki `/root/tatbikat-*` dosyaları ve `/root/.pgpass`'teki test satırı silinir |
+
+E-posta akışları (davet, sıfırlama) tatbikata girmez — test projesinde SMTP yok.
+
+**Komutlar** (VPS, root). Adım 3'ün komutları yerel PostgreSQL 17.11'de
+sınandı (FK hatası replica'sız, geçiş replica'lı, sayım karşılaştırması,
+yetim kontrolü, adres çıkarımı); Supabase'e karşı ilk koşum tatbikat.
+
+```bash
+# Hazırlık: test projesinin şifresi /root/.pgpass'e İKİNCİ satır olarak
+#   aws-0-eu-west-1.pooler.supabase.com:5432:postgres:postgres.<test-ref>:<test-şifre>
+# ve /root/tatbikat.env (chmod 600):
+#   NEXT_PUBLIC_SUPABASE_URL=https://<test-ref>.supabase.co
+#   SUPABASE_SERVICE_ROLE_KEY=<test projesinin service_role anahtarı>
+export PGHOST=aws-0-eu-west-1.pooler.supabase.com PGPORT=5432 PGDATABASE=postgres PGSSLMODE=require
+export PGUSER=postgres.<test-ref>
+F=$(ls -t /var/backups/supabase/yedek-*.dump | head -n 1)
+cd /opt/build/sendika-site && umask 077
+
+# 2) Şema
+psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/000_baseline.sql
+
+# 3) Bucket + veri — tek transaction, FK sırası için replica
+#    (çıktıdaki "set_config" satırları normal)
+pg_restore --data-only --no-owner -n storage -t buckets          -f /root/tatbikat-bucket.sql "$F"
+pg_restore --data-only --no-owner -n auth -t users -t identities -f /root/tatbikat-auth.sql   "$F"
+pg_restore --data-only --no-owner -n public                      -f /root/tatbikat-public.sql "$F"
+psql -X -q -v ON_ERROR_STOP=1 --single-transaction \
+  -c 'SET session_replication_role = replica' \
+  -f /root/tatbikat-bucket.sql -f /root/tatbikat-auth.sql -f /root/tatbikat-public.sql > /dev/null
+echo "exit=$?"                                                     # 0
+
+# 3-doğrulama) Dökümdeki satır sayıları ↔ veritabanı
+for sel in "-n public" "-n auth -t users -t identities"; do
+  pg_restore --data-only $sel -f - "$F"
+done | awk '/^COPY /{t=$2;n=0;next} /^\\\.$/{if(t!="")print t, n;t="";next} t!=""{n++}' \
+  | sort > /root/tatbikat-dokum-sayim.txt
+psql -X -q -At -F ' ' <<'SQL' | sort > /root/tatbikat-db-sayim.txt
+SELECT n.nspname || '.' || c.relname,
+       (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', n.nspname, c.relname), false, true, '')))[1]::text
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind = 'r'
+  AND (n.nspname = 'public' OR (n.nspname = 'auth' AND c.relname IN ('users', 'identities')));
+SQL
+diff /root/tatbikat-dokum-sayim.txt /root/tatbikat-db-sayim.txt && echo "SAYIMLAR BİREBİR"
+
+# 3-yetim) replica FK'yı yükleme boyunca kapattı — auth'a bağlı FK'lar
+psql -X -q -At <<'SQL'
+SELECT 'tenant_users→auth.users', count(*) FROM public.tenant_users t LEFT JOIN auth.users u ON u.id = t.user_id WHERE u.id IS NULL
+UNION ALL
+SELECT 'super_admins→auth.users', count(*) FROM public.super_admins s LEFT JOIN auth.users u ON u.id = s.user_id WHERE u.id IS NULL
+UNION ALL
+SELECT 'identities→auth.users', count(*) FROM auth.identities i LEFT JOIN auth.users u ON u.id = i.user_id WHERE u.id IS NULL;
+SQL
+#    (döküm tek bir tutarlı anlık görüntüden alındığı için public içi FK'lar da
+#    tutarlıdır; sayımlar birebir ise eksik yükleme yok)
+
+# 4) URL dönüşümü
+node scripts/rewrite-storage-urls.mjs --env /root/tatbikat.env --eski jqwmnawzehyvpwrtdvku --yeni <test-ref>
+node scripts/rewrite-storage-urls.mjs --env /root/tatbikat.env --eski jqwmnawzehyvpwrtdvku --yeni <test-ref> --yaz
+
+# 5) Storage
+node scripts/restore-storage.mjs --env /root/tatbikat.env --hedef <test-ref>
+node scripts/restore-storage.mjs --env /root/tatbikat.env --hedef <test-ref> --yukle
+node scripts/restore-storage.mjs --env /root/tatbikat.env --hedef <test-ref>         # yüklenecek 0
+
+# 5-doğrulama) DB'nin gösterdiği HER storage adresi test projesinden 200 mü?
+psql -X -q -At <<'SQL' | sort -u > /root/tatbikat-adresler.txt
+CREATE TEMP TABLE adres(u text);
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' LOOP
+    EXECUTE format(
+      $q$INSERT INTO adres SELECT (regexp_matches(t::text, 'https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/[^"''<>()\s,]+', 'g'))[1] FROM public.%I t$q$,
+      r.tablename);
+  END LOOP;
+END $$;
+SELECT DISTINCT u FROM adres;
+SQL
+wc -l < /root/tatbikat-adresler.txt                                  # ~30
+grep -v '<test-ref>' /root/tatbikat-adresler.txt                     # BOŞ olmalı
+while read -r u; do c=$(curl -s -o /dev/null -w '%{http_code}' "$u"); [ "$c" = 200 ] || echo "$c $u"; done < /root/tatbikat-adresler.txt   # BOŞ olmalı
+
+# 9) Temizlik
+rm -f /root/tatbikat-*            # + /root/.pgpass'teki test satırı, test projesi (Dashboard)
+```
+
+## Tespit edilen boşluklar (11 Eylül 2026)
+
+| # | Boşluk | Durum |
+|---|---|---|
+| 1 | DB yedeğinin şema kapsamı bilinmiyordu (`-n public` ise auth.users yok) | ✅ Ölçüldü: tam döküm, auth dahil. Yeni script açık şema listesiyle alıyor |
+| 2 | `--no-acl` + plain format (şema yedekten kurulamaz, seçici yükleme yok) | ✅ `scripts/backup-db.sh` (custom, ACL dahil) — **canlı cron geçişi bekliyor** |
+| 3 | Görseller DB'de tam URL, host kontrolleri joker → yeni projede sessizce eski projeden | ✅ `rewrite-storage-urls.mjs` — tatbikatta uygulanacak |
+| 4 | Storage geri yükleme aracı yok | ✅ `restore-storage.mjs` — ilk gerçek koşum tatbikat |
+| 5 | Yedekler uygulamayla aynı VPS'te; service_role anahtarı ve DB şifresi de orada | 📋 BACKLOG (aşağıda) |
+| 6 | DB yedek script'i repoda yok, şifre düz metin | ✅ Repoda, şifre `.pgpass`'te — canlı geçiş bekliyor (7. adımda eski script silinir) |
+| 7 | Yedek başarısızlığı kimseye bildirilmiyor (yalnız log) | 📋 BACKLOG (aşağıda) |
+| 8 | Proje ayarları yedekte değil: Auth URL'leri (custom domain satırları dahil), SMTP, e-posta şablonları, OTP süresi, API anahtarları | Belgeli (KURULUM + NOTE). Yeni projede anahtarlar değişir → `.env` + **yeniden build** (`NEXT_PUBLIC_*` build'e gömülü) + deploy. Tatbikat kontrol listesinde |
+| 9 | Canlı projenin Supabase planı kayıtlı değil | ❓ Açık: Pro ise Supabase'in kendi günlük yedeği de var (Dashboard'dan) — bizim yedeğin yanına, yerine değil; Free ise yok |
+
+---
+
+# 📋 BACKLOG — Yedekler uygulamayla aynı sunucuda; sunucu dışı kopya yok (11 Eylül 2026)
+
+**Durum:** ⚠️ Açık — bu turda uygulanmadı ("Yedekten geri yükleme"
+teşhisinin 5. boşluğu).
+
+DB dökümleri (`/var/backups/supabase`) ve storage aynası
+(`/var/backups/storage`) uygulamayla **aynı VPS'te**. Aynı sunucuda
+service_role anahtarı (`/opt/build/sendika-site/.env`) ve DB şifresi
+(`/root/.pgpass`) da duruyor.
+
+- **Disk / sağlayıcı kaybı:** yedekler gider. Supabase'deki veri kalır — tek
+  arıza veri kaybettirmez, ama ikinci bir kopya da kalmaz.
+- **Sunucu ele geçirilirse:** saldırgan service_role anahtarıyla Supabase
+  verisini VE yerel yedekleri silebilir — iki kopya birlikte gider. Asıl risk bu.
+
+**Çözüm yönü:** yedeklerin sunucu dışında, **VPS'in silemeyeceği** bir
+kopyası. Seçenekler: nesne kilitli (object lock / immutability) harici bir
+bucket'a gece kopyası; ya da kopyayı başka bir makinenin VPS'ten **çekmesi**
+(pull — VPS'te o hedefe yazma/silme yetkisi olmaz). Şifreleme (dökümlerde
+şifre hash'leri ve kişisel veri var) ve saklama süresi birlikte düşünülmeli.
+
+---
+
+# 📋 BACKLOG — Yedek başarısızlığı kimseye bildirilmiyor (11 Eylül 2026)
+
+**Durum:** ⚠️ Açık — bu turda uygulanmadı ("Yedekten geri yükleme"
+teşhisinin 7. boşluğu).
+
+İki yedek de sonucu yalnız log'a yazıyor (`/var/backups/supabase/yedek.log`,
+`/var/backups/storage/yedek.log`, cron çıktıları `/var/log/*-yedek.log`).
+Çıkış kodu 1 kimseye ulaşmıyor; cron hiç çalışmazsa (sunucu saati, crontab
+silinmesi, disk dolu) hiçbir satır da yazılmıyor. Yedekler haftalarca sessizce
+durabilir — ancak geri yükleme gerektiğinde fark edilir.
+
+**Çözüm yönü:** "başarı sinyali gelmezse alarm" (dead-man's switch): her
+başarılı koşumun sonunda harici bir izleme adresine ping; sinyal
+belirlenen sürede gelmezse e-posta. Yalnız "hata olunca e-posta" yetmez — cron
+hiç çalışmadığında hata da oluşmaz. `backup-db.sh` ve `backup-storage.mjs`
+başarıda ping atacak şekilde genişletilir.
+
+---
+
 # 🧭 KURULUM DURUMU — Yeni kurum kurulum kontrol listesi (11 Eylül 2026)
 
 **Durum:** ✅ Uygulandı — tsc + build + lint + 8 test script'i geçti
@@ -1124,6 +1535,12 @@ Yedekten dönüş `supabase storage cp` / API ile yeniden yükleme gerektirir;
 script tek yönlüdür (yalnızca indirir). **Geri yükleme denenmeden yedek
 sayılmaz** — ayrı iş olarak planlanmalı.
 
+> **11 Eylül 2026:** geri yükleme aracı yazıldı —
+> `scripts/restore-storage.mjs` (ayna → bucket; mevcut dosyayı ezmez,
+> `--silinenler-dahil` ile `_silinenler`'den de döner). DB'deki tam storage
+> adresleri için `scripts/rewrite-storage-urls.mjs`. Tatbikat hâlâ yapılmadı —
+> bkz. "💾 YEDEKTEN GERİ YÜKLEME".
+
 ---
 
 # 🔴 CANLI BUG — Admin eklerken davet maili hiç gönderilmiyordu (8 Eylül 2026)
@@ -1934,7 +2351,7 @@ değerleriyle sunucuda ayrıca oluşturulmalı (standalone `.env.local` taşıma
 | Dizin | İçerik | Deploy'da |
 |---|---|---|
 | `/var/www/sendika-site` | Yalnız standalone çıktı (`server.js`, `.next`, trace edilmiş `node_modules`) — PM2 buradan çalışır | `rsync --delete` ile **yeniden yazılır**; kaynakta olmayan her şey silinir |
-| `/opt/build/sendika-site` | Kaynak kod + script'ler (storage yedeği cron'u, süpürücü) | **Dokunulmaz** — script değişikliği buraya ayrıca taşınmalı |
+| `/opt/build/sendika-site` | Kaynak kod + script'ler (storage yedeği cron'u, süpürücü; DB yedeği `scripts/backup-db.sh` — cron geçişinden sonra) | **Dokunulmaz** — script değişikliği buraya ayrıca taşınmalı |
 
 Script'leri ya da elle dosyaları `/var/www`'ya koymayın; cron ve script'ler
 `/opt/build`'den çalışır.
