@@ -20,6 +20,7 @@ import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Loading from "@/components/ui/Loading";
 import { createSlug } from "@/lib/utils";
+import { MANSET_LIMIT } from "@/lib/constants";
 import { HelpCircle } from "lucide-react";
 import { NewsCategory } from "@/types";
 import toast from "react-hot-toast";
@@ -92,6 +93,30 @@ export default function AdminNewsEditorPage() {
     };
     fetchCategories();
   }, [tenant]);
+
+  // (027) Manset sayisi + bu haberin manseti var mi: "Manşete Ekle"
+  // kutusunun yanindaki uyari icin. Sayim PASIF mansetleri de kapsar —
+  // Mansetler sayfasiyla ayni tanim (lib/constants.ts MANSET_LIMIT).
+  const [headlineInfo, setHeadlineInfo] = useState<{ total: number; hasOwn: boolean } | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!tenant) return;
+    const fetchHeadlineInfo = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("headlines")
+        .select("id, source_id")
+        .eq("tenant_id", tenant.id);
+      if (!data) return;
+      setHeadlineInfo({
+        total: data.length,
+        hasOwn: !isNew && data.some((h) => h.source_id === params.id),
+      });
+    };
+    fetchHeadlineInfo();
+  }, [tenant, isNew, params.id]);
 
   useEffect(() => {
     if (!isNew && tenant) {
@@ -299,29 +324,61 @@ export default function AdminNewsEditorPage() {
       //                             Checkbox durumu (is_headline) DB'de korunur;
       //                             tekrar yayinlanirsa manset yeniden olusur.
       let headlineRemovedByDraft = false;
+      let headlineLimitHit = false;
+      let headlineDuplicate = false;
 
       if (publish && isHeadline) {
+        // order + limit(1): cift kayit olusursa maybeSingle HATA dondurur ve
+        // senkron sessizce kirilirdi (12 Eylul bulgusu). 027'deki kismi tekil
+        // indeks cifti zaten engelliyor; bu satirlar indeksin olmadigi bir
+        // ortamda (ya da indeks dusurulurse) senkronu ayakta tutar.
         const { data: existing, error: existingError } = await supabase
           .from("headlines")
           .select("id")
           .eq("tenant_id", tenant.id)
           .eq("source_type", "news")
           .eq("source_id", newsId)
+          .order("created_at", { ascending: true })
+          .limit(1)
           .maybeSingle();
 
         if (existingError) {
           syncFailed = true;
         } else if (!existing) {
-          const { error: headlineInsertError } = await supabase.from("headlines").insert({
-            tenant_id: tenant.id,
-            title: title.trim(),
-            image_url: coverImage || null,
-            link_url: `/haberler/${slug.trim()}`,
-            source_type: "news",
-            source_id: newsId,
-            is_active: true,
-          });
-          if (headlineInsertError) syncFailed = true;
+          // (027) Sinir kontrolu — Mansetler sayfasiyla AYNI tanim (pasifler
+          // dahil). Sinir doluysa HABER KAYDEDILIR, manset eklenmez, kutucuk
+          // korunur (taslak emsali P4-ii): kullanici bir manset kaldirip
+          // haberi tekrar kaydedince manset kendiliginden olusur. Haberi geri
+          // almak (silmek) kullanicinin icerigini yok etmek olurdu.
+          const { count: headlineCount, error: countError } = await supabase
+            .from("headlines")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenant.id);
+
+          if (countError) {
+            syncFailed = true;
+          } else if ((headlineCount ?? 0) >= MANSET_LIMIT) {
+            headlineLimitHit = true;
+          } else {
+            const { error: headlineInsertError } = await supabase.from("headlines").insert({
+              tenant_id: tenant.id,
+              title: title.trim(),
+              image_url: coverImage || null,
+              link_url: `/haberler/${slug.trim()}`,
+              source_type: "news",
+              source_id: newsId,
+              is_active: true,
+            });
+            // 23505 = headlines_kaynak_tekil (027). Yaris durumu: baska bir
+            // sekmede ayni haber Mansetler sayfasindan eklenmis olabilir.
+            if (headlineInsertError) {
+              if (headlineInsertError.code === "23505") {
+                headlineDuplicate = true;
+              } else {
+                syncFailed = true;
+              }
+            }
+          }
         } else {
           // (P4-iv) Kopya senkronu: haber basligi/kapagi degisince
           // anasayfadaki manset kopyasi eskimesin.
@@ -361,6 +418,12 @@ export default function AdminNewsEditorPage() {
         toast.error(
           "Haber kaydedildi ancak galeri/manşet güncellenemedi — sayfayı açıp tekrar kaydedin."
         );
+      } else if (headlineLimitHit) {
+        toast.error(
+          `Haber kaydedildi. En fazla ${MANSET_LIMIT} manşet olabildiği için manşete eklenemedi — Manşetler sayfasından bir manşet kaldırıp haberi tekrar kaydedin.`
+        );
+      } else if (headlineDuplicate) {
+        toast.error("Haber kaydedildi. Bu haber zaten manşette olduğu için yeni manşet eklenmedi.");
       } else {
         toast.success(publish ? "Haber yayınlandı." : "Taslak kaydedildi.");
         if (headlineRemovedByDraft) {
@@ -516,6 +579,11 @@ export default function AdminNewsEditorPage() {
             İşaretlersen anasayfadaki manşet slider&apos;ında büyük olarak görünür.
           </span>
         </label>
+        {isHeadline && headlineInfo && !headlineInfo.hasOwn && headlineInfo.total >= MANSET_LIMIT && (
+          <p className="text-xs text-error">
+            {`Manşet sınırı dolu (${MANSET_LIMIT}). Kaydedersen haber kaydedilir ama manşete eklenmez.`}
+          </p>
+        )}
         <div className="flex gap-3 w-full sm:w-auto">
           <div className="relative group flex-1 sm:flex-none">
             <Button variant="secondary" onClick={() => handleSave(false)} loading={saving} className="w-full">

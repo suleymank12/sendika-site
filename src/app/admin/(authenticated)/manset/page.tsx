@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import SafeImage from "@/components/SafeImage";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
 import { normalizeExternalUrl } from "@/lib/utils";
+import { MANSET_LIMIT } from "@/lib/constants";
 import AdminHeader from "@/components/admin/AdminHeader";
 import ListLoadError from "@/components/admin/ListLoadError";
 import Button from "@/components/ui/Button";
@@ -254,8 +255,8 @@ export default function AdminHeadlinePage() {
   }, [fetchHeadlines, fetchSources]);
 
   const openNew = () => {
-    if (headlines.length >= 10) {
-      toast.error("En fazla 10 manşet eklenebilir.");
+    if (headlines.length >= MANSET_LIMIT) {
+      toast.error(`En fazla ${MANSET_LIMIT} manşet eklenebilir.`);
       return;
     }
     setEditingId(null);
@@ -284,6 +285,23 @@ export default function AdminHeadlinePage() {
   const handleSourceChange = (type: SourceType) => {
     setForm((prev) => ({ ...prev, source_type: type, source_id: "" }));
   };
+
+  // (027) Ayni haber/duyuru iki kez mansette olamaz — kismi tekil indeks
+  // headlines_kaynak_tekil. Kaynak listesinden zaten manseti olanlari eliyoruz
+  // ki kullanici 23505 hatasiyla karsilasmasin. DUZENLEMEDE kendi kaynagi
+  // listede KALMALI; yoksa mevcut manset acilinca secim bosalir.
+  const usedSourceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const h of headlines) {
+      if (h.source_id && h.id !== editingId) ids.add(h.source_id);
+    }
+    return ids;
+  }, [headlines, editingId]);
+
+  const sourceOptions = useMemo(() => {
+    const list = form.source_type === "news" ? newsList : announcementList;
+    return list.filter((item) => !usedSourceIds.has(item.id));
+  }, [form.source_type, newsList, announcementList, usedSourceIds]);
 
   const handleSourceSelect = (id: string) => {
     const list = form.source_type === "news" ? newsList : announcementList;
@@ -348,7 +366,14 @@ export default function AdminHeadlinePage() {
     }
 
     if (error) {
-      toast.error("Kaydetme başarısız oldu.");
+      // 23505 = 027'deki kismi tekil indeks (headlines_kaynak_tekil). Normalde
+      // kaynak listesi zaten manseti olanlari eliyor; buraya yalniz yaris
+      // durumunda (iki sekme) ya da liste bayatken dusulur.
+      if ((error as { code?: string }).code === "23505") {
+        toast.error("Bu haber/duyuru zaten manşette. Aynı içerik iki kez manşete eklenemez.");
+      } else {
+        toast.error("Kaydetme başarısız oldu.");
+      }
     } else {
       // Replace orphan temizligi: eski gorsel + video listeden okunur
       // (youtube_url harici link, storage'da degil — temizlenmez)
@@ -569,17 +594,25 @@ export default function AdminHeadlinePage() {
                     label={form.source_type === "news" ? "Haber Seç" : "Duyuru Seç"}
                     required
                   >
-                    <Select
-                      value={form.source_id}
-                      onChange={(e) => handleSourceSelect(e.target.value)}
-                    >
-                      <option value="">Seçiniz...</option>
-                      {(form.source_type === "news" ? newsList : announcementList).map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.title}
-                        </option>
-                      ))}
-                    </Select>
+                    {sourceOptions.length === 0 ? (
+                      <p className="text-xs text-text-muted">
+                        {form.source_type === "news"
+                          ? "Yayındaki tüm haberler zaten manşette."
+                          : "Yayındaki tüm duyurular zaten manşette."}
+                      </p>
+                    ) : (
+                      <Select
+                        value={form.source_id}
+                        onChange={(e) => handleSourceSelect(e.target.value)}
+                      >
+                        <option value="">Seçiniz...</option>
+                        {sourceOptions.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.title}
+                          </option>
+                        ))}
+                      </Select>
+                    )}
                   </FormField>
                 )}
               </section>

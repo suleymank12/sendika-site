@@ -5,6 +5,155 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🔒 MANŞET TEKİLLİĞİ — aynı haber iki kez manşet olamaz (027, 12 Eylül 2026)
+
+**Durum:** ✅ Kod + migration hazır; tsc + lint + build + 12 test script'i geçti.
+⏳ **Bekleyen:** `027`'nin canlıya elle apply'ı ve manuel testler (aşağıda ⏰).
+
+## Sorun (panel bilgi mimarisi incelemesi → P2)
+
+Bir haber/duyuru **iki yoldan** manşet yapılabiliyordu: editördeki "Manşete
+Ekle" kutusu ve Manşetler sayfasında "Kaynak: Haber/Duyuru" seçimi. Üç boşluk
+üst üste bindi:
+
+1. `headlines`'ta `(tenant_id, source_type, source_id)` tekilliği **yoktu**
+   (yalnız birincil anahtar + kurum yabancı anahtarı).
+2. Manşetler sayfasının kaynak listesi zaten manşeti olanları **elemiyordu**
+   ve kayıt öncesi aynı-kaynak kontrolü yoktu.
+3. "En fazla 10 manşet" sınırı **yalnız** Manşetler sayfasındaydı; editör
+   yolu sınırsızdı.
+
+Sonuçları: (a) aynı haber anasayfada iki kez manşet olarak çıkabiliyor;
+(b) **çift kayıt editör yolunu bozuyor** — senkron `maybeSingle()` kullanıyor,
+iki satırda hata döner ve başlık/kapak güncellemesi sessizce yapılamaz.
+
+## Canlı ölçüm (12 Eylül, apply öncesi)
+
+| kontrol | sonuç |
+|---|---|
+| Çift kayıt | **0** → temizlik gerekmedi |
+| Kurum başına manşet | Büyük Diriliş 3 (1 özel + 2 kaynaklı), Kurmay 1 → sınır aşımı yok |
+| `source_type` dağılımı | announcement 1, custom 1 (source_id boş), news 2; **NULL source_type yok** |
+
+Üçüncü satır kısmi indeksin koşulunu doğruluyor: özel manşetlerde `source_id`
+NULL olduğu için `WHERE source_id IS NOT NULL` onları kapsam dışı bırakıyor.
+
+## Migration — `supabase/migrations/027_headlines_kaynak_tekil.sql`
+
+- **Guard (`DO` bloğu):** çift kayıt varsa açık Türkçe mesajla durur. Olmasaydı
+  `CREATE UNIQUE INDEX` ham "duplicate key" hatası verir, ne yapılacağını
+  söylemezdi.
+- **Kısmi tekil indeks** `headlines_kaynak_tekil` +
+  `COMMENT ON INDEX`. `IF NOT EXISTS` → idempotent.
+- **`CONCURRENTLY` yok:** tablo çok küçük ve dosya tek transaction içinde
+  çalışıyor; `CONCURRENTLY` transaction içinde çalışmaz.
+- **Temizlik dosyaya konmadı:** silinecek satırlar kullanıcının anasayfada
+  gördüğü içerik; hangisinin kalacağı gözle onaylanacak bir karar. Şema
+  migration'ı sessizce veri silmemeli.
+- Apply sonrası doğrulama sorguları (indeks var mı, çift kayıt 0, kısıt
+  gerçekten çalışıyor mu — geri alınan test INSERT'i, özel manşetler
+  etkilenmedi mi) ve rollback dosyanın sonunda.
+
+## İleride çift kayıt olursa — temizlik SQL'i (bugün gerekmedi)
+
+```sql
+BEGIN;
+WITH sirali AS (
+  SELECT id,
+         row_number() OVER (
+           PARTITION BY tenant_id, source_type, source_id
+           ORDER BY is_active DESC, created_at ASC, id ASC
+         ) AS sira
+  FROM public.headlines
+  WHERE source_id IS NOT NULL
+)
+DELETE FROM public.headlines h
+USING sirali s
+WHERE h.id = s.id AND s.sira > 1
+RETURNING h.id, h.tenant_id, h.source_type, h.source_id, h.title, h.created_at;
+-- Dönen satırları kontrol edip COMMIT; (yanlışsa ROLLBACK;)
+COMMIT;
+```
+
+**Tutma kuralı ve gerekçesi:** (1) **önce aktif olan** — pasif kopyayı tutup
+aktifi silmek manşeti anasayfadan tamamen kaldırırdı; (2) **sonra en eski** —
+kopya sonradan eklenendir: editör yolu mevcut satır varken yeni satır açmaz
+(`maybeSingle` → güncelle), dolayısıyla ikinci satır Manşetler sayfasından
+kazara eklenmiştir; ayrıca sıralama (`order`) ve kullanıcı düzenlemeleri ilk
+satırda birikmiştir; (3) **id** yalnızca eşitlik bozucu.
+
+## Kod değişiklikleri
+
+- **`lib/constants.ts` → `MANSET_LIMIT = 10`:** iki yol için tek kaynak.
+  Sayım **pasif manşetleri de kapsar** (Manşetler sayfasının eski davranışı).
+- **Manşetler sayfası:** kaynak listesinden zaten manşeti olanlar elenir
+  (düzenlemede **kendi kaynağı listede kalır**, yoksa seçim boşalırdı); liste
+  boşalırsa "Yayındaki tüm haberler zaten manşette."; kaydetmede `23505` →
+  "Bu haber/duyuru zaten manşette. Aynı içerik iki kez manşete eklenemez."
+- **Haber/duyuru editörü:**
+  - `maybeSingle()` → `order("created_at") + limit(1)` **sertleştirmesi**:
+    indeks olmayan bir ortamda ya da indeks düşerse senkron kırılmaz. Bugünkü
+    bozulma zincirinin kökü tam olarak bu satırdı.
+  - Sınır kontrolü: doluysa **haber kaydedilir, manşet eklenmez, kutucuk
+    korunur**. Gerekçe: haber satırı o noktada zaten yazılmış, istemcide
+    transaction yok — "geri alma" ancak haberi silmek olurdu, bu da
+    kullanıcının içeriğini yok etmek demektir. Kutucuğun korunması taslak
+    emsaliyle (P4-ii) aynı: slot açılıp haber tekrar kaydedilince manşet
+    kendiliğinden oluşur.
+  - `23505` → "Haber kaydedildi. Bu haber zaten manşette olduğu için yeni
+    manşet eklenmedi." (yarış durumu: iki sekme).
+  - Kutucuk işaretlenince **anında uyarı**: "Manşet sınırı dolu (10).
+    Kaydedersen haber kaydedilir ama manşete eklenmez." (mount'ta tek sorgu:
+    `id, source_id` — hem toplam hem "bu içeriğin manşeti var mı").
+- **Yardım metni (`manset`):** sınır uyarısı artık iki yolun da geçerli
+  olduğunu söylüyor; yeni "İki Yol, Tek Manşet" bölümü eklendi.
+
+## Kurulum etkisi — KURULUM Adım 3 artık üç adım
+
+Baseline dondurulmuş olduğu için `027` yeni kurulumlarda **ayrıca**
+çalıştırılmalı; Adım 3'e üçüncü madde ve üçüncü `psql` satırı eklendi. `027`
+bu kuralın ilk örneği. Zaten yazılı olan kural geçerli: **biriken migration
+~15'i geçince ya da yeni müşteri kurulumundan önce baseline yeniden üretilir**
+("MIGRATION BASELINE" → BAKIM STRATEJİSİ) — üretilince `027` baseline'a
+karışır, arşive taşınır ve Adım 3'ün üçüncü satırı boşalır.
+
+## Adlandırma notu
+
+İndeks adı Türkçe seçildi: `headlines_kaynak_tekil`. Şemada adlandırma karışık
+(`idx_headlines_tenant`, `headlines_pkey` İngilizce). b8 sözleşmesi "panelde
+İngilizce kelime kullanılmaz" diyor ama şema tarafı için bir karar yok —
+ileride bir adlandırma turu gerekebilir. 📋 Backlog sayılır.
+
+## Doğrulama
+
+tsc + lint + build + 12 test script'i geçti (`test:idle` 83/83, WSL'de
+`test:backup-db` 58/58). **Otomatik test eklenmedi:** değişikliklerin tamamı UI
+akışı ve DB kısıtı; saf fonksiyona çıkarılacak bir mantık yok. Kanıt, aşağıdaki
+manuel testler ve migration'ın kendi doğrulama sorguları.
+
+## ⏰ ELLE — apply + manuel testler (⏳ bekliyor)
+
+```bash
+export PGURI='postgresql://postgres.jqwmnawzehyvpwrtdvku:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
+psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/027_headlines_kaynak_tekil.sql
+```
+
+Alternatif: dosyanın içeriğini Supabase SQL Editor'a yapıştırıp çalıştırın.
+Apply sonrası dosya sonundaki (a)-(d) doğrulama sorguları.
+
+| # | Manuel test | Beklenen |
+|---|---|---|
+| 1 | Bir haberi editörden manşet yap, sonra Manşetler → Yeni Manşet → Kaynak: Haber | O haber listede **görünmez** |
+| 2 | Manşeti Manşetler sayfasından düzenle | Kendi kaynağı listede **durur**, seçim boşalmaz |
+| 3 | İki sekme: ikisinde de aynı haberi manşet yap | İkincisinde "zaten manşette" mesajı, çift kayıt oluşmaz |
+| 4 | 10 manşet varken bir haberde kutucuğu işaretle | Kutucuğun yanında "sınır dolu" uyarısı |
+| 5 | 4'teki haberi kaydet | Haber kaydedilir + "manşete eklenemedi" mesajı; kutucuk işaretli kalır |
+| 6 | Bir manşet sil, 5'teki haberi tekrar kaydet | Manşet kendiliğinden oluşur |
+| 7 | Yayındaki tüm haberler manşetteyken Yeni Manşet → Kaynak: Haber | "Yayındaki tüm haberler zaten manşette." |
+| 8 | Özel manşetten iki tane ekle | İkisi de kaydedilir (kısıt özel manşetleri kapsamıyor) |
+
+---
+
 # 🧾 SUPABASE PLANI = FREE — sınırlar ve 7 gün duraklatma riski (12 Eylül 2026)
 
 **Durum:** ✅ Ölçüldü (Dashboard, 12 Eylül 2026): canlı proje **Free**

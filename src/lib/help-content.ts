@@ -166,10 +166,17 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "Görsel, başlık, alt başlığı doldur." },
           { text: "'Aktif' olarak kaydet." },
         ],
-        warnings: ["En fazla 10 manşet eklenebilir."],
+        warnings: [
+          "En fazla 10 manşet eklenebilir; bu sınır hem bu sayfa hem de haber/duyuru düzenleme ekranındaki 'Manşete Ekle' kutusu için geçerlidir. Sınır doluyken kutuyu işaretlersen haber kaydedilir ama manşete eklenmez — önce buradan bir manşet kaldır.",
+        ],
         tips: [
           "Bir haberi manşet yapmanın en kolay yolu: haber düzenleme sayfasında 'Manşete Ekle' kutusunu işaretlemek.",
         ],
+      },
+      {
+        id: "iki-yol",
+        title: "İki Yol, Tek Manşet",
+        body: "Bir haber iki şekilde manşet olur: haber düzenleme ekranındaki 'Manşete Ekle' kutusu ya da bu sayfada 'Kaynak: Haber' seçmek. İkisi de aynı manşeti üretir; aynı haber iki kez manşete eklenemez, bu yüzden kaynak listesinde zaten manşette olanları görmezsin. Haberin başlığı veya kapağı değişirse manşetteki kopya, haber kaydedildiğinde güncellenir.",
       },
       {
         id: "yonetim",

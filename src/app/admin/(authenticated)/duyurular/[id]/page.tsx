@@ -18,6 +18,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Loading from "@/components/ui/Loading";
 import { createSlug } from "@/lib/utils";
+import { MANSET_LIMIT } from "@/lib/constants";
 import { HelpCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -64,6 +65,30 @@ export default function AdminAnnouncementEditorPage() {
       galleryImages,
     ]) !== formSnapshot;
   useDirtyTracker(isDirty);
+
+  // (027) Manset sayisi + bu duyurunun manseti var mi: "Manşete Ekle"
+  // kutusunun yanindaki uyari icin. Sayim PASIF mansetleri de kapsar —
+  // Mansetler sayfasiyla ayni tanim (lib/constants.ts MANSET_LIMIT).
+  const [headlineInfo, setHeadlineInfo] = useState<{ total: number; hasOwn: boolean } | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (!tenant) return;
+    const fetchHeadlineInfo = async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("headlines")
+        .select("id, source_id")
+        .eq("tenant_id", tenant.id);
+      if (!data) return;
+      setHeadlineInfo({
+        total: data.length,
+        hasOwn: !isNew && data.some((h) => h.source_id === params.id),
+      });
+    };
+    fetchHeadlineInfo();
+  }, [tenant, isNew, params.id]);
 
   useEffect(() => {
     if (!isNew && tenant) {
@@ -260,29 +285,52 @@ export default function AdminAnnouncementEditorPage() {
       //   publish && !isHeadline -> kaldir (mevcut davranis)
       //   !publish (taslak)      -> kaldir (P4-ii); is_headline DB'de korunur
       let headlineRemovedByDraft = false;
+      let headlineLimitHit = false;
+      let headlineDuplicate = false;
 
       if (publish && isHeadline) {
+        // order + limit(1) ve sinir/23505 kontrolleri: gerekce haberler/[id]
+        // ile birebir ayni (027).
         const { data: existing, error: existingError } = await supabase
           .from("headlines")
           .select("id")
           .eq("tenant_id", tenant.id)
           .eq("source_type", "announcement")
           .eq("source_id", annId)
+          .order("created_at", { ascending: true })
+          .limit(1)
           .maybeSingle();
 
         if (existingError) {
           syncFailed = true;
         } else if (!existing) {
-          const { error: headlineInsertError } = await supabase.from("headlines").insert({
-            tenant_id: tenant.id,
-            title: title.trim(),
-            image_url: coverImage || null,
-            link_url: `/duyurular/${slug.trim()}`,
-            source_type: "announcement",
-            source_id: annId,
-            is_active: true,
-          });
-          if (headlineInsertError) syncFailed = true;
+          const { count: headlineCount, error: countError } = await supabase
+            .from("headlines")
+            .select("id", { count: "exact", head: true })
+            .eq("tenant_id", tenant.id);
+
+          if (countError) {
+            syncFailed = true;
+          } else if ((headlineCount ?? 0) >= MANSET_LIMIT) {
+            headlineLimitHit = true;
+          } else {
+            const { error: headlineInsertError } = await supabase.from("headlines").insert({
+              tenant_id: tenant.id,
+              title: title.trim(),
+              image_url: coverImage || null,
+              link_url: `/duyurular/${slug.trim()}`,
+              source_type: "announcement",
+              source_id: annId,
+              is_active: true,
+            });
+            if (headlineInsertError) {
+              if (headlineInsertError.code === "23505") {
+                headlineDuplicate = true;
+              } else {
+                syncFailed = true;
+              }
+            }
+          }
         } else {
           // (P4-iv) Kopya senkronu.
           const { error: headlineUpdateError } = await supabase
@@ -316,6 +364,12 @@ export default function AdminAnnouncementEditorPage() {
         toast.error(
           "Duyuru kaydedildi ancak galeri/manşet güncellenemedi — sayfayı açıp tekrar kaydedin."
         );
+      } else if (headlineLimitHit) {
+        toast.error(
+          `Duyuru kaydedildi. En fazla ${MANSET_LIMIT} manşet olabildiği için manşete eklenemedi — Manşetler sayfasından bir manşet kaldırıp duyuruyu tekrar kaydedin.`
+        );
+      } else if (headlineDuplicate) {
+        toast.error("Duyuru kaydedildi. Bu duyuru zaten manşette olduğu için yeni manşet eklenmedi.");
       } else {
         toast.success(publish ? "Duyuru yayınlandı." : "Taslak kaydedildi.");
         if (headlineRemovedByDraft) {
@@ -447,6 +501,11 @@ export default function AdminAnnouncementEditorPage() {
             İşaretlersen anasayfadaki manşet slider&apos;ında büyük olarak görünür.
           </span>
         </label>
+        {isHeadline && headlineInfo && !headlineInfo.hasOwn && headlineInfo.total >= MANSET_LIMIT && (
+          <p className="text-xs text-error">
+            {`Manşet sınırı dolu (${MANSET_LIMIT}). Kaydedersen duyuru kaydedilir ama manşete eklenmez.`}
+          </p>
+        )}
         <div className="flex gap-3 w-full sm:w-auto">
           <div className="relative group flex-1 sm:flex-none">
             <Button variant="secondary" onClick={() => handleSave(false)} loading={saving} className="w-full">

@@ -118,3 +118,12 @@ export const OTURUM_ZAMAN_ASIMI = {
   /** Bu kadar dakika islem yapilmazsa oturum UYARISIZ kapatilir. */
   SURE_DK: 30,
 } as const;
+
+/**
+ * Anasayfada en fazla kac manset olabilir. TEK KAYNAK — iki yol da bunu
+ * kullanir: Mansetler sayfasindaki "Yeni Manşet Ekle" ve haber/duyuru
+ * editorundeki "Manşete Ekle" kutusu. Eskiden sinir yalniz Mansetler
+ * sayfasinda sabit 10'du, editor yolu SINIRSIZDI (12 Eylul 2026 bulgusu).
+ * Sayim PASIF mansetleri de kapsar — iki yol ayni sayiyi soylesin.
+ */
+export const MANSET_LIMIT = 10;
