@@ -7,10 +7,12 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 # 💾 YEDEKTEN GERİ YÜKLEME — yeni DB yedeği + geri yükleme araçları (11 Eylül 2026)
 
-**Durum:** 🔧 Araçlar hazır ve test edildi (tsc + build + lint + tüm test
-script'leri). **Bekleyen iki elle iş:** (1) canlı cron'un yeni yedek script'ine
-geçirilmesi (komutlar aşağıda — kullanıcı yapacak), (2) boş test projesinde
-tatbikat. Geri yükleme **hâlâ denenmedi** — denenmeden yedek sayılmaz.
+**Durum:** ✅ **TATBİKAT TAMAMLANDI — geri yükleme uçtan uca kanıtlandı**
+(11 Eylül 2026, boş test projesi `sendika-tatbikat2`; sonuçlar adım adım:
+aşağıda "✅ Tatbikat sonucu"). **RTO ~1 saat, RPO ≤ 24 saat.** Canlı cron
+yeni script'te — ilk koşumu (11 Eylül 04:00) tatbikatta kullanılan yedek.
+Kalan elle iş: cron geçişinin 7. adımı (birkaç gece OK geldikten sonra eski
+script + `.bak` silinir).
 
 ## Ölçüm — eski DB yedeği (11 Eylül, VPS)
 
@@ -189,8 +191,8 @@ node scripts/restore-storage.mjs --env /root/tatbikat.env --hedef <test-ref> --y
 - Test `npm run test:restore` **72/72**; mutasyon (çakışanı yüklemek, kısa
   sayfada durmak, ref kontrolünü kaldırmak) → FAIL. **Salt okuma** canlı
   kontrol: canlı bucket listesi **76 dosya** (storage yedek log'u `uzak=76` ile
-  aynı). Yükleyici gerçek Supabase'e karşı **denenmedi** (canlıya yazardı) —
-  ilk gerçek koşum tatbikat.
+  aynı). Yükleyici canlıya karşı denenmedi (canlıya yazardı); ✅ ilk gerçek
+  koşum tatbikatta (11 Eylül): 76/76 yüklendi, hata 0, 2. koşum 0 yükleme.
 
 ### `scripts/rewrite-storage-urls.mjs` — DB'deki storage adresleri → yeni proje
 
@@ -217,6 +219,8 @@ node scripts/rewrite-storage-urls.mjs --env /root/tatbikat.env --eski jqwmnawzeh
   `homepage_section_items.image_url` 5, `sliders.image_url` 5,
   `headlines.image_url` 2, `news.content` (HTML) 1, `pages.cover_image` 1,
   `pages.video_url` 1, `site_settings.value` (logo) 1; dokunulmayan 0.
+  ✅ Tatbikatta (11 Eylül) `--yaz`: aynı 30 adres dönüştürüldü, yeniden
+  tarama 0; uygulamanın HTML'inde canlı ref yok.
 - Test `npm run test:rewrite-urls` **42/42**; mutasyon (yalnız ilk adresi
   değiştirmek, jsonb'yi atlamak, RAPOR'da yazmak, ref kontrolünü kaldırmak) →
   FAIL. Mantık `scripts/lib/storage-url-rewrite.mjs`; ortak hedef guard'ı
@@ -225,14 +229,13 @@ node scripts/rewrite-storage-urls.mjs --env /root/tatbikat.env --eski jqwmnawzeh
 ## Geri yükleme sırası (boş Supabase projesine)
 
 Şema **baseline'dan**, veri **yedekten** (ikisi birden şema kurarsa her
-CREATE çakışır; baseline tatbikatla kanıtlı, ACL + 4 storage policy içinde —
-ACL'nin rol bazlı yarısı hariç, bkz. 2. adım).
+CREATE çakışır; baseline tatbikatla kanıtlı — ACL, rol bazlı REVOKE'lar
+(Bölüm D) ve 4 storage policy içinde).
 
-1. Proje — aynı bölge (eu-west-1), PostgreSQL 17.
-2. `000_baseline.sql`. ⚠️ **BUG 3:** baseline yeniden üretilene kadar hemen
-   ardından `REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;` —
-   repodaki baseline bunu taşımıyor, geri yüklenen canlıda `anon`
-   `is_super_admin`'i çağırabilir ("🧪 TATBİKAT 3 / BUG 3").
+1. Proje — aynı bölge (eu-west-1), PostgreSQL 17. Bağlantı host'u için
+   aşağıdaki "Pooler host'u" notuna bakın (`aws-0` / `aws-1`).
+2. `000_baseline.sql` → KURULUM Adım 11'in 10 sorgusu (5, 6, 10 bu aşamada
+   boş döner — tohum çalıştırılmaz, veri 6. adımda gelir).
 3. **`001_seed_default.sql` ÇALIŞTIRILMAZ** — varsayılan kurum yedekte; aynı UUID çakışır.
 4. **Süper admin (KURULUM Adım 5) oluşturulmaz** — yedekten gelir; önceden
    açılırsa e-posta/ID çakışır.
@@ -250,10 +253,11 @@ ACL'nin rol bazlı yarısı hariç, bkz. 2. adım).
 8. Storage dosyaları.
 9. Doğrulama + uçtan uca.
 
-**Supabase kısıtları — tatbikatta İLK doğrulanacak:** postgres rolünün auth
-tablolarına COPY yapabilmesi ve `session_replication_role` ayarlayabilmesi
-(Supabase rehberine göre mümkün). bcrypt hash'leri taşınır → aynı şifreyle
-giriş; JWT secret farklı → herkes yeniden giriş yapar (beklenen). Olmazsa:
+**Supabase kısıtları — ✅ tatbikatta doğrulandı (11 Eylül 2026):** postgres
+rolü auth tablolarına COPY yapabildi ve `session_replication_role`
+ayarlayabildi (adım 3 tek transaction, exit 0). bcrypt hash'leri taşındı →
+süper admin canlıdaki şifresiyle girdi; JWT secret farklı → herkes yeniden
+giriş yapar (beklenen). Aşağıdaki yedek yollara gerek kalmadı; olmasaydı:
 (a) replica yerine `pg_restore --section=pre-data` → `--section=data` →
 `--section=post-data` (kısıtlar veriden SONRA — şema o zaman yedekten gelir;
 yeni yedek ACL'li olduğu için güvenli; storage policy'leri baseline Bölüm
@@ -261,42 +265,59 @@ C'den); (b) kullanıcılar için Admin API
 `createUser({ id, email, password_hash, email_confirm })` — UUID'ler korunmalı
 (`tenant_users` onlara bağlı).
 
-## ⏰ Tatbikat planı (boş test projesi — canlıya YAZMA YOK)
+## ⚠️ Pooler host'u projeye göre değişir — `aws-0` / `aws-1` (11 Eylül 2026)
+
+Tatbikat projesi (`sendika-tatbikat2`, eu-west-1) session pooler'da
+**`aws-1-eu-west-1.pooler.supabase.com`** üzerindeydi; canlı proje
+**`aws-0-eu-west-1.pooler.supabase.com`**. Supabase yeni projeleri `aws-1`'e
+açıyor olabilir — bölge aynı olsa da host tahmin edilemez.
+
+- Bağlantı kurarken **Dashboard → Connect → Session pooler**'daki host
+  **birebir** kullanılır. `.pgpass` satırı, `PGHOST` ve `BASELINE_PGURI` aynı
+  host'u taşımalı (`.pgpass` host alanını harf harf eşleştirir).
+- Bu NOTE'taki, KURULUM.md'deki (Adım 2, 3, 10) ve script örneklerindeki
+  `aws-0` **canlı projeye** aittir; yeni bir projeye kopyalanmaz.
+  `scripts/backup-db.sh`'in varsayılan `PGHOST`'u da canlı proje içindir —
+  başka projede `PGHOST` ortamdan verilir.
+
+## ✅ Tatbikat planı (boş test projesi — canlıya YAZMA YOK) — 11 Eylül 2026'da uygulandı
 
 | # | Adım | Doğrulama |
 |---|---|---|
 | 1 | Test projesi aç; Auth: Site URL `http://lvh.me:3000`, lvh.me Redirect satırları, signup kapalı | — |
-| 2 | Baseline | KURULUM Adım 11 sorgu 1-4, 8: RLS açık, anon `is_super_admin` çağıramaz, 4 storage policy. **Sorgu 4 → `t` çıktı (BUG 3, 11 Eylül 2026)**: baseline yeniden üretilene kadar kurtarma satırı (komutlarda) → tekrar `f` |
+| 2 | Baseline | KURULUM Adım 11'in **10 sorgusu, 10'u kaydedilir** (süreç kuralı). Geri yüklemede 5, 6, 10 boş döner (tohum çalıştırılmaz, veri 3. adımda gelir); 4 → `f` |
 | 3 | Bucket + auth verisi + public verisi (`ON_ERROR_STOP`, tek transaction) | **0 hata**. Dökümdeki COPY satır sayıları ↔ her tablonun `count(*)`'u **birebir** (20 public + auth.users + auth.identities). Yetim satır 0 |
 | 4 | URL dönüşümü | Eski ref geçen kolon **0** |
 | 5 | restore-storage: rapor → `--yukle` → tekrar | 2. koşum 0 yükleme; bucket = ayna; DB'nin gösterdiği **her** storage adresi test projesinden 200 |
 | 6 | Uygulamayı test projesine bağla | Ortam değişkenleriyle `npm run dev` — Next, ayarlı ortam değişkenini `.env.local` ile ezmez; `.env.local`'e dokunulmaz. ÜÇÜ de verilmeli: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` |
 | 7 | Uçtan uca | Kendi şifrenle süper admin girişi + kurumlar listesi; bir kurum admini girişi; default ve kurmay sitesi (lvh.me): haberler, galeri, video; DevTools'ta **görsellerin host'u test projesi** (canlı değil); panelden görsel yükle + sil |
-| 8 | Süre ölç, buraya yaz | RTO (toplam süre), RPO ≤ 24 saat |
+| 8 | Süre ölç, buraya yaz | ✅ **RTO ~1 saat** (11 Eylül: adım adım, komutlar NOTE'tan okunarak); **RPO ≤ 24 saat** (gece 04:00 cron) |
 | 9 | **Temizlik** | Test projesi silinir — içinde gerçek kişisel veri var (e-postalar, şifre hash'leri, iletişim mesajları; KVKK). VPS'teki `/root/tatbikat-*` dosyaları ve `/root/.pgpass`'teki test satırı silinir |
 
 E-posta akışları (davet, sıfırlama) tatbikata girmez — test projesinde SMTP yok.
 
 **Komutlar** (VPS, root). Adım 3'ün komutları yerel PostgreSQL 17.11'de
 sınandı (FK hatası replica'sız, geçiş replica'lı, sayım karşılaştırması,
-yetim kontrolü, adres çıkarımı); Supabase'e karşı ilk koşum tatbikat.
+yetim kontrolü, adres çıkarımı); ✅ 11 Eylül tatbikatında Supabase'e karşı
+koşuldu — hepsi beklenen sonucu verdi (aşağıda "✅ Tatbikat sonucu").
 
 ```bash
 # Hazırlık: test projesinin şifresi /root/.pgpass'e İKİNCİ satır olarak
-#   aws-0-eu-west-1.pooler.supabase.com:5432:postgres:postgres.<test-ref>:<test-şifre>
+#   <pooler-host>:5432:postgres:postgres.<test-ref>:<test-şifre>
+#   <pooler-host> = test projesinin Dashboard → Connect → Session pooler host'u,
+#   BİREBİR (11 Eylül: aws-1-eu-west-1.pooler.supabase.com; canlı aws-0 —
+#   yukarıdaki "Pooler host'u" notu)
 # ve /root/tatbikat.env (chmod 600):
 #   NEXT_PUBLIC_SUPABASE_URL=https://<test-ref>.supabase.co
 #   SUPABASE_SERVICE_ROLE_KEY=<test projesinin service_role anahtarı>
-export PGHOST=aws-0-eu-west-1.pooler.supabase.com PGPORT=5432 PGDATABASE=postgres PGSSLMODE=require
+export PGHOST=<pooler-host> PGPORT=5432 PGDATABASE=postgres PGSSLMODE=require
 export PGUSER=postgres.<test-ref>
 F=$(ls -t /var/backups/supabase/yedek-*.dump | head -n 1)
 cd /opt/build/sendika-site && umask 077
 
 # 2) Şema
 psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/000_baseline.sql
-#    BUG 3: baseline yeniden üretilene kadar ŞART (sonrasında zararsız no-op)
-psql -X -v ON_ERROR_STOP=1 -c 'REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon'
-psql -X -At -c "SELECT has_function_privilege('anon', 'public.is_super_admin(uuid)', 'EXECUTE')"   # f
+#    → KURULUM Adım 11'in 10 sorgusu; 10'unun sonucu kaydedilir
 
 # 3) Bucket + veri — tek transaction, FK sırası için replica
 #    (çıktıdaki "set_config" satırları normal)
@@ -365,20 +386,82 @@ while read -r u; do c=$(curl -s -o /dev/null -w '%{http_code}' "$u"); [ "$c" = 2
 rm -f /root/tatbikat-*            # + /root/.pgpass'teki test satırı, test projesi (Dashboard)
 ```
 
+## ✅ Tatbikat sonucu (11 Eylül 2026) — TAM BAŞARILI
+
+**Ortam:** boş test projesi `sendika-tatbikat2` (ref `rhkijqdfmeczqjwqkpnz`,
+eu-west-1, session pooler **`aws-1`**-eu-west-1 — canlı `aws-0`, yukarıdaki
+not). **Yedek:** `/var/backups/supabase/yedek-2026-09-11_040001.dump` — yeni
+custom format script'in ilk cron koşumu. Canlıya yazma yok.
+
+**Adım 2 — baseline** (BUG 3 sonrası yeniden üretilen, 26 kontrol OK,
+`233c1af`): **0 hata**. KURULUM Adım 11 — **10 sorgunun 10'u** (süreç kuralı):
+
+| # | sorgu | sonuç | |
+|---|---|---|---|
+| 1 | public tablo sayısı | 20 | ✅ |
+| 2 | RLS kapalı tablo | 0 | ✅ |
+| 3 | `is_super_admin` `super_admins` okuyor, `raw_user_meta_data` yok | t | ✅ |
+| 4 | anon `is_super_admin`'i çağırabiliyor mu | **f** | ✅ **BUG 3 düzeltmesi kanıtlandı** |
+| 5 | default tenant | boş | ✅ tohum çalıştırılmadı (doğru — veri yedekten) |
+| 6 | site_settings / menu_items | 0 / 0 | ✅ aynı sebep |
+| 7 | news / announcements | 0 / 0 | ✅ demo sızmamış |
+| 8 | storage policy | 4 | ✅ |
+| 9 | 7 kayıp kolon | 7 | ✅ |
+| 10 | super_admins | 0 | ✅ veri yedekten gelecek (adım 3) |
+
+**Adım 3 — veri:** `pg_restore` ile 3 dosya (storage.buckets; auth.users +
+identities; public), tek transaction + `SET session_replication_role =
+replica` → **exit 0**. Döküm satır sayıları ↔ DB `count(*)`: **SAYIMLAR
+BİREBİR**. Yetim: tenant_users→auth.users 0, super_admins→auth.users 0,
+identities→auth.users 0.
+
+**Adım 4 — URL dönüşümü:** RAPOR 20 tablo, 9 kolonda 28 satır / **30 adres**,
+dokunulmayan 0 — `content_media.url` 5, `headlines.image_url` 2,
+`homepage_section_items.image_url` 5, `news.content` 1 (HTML içinde),
+`news.cover_image` 9, `pages.cover_image` 1, `pages.video_url` 1,
+`site_settings.value` 1, `sliders.image_url` 5 (canlı ölçümle birebir).
+`--yaz` sonrası yeniden tarama: **0 adres**.
+
+**Adım 5 — storage:** ayna 76 dosya (35.7 MB), `_silinenler` 48, hariç tutulan
+1. `--yukle`: yüklendi **76**, hata 0, boyut sınırı 0. Son doğrulama: eksik 0,
+boyut farkı 0, fazladan 0. İkinci RAPOR: yüklenecek 0, atlanacak 76
+(artımlılık doğrulandı).
+
+**Adım 5-doğrulama:** DB'nin gösterdiği **28 benzersiz adres**; hiçbiri canlıyı
+göstermiyor, **hepsi 200**.
+
+**Adım 6-7 — uygulama:** `/opt/tatbikat-app`'e kopyalandı, test projesinin
+`.env`'iyle build alındı, port 3001. Anasayfa açıldı, görseller göründü,
+**süper admin girişi çalıştı** (şifre hash'leri yedekten geldi — canlıdaki
+şifre geçerli), `/super-admin` kurumlar listesi göründü. `curl` ile HTML
+taraması: sayfada yalnız `rhkijqdfmeczqjwqkpnz.supabase.co`, **canlı ref yok**.
+Plan satır 7'nin şu maddeleri bu kayıtta geçmiyor: kurum admini girişi,
+kurmay (lvh.me) sitesi, panelden görsel yükle + sil.
+
+**Adım 8 — RTO / RPO:** **RTO ~1 saat** — tatbikatın toplam süresi, adım adım
+ve komutlar bu NOTE'tan okunarak (gerçek felakette boşluk 8'deki proje
+ayarları — Auth URL'leri, SMTP, e-posta şablonları — ve canlı deploy bunun
+üstüne eklenir). **RPO ≤ 24 saat** (gece 04:00 cron).
+
+**Adım 9 — temizlik:** uygulama durduruldu, ufw 3001 kapatıldı,
+`/opt/tatbikat-app` ve `/root/tatbikat-*` silindi, `.pgpass`'ten test satırı
+çıkarıldı, Supabase projesi silindi.
+
 ## Tespit edilen boşluklar (11 Eylül 2026)
 
 | # | Boşluk | Durum |
 |---|---|---|
 | 1 | DB yedeğinin şema kapsamı bilinmiyordu (`-n public` ise auth.users yok) | ✅ Ölçüldü: tam döküm, auth dahil. Yeni script açık şema listesiyle alıyor |
-| 2 | `--no-acl` + plain format (şema yedekten kurulamaz, seçici yükleme yok) | ✅ `scripts/backup-db.sh` (custom, ACL dahil) — **canlı cron geçişi bekliyor** |
-| 3 | Görseller DB'de tam URL, host kontrolleri joker → yeni projede sessizce eski projeden | ✅ `rewrite-storage-urls.mjs` — tatbikatta uygulanacak |
-| 4 | Storage geri yükleme aracı yok | ✅ `restore-storage.mjs` — ilk gerçek koşum tatbikat |
+| 2 | `--no-acl` + plain format (şema yedekten kurulamaz, seçici yükleme yok) | ✅ `scripts/backup-db.sh` (custom, ACL dahil) — cron'da; ilk koşumu (11 Eylül 04:00) tatbikatta kullanıldı |
+| 3 | Görseller DB'de tam URL, host kontrolleri joker → yeni projede sessizce eski projeden | ✅ `rewrite-storage-urls.mjs` — tatbikatta 30 adres → yeniden tarama 0; sayfada canlı ref yok |
+| 4 | Storage geri yükleme aracı yok | ✅ `restore-storage.mjs` — tatbikatta 76/76, hata 0, 2. koşum 0 |
 | 5 | Yedekler uygulamayla aynı VPS'te; service_role anahtarı ve DB şifresi de orada | 📋 BACKLOG (aşağıda) |
-| 6 | DB yedek script'i repoda yok, şifre düz metin | ✅ Repoda, şifre `.pgpass`'te — canlı geçiş bekliyor (7. adımda eski script silinir) |
+| 6 | DB yedek script'i repoda yok, şifre düz metin | ✅ Repoda, şifre `.pgpass`'te, cron'da — **eski script'in silinmesi bekliyor** (cron geçişi 7. adım: birkaç gece OK sonrası; eski script ve `.bak`'ta şifre düz metin) |
 | 7 | Yedek başarısızlığı kimseye bildirilmiyor (yalnız log) | 📋 BACKLOG (aşağıda) |
 | 8 | Proje ayarları yedekte değil: Auth URL'leri (custom domain satırları dahil), SMTP, e-posta şablonları, OTP süresi, API anahtarları | Belgeli (KURULUM + NOTE). Yeni projede anahtarlar değişir → `.env` + **yeniden build** (`NEXT_PUBLIC_*` build'e gömülü) + deploy. Tatbikat kontrol listesinde |
 | 9 | Canlı projenin Supabase planı kayıtlı değil | ❓ Açık: Pro ise Supabase'in kendi günlük yedeği de var (Dashboard'dan) — bizim yedeğin yanına, yerine değil; Free ise yok |
-| 10 | **Baseline rol bazlı REVOKE'u taşımıyor** (tatbikat adım 2, 11 Eylül): yüklenen projede `anon` `is_super_admin`'i çağırabiliyor, canlıda çağıramıyor (BUG 3) | ✅ Script düzeltildi (Bölüm D, 26 kontrol) — **baseline yeniden üretimi bekliyor** (ELLE). Kök neden + çözüm: "🧪 TATBİKAT 3 / BUG 3" |
+| 10 | **Baseline rol bazlı REVOKE'u taşımıyor** (tatbikat adım 2, 11 Eylül): yüklenen projede `anon` `is_super_admin`'i çağırabiliyor, canlıda çağıramıyor (BUG 3) | ✅ **KAPATILDI** — script düzeltildi (Bölüm D, 26 kontrol, `6ab8730`), baseline yeniden üretildi (`233c1af`), tatbikatta sorgu 4 → `f`. Kök neden + çözüm: "🧪 TATBİKAT 3 / BUG 3" |
+| 11 | Pooler host'u projeye göre değişiyor (tatbikat projesi `aws-1`, canlı `aws-0`); NOTE / KURULUM / script örnekleri `aws-0` yazıyor | 📋 Belgelendi ("Pooler host'u" notu, yukarıda) — örnekler canlı projeye ait, yeni projede Dashboard'daki host kullanılır |
 
 ---
 
@@ -618,15 +701,13 @@ akışında ikisi de `config.Mailer.OtpExp`).
 
 # 🧱 MIGRATION BASELINE — 001-026 arşivlendi (10 Eylül 2026)
 
-**Durum:** ⚠️ **BUG 3 — repodaki baseline yeniden üretilmeli** (11 Eylül 2026).
-Baseline üretildi (23 kontrol OK), 001-026 arşive taşındı ve boş bir Supabase
-projesinde sıfırdan kurulum tatbikatıyla uçtan uca doğrulandı (2. tur —
-aşağıda ⏰ ELLE madde 3). **Ama** geri yükleme tatbikatı (11 Eylül) bu
-baseline'la kurulan projede `anon`'un `is_super_admin`'i çağırabildiğini
-buldu — canlıda çağıramıyor. Script düzeltildi (Bölüm D + 26 kontrol);
-**yeniden üretim bekliyor** (⏰ ELLE madde 4). O zamana kadar her yeni
-kurulumda KURULUM Adım 11 sorgu 4'ün kurtarma satırı şart. Ayrıntı: aşağıda
-"🧪 TATBİKAT 3 / BUG 3".
+**Durum:** ✅ **TAMAMLANDI — baseline KANITLANMIŞ** (11 Eylül 2026).
+Baseline BUG 3 düzeltmesiyle yeniden üretildi (19:52 UTC, 26 kontrol OK,
+`233c1af`) ve geri yükleme tatbikatında boş bir Supabase projesine **0
+hatayla** yüklendi; KURULUM Adım 11'in **10 sorgusunun 10'u** beklenen sonucu
+verdi ve kayda geçti (sorgu 4 → `f`; aşağıda ⏰ ELLE madde 4). Önceki
+adımlar: 001-026 arşive taşındı, 2. tur sıfırdan kurulum tatbikatı uçtan uca
+geçti (⏰ ELLE madde 3). BUG 3 kaydı: aşağıda "🧪 TATBİKAT 3 / BUG 3".
 
 ## Sorun neydi
 
@@ -749,11 +830,11 @@ tablo/sequence yetkisi Supabase varsayılanından kısıtlıysa script dosya
 üretmeden durur (aşağıda "TATBİKAT 3 / BUG 3"). Bir kontrol bile düşerse
 dosyayı repo'ya almayın.
 
-## ⏰ ELLE — sırayla (1-3 ✅, 4 ⏳ BUG 3 sonrası yeniden üretim)
+## ⏰ ELLE — sırayla (✅ dördü de tamamlandı)
 
-**1) Baseline'ı üret (VPS'te, pg_dump 17.11 orada kurulu)** — ✅ son üretim
-10 Eylül 12:35 UTC, 23 kontrol OK (`497f446`). ⚠️ Bu üretimde BUG 3 var —
-madde 4.
+**1) Baseline'ı üret (VPS'te, pg_dump 17.11 orada kurulu)** — ✅ ilk üretim
+10 Eylül 12:35 UTC, 23 kontrol OK (`497f446`; BUG 3'ü taşıyordu). **Güncel
+üretim: madde 4** (11 Eylül, 26 kontrol).
 
 ```bash
 export BASELINE_PGURI='postgresql://postgres.jqwmnawzehyvpwrtdvku:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
@@ -795,33 +876,19 @@ yeniden üretildi, 2. tur KURULUM.md baştan sona izlenerek temiz geçti:
 - Temizlik: test dizini silindi, firewall kuralı kaldırıldı, Supabase
   projesi silindi.
 
-**Baseline statüsü: KANITLANMIŞ.** Boş bir Supabase projesinde `000` + `001`
-hatasız yükleniyor ve site uçtan uca çalışıyor. "Muhtemelen çalışıyor"
-statüsü kapandı. (Kanıt bu üretim için geçerli; baseline yeniden
-üretildiğinde 23 kontrol yine OK olmalı.)
+Bu turun kanıtı yükleme + uçtan uca çalışma içindi; o üretim BUG 3'ü
+taşıyordu. Güncel statü: madde 4.
 
-> ⚠️ **Şerh (11 Eylül 2026, BUG 3):** "KANITLANMIŞ" **yükleme + uçtan uca
-> çalışma** için geçerliydi, **güvenlik duruşu için değil.** Bu üretimle
-> kurulan projede `anon` `is_super_admin`'i çağırabiliyordu (canlıda
-> çağıramıyor) ve 2. tur bunu yakalamadı: yukarıdaki kayıt KURULUM Adım 11'in
-> **1, 5, 6, 8 ve 10**'unu listeliyor — **2, 3, 4, 7, 9 kaydedilmemiş**
-> (koşulup koşulmadığı bilinmiyor). Açığı yakalayan tam da 4 numara. Statü,
-> madde 4'teki yeniden üretim + Adım 11'in 10 sorgusunun 10'unun kaydıyla
-> yeniden verilir.
+**4) BUG 3 sonrası yeniden üretim — ✅ TAMAMLANDI (11 Eylül 2026).**
+VPS'te güncel script'le: 19:52 UTC, pg_dump 17.11 / sunucu 17.6, **26 × OK**,
+Bölüm D'de tek satır `REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;`
+(`233c1af`; script düzeltmesi `6ab8730`). Aynı gün geri yükleme tatbikatında
+boş projeye **0 hatayla** yüklendi; KURULUM Adım 11'in **10 sorgusunun 10'u**
+beklenen sonucu verdi, sorgu 4 → **`f`** (tam tablo: "💾 YEDEKTEN GERİ
+YÜKLEME" → "✅ Tatbikat sonucu").
 
-**4) BUG 3 sonrası yeniden üretim — ⏳ BEKLİYOR (VPS'te).** Güncel script'le
-(Bölüm D + 26 kontrol):
-
-```bash
-grep -q 'BOLUM D' scripts/dump-baseline.sh && echo "script guncel"   # BUG 3 duzeltmesi VPS'teki kopyada mi?
-export BASELINE_PGURI='postgresql://postgres.jqwmnawzehyvpwrtdvku:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require'
-bash scripts/dump-baseline.sh "$BASELINE_PGURI" /tmp/000_baseline.sql
-```
-
-Beklenen: `tablo/sequence dedektoru: ... kisitli yetki yok`, **26 × OK**,
-Bölüm D'de tek satır `REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;`.
-Sonra dosya repo'ya `supabase/migrations/000_baseline.sql` olarak alınır ve bir
-boş projede Adım 11'in 10 sorgusu kaydedilir (sorgu 4 → `f`).
+**Baseline statüsü: ✅ KANITLANMIŞ** — yükleme, uçtan uca çalışma ve güvenlik
+duruşu; 10/10 kayıtlı. Sonraki üretimler için komut: madde 1 (26 kontrol).
 
 ## 🧪 TATBİKAT 1 — 2 bug, ikisi de script'te düzeltildi (10 Eylül 2026)
 
@@ -940,10 +1007,11 @@ Sonuçlar yukarıda, ⏰ ELLE madde 3.
 
 ## 🧪 TATBİKAT 3 / BUG 3 — baseline rol bazlı REVOKE'u taşımıyordu (11 Eylül 2026)
 
-**Durum:** 🔧 Script düzeltildi ve gerçek PostgreSQL'de sınandı. **Bekleyen:**
-baseline'ın VPS'te yeniden üretimi (⏰ ELLE madde 4). O zamana kadar
-baseline'la kurulan / geri yüklenen her projede kurtarma satırı şart
-(KURULUM Adım 11 sorgu 4).
+**Durum:** ✅ **KAPATILDI (11 Eylül 2026).** Script düzeltildi ve gerçek
+PostgreSQL'de sınandı (`6ab8730`); ✅ baseline VPS'te yeniden üretildi (26 ×
+OK, `233c1af` — ⏰ ELLE madde 4); ✅ geri yükleme tatbikatında yeni
+baseline'la KURULUM Adım 11 sorgu 4 → **`f`** (10 sorgunun 10'u kayıtlı).
+Geçici kurtarma satırına artık gerek yok.
 
 ### Bulgu
 
@@ -1003,8 +1071,10 @@ kısıtlı hiçbir yetki baseline'a geçmiyordu.**
    → `FROM PUBLIC` satırına uydu; 022'nin iki REVOKE'undan biri kanıtlandı.
    Script yorumu ve bu NOTE'taki `--no-acl` paragrafı "ACL dahilse 022 gelir"
    diye yanlış varsayımı yazıya geçirmişti (ikisi de düzeltildi).
-2. **2. tur kaydında Adım 11 sorgu 4 yok** (şerh: yukarıda, ⏰ ELLE madde 3).
-   Açığı yakalayan tam olarak o sorgu; bu tatbikatta koşuldu ve yakaladı.
+2. **2. tur kaydında Adım 11 sorgu 4 yok** — kayıt 1, 5, 6, 8 ve 10'u
+   listeliyordu; 2, 3, 4, 7, 9 kaydedilmemişti (koşulup koşulmadığı
+   bilinmiyor). Açığı yakalayan tam olarak 4; geri yükleme tatbikatında
+   koşuldu ve yakaladı.
 
 ### Çözüm — script'te (BUG 1 ve 2 ile aynı yer)
 
@@ -1074,8 +1144,9 @@ bir `\r` silici katman kullanıldı (yalnız satır sonu; VPS'te gereksiz).
 Repo doğrulaması: tsc + lint + build + 11 test script'i (`test:backup-db`
 WSL'de 58/58) geçti.
 
-**Gerçek Supabase'e karşı DEĞİL** — asıl kanıt ⏰ ELLE madde 4 (VPS'te 26 ×
-OK) + yeni baseline'la bir boş projede Adım 11 sorgu 4 → `f`.
+**Gerçek Supabase kanıtı — ✅ (11 Eylül 2026):** VPS'te 26 × OK (⏰ ELLE
+madde 4) + yeni baseline'la boş projede (`sendika-tatbikat2`) Adım 11 sorgu 4
+→ `f`, 10 sorgunun 10'u kayıtlı.
 
 ### Süreç kuralı (bu bug'dan)
 
