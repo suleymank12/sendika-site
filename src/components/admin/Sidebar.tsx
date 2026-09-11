@@ -52,34 +52,40 @@ const menuGroups: MenuGroup[] = [
     ],
   },
   {
-    label: "İçerik Yönetimi",
+    label: "İçerikler",
     items: [
       { label: "Haberler", href: "/admin/haberler", icon: Newspaper },
       { label: "Haber Kategorileri", href: "/admin/kategoriler", icon: Folders },
       { label: "Duyurular", href: "/admin/duyurular", icon: Megaphone },
-      { label: "Sabit Sayfalar", href: "/admin/sayfalar", icon: FileText },
-      { label: "Foto Galeri", href: "/admin/galeri", icon: Camera },
+      { label: "Sayfalar", href: "/admin/sayfalar", icon: FileText },
+      { label: "Fotoğraf Galerisi", href: "/admin/galeri", icon: Camera },
     ],
   },
   {
-    label: "Anasayfa Düzeni",
+    // Sira sayfadaki sirayla ayni: once manset, sonra onun yedegi (kapak
+    // gorselleri yalniz manset yokken gosterilir), sonra govde bolumleri.
+    label: "Anasayfa",
     items: [
-      { label: "Anasayfa Slider", href: "/admin/slider", icon: Presentation },
       { label: "Manşetler", href: "/admin/manset", icon: Star },
+      { label: "Kapak Görselleri", href: "/admin/slider", icon: Presentation },
       { label: "Anasayfa Bölümleri", href: "/admin/anasayfa-bolumleri", icon: LayoutGrid },
     ],
   },
   {
-    label: "Kurumsal",
+    label: "Kurum Bilgileri",
     items: [
-      { label: "Site Menüsü", href: "/admin/menu", icon: ListTree },
       { label: "Yönetim Kurulu", href: "/admin/yonetim-kurulu", icon: Users },
       { label: "Şubeler", href: "/admin/subeler", icon: Building2 },
     ],
   },
   {
-    label: "Ayarlar",
-    items: [{ label: "Site Ayarları", href: "/admin/ayarlar", icon: Settings }],
+    // Site Menusu kurumsal bir BILGI degil, site geneli bir ayar — bu yuzden
+    // "Kurum Bilgileri"nden alinip buraya tasindi (12 Eylul 2026).
+    label: "Site Yönetimi",
+    items: [
+      { label: "Site Menüsü", href: "/admin/menu", icon: ListTree },
+      { label: "Site Ayarları", href: "/admin/ayarlar", icon: Settings },
+    ],
   },
 ];
 

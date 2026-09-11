@@ -5,6 +5,161 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 🏷️ PANEL İSİMLENDİRME VE AÇIKLAMA TURU (12 Eylül 2026)
+
+**Durum:** ✅ Uygulandı. Kod değişikliği yalnız **metin + bilgi kutusu**;
+**davranış hiç değişmedi** (karar C: "gerçeği yazmak", P1'in A ve B davranış
+seçenekleri reddedilmişti). Migration yok, veritabanı dokunulmadı.
+
+## Neden
+
+Panel bilgi mimarisi incelemesinde (bir önceki tur) isimlerin kendi başına
+yetmediği görüldü: "Slider" ile "Manşet" aynı alanı paylaştığı halde iki ayrı
+bölüm gibi duruyordu, "Sabit Sayfalar"/"Foto Galeri"/"Öğeler" panel terminoloji
+sözleşmesine (b8) uymuyordu ve hiçbir ekran "burada yazdığım şey sitenin
+neresinde görünüyor" sorusunu cevaplamıyordu.
+
+## 1) Adların son hali
+
+| Eski | Yeni | Yer |
+|---|---|---|
+| Anasayfa Slider | **Kapak Görselleri** | sidebar + sayfa başlığı + yardım |
+| Sabit Sayfalar | **Sayfalar** | sidebar + sayfa başlığı + yardım |
+| Foto Galeri | **Fotoğraf Galerisi** | sidebar + başlık + breadcrumb + yardım |
+| Kategoriler | **Haber Kategorileri** | sidebar + sayfa başlığı |
+| Menü | **Site Menüsü** | sidebar + sayfa başlığı |
+| Ayarlar | **Site Ayarları** | sidebar + sayfa başlığı |
+| "Öğeler" butonu | **"İçerik"** (`title="Bölüm içeriğini yönet"`) | anasayfa-bölümleri listesi |
+| Özel Bölüm Öğeleri | **Özel Bölüm İçeriği** | yardım metni |
+| ANASAYFA BÖLÜMLERİ | *(korundu)* | karar: ad kalsın, alt sayfa "Bölüm İçeriği" olsun |
+
+Kural korundu: **sayfa başlığı = sidebar etiketi** (b8).
+
+## 2) Sidebar grupları
+
+Eski gruplar (İçerik Yönetimi / Anasayfa Düzeni / Kurumsal / Ayarlar) yerine:
+
+| Grup | İçindekiler |
+|---|---|
+| *(grupsuz)* | Özet, Gelen Mesajlar |
+| **İçerikler** | Haberler, Haber Kategorileri, Duyurular, Sayfalar, Fotoğraf Galerisi |
+| **Anasayfa** | Manşetler, Kapak Görselleri, Anasayfa Bölümleri |
+| **Kurum Bilgileri** | Yönetim Kurulu, Şubeler |
+| **Site Yönetimi** | Site Menüsü, Site Ayarları |
+
+İki bilinçli karar, kodda da yorum olarak duruyor:
+
+- **Anasayfa grubunun sırası = sayfadaki sıra:** önce Manşetler, hemen altında
+  onun yedeği olan Kapak Görselleri, sonra gövdedeki Anasayfa Bölümleri.
+  Komşuluk, ikisinin aynı alanı paylaştığını listede de görünür kılıyor.
+- **Site Menüsü "Kurum Bilgileri"nden alındı:** menü kurumsal bir *bilgi* değil,
+  site geneli bir *ayar*.
+
+## 3) AdminHeader açıklama satırı (yeni mekanizma)
+
+`AdminHeader`'a opsiyonel `description?: string` prop'u eklendi; başlığın altında
+`text-xs text-text-muted` olarak render ediliyor. Her açıklama tek soruyu
+cevaplıyor: **buradaki içerik sitenin neresinde görünür.**
+
+13 bölüm ekranının **hepsinde** var (seçmeli yapılmadı). Çok `AdminHeader`
+çağıran dosyalarda loading/error varyantları dahil: ayarlar 3/3, manşet 2/2.
+`[id]` düzenleme sayfaları ve Özet kapsam dışı — açıklama ekranın rolünü anlatır,
+tek kaydın değil.
+
+| Ekran | Açıklama satırı |
+|---|---|
+| Haberler | Anasayfada ve haberler sayfasında görünür. Görselli, akan içerik için. |
+| Haber Kategorileri | Haber kartlarında etiket olarak görünür; ayrı bir kategori sayfası yoktur. |
+| Duyurular | Duyurular sayfasında liste olarak görünür. Kısa resmi bildirimler için. |
+| Sayfalar | Hakkımızda, Tüzük gibi kendi adresi olan sayfalar. Menüye elle eklenir. |
+| Fotoğraf Galerisi | Galeri sayfasında albüm albüm görünür. |
+| Manşetler | Anasayfanın en üstündeki büyük alanda döner. |
+| Kapak Görselleri | Anasayfanın en üstünde — yalnızca aktif manşet yokken. |
+| Anasayfa Bölümleri | Anasayfanın gövdesinde, haber bloklarının altında görünür. |
+| Yönetim Kurulu | Kurumsal → Yönetim Kurulu sayfasında görünür. |
+| Şubeler | Şubeler sayfasında ve şube detaylarında görünür. |
+| Site Menüsü | Sitenin üst menüsü. Yeni sayfalar buraya elle eklenir. |
+| Site Ayarları | Site geneli: başlık, logo, renk, iletişim, sosyal hesaplar. |
+| Gelen Mesajlar | İletişim formundan gelen mesajlar. |
+
+Haber/Duyuru ölçütü (hangisini ne zaman kullanmalı) hem bu iki açıklamada hem de
+yardım metinlerinin girişinde tekrarlanıyor.
+
+## 4) Kapak Görselleri sayfasındaki bilgi kutusu
+
+Sayfa açılışında `headlines` üzerinden `is_active = true` sayısı çekiliyor
+(`activeHeadlines`) ve kutu **canlı sayıyla** iki hâlden birini gösteriyor.
+
+**Aktif manşet varken:**
+
+> Anasayfanın en üst alanında **ya manşetler ya da bu kapak görselleri**
+> gösterilir; ikisi birlikte gösterilmez. Şu anda **N aktif manşet** olduğu için
+> orada manşetler dönüyor. Hangisini kullanacağınız size kalmış: kapak
+> görsellerini göstermek isterseniz **Manşetler** sayfasından manşetleri pasife
+> alabilirsiniz.
+
+**Aktif manşet yokken:**
+
+> Aktif manşet yok; anasayfanın en üstünde bu kapak görselleri dönüyor. Manşet
+> eklerseniz üst alanı manşetler alır ve bu görseller gizlenir.
+
+Ton kararı (kullanıcının açık isteği): bu bir **seçim** gibi sunuluyor, "çözüm"
+gibi değil. Metin hiçbir yerde "manşetleri kapatın" demiyor; iki yolu da meşru
+gösterip kararı kullanıcıya bırakıyor. "Manşetler" bağlantısı `/admin/manset`'e
+gidiyor.
+
+## 5) Yardım metni düzeltmeleri (`src/lib/help-content.ts`)
+
+- **Yanlış bilgi silindi:** slider yardımındaki *"Manşetten Farkı — Slider
+  sayfanın en üstünde… Manşet ise içerik bölümünde…"* başlığı **kodla çelişiyordu**
+  (manşet de en üstte, aynı alanda). Yerine **"Manşetle İlişkisi"**: aynı alanı
+  paylaşırlar, iki ayrı bölüm değildir; aktif manşet varsa kapak görselleri
+  gizlenir.
+- slider girişi: "YALNIZCA aktif manşet yokken gösterilir."
+- manşet girişi: "Anasayfanın en üstünde dönen büyük alan… manşet varken Kapak
+  Görselleri gösterilmez."
+- haberler/duyurular girişlerine **ölçüt** cümlesi eklendi.
+- kategoriler girişi artık gerçeği söylüyor: etiket olarak görünür, **kategoriye
+  tıklanınca açılan bir kategori sayfası yok**.
+- anasayfa-bölümleri: "Öğeler" → "İçerik" / "Özel Bölüm İçeriği".
+- başlıklar yeni adlara çekildi (Kapak Görselleri, Sayfalar, Fotoğraf Galerisi).
+
+## 6) Değişen dosyalar
+
+18 dosya, +181 / −49. `AdminHeader.tsx` (prop), `Sidebar.tsx` (gruplar),
+`help-content.ts` (metinler), `slider/page.tsx` (bilgi kutusu + sayaç, +51),
+`kategoriler` (gövde satırı "Sürükleyerek sıralayabilirsiniz."e indirildi),
+`galeri/[id]` (breadcrumb), `anasayfa-bolumleri` (buton + başlık) ve açıklama
+alan diğer liste sayfaları.
+
+## 7) Doğrulama
+
+`tsc` 0 hata · `lint` temiz · `build` OK (43 sayfa) · 11 node test script'i
+(sanitize 90, hostname 50, tenant 22, storage 42, tenant-user 87, orphan 44,
+storage-purge 73, setup 185, restore 72, rewrite-urls 42, idle 83) + WSL'de
+`backup-db` 58/58. Eski ad taraması admin kapsamında temiz (public taraftaki
+`kurumsal` breadcrumb'ları kasıtlı olarak korundu).
+
+## ⏰ Manuel testler (kullanıcı)
+
+1. Sidebar: 4 grup ve sıralar doğru mu; Site Menüsü artık Site Yönetimi'nde mi.
+2. 13 ekranda başlığın altında açıklama satırı görünüyor mu.
+3. Kapak Görselleri: **aktif manşet varken** kutu doğru sayıyı yazıyor mu,
+   "Manşetler" bağlantısı manşet sayfasını açıyor mu.
+4. Tüm manşetleri pasife al → kutu ikinci hâle geçiyor mu; anasayfada kapak
+   görselleri dönmeye başlıyor mu (davranış eskisiyle **aynı** olmalı).
+5. Anasayfa Bölümleri → "İçerik" butonu özel bölümün içeriğini açıyor mu.
+6. Yardım (?) kutuları: slider yardımında "Manşetle İlişkisi" görünüyor mu.
+7. Galeri albümünde breadcrumb "Fotoğraf Galerisi" mi.
+
+## 📋 Backlog — gerçek kategori sayfası
+
+Kategoriye tıklanınca açılan `/haberler?kategori=…` benzeri bir liste sayfası
+**yok**. Bu tur yalnız *gerçeği yazdık* (etiket olduğunu söyleyen satır). Sayfanın
+kendisi ayrı bir iş olarak bekliyor.
+
+---
+
 # 🔒 MANŞET TEKİLLİĞİ — aynı haber iki kez manşet olamaz (027, 12 Eylül 2026)
 
 **Durum:** ✅ Kod + migration hazır; tsc + lint + build + 12 test script'i geçti.

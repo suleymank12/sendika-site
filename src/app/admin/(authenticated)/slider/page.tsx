@@ -19,7 +19,8 @@ import DeleteModal from "@/components/admin/DeleteModal";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
 import FormField from "@/components/admin/FormField";
-import { Plus, Edit, Trash2, GripVertical, Images } from "lucide-react";
+import Link from "next/link";
+import { Plus, Edit, Trash2, GripVertical, Images, Info } from "lucide-react";
 import { Slider } from "@/types";
 import toast from "react-hot-toast";
 import {
@@ -138,6 +139,26 @@ export default function AdminSliderPage() {
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
+
+  // (12 Eylul 2026) Gercegi yaz: anasayfanin ust alani TEK. Manset varken bu
+  // gorseller GOSTERILMEZ — public tarafta slider yalniz "manset yoksa"
+  // devreye giren yedektir (HeadlineSlider/FullWidthSlider fallbackSliders).
+  // Sayim AKTIF manseti sayar; public fallback de is_active=true'ya bakiyor.
+  const [activeHeadlines, setActiveHeadlines] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!tenant) return;
+    const fetchHeadlineCount = async () => {
+      const supabase = createClient();
+      const { count } = await supabase
+        .from("headlines")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenant.id)
+        .eq("is_active", true);
+      setActiveHeadlines(count ?? 0);
+    };
+    fetchHeadlineCount();
+  }, [tenant]);
 
   const fetchSliders = useCallback(async () => {
     if (!tenant) return;
@@ -294,8 +315,34 @@ export default function AdminSliderPage() {
 
   return (
     <>
-      <AdminHeader title="Anasayfa Slider" helpTopic="slider" />
+      <AdminHeader
+        title="Kapak Görselleri"
+        description="Anasayfanın en üstünde — yalnızca aktif manşet yokken."
+        helpTopic="slider"
+      />
       <div className="p-4 lg:p-6">
+        {activeHeadlines !== null && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2.5 text-xs text-text-dark">
+            <Info className="h-4 w-4 shrink-0 text-primary mt-px" />
+            {activeHeadlines > 0 ? (
+              <span>
+                Anasayfanın en üst alanında <strong>ya manşetler ya da bu kapak görselleri</strong>{" "}
+                gösterilir; ikisi birlikte gösterilmez. Şu anda{" "}
+                <strong>{activeHeadlines} aktif manşet</strong> olduğu için orada manşetler dönüyor.
+                Hangisini kullanacağınız size kalmış: kapak görsellerini göstermek isterseniz{" "}
+                <Link href="/admin/manset" className="text-primary underline underline-offset-2">
+                  Manşetler
+                </Link>{" "}
+                sayfasından manşetleri pasife alabilirsiniz.
+              </span>
+            ) : (
+              <span>
+                Aktif manşet yok; anasayfanın en üstünde bu kapak görselleri dönüyor. Manşet
+                eklerseniz üst alanı manşetler alır ve bu görseller gizlenir.
+              </span>
+            )}
+          </div>
+        )}
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-text-muted">Slide&apos;ları sürükleyerek sıralayabilirsiniz.</p>

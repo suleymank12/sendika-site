@@ -495,7 +495,11 @@ export default function AdminHeadlinePage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Manşetler" helpTopic="manset" />
+        <AdminHeader
+          title="Manşetler"
+          description="Anasayfanın en üstündeki büyük alanda döner."
+          helpTopic="manset"
+        />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -505,7 +509,11 @@ export default function AdminHeadlinePage() {
 
   return (
     <>
-      <AdminHeader title="Manşetler" helpTopic="manset" />
+      <AdminHeader
+        title="Manşetler"
+        description="Anasayfanın en üstündeki büyük alanda döner."
+        helpTopic="manset"
+      />
 
       <div className="p-4 lg:p-6">
         {headlines.length >= 10 && (

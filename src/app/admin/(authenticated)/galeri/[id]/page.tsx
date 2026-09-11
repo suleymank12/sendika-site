@@ -368,7 +368,7 @@ export default function AdminGalleryDetailPage() {
       <>
         <AdminHeader
           title="Albüm Detay"
-          breadcrumbs={[{ label: "Galeri", href: "/admin/galeri" }, { label: "Detay" }]}
+          breadcrumbs={[{ label: "Fotoğraf Galerisi", href: "/admin/galeri" }, { label: "Detay" }]}
           helpTopic="galeri"
         />
         <div className="flex items-center justify-center h-64">
@@ -385,7 +385,7 @@ export default function AdminGalleryDetailPage() {
       <AdminHeader
         title={album?.title || "Albüm"}
         breadcrumbs={[
-          { label: "Galeri", href: "/admin/galeri" },
+          { label: "Fotoğraf Galerisi", href: "/admin/galeri" },
           { label: album?.title || "Detay" },
         ]}
         helpTopic="galeri"

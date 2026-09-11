@@ -109,7 +109,11 @@ export default function GelenMesajlarPage() {
 
   return (
     <>
-      <AdminHeader title="Gelen Mesajlar" helpTopic="gelen-mesajlar" />
+      <AdminHeader
+        title="Gelen Mesajlar"
+        description="İletişim formundan gelen mesajlar."
+        helpTopic="gelen-mesajlar"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {loading ? (

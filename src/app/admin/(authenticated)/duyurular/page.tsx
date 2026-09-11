@@ -141,7 +141,11 @@ export default function AdminAnnouncementsListPage() {
 
   return (
     <>
-      <AdminHeader title="Duyurular" helpTopic="duyurular" />
+      <AdminHeader
+        title="Duyurular"
+        description="Duyurular sayfasında liste olarak görünür. Kısa resmi bildirimler için."
+        helpTopic="duyurular"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {/* Top bar */}

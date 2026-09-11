@@ -513,7 +513,11 @@ export default function AdminMenuPage() {
 
   return (
     <>
-      <AdminHeader title="Site Menüsü" helpTopic="menu" />
+      <AdminHeader
+        title="Site Menüsü"
+        description="Sitenin üst menüsü. Yeni sayfalar buraya elle eklenir."
+        helpTopic="menu"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">

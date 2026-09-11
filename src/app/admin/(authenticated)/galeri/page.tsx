@@ -301,7 +301,11 @@ export default function AdminGalleryPage() {
 
   return (
     <>
-      <AdminHeader title="Foto Galeri" helpTopic="galeri" />
+      <AdminHeader
+        title="Fotoğraf Galerisi"
+        description="Galeri sayfasında albüm albüm görünür."
+        helpTopic="galeri"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-end mb-4">

@@ -53,7 +53,8 @@ export const helpContent: Record<string, HelpTopic> = {
 
   haberler: {
     title: "Haberler",
-    intro: "Sitedeki haberleri yönetirsin. Buradan eklediklerin anasayfada ve haberler sayfasında görünür.",
+    intro:
+      "Sitedeki haberleri yönetirsin. Buradan eklediklerin anasayfada ve haberler sayfasında görünür. Ölçüt: görselli, akan içerik → Haber.",
     sections: [
       {
         id: "yeni",
@@ -99,7 +100,8 @@ export const helpContent: Record<string, HelpTopic> = {
 
   duyurular: {
     title: "Duyurular",
-    intro: "Üyelere ve ziyaretçilere ulaştırmak istediğin resmi bilgilendirmeler.",
+    intro:
+      "Üyelere ve ziyaretçilere ulaştırmak istediğin resmi bilgilendirmeler. Ölçüt: kısa resmi bildirim → Duyuru.",
     sections: [
       {
         id: "fark",
@@ -126,13 +128,14 @@ export const helpContent: Record<string, HelpTopic> = {
   },
 
   slider: {
-    title: "Anasayfa Slider",
-    intro: "Anasayfanın üstünde dönen büyük görsel alan. Öne çıkarmak istediklerin için kullanılır.",
+    title: "Kapak Görselleri",
+    intro:
+      "Anasayfanın en üstündeki büyük görsel alan. YALNIZCA aktif manşet yokken gösterilir.",
     sections: [
       {
         id: "fark",
-        title: "Manşetten Farkı",
-        body: "Slider sayfanın en üstünde, kapak gibi davranır. Manşet ise içerik bölümünde öne çıkan haberler için kullanılır.",
+        title: "Manşetle İlişkisi",
+        body: "Aynı alanı paylaşırlar, iki ayrı bölüm değildir: aktif manşet varsa manşetler gösterilir, kapak görselleri gizlenir. Kapak görselleri, manşet kullanmayan siteler için yedektir. Hangisini kullanacağınız size kalmış — kapak görsellerini göstermek için manşetleri pasife alın.",
       },
       {
         id: "yeni",
@@ -154,7 +157,8 @@ export const helpContent: Record<string, HelpTopic> = {
 
   manset: {
     title: "Manşetler",
-    intro: "Anasayfanın öne çıkan haber/duyuru bölümü. 'Günün haberi' niteliğindeki içerikleri vurgular.",
+    intro:
+      "Anasayfanın en üstünde dönen büyük alan. 'Günün haberi' niteliğindeki içerikleri vurgular; manşet varken Kapak Görselleri gösterilmez.",
     sections: [
       {
         id: "yeni",
@@ -217,7 +221,7 @@ export const helpContent: Record<string, HelpTopic> = {
   },
 
   sayfalar: {
-    title: "Sabit Sayfalar",
+    title: "Sayfalar",
     intro: "Hakkımızda, Tüzük, Misyon Vizyon gibi statik içerikli sayfalar oluşturursun.",
     sections: [
       {
@@ -244,7 +248,7 @@ export const helpContent: Record<string, HelpTopic> = {
   },
 
   galeri: {
-    title: "Foto Galeri",
+    title: "Fotoğraf Galerisi",
     intro: "Fotoğrafları etkinliklere göre albümler halinde organize edersin.",
     sections: [
       {
@@ -379,7 +383,8 @@ export const helpContent: Record<string, HelpTopic> = {
 
   kategoriler: {
     title: "Haber Kategorileri",
-    intro: "Haberleri konularına göre gruplamak için kullanılan etiketler.",
+    intro:
+      "Haberleri konularına göre gruplamak için kullanılan etiketler. Sitede yalnızca haber kartındaki etiket olarak görünür; kategoriye tıklayınca açılan bir liste sayfası yoktur.",
     sections: [
       {
         id: "kullanim",
@@ -415,13 +420,13 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "Kaynak türü seç.", outcome: "Haberler/Duyurular: otomatik gösterir. Özel: içerikleri sen eklersin." },
           { text: "Öğe sayısı ve düzeni (4'lü/8'li grid) seç." },
           { text: "Kaydet." },
-          { text: "'Özel' seçtiysen listedeki 'Öğeler' butonuyla bölümün içine girip öğeleri ekle." },
+          { text: "'Özel' seçtiysen listedeki 'İçerik' butonuyla bölümün içine girip kartları ekle." },
         ],
       },
       {
         id: "ogeler",
-        title: "Özel Bölüm Öğeleri",
-        body: "Kaynağı 'Özel' olan bölümlerin içeriğini öğe öğe kendin eklersin. Listede bölümün yanındaki 'Öğeler' butonuna basınca öğe yönetim sayfası açılır. Haberler/Duyurular kaynaklı bölümlerde bu buton yoktur — içerik otomatik beslenir, elle öğe eklenmez.",
+        title: "Özel Bölüm İçeriği",
+        body: "Kaynağı 'Özel' olan bölümlerin içeriğini tek tek kendin eklersin. Listede bölümün yanındaki 'İçerik' butonuna basınca bölüm içeriği sayfası açılır. Haberler/Duyurular kaynaklı bölümlerde bu buton yoktur — içerik otomatik beslenir, elle eklenmez.",
         steps: [
           { text: "'Öğe Ekle'ye bas." },
           { text: "Başlığı yaz; istersen 1-2 satırlık kısa açıklama ekle." },

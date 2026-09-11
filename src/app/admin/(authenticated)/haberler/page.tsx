@@ -152,7 +152,11 @@ export default function AdminNewsListPage() {
 
   return (
     <>
-      <AdminHeader title="Haberler" helpTopic="haberler" />
+      <AdminHeader
+        title="Haberler"
+        description="Anasayfada ve haberler sayfasında görünür. Görselli, akan içerik için."
+        helpTopic="haberler"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {/* Top bar */}

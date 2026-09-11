@@ -276,13 +276,15 @@ export default function AdminNewsCategoriesPage() {
 
   return (
     <>
-      <AdminHeader title="Haber Kategorileri" helpTopic="kategoriler" />
+      <AdminHeader
+        title="Haber Kategorileri"
+        description="Haber kartlarında etiket olarak görünür; ayrı bir kategori sayfası yoktur."
+        helpTopic="kategoriler"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4 gap-3">
-            <p className="text-sm text-text-muted">
-              Haberlerin kategorilendirileceği etiketleri yönetin. Sürükleyerek sıralayabilirsiniz.
-            </p>
+            <p className="text-sm text-text-muted">Sürükleyerek sıralayabilirsiniz.</p>
             <Button onClick={openNew} className="shrink-0">
               <Plus className="h-4 w-4" />
               Yeni Kategori

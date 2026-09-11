@@ -345,7 +345,7 @@ export default function AdminSectionItemsPage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Bölüm Öğeleri" breadcrumbs={breadcrumbs} helpTopic="anasayfa-bolumleri" />
+        <AdminHeader title="Bölüm İçeriği" breadcrumbs={breadcrumbs} helpTopic="anasayfa-bolumleri" />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -372,7 +372,7 @@ export default function AdminSectionItemsPage() {
   return (
     <>
       <AdminHeader
-        title={section ? `${section.title} — Öğeler` : "Bölüm Öğeleri"}
+        title={section ? `${section.title} — İçerik` : "Bölüm İçeriği"}
         breadcrumbs={breadcrumbs}
         helpTopic="anasayfa-bolumleri"
       />

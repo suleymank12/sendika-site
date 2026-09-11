@@ -12,12 +12,25 @@ import HelpButton from "@/components/admin/HelpButton";
 
 interface AdminHeaderProps {
   title: string;
+  /**
+   * Basligin altindaki tek satir: bu ekranin ciktisi sitede NEREDE gorunur.
+   * Yardim kutusunu acmadan okunur (panel bilgi mimarisi turu, 12 Eylul 2026).
+   * Kart icindeki "nasil kullanilir" satirlarindan farkli bir is yapar; ikisi
+   * birlikte durabilir.
+   */
+  description?: string;
   action?: React.ReactNode;
   breadcrumbs?: { label: string; href?: string }[];
   helpTopic?: string;
 }
 
-export default function AdminHeader({ title, action, breadcrumbs, helpTopic }: AdminHeaderProps) {
+export default function AdminHeader({
+  title,
+  description,
+  action,
+  breadcrumbs,
+  helpTopic,
+}: AdminHeaderProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -117,6 +130,9 @@ export default function AdminHeader({ title, action, breadcrumbs, helpTopic }: A
             <h1 className="text-lg font-bold text-text-dark tracking-tight truncate">{title}</h1>
             {helpTopic && <HelpButton topic={helpTopic} />}
           </div>
+          {description && (
+            <p className="text-xs text-text-muted truncate">{description}</p>
+          )}
         </div>
       </div>
 

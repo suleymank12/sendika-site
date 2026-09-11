@@ -430,7 +430,11 @@ export default function AdminBranchesPage() {
 
   return (
     <>
-      <AdminHeader title="Şubeler" helpTopic="subeler" />
+      <AdminHeader
+        title="Şubeler"
+        description="Şubeler sayfasında ve şube detaylarında görünür."
+        helpTopic="subeler"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-end mb-4">

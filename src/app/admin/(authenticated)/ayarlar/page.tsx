@@ -255,7 +255,11 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <>
-        <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
+        <AdminHeader
+          title="Site Ayarları"
+          description="Site geneli: başlık, logo, renk, iletişim, sosyal hesaplar."
+          helpTopic="ayarlar"
+        />
         <div className="flex items-center justify-center h-64">
           <Loading text="Yükleniyor..." />
         </div>
@@ -267,7 +271,11 @@ export default function AdminSettingsPage() {
   if (loadFailed) {
     return (
       <>
-        <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
+        <AdminHeader
+          title="Site Ayarları"
+          description="Site geneli: başlık, logo, renk, iletişim, sosyal hesaplar."
+          helpTopic="ayarlar"
+        />
         <div className="p-4 lg:p-6">
           <div className="max-w-xl mx-auto mt-12 rounded-xl border border-error/30 bg-error/5 p-6 text-center">
             <p className="font-medium text-text-dark">Ayarlar yüklenemedi.</p>
@@ -296,7 +304,11 @@ export default function AdminSettingsPage() {
     // flex min-h-full flex-col + icerikte flex-1: icerik viewport'tan kisa
     // kaldiginda sticky bar ortada asili kalmasin, en alta otursun.
     <div className="flex min-h-full flex-col">
-      <AdminHeader title="Site Ayarları" helpTopic="ayarlar" />
+      <AdminHeader
+        title="Site Ayarları"
+        description="Site geneli: başlık, logo, renk, iletişim, sosyal hesaplar."
+        helpTopic="ayarlar"
+      />
       <div className="flex-1 p-4 lg:p-6 pb-24">
         <div className="space-y-6">
           {/* Genel */}

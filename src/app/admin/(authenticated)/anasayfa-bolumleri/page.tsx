@@ -162,10 +162,10 @@ function SortableSectionCard({
         <button
           onClick={() => onManageItems(section)}
           className="flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs text-text-muted hover:text-primary hover:border-primary/40 transition-colors"
-          title="Öğeleri yönet"
+          title="Bölüm içeriğini yönet"
         >
           <ListOrdered className="h-3.5 w-3.5" />
-          Öğeler
+          İçerik
         </button>
       )}
 
@@ -386,7 +386,11 @@ export default function AdminHomepageSectionsPage() {
 
   return (
     <>
-      <AdminHeader title="Anasayfa Bölümleri" helpTopic="anasayfa-bolumleri" />
+      <AdminHeader
+        title="Anasayfa Bölümleri"
+        description="Anasayfanın gövdesinde, haber bloklarının altında görünür."
+        helpTopic="anasayfa-bolumleri"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-between mb-4">

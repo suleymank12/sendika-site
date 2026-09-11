@@ -121,7 +121,11 @@ export default function AdminPagesListPage() {
 
   return (
     <>
-      <AdminHeader title="Sabit Sayfalar" helpTopic="sayfalar" />
+      <AdminHeader
+        title="Sayfalar"
+        description="Hakkımızda, Tüzük gibi kendi adresi olan sayfalar. Menüye elle eklenir."
+        helpTopic="sayfalar"
+      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-end mb-4">
