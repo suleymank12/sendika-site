@@ -2,7 +2,7 @@
 -- 000_baseline.sql — CANLI SEMANIN TAM DOKUMU (uretilmis dosya, ELLE DUZENLEMEYIN)
 -- =============================================================================
 --
--- Uretim tarihi : 2026-09-10 12:35 UTC
+-- Uretim tarihi : 2026-09-11 19:52 UTC
 -- Uretim araci  : scripts/dump-baseline.sh
 -- pg_dump       : pg_dump (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg22.04+2)
 -- Sunucu        : PostgreSQL 17.6
@@ -12,7 +12,8 @@
 -- olarak archive/ altinda duruyor.
 --
 -- ICERIK: eklentiler + public sema (tablo/index/constraint/RLS/policy/
--- fonksiyon/trigger/GRANT/COMMENT) + storage.objects policy'leri.
+-- fonksiyon/trigger/GRANT/COMMENT) + storage.objects policy'leri +
+-- rol bazli REVOKE'lar (Bolum D — pg_dump'in yazamadigi kisitlar).
 -- VERI ICERMEZ. Tohum icin: 001_seed_default.sql (baseline'dan SONRA).
 --
 -- CALISTIRMA (KURULUM.md Adim 3):
@@ -1868,6 +1869,20 @@ CREATE POLICY images_tenant_update ON storage.objects
   USING (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND public.user_has_tenant_access(((storage.foldername(name))[1])::uuid)))
   WITH CHECK (((bucket_id = 'images'::text) AND (name ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/'::text) AND public.user_has_tenant_access(((storage.foldername(name))[1])::uuid)));
 
+
+-- =============================================================================
+-- BOLUM D — ROL BAZLI REVOKE'LAR (pg_dump'in yazamadigi kisitlar)
+-- =============================================================================
+-- Kaynak: canli pg_proc. Canlida ilgili rolun EXECUTE'u OLMAYAN her public
+-- fonksiyon icin bir satir. Neden: pg_dump ACL'i PostgreSQL'in sabit
+-- varsayilanina (sahip + PUBLIC) gore fark olarak yazar ve bir rolun
+-- YOKLUGUNU yazamaz. Bu proje ise fonksiyonlari Supabase'in ALTER DEFAULT
+-- PRIVILEGES'i altinda yaratir: anon/authenticated/service_role EXECUTE'u
+-- CREATE aninda alir ve Bolum B'deki 'REVOKE ... FROM PUBLIC' bunlari
+-- KALDIRMAZ. Bu satirlar olmadan canlida 022 ile anon'dan alinan
+-- is_super_admin EXECUTE'u yeni kurulumda GERI GELIR (tatbikat BUG 3).
+-- Dogrulama: KURULUM.md Adim 11, sorgu 4 (anon -> false).
+REVOKE ALL ON FUNCTION public.is_super_admin(uuid) FROM anon;
 
 -- =============================================================================
 -- 000_baseline.sql sonu
