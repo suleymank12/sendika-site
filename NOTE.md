@@ -1084,7 +1084,7 @@ ayarları — Auth URL'leri, SMTP, e-posta şablonları — ve canlı deploy bun
 | 2 | `--no-acl` + plain format (şema yedekten kurulamaz, seçici yükleme yok) | ✅ `scripts/backup-db.sh` (custom, ACL dahil) — cron'da; ilk koşumu (11 Eylül 04:00) tatbikatta kullanıldı |
 | 3 | Görseller DB'de tam URL, host kontrolleri joker → yeni projede sessizce eski projeden | ✅ `rewrite-storage-urls.mjs` — tatbikatta 30 adres → yeniden tarama 0; sayfada canlı ref yok |
 | 4 | Storage geri yükleme aracı yok | ✅ `restore-storage.mjs` — tatbikatta 76/76, hata 0, 2. koşum 0 |
-| 5 | Yedekler uygulamayla aynı VPS'te; service_role anahtarı ve DB şifresi de orada | 📋 BACKLOG (aşağıda) |
+| 5 | Yedekler uygulamayla aynı VPS'te; service_role anahtarı ve DB şifresi de orada | 📋 BACKLOG — **açık**, ama 12 Eylül 2026'da **bilinçli karara** bağlandı: bugünkü ölçekte (tek müşteri, DB ~272 KB + storage ~36 MB) risk kabul edildi; "işler büyüyünce" nesne kilitli buluta (B2) taşınacak. Karar ve seçenek tablosu aşağıda |
 | 6 | DB yedek script'i repoda yok, şifre düz metin | ✅ Repoda, şifre `.pgpass`'te, cron'da — **eski script'in silinmesi bekliyor** (cron geçişi 7. adım: birkaç gece OK sonrası; eski script ve `.bak`'ta şifre düz metin) |
 | 7 | Yedek başarısızlığı kimseye bildirilmiyor (yalnız log) | ✅ **Kapatıldı** (12 Eylül 2026): Healthchecks.io dead-man's switch — iki script de başarıda ping atıyor, hatada `/fail`; 25 saat sessizlik → e-posta. "✅ KAPATILDI — Yedek başarısızlığı bildirimi" |
 | 8 | Proje ayarları yedekte değil: Auth URL'leri (custom domain satırları dahil), SMTP, e-posta şablonları, OTP süresi, API anahtarları | Belgeli (KURULUM + NOTE). Yeni projede anahtarlar değişir → `.env` + **yeniden build** (`NEXT_PUBLIC_*` build'e gömülü) + deploy. Tatbikat kontrol listesinde |
@@ -1118,13 +1118,50 @@ bucket'a gece kopyası; ya da kopyayı başka bir makinenin VPS'ten **çekmesi**
 (pull — VPS'te o hedefe yazma/silme yetkisi olmaz). Şifreleme (dökümlerde
 şifre hash'leri ve kişisel veri var) ve saklama süresi birlikte düşünülmeli.
 
+## 🅿️ KARAR (12 Eylül 2026) — şimdilik aynı sunucuda KALIYOR
+
+Madde **açık kalıyor**, ama artık "henüz sıra gelmedi" değil, **bilinçli bir
+karara** bağlı: risk görüldü, ölçüldü ve **kabul edildi**.
+
+**Gerekçe — bugünkü ölçek:** tek gerçek müşteri (Kurmay) + demo kurumu. Veri
+hacmi küçük: **DB ~272 KB**, **storage ~36 MB**. Kaybın bugünkü maliyeti,
+ikinci bir saklama katmanını kurmanın ve sürdürmenin maliyetinin altında.
+
+🔴 **Kabul edilen risk (küçültülmedi, sadece kabul edildi):** sunucu ele
+geçirilirse ya da disk/sağlayıcı giderse **hem Supabase verisi hem yedekler**
+birlikte kaybolabilir — service_role anahtarı da DB şifresi de o sunucuda.
+Supabase **Free** planda olduğu için Supabase'in kendi günlük yedeği de **YOK**
+("🧾 SUPABASE PLANI"). Yani bugün tek kopya var ve o kopya saldırganın
+erişebildiği yerde.
+
+**Tetikleyici — "işler büyüyünce":** birden fazla **gerçek** müşteri olduğunda
+ya da veri hacmi anlamlı hâle geldiğinde madde yeniden ele alınacak. Bu iki
+şarttan biri olurken kararın kendiliğinden gözden geçirilmesi gerekiyor —
+karar tarihli ve şartlı, kalıcı değil.
+
+**Değerlendirilen seçenekler:**
+
+| | Seçenek | Koruma | Neden şimdi değil |
+|---|---|---|---|
+| **a** ✅ | **Nesne kilitli bulut** (Backblaze B2, ücretsiz 10 GB) | **En güçlü** — sunucu ele geçirilse bile yedekler **SİLİNEMEZ** (object lock) | Yaklaşık **1 saatlik iş**; bugünkü hacimde acil değil |
+| b | Başka makinenin **çekmesi** (pull) | Güçlü — VPS'in hedefe yazma/silme yetkisi yok | Çeken makine **sürekli açık** olmalı; evde/ofiste sürekli açık makine yok |
+| c | Drive / Dropbox | **Zayıf** — sunucu silme yetkisine de sahip olur, asıl senaryoda (ele geçirme) korumaz | Kolay ama yanlış aracı; "yedek var" yanılsaması yaratır |
+
+**Seçilen yön (büyüyünce uygulanacak): (a) nesne kilitli bulut.** 10 GB
+ücretsiz kota bugünkü ~36 MB'ın çok üstünde; asıl kazanç ücretsiz olması değil,
+**VPS'in silememesi** — bu backlog'un tek gerçek çözümü o.
+
+Uygulanırken birlikte düşünülecekler (yukarıdaki çözüm yönünden): dökümlerin
+**şifrelenmesi** (şifre hash'leri + kişisel veri var) ve **saklama süresi**.
+
 ---
 
 # ✅ KAPATILDI — Yedek başarısızlığı bildirimi (dead-man's switch) (11 → 12 Eylül 2026)
 
-**Durum:** ✅ **KAPATILDI** (12 Eylül 2026) — **Healthchecks.io** kuruldu, iki
-yedek script'i de başarıda ping atıyor. ("Yedekten geri yükleme" teşhisinin
-7. boşluğu.)
+**Durum:** ✅ **KAPATILDI ve CANLIDA DOĞRULANDI** (12 Eylül 2026) —
+**Healthchecks.io** kuruldu, iki yedek script'i de başarıda ping atıyor; başarı
+VE `/fail` yolları canlıda uçtan uca denendi (aşağıda "Canlı doğrulama").
+("Yedekten geri yükleme" teşhisinin 7. boşluğu.)
 
 **Sorun (kapanmadan önceki hâl):** iki yedek de sonucu yalnız log'a yazıyordu
 (`/var/backups/supabase/yedek.log`, `/var/backups/storage/yedek.log`, cron
@@ -1239,6 +1276,40 @@ Ping yan iştir; yedeğin geçerliliğini ve çıkış kodunu **değiştirmez**:
 | `scripts/test-backup-db.sh` | Bölüm **(h)**: stub `curl` ile 32 kontrol; toplam 94 |
 
 Testler ağ KULLANMAZ: `curl` stub'lanır, Node tarafında `fetch` enjekte edilir.
+
+## ✅ Canlı doğrulama (VPS, 12 Eylül 2026)
+
+Stub testleri kodu kilitler ama gerçek zincirin (dosya → script → ağ →
+Healthchecks → e-posta) çalıştığını göstermez. O yüzden canlıda uçtan uca
+denendi — **her iki yol da**:
+
+| # | Yapılan | Sonuç |
+|---|---|---|
+| 1 | `/root/healthchecks.env` oluşturuldu (`chmod 600`, iki adres) | — |
+| 2 | `backup-db.sh` elle koşturuldu | `durum=OK ... kullanici=3` + `healthchecks: ping gönderildi` |
+| 3 | `backup-storage.mjs` elle koşturuldu | 76 dosya, **hata 0** + `[HEALTHCHECKS] ping gönderildi` |
+| 4 | Healthchecks paneli | İki kontrol de **YEŞİL** |
+| 5 | `/fail` yolu: `PGPASSFILE=/root/yok-boyle.pgpass` ile koşum | Panel **anında KIRMIZI**, **e-posta geldi** |
+| 6 | E-posta gövdesi | `durum=HATA sebep=şifre dosyası yok: /root/yok-boyle.pgpass` |
+| 7 | Normal koşum tekrarlandı | Panel **yeşile döndü** |
+
+**Kanıtlanan üç şey:**
+
+1. Başarı ping'i gerçekten gidiyor ve kontrolü yeşilde tutuyor — dead-man's
+   switch **kurulu**, sessizlik artık alarm demek.
+2. `/fail` kararı işe yarıyor: alarm **beklemeden** çaldı. 25 saatlik sessizlik
+   yolu beklenmedi.
+3. **Sebep e-postanın içinde görünüyor** — `/fail` gövdesine hata satırını
+   koymanın asıl kazancı buydu (bkz. yukarıdaki `/fail` karar tablosu).
+   Sunucuya bakmadan neyin bozulduğu okunuyor.
+
+Adım 5 bilerek **gerçek bir hata senaryosuyla** yapıldı (sahte `curl` ile değil):
+`.pgpass` yolu bozulunca script zaten erken `fail()` ediyor ve o kod yolu
+`hc_yukle`'den sonra geldiği için `/fail` atabiliyor — kurulum sırası da böylece
+doğrulanmış oldu.
+
+> Adresler bilerek yazılmadı: uuid'ler sır (bkz. yukarıdaki `/root/healthchecks.env`
+> bölümü). Yalnız sunucudaki dosyada duruyor.
 
 ## ⚠️ YENİ SUNUCU KURULUMUNDA
 
