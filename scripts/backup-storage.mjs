@@ -81,6 +81,26 @@
  * BEKLENEN ILK KULLANIM: goc sonrasi kalan 48 prefix'siz dosya yakinda
  * silinecek. Bu script onlari once normal sekilde yedekler; silindikten
  * sonraki ilk kosumda _silinenler/{tarih}/ altina tasir ve 30 gun tutar.
+ *
+ * =========================================================================
+ * KARAR 3 — BASARI SINYALI (dead-man's switch, 12 Eylul 2026)
+ * =========================================================================
+ * Kosum basariyla biterse Healthchecks.io'ya ping atilir; 25 saat (1 gun +
+ * 1 saat grace) ping gelmezse e-posta gelir. "Hata olunca bildir" YETMEZ:
+ * cron hic calismazsa hata da olusmaz, log satiri da yazilmaz.
+ *
+ * HATADA /fail: gerekce, ping ATMAMAK zaten 25 saat sonra alarm demektir;
+ * /fail ayni alarmi HEMEN ve SEBEBIYLE verir. Iki hata turu de /fail atar:
+ *   - olumcul hata (listeleme/baglanti): ayna guvenilir degil
+ *   - tek tek dosya hatalari (hata > 0): ayna EKSIK; cikis kodu zaten 1
+ *
+ * ADRES REPODA DURMAZ (adresi bilen sahte "basarili" ping atip alarmi
+ * susturabilir) — sunucuda /root/healthchecks.env, izin 600:
+ *     HC_URL_STORAGE=https://hc-ping.com/<uuid>
+ * Ayrintili gerekce ve ayristirma kurallari: scripts/lib/healthchecks.mjs.
+ *
+ * Ping YAN IS: adres yoksa, ag yoksa, Healthchecks kapaliysa yalniz konsola
+ * not dusulur — yedegin sonucu ve cikis kodu DEGISMEZ.
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -100,6 +120,7 @@ import { join, dirname, resolve, posix } from "path";
 import { fileURLToPath } from "url";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
+import { pingAdresiCoz, pingAt } from "./lib/healthchecks.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -178,6 +199,28 @@ function insanBoyut(bayt) {
 
 function bugununTarihi() {
   return new Date().toISOString().slice(0, 10); // YYYY-AA-GG
+}
+
+/**
+ * Healthchecks ping'i (KARAR 3). Adres bir kez cozulur; hicbir kosulda
+ * throw etmez, cagiranin cikis kodunu etkilemez.
+ * @param {"" | "/fail"} sonEk
+ * @param {string} govde
+ */
+let hcAdres = null;
+async function hcPing(sonEk, govde) {
+  const yaz = (n) => console.log(`  [HEALTHCHECKS] ${n}`);
+  try {
+    if (!hcAdres) {
+      hcAdres = pingAdresiCoz({ anahtar: "HC_URL_STORAGE" });
+      hcAdres.notlar.forEach(yaz);
+    }
+    const { notlar } = await pingAt({ url: hcAdres.url, sonEk, govde });
+    notlar.forEach(yaz);
+  } catch (err) {
+    // pingAt throw etmez; yine de yan is asil isi cokertmesin.
+    yaz(`UYARI: ping katmani hata verdi: ${err instanceof Error ? err.message : err}`);
+  }
 }
 
 /** Uzak yolu ({tenant}/{klasor}/{dosya}) yerel mutlak yola cevirir. */
@@ -503,22 +546,34 @@ async function main() {
   }
   console.log("=".repeat(70));
 
+  // Basari sinyali EN SON (KARAR 3): hata varsa ayna EKSIK -> /fail.
+  if (hata > 0) {
+    const ilk = hataListesi[0];
+    await hcPing(
+      "/fail",
+      `${logSatiri}\n\nIlk hata: ${ilk ? `${ilk.yol}: ${ilk.mesaj}` : "?"}`
+    );
+  } else {
+    await hcPing("", logSatiri);
+  }
+
   // Cron log'unda gorunsun diye hata varsa 1
   process.exitCode = hata > 0 ? 1 : 0;
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   // Listeleme/baglanti gibi olumcul hatalar: yedek guvenilir degil.
-  console.error("OLUMCUL HATA:", err instanceof Error ? err.message : err);
+  const mesaj = err instanceof Error ? err.message : String(err);
+  console.error("OLUMCUL HATA:", mesaj);
   try {
     appendFileSync(
       join(HEDEF, LOG_DOSYASI),
-      `${new Date().toISOString()} | OLUMCUL HATA: ${
-        err instanceof Error ? err.message : String(err)
-      }\n`
+      `${new Date().toISOString()} | OLUMCUL HATA: ${mesaj}\n`
     );
   } catch {
     /* log yazilamiyorsa da cikis kodu sinyali yeterli */
   }
+  // Hemen alarm (KARAR 3) — ping bassa da dusse de cikis kodu 1.
+  await hcPing("/fail", `OLUMCUL HATA: ${mesaj}`);
   process.exit(1);
 });

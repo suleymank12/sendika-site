@@ -18,6 +18,9 @@
 #       ilgisiz dosya kalir — YALNIZ dogrulama gectiyse
 #   (f) sifre dosyasi yok / izni 644 → exit 1, pg_dump hic cagrilmaz
 #   (g) kilit: ayni anda ikinci kosum → exit 1
+#   (h) Healthchecks ping'i (stub curl): basarida adres + ozet govdesi,
+#       dogrulama dusunce /fail, kilit cakismasinda ping YOK, adres yok /
+#       https degil / curl yok → sessiz gecer, ping dusse de exit 0
 #
 # TOC fiksturu GERCEK pg_restore 17.11 ciktisinin bicimi (11 Eylul 2026'da
 # yerel PostgreSQL 17.11'e karsi alinan -Fc dokumunden — NOTE.md). Gercek
@@ -91,6 +94,28 @@ if [ "${STUB_RESTORE_EXIT:-0}" != 0 ]; then
 fi
 cat "$STUB_TOC"
 STUB
+# Healthchecks ping'i: son cagrinin adresi ve govdesi ayri dosyalara yazilir.
+# STUB_CURL_EXIT=28 → ag hatasi taklidi (yedegi cokertmemeli).
+cat > "$T/bin/curl" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$@" > "$STUB_DIR/curl.args"
+adres=""; govde=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --data-raw) govde="$2"; shift 2 ;;
+    -H|-o|-m|--connect-timeout|--retry|--retry-delay) shift 2 ;;
+    -*) shift ;;
+    *) adres="$1"; shift ;;
+  esac
+done
+printf '%s' "$adres" > "$STUB_DIR/curl.url"
+printf '%s' "$govde" > "$STUB_DIR/curl.body"
+if [ "${STUB_CURL_EXIT:-0}" != 0 ]; then
+  echo "curl: (28) Operation timed out after 10000 milliseconds" >&2
+  exit 28
+fi
+exit 0
+STUB
 chmod +x "$T/bin/"*
 
 # TOC fikstuuru — gercek bicim; $1 = cikarilacak satir deseni (grep -v)
@@ -129,11 +154,21 @@ make_toc "$T/toc-tam"
 printf 'aws-0-eu-west-1.pooler.supabase.com:5432:postgres:postgres.test:gizli\n' > "$T/pgpass"
 chmod 600 "$T/pgpass"
 
+# Healthchecks adres dosyasi — gercekte /root/healthchecks.env, izin 600.
+HC="https://hc-ping.com/00000000-1111-2222-3333-444444444444"
+printf 'HC_URL_STORAGE=https://hc-ping.com/bu-digeri\nHC_URL_DB=%s\n' "$HC" > "$T/hc.env"
+chmod 600 "$T/hc.env"
+
+# Onceki kosumdan kalan ping izlerini sil (bayat dosya sahte PASS uretmesin).
+hc_temizle() { rm -f "$T/curl.args" "$T/curl.url" "$T/curl.body"; }
+hc_adres() { cat "$T/curl.url" 2>/dev/null || echo "CAGRILMADI"; }
+
 # run <dizin> [ENV=deger ...] → cikis kodu; cikti $T/out
+# (env atamalari soldan saga islenir: "$@" ile gelen ayni adli degisken kazanir)
 run() {
   local dir="$1"; shift
   env PATH="$T/bin:$PATH" PGPASSFILE="$T/pgpass" KILIT="$T/kilit" STUB_DIR="$T" \
-    STUB_TOC="$T/toc-tam" PGPASSWORD="kabukta-kalmis-sifre" "$@" \
+    STUB_TOC="$T/toc-tam" PGPASSWORD="kabukta-kalmis-sifre" HEALTHCHECKS_ENV="$T/hc.env" "$@" \
     bash "$SCRIPT" "$dir" > "$T/out" 2>&1
   echo $?
 }
@@ -253,6 +288,115 @@ if command -v flock >/dev/null 2>&1; then
 else
   echo "  ATLANDI  flock yok (kilit testi)"
 fi
+
+# ---------------------------------------------------------------------------
+echo ""
+echo "(h) Healthchecks basari sinyali"
+echo ""
+{
+  # --- basarili kosum: adres + ozet govdesi -------------------------------
+  hc_temizle
+  dir="$T/hc-ok"; mkdir -p "$dir"
+  ok "basarili kosum → exit 0" "$(run "$dir")" 0
+  ok "ping adresi (sonek YOK)" "$(hc_adres)" "$HC"
+  has "govde ozet satiri (durum=OK ...)" "$T/curl.body" '^durum=OK dosya=yedek-.*public=20/20 kullanici=7 sikistirma=gzip silinen=0$'
+  hasnt "govdede zaman damgasi yok (log satirinin kendisi degil)" "$T/curl.body" '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'
+  has "curl zaman asimli (-m)" "$T/curl.args" '^-m$'
+  has "curl baglanti zaman asimli" "$T/curl.args" '^--connect-timeout$'
+  has "curl yeniden deniyor (tek hickirik sahte alarm olmasin)" "$T/curl.args" '^--retry$'
+  hasnt "ping notu yedek.log'a YAZILMAZ (tek satir bicimi korunur)" "$dir/yedek.log" 'healthchecks'
+  has "ping notu cron log'una (stdout) yazildi" "$T/out" 'healthchecks: ping gönderildi'
+
+  # --- dogrulama dusunce /fail --------------------------------------------
+  hc_temizle
+  dir="$T/hc-fail"; mkdir -p "$dir"
+  make_toc "$T/toc-hc" ' TABLE DATA auth users '
+  ok "dogrulama dustu → exit 1" "$(run "$dir" STUB_TOC="$T/toc-hc")" 1
+  ok "ping adresi /fail" "$(hc_adres)" "$HC/fail"
+  has "govdede sebep var" "$T/curl.body" '^durum=HATA sebep=.*auth users verisi yok'
+
+  # --- pg_dump / sifre dosyasi hatasi da /fail -----------------------------
+  hc_temizle
+  dir="$T/hc-dump"; mkdir -p "$dir"
+  ok "pg_dump hatasi → exit 1" "$(run "$dir" STUB_PGDUMP_EXIT=1)" 1
+  ok "pg_dump hatasi → /fail" "$(hc_adres)" "$HC/fail"
+  hc_temizle
+  ok "sifre dosyasi yok → exit 1" "$(run "$T/hc-pgpass" PGPASSFILE="$T/yok")" 1
+  ok "sifre dosyasi yok → /fail" "$(hc_adres)" "$HC/fail"
+
+  # --- kilit cakismasi: ping YOK (isi oteki kosum yapiyor) -----------------
+  if command -v flock >/dev/null 2>&1; then
+    hc_temizle
+    flock "$T/kilit" sleep 3 &
+    kpid=$!
+    sleep 0.5
+    dir="$T/hc-kilit"; mkdir -p "$dir"
+    ok "kilit cakismasi → exit 1" "$(run "$dir")" 1
+    ok "kilit cakismasinda HIC ping yok (sahte alarm olmaz)" "$(hc_adres)" CAGRILMADI
+    wait "$kpid" 2>/dev/null
+  else
+    echo "  ATLANDI  flock yok (kilit + ping testi)"
+  fi
+
+  # --- adres yok / gecersiz: sessizce gec, yedek etkilenmesin --------------
+  hc_temizle
+  ok "adres dosyasi yok → yedek yine exit 0" "$(run "$T/hc-yok" HEALTHCHECKS_ENV="$T/olmayan.env")" 0
+  ok "adres yok → curl cagrilmadi" "$(hc_adres)" CAGRILMADI
+  has "adres yok → cron log'unda uyari" "$T/out" "dead-man's switch DEVRE DIŞI"
+
+  hc_temizle
+  printf 'HC_URL_DB=http://hc-ping.com/duz-http\n' > "$T/hc-http.env"
+  chmod 600 "$T/hc-http.env"
+  ok "https degil → yedek yine exit 0" "$(run "$T/hc-http" HEALTHCHECKS_ENV="$T/hc-http.env")" 0
+  ok "https degil → curl cagrilmadi" "$(hc_adres)" CAGRILMADI
+  has "https degil → uyari" "$T/out" 'https:// ile başlamıyor'
+
+  hc_temizle
+  printf 'HC_URL_STORAGE=%s\n' "$HC" > "$T/hc-bos.env"
+  chmod 600 "$T/hc-bos.env"
+  ok "anahtar dosyada yok → exit 0" "$(run "$T/hc-bos" HEALTHCHECKS_ENV="$T/hc-bos.env")" 0
+  ok "anahtar yok → curl cagrilmadi (digerinin adresi kullanilmaz)" "$(hc_adres)" CAGRILMADI
+
+  # --- ping'in kendisi dusse de yedek basarili -----------------------------
+  hc_temizle
+  dir="$T/hc-curl-hata"; mkdir -p "$dir"
+  ok "ping basarisiz → yedek YINE exit 0" "$(run "$dir" STUB_CURL_EXIT=28)" 0
+  has "yedek.log durum=OK (ping ana isi bozmaz)" "$dir/yedek.log" 'durum=OK'
+  has "cron log'unda ping uyarisi" "$T/out" 'ping GÖNDERİLEMEDİ'
+
+  # --- ayristirma: tirnak, bosluk, CRLF, sonuncu kazanir, / kirpilir -------
+  hc_temizle
+  printf 'HC_URL_DB=https://hc-ping.com/eski\r\n  HC_URL_DB = "%s/"   \r\n# yorum\n' "$HC" > "$T/hc-bicim.env"
+  chmod 600 "$T/hc-bicim.env"
+  ok "tirnak/bosluk/CRLF/sonuncu/slash → exit 0" "$(run "$T/hc-bicim" HEALTHCHECKS_ENV="$T/hc-bicim.env")" 0
+  ok "ayristirilan adres" "$(hc_adres)" "$HC"
+
+  # --- ortam degiskeni dosyadan once gelir (elle test) ---------------------
+  hc_temizle
+  ok "HC_URL_DB ortam degiskeni → exit 0" "$(run "$T/hc-env" HC_URL_DB="$HC/ortamdan")" 0
+  ok "ortam degiskeni dosyayi ezer" "$(hc_adres)" "$HC/ortamdan"
+
+  # --- gevsek izin: uyar ama ping'i yine at --------------------------------
+  hc_temizle
+  cp "$T/hc.env" "$T/hc-644.env"; chmod 644 "$T/hc-644.env"
+  ok "izin 644 → yedek exit 0" "$(run "$T/hc-644" HEALTHCHECKS_ENV="$T/hc-644.env")" 0
+  has "izin 644 → uyari" "$T/out" 'izni 644 — 600 olmalı'
+  ok "izin 644 → ping YINE atilir (uyari, engel degil)" "$(hc_adres)" "$HC"
+
+  # --- curl yok: yalniz sistemde curl yoksa olculebilir --------------------
+  if (PATH="/usr/bin:/bin"; command -v curl >/dev/null 2>&1); then
+    echo "  ATLANDI  sistemde gercek curl var ('curl yok' dali olculemez)"
+  else
+    hc_temizle
+    mkdir -p "$T/bin-curlsuz"
+    cp "$T/bin/psql" "$T/bin/pg_dump" "$T/bin/pg_restore" "$T/bin-curlsuz/"
+    ok "curl yok → yedek yine exit 0" \
+      "$(env PATH="$T/bin-curlsuz:/usr/bin:/bin" PGPASSFILE="$T/pgpass" KILIT="$T/kilit" \
+           STUB_DIR="$T" STUB_TOC="$T/toc-tam" HEALTHCHECKS_ENV="$T/hc.env" \
+           bash "$SCRIPT" "$T/hc-curlsuz" > "$T/out" 2>&1; echo $?)" 0
+    has "curl yok → uyari" "$T/out" 'curl yok — ping atılamıyor'
+  fi
+}
 
 # ---------------------------------------------------------------------------
 echo ""

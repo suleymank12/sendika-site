@@ -1086,7 +1086,7 @@ ayarları — Auth URL'leri, SMTP, e-posta şablonları — ve canlı deploy bun
 | 4 | Storage geri yükleme aracı yok | ✅ `restore-storage.mjs` — tatbikatta 76/76, hata 0, 2. koşum 0 |
 | 5 | Yedekler uygulamayla aynı VPS'te; service_role anahtarı ve DB şifresi de orada | 📋 BACKLOG (aşağıda) |
 | 6 | DB yedek script'i repoda yok, şifre düz metin | ✅ Repoda, şifre `.pgpass`'te, cron'da — **eski script'in silinmesi bekliyor** (cron geçişi 7. adım: birkaç gece OK sonrası; eski script ve `.bak`'ta şifre düz metin) |
-| 7 | Yedek başarısızlığı kimseye bildirilmiyor (yalnız log) | 📋 BACKLOG (aşağıda) |
+| 7 | Yedek başarısızlığı kimseye bildirilmiyor (yalnız log) | ✅ **Kapatıldı** (12 Eylül 2026): Healthchecks.io dead-man's switch — iki script de başarıda ping atıyor, hatada `/fail`; 25 saat sessizlik → e-posta. "✅ KAPATILDI — Yedek başarısızlığı bildirimi" |
 | 8 | Proje ayarları yedekte değil: Auth URL'leri (custom domain satırları dahil), SMTP, e-posta şablonları, OTP süresi, API anahtarları | Belgeli (KURULUM + NOTE). Yeni projede anahtarlar değişir → `.env` + **yeniden build** (`NEXT_PUBLIC_*` build'e gömülü) + deploy. Tatbikat kontrol listesinde |
 | 9 | Canlı projenin Supabase planı kayıtlı değil | ✅ **Kapatıldı** (12 Eylül 2026): plan **Free** → Supabase'in kendi günlük yedeği **yok**, VPS'teki yedek tek koruma. 7 gün duraklatma riski + ping cron'u: "🧾 SUPABASE PLANI" |
 | 10 | **Baseline rol bazlı REVOKE'u taşımıyor** (tatbikat adım 2, 11 Eylül): yüklenen projede `anon` `is_super_admin`'i çağırabiliyor, canlıda çağıramıyor (BUG 3) | ✅ **KAPATILDI** — script düzeltildi (Bölüm D, 26 kontrol, `6ab8730`), baseline yeniden üretildi (`233c1af`), tatbikatta sorgu 4 → `f`. Kök neden + çözüm: "🧪 TATBİKAT 3 / BUG 3" |
@@ -1120,28 +1120,139 @@ bucket'a gece kopyası; ya da kopyayı başka bir makinenin VPS'ten **çekmesi**
 
 ---
 
-# 📋 BACKLOG — Yedek başarısızlığı kimseye bildirilmiyor (11 Eylül 2026)
+# ✅ KAPATILDI — Yedek başarısızlığı bildirimi (dead-man's switch) (11 → 12 Eylül 2026)
 
-**Durum:** ⚠️ Açık — bu turda uygulanmadı ("Yedekten geri yükleme"
-teşhisinin 7. boşluğu).
+**Durum:** ✅ **KAPATILDI** (12 Eylül 2026) — **Healthchecks.io** kuruldu, iki
+yedek script'i de başarıda ping atıyor. ("Yedekten geri yükleme" teşhisinin
+7. boşluğu.)
 
-İki yedek de sonucu yalnız log'a yazıyor (`/var/backups/supabase/yedek.log`,
-`/var/backups/storage/yedek.log`, cron çıktıları `/var/log/*-yedek.log`).
-Çıkış kodu 1 kimseye ulaşmıyor; cron hiç çalışmazsa (sunucu saati, crontab
-silinmesi, disk dolu) hiçbir satır da yazılmıyor. Yedekler haftalarca sessizce
-durabilir — ancak geri yükleme gerektiğinde fark edilir.
+**Sorun (kapanmadan önceki hâl):** iki yedek de sonucu yalnız log'a yazıyordu
+(`/var/backups/supabase/yedek.log`, `/var/backups/storage/yedek.log`, cron
+çıktıları `/var/log/*-yedek.log`). Çıkış kodu 1 kimseye ulaşmıyordu; cron hiç
+çalışmazsa (sunucu saati, crontab silinmesi, disk dolu) hiçbir satır da
+yazılmıyordu. Yedekler haftalarca sessizce durabilirdi — ancak geri yükleme
+gerektiğinde fark edilirdi.
 
-**Çözüm yönü:** "başarı sinyali gelmezse alarm" (dead-man's switch): her
-başarılı koşumun sonunda harici bir izleme adresine ping; sinyal
-belirlenen sürede gelmezse e-posta. Yalnız "hata olunca e-posta" yetmez — cron
-hiç çalışmadığında hata da oluşmaz. `backup-db.sh` ve `backup-storage.mjs`
-başarıda ping atacak şekilde genişletilir.
+**Neden ters yönlü sinyal:** yalnız "hata olunca e-posta" YETMEZ — cron hiç
+çalışmadığında hata da oluşmaz. Bu yüzden script başarıyla bitince ping atar;
+**ping GELMEZSE** alarm çalar.
 
-**Araç hazır (12 Eylül 2026):** uptime izleme için açılan **UptimeRobot**
-hesabında **Heartbeat monitor** tipi var — aranan dead-man's switch tam olarak
-bu. Kurulum bu turda **yapılmadı**, ayrı iş: her yedek script'i için bir
-heartbeat monitörü + iki script'e başarıda ping satırı. Bkz. "✅ KAPATILDI —
-Harici uptime izleme".
+## Servis seçimi — UptimeRobot değil, Healthchecks.io
+
+UptimeRobot'un **Heartbeat monitor** tipi ücretli katmana ait çıktı (uptime
+izleme için açtığımız ücretsiz hesapta kullanılamıyor — bkz. "✅ KAPATILDI —
+Harici uptime izleme"). Ücretsiz alternatif **Healthchecks.io** kuruldu; aynı
+e-posta hesabı (`suleymankaraman222@gmail.com`). İki servis yan yana duruyor:
+UptimeRobot **site ayakta mı**, Healthchecks **yedek koştu mu**.
+
+| Kontrol | Period | Grace | Bildirim |
+|---|---|---|---|
+| DB Yedegi | 1 gün | 1 saat | e-posta |
+| Storage Yedegi | 1 gün | 1 saat | e-posta |
+
+Yani son başarılı ping'den **25 saat** sonra e-posta gelir. Yedekler 04:00 ve
+04:30'da koşuyor → bir gece atlanırsa ertesi gün ~05:00'te haber alınır.
+
+## Ping adresleri NEREDE durur — `/root/healthchecks.env`
+
+🔴 **Adresler bu dosyada YAZMAZ ve REPOYA GİRMEZ.** Ping adresi (uuid) bir
+sırdır: adresi bilen sahte "başarılı" ping atıp alarmı susturabilir — yedek
+bozukken her şey yolunda görünür. Sunucuda:
+
+```
+/root/healthchecks.env        sahibi root, izin 600
+HC_URL_DB=https://hc-ping.com/<uuid>
+HC_URL_STORAGE=https://hc-ping.com/<uuid>
+```
+
+**Neden bu dosya — elenen seçenekler:**
+
+| Seçenek | Neden değil |
+|---|---|
+| Cron satırında **parametre** | Komut satırı argümanları `/proc` üzerinden **tüm yerel kullanıcılara** görünür (`ps aux`); ayrıca adres crontab'a gömülür, script elle çalıştırılınca unutulur |
+| Crontab'da **ortam değişkeni** | Adres `crontab -l` çıktısına girer, crontab düzenlenirken kolayca kaybolur, her cron satırı için ayrı ayrı kurulur |
+| Repodaki **`.env`** | `.gitignore` yalnız **`.env*.local`**'i kapsıyor — düz `.env` yok sayılmıyor (12 Eylül 2026'da `git check-ignore` ile doğrulandı). Sunucuda `git add` yapan biri adresleri commit'ler. Ayrıca `.env` uygulamanın dosyası; işletim sırrı orada durmamalı |
+| **`/root/healthchecks.env`** ✅ | `.pgpass` ile **aynı desen**: sır repo ağacının dışında, root'a ait, izin 600. Cron root olarak koşuyor → okunabilir. Deploy'dan (`rsync --delete`) etkilenmez. Tek dosya = yeni sunucuda tek adım |
+
+Dosya **source EDİLMEZ**, satır satır ayrıştırılır — `.pgpass` kararının aynı
+gerekçesi: env dosyasını "source" etmek kod çalıştırmaktır. Ayrıştırma kuralı
+(iki script'te de aynı): satır başı boşluk serbest, değer tırnaklı olabilir,
+CRLF atılır, aynı anahtar iki kez geçerse **sonuncu** kazanır, adres
+`https://` ile başlamalı.
+
+**Elle test / geçici değişiklik:** `HC_URL_DB` (ya da `HC_URL_STORAGE`) ortam
+değişkeni dosyadan **önce** gelir; `HEALTHCHECKS_ENV` dosyanın yolunu
+değiştirir.
+
+## BAŞARISIZLIKTA `/fail` — evet, kullanılıyor
+
+**Karar: hata durumunda `<url>/fail` ping'i atılır.**
+
+Gerekçe: ping **atmamak** zaten 25 saat sonra alarm demektir. Yani "sessiz
+kalmak" ile "/fail" arasındaki fark alarmın olup olmaması değil, **ne zaman ve
+ne bilgiyle** geldiğidir:
+
+| | Yalnız ping atmamak | `/fail` |
+|---|---|---|
+| Haber verme | ~25 saat sonra | **Hemen** (04:00'te koşum düştüyse 04:00'te) |
+| E-postada sebep | Yok ("ping gelmedi") | **Var** — gövdeye hata satırı yazılıyor |
+
+`/fail` gövdesine hata sebebi konuyor (`durum=HATA sebep=...`), başarı
+ping'inin gövdesine de özet satırı (`durum=OK ... public=20/20 ...`) — ikisi
+de Healthchecks panelinde ve e-postada görünüyor.
+
+🔴 **TEK İSTİSNA — kilit çakışması:** `backup-db.sh` aynı anda ikinci bir
+koşum başlarsa (`flock`) exit 1 verir. Orada `/fail` **atılmaz**: işi süren
+öteki koşum yapıyor ve başarı ping'ini o atacak; `/fail` sahte alarm olurdu
+(alarm çalar, saniyeler sonra öteki koşumun başarı ping'i onu kapatır).
+Kod: `HC_FAIL_GONDER=0`.
+
+**Doğrulama düşerse ping YOK, `/fail` VAR:** `backup-db.sh` doğrulaması
+düştüğünde dosyayı **silmiyor** ve exit 1 veriyor — bu koşum başarılı
+sayılmaz, başarı ping'i atılmaz, yerine `/fail` gider.
+
+`backup-storage.mjs` iki hata türünde de `/fail` atar: ölümcül hata
+(listeleme/bağlantı — ayna güvenilmez) ve tek tek dosya hataları (`hata > 0`,
+ayna eksik; çıkış kodu zaten 1'di).
+
+## Ping ana işi BOZMAZ
+
+Ping yan iştir; yedeğin geçerliliğini ve çıkış kodunu **değiştirmez**:
+
+- Adres yoksa / `https://` değilse / `curl` yoksa → sessizce geçilir, uyarı
+  **yalnız cron log'una** (stdout) yazılır. `yedek.log`'un "koşum başına tek
+  satır" biçimi korunur — o dosyayı okuyan göz ve script'ler bozulmasın.
+- Ağ yoksa, Healthchecks kapalıysa → uyarı satırı, çıkış kodu yine 0.
+- Zaman sınırı: `curl --connect-timeout 5 -m 10 --retry 2 --retry-delay 2`
+  (Node tarafında `AbortSignal.timeout` + 3 deneme) → en kötü ~35 sn.
+  Yeniden deneme bilerek var: tek bir ağ hıçkırığı sahte alarma dönmesin.
+- Ping **en son** atılır — döküm ve doğrulamanın tamamı bittikten sonra.
+
+## Dosyalar
+
+| Dosya | Ne yapar |
+|---|---|
+| `scripts/lib/healthchecks.mjs` | **YENİ** — adres çözümü + ping (saf, enjekte edilebilir; hiçbir fonksiyon throw etmez) |
+| `scripts/backup-db.sh` | Bash ayrıştırıcı + `hc_ping` (node'a bağımlı olmasın diye kendi içinde) |
+| `scripts/backup-storage.mjs` | Lib'i kullanır; başarı / `hata > 0` / ölümcül hata uçlarında ping |
+| `scripts/test-healthchecks.mjs` | **YENİ** — 54 kontrol (`npm run test:healthchecks`) |
+| `scripts/test-backup-db.sh` | Bölüm **(h)**: stub `curl` ile 32 kontrol; toplam 94 |
+
+Testler ağ KULLANMAZ: `curl` stub'lanır, Node tarafında `fetch` enjekte edilir.
+
+## ⚠️ YENİ SUNUCU KURULUMUNDA
+
+Script'ler dosyayı bulamazsa **sessizce** çalışır (uyarı cron log'unda) — yani
+yeni sunucuda bu adım atlanırsa yedek alınır ama **haber veren kimse olmaz**.
+KURULUM.md Adım 10'a eklendi. Sıra:
+
+1. healthchecks.io'da iki kontrol aç (Period 1 gün, Grace 1 saat, e-posta).
+2. Sunucuda `/root/healthchecks.env` oluştur, `chmod 600`.
+3. İlk koşumu elle tetikle, panelde iki kontrolün de yeşile döndüğünü gör.
+
+**Kontrolleri yeni sunucuya taşırken:** eski sunucu hâlâ ping atıyorsa kontrol
+yeşil kalır ve yeni sunucudaki sessizlik görünmez. Eski sunucunun cron'ları
+kapatılmalı.
 
 ---
 
@@ -1187,10 +1298,11 @@ bunun artık sessizce olmaması (ilk 5 dakikada e-posta). Sunucu kapalıyken de
 projeyi canlı tutmak istenirse izlemenin Supabase'e doğrudan (anon anahtarla
 bir REST sorgusu) atması gerekir; **yapılmadı**.
 
-**Ayrı iş:** aynı hesap "📋 BACKLOG — Yedek başarısızlığı kimseye
-bildirilmiyor" maddesindeki "başarı sinyali gelmezse alarm" ihtiyacını da
-karşılayabilir — UptimeRobot'un **Heartbeat monitor** tipi var. Bu turda
-yapılmadı.
+**Devamı (12 Eylül 2026):** "başarı sinyali gelmezse alarm" ihtiyacı için
+UptimeRobot'un **Heartbeat monitor** tipi denendi — **ücretli katmanda**.
+Yedek tarafı bu yüzden ücretsiz **Healthchecks.io** ile kuruldu; iki servis
+yan yana duruyor (UptimeRobot: site ayakta mı, Healthchecks: yedek koştu mu).
+Bkz. "✅ KAPATILDI — Yedek başarısızlığı bildirimi".
 
 ---
 
@@ -3256,6 +3368,12 @@ düşüşte e-posta:
 Bildirim `suleymankaraman222@gmail.com` (gecikme/tekrar yok); "Check SSL
 errors" ve "SSL expiry reminders" (30/14/7/0 gün) açık; timeout 30 sn.
 Ayrıntı ve gerekçe: "✅ KAPATILDI — Harici uptime izleme".
+
+**Yedeklerin izlemesi ayrı serviste:** yukarıdaki 04:00 / 04:30 cron'ları
+**Healthchecks.io**'ya başarı ping'i atıyor; 25 saat ping gelmezse e-posta.
+Ping adresleri `/root/healthchecks.env` dosyasında (izin 600, repoda YOK) —
+yeni sunucuda bu dosya elle oluşturulmalı, yoksa yedekler sessizce izlemesiz
+kalır. Ayrıntı: "✅ KAPATILDI — Yedek başarısızlığı bildirimi".
 
 **Kurulumda yaşananlar** (yeni sunucu açılırsa tekrar gerekebilir):
 - Sunucu **CentOS 7** ile geldi; Ubuntu 22.04'e çevrilmesi için isimtescil'e

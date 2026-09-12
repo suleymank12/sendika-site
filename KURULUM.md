@@ -437,6 +437,29 @@ da script'teki varsayılanlar değiştirilerek verilir. Cron (root):
 
 > Bucket'ta **versiyonlama yoktur**: silinen görsel yedek yoksa geri gelmez.
 
+**Yedek izleme (dead-man's switch) — ATLANMAMALI.** İki script de başarıyla
+bitince [healthchecks.io](https://healthchecks.io)'ya ping atar; **25 saat**
+(Period 1 gün + Grace 1 saat) ping gelmezse e-posta gelir. Hata durumunda
+`/fail` ping'i **hemen** alarm verir. Yalnız "hata olunca bildir" yetmez: cron
+hiç çalışmazsa hata da oluşmaz. Sunucuda iki kontrol açıp adresleri **repoya
+değil** şu dosyaya yazın (adres gizlidir — bilen sahte başarı pingi atabilir):
+
+```bash
+cat > /root/healthchecks.env <<'EOF'
+HC_URL_DB=https://hc-ping.com/<db-kontrolunun-uuid'si>
+HC_URL_STORAGE=https://hc-ping.com/<storage-kontrolunun-uuid'si>
+EOF
+chmod 600 /root/healthchecks.env
+```
+
+> ⚠️ Bu dosya yoksa script'ler **normal çalışır**, uyarıyı yalnız cron log'una
+> yazar — yani adım atlanırsa yedek alınır ama bozulduğunda **kimse haber
+> almaz**. Kurulumdan sonra her iki script'i elle çalıştırıp panelde iki
+> kontrolün de yeşile döndüğünü görün.
+
+Gerekçeler (neden bu dosya, neden `/fail`, kilit çakışması istisnası):
+NOTE.md → "✅ KAPATILDI — Yedek başarısızlığı bildirimi".
+
 **Geri yükleme:** şema baseline'dan, veri yedekten (`pg_restore --data-only`),
 storage dosyaları `scripts/restore-storage.mjs`, DB'deki tam görsel adresleri
 `scripts/rewrite-storage-urls.mjs`. Sıra, komutlar ve tatbikat: NOTE.md →

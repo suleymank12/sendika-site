@@ -19,6 +19,7 @@
     "test:rewrite-urls": "node scripts/test-rewrite-storage-urls.mjs",
     "test:idle": "node scripts/test-idle-timeout.mjs",
     "test:backup-db": "bash scripts/test-backup-db.sh",
+    "test:healthchecks": "node scripts/test-healthchecks.mjs",
     "backup:storage": "node scripts/backup-storage.mjs",
     "sweep:storage": "node scripts/sweep-orphan-storage.mjs",
     "restore:storage": "node scripts/restore-storage.mjs",
