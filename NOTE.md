@@ -413,8 +413,8 @@ dört yeri birden etkiler: haber / duyuru / sayfa editörleri + manşet.
 
 **Durum:** ✅ **CANLIDA** (`2b5587a`, 12 Eylül 2026) — tsc + lint + build + 12
 test script'i (yeni `test:idle` 83/83; 13 mutasyonun 13'ü yakalandı). ✅ Manuel
-testlerin 9'u geçti (12 Eylül, lokalde `SURE_DK=1`, sonra 30'a geri alındı —
-`test:idle` 83/83 ile doğrulandı); 5'i yapılmadı (tablo aşağıda). Sunucu
+testlerin 11'i geçti (12 Eylül, lokalde `SURE_DK=1`, sonra 30'a geri alındı —
+`test:idle` 83/83 ile doğrulandı); 3'ü kaldı (tablo aşağıda). Sunucu
 tarafı **yapılamaz**: plan Free (bkz. "🧾 SUPABASE PLANI") — yalnız tarayıcı
 katmanı.
 
@@ -543,9 +543,9 @@ WSL aynı anda) SONUÇ satırından SONRA Node'un çıkışında libuv iddiasıy
 düştü (`UV_HANDLE_CLOSING`); 7 tekrarda (dosyaya, boruya, npm'le) yok — test
 mantığıyla ilgisiz.
 
-**Tarayıcıda:** manuel testlerin 9'u geçti (aşağıda).
+**Tarayıcıda:** manuel testlerin 11'i geçti (aşağıda).
 
-## ✅ ELLE — manuel testler (12 Eylül 2026: 9 ✅, 5 yapılmadı)
+## ✅ ELLE — manuel testler (12 Eylül 2026: 11 ✅, 3 kaldı)
 
 Lokalde `lib/constants.ts` → `SURE_DK: 1` ile yapıldı, sonra **30'a geri
 alındı** (`npm run test:idle` 83/83 — sabit kontrolü dahil). Aynı hazırlıkla
@@ -558,22 +558,26 @@ Application → Local Storage → `oturum-son-etkinlik`.
 | 2 | Yalnız fareyi gezdirin | Yine çıkış (`mousemove` sayılmaz) | ✅ |
 | 3 | 40 sn'de bir tuş / tıklama / kaydırma | Çıkış yok | ✅ |
 | 4 | Haber editöründe yazın, kaydetmeyin, dokunmayın | Çıkış; "Siteden ayrılınsın mı?" **çıkmaz**; giriş sayfasında ek satır "Kaydedilmemiş değişiklikleriniz kaydedilemedi." | ✅ diyalog çıkmadı, kayıp bildirimi göründü |
-| 5 | DevTools → Network → Slow 3G, büyük video yükleyin, dokunmayın | Yükleme bitene kadar çıkış yok; bittikten ~1 dk sonra çıkış | — yapılmadı |
+| 5 | DevTools → Network → Slow 3G, büyük video yükleyin, dokunmayın | Yükleme bitene kadar çıkış yok; bittikten ~1 dk sonra çıkış | ✅ Slow 3G + büyük görsel: yükleme sürerken çıkış **olmadı**, bittikten ~1 dk sonra çıkış oldu |
 | 6 | İki sekme: A'da 40 sn'de bir tıklayın, B'ye dokunmayın | İkisi de açık kalır | — yapılmadı |
 | 7 | İki sekme, ikisine de dokunmayın | İkisi de mesajlı giriş sayfasına (gizli sekme ~1 dk gecikebilir; sekmeye geçince hemen) | ✅ |
 | 8 | İki sekme: A'da elle "Çıkış" | A eskisi gibi; B ~1,5 sn içinde giriş sayfasına (mesajsız) | ✅ |
 | 9 | Panel sekmesini kapatın, 2 dk bekleyin, aynı tarayıcıda /admin açın | Sayfa bir an görünür, hemen mesajlı giriş sayfası | ✅ |
 | 10 | 9'dan sonra tekrar giriş yapın | **Atılmaz** (yeni oturum, yeni sayaç) | ✅ |
-| 11 | İkinci tarayıcıda aynı hesapla giriş; birincide zaman aşımı | İkinci tarayıcı **açık kalır** (`scope: local`) | — yapılmadı |
+| 11 | İkinci tarayıcıda aynı hesapla giriş; birincide zaman aşımı | İkinci tarayıcı **açık kalır** (`scope: local`) | ✅ Chrome + Firefox aynı hesap; Chrome zaman aşımına uğradı, **Firefox açık kaldı** |
 | 12 | `/super-admin` | 1 ile aynı | ✅ |
 | 13 | Çıkıştan sonra tarayıcı GERİ tuşu | Panel verisi görünmez | — yapılmadı |
 | 14 | (Bilinen sınır) kirli formda menüye tıklayıp onayı açık bırakın | Çıkış **olmaz** — BACKLOG | — yapılmadı |
 
-**Yapılmayanların kapsamı:** 5 (yükleme tutması) ve 6 (bir sekmedeki
-etkinliğin ötekini canlı tutması) mantık olarak `test:idle` senaryolarında
-var, tarayıcıda kanıtlanmadı; 11 (`scope: local` — başka cihaz düşmez) yalnız
-kaynak kontrolüyle güvencede; 13 (geri tuşu) ve 14 (bilinen sınır) hiç
-denenmedi. Sıradaki fırsatta önce 5 ve 11.
+**Yapılmayanların kapsamı (güncel: 6, 13, 14):** 5 ve 11 artık **tarayıcıda
+kanıtlandı** (12 Eylül) — yükleme tutması (`useIdleHold`) gerçek bir yüklemede
+sayacı durduruyor, tutma iş bitince kalkıyor; `scope: "local"` gerçekten ikinci
+tarayıcının oturumunu düşürmüyor. İkisi de daha önce yalnız `test:idle`
+senaryoları ve kaynak kontrolüyle güvencedeydi, artık davranış olarak
+doğrulandı. **Kalan 3:** 6 (bir sekmedeki etkinliğin ötekini canlı tutması —
+mantığı `test:idle`'da var, tarayıcıda denenmedi), 13 (çıkıştan sonra geri
+tuşu) ve 14 (bilinen sınır: açık `window.confirm` sayacı durdurur — BACKLOG).
+Sıradaki fırsatta önce 6.
 
 ## ✅ KAPATILDI — sunucu tarafı: Free planda YAPILAMAZ (12 Eylül 2026)
 
