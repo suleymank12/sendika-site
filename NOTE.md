@@ -314,7 +314,8 @@ Apply sonrası dosya sonundaki (a)-(d) doğrulama sorguları.
 **Durum:** ✅ Ölçüldü (Dashboard, 12 Eylül 2026): canlı proje **Free**
 planda. **Karar (müşteri):** Pro'ya şimdilik geçilmiyor; ilk gerçek müşteri
 gelirinde yeniden değerlendirilecek. 7 gün duraklatma riskine karşı VPS'te
-ping cron'u kuruldu (aşağıda); harici izleme BACKLOG'da.
+ping cron'u kuruldu (aşağıda); sunucu dışından UptimeRobot izlemesi de kuruldu
+("✅ KAPATILDI — Harici uptime izleme").
 
 ## Free'de olmayanlar — sonuçları
 
@@ -384,10 +385,13 @@ yükleyicinin hemen altında ve `onYoutubeChange` verilen her yerde var
   6 saatte bir istek görünmeli.
 - Tüm cron'lar: "📦 VPS DEPLOY" → "0. Canlı ortam" → "Cron işleri".
 
-**SINIR:** cron sunucunun kendisinde çalışıyor. Sunucu çökerse ping de durur —
-site zaten kapalıdır ve **kimse haber almaz**; sunucu 7 günden uzun kapalı
-kalırsa geri geldiğinde Supabase projesi de duraklatılmış olur (Dashboard'dan
-elle başlatılır). → "📋 BACKLOG — Harici uptime izleme yok".
+**SINIR (12 Eylül 2026'da daraldı):** cron sunucunun kendisinde çalışıyor —
+sunucu çökerse ping de durur. Ama artık **haber veriliyor**: UptimeRobot
+sunucu dışından 5 dakikada bir aynı `/haberler` adresini yokluyor ve düşüşte
+e-posta atıyor (bkz. "✅ KAPATILDI — Harici uptime izleme"). Kalan risk:
+izleme de site üzerinden geçtiği için sunucu 7 günden uzun kapalı kalırsa
+Supabase projesi yine duraklatılmış olur (Dashboard'dan elle başlatılır) —
+fark, bunun artık sessizce olmaması.
 
 ---
 
@@ -1133,26 +1137,60 @@ belirlenen sürede gelmezse e-posta. Yalnız "hata olunca e-posta" yetmez — cr
 hiç çalışmadığında hata da oluşmaz. `backup-db.sh` ve `backup-storage.mjs`
 başarıda ping atacak şekilde genişletilir.
 
+**Araç hazır (12 Eylül 2026):** uptime izleme için açılan **UptimeRobot**
+hesabında **Heartbeat monitor** tipi var — aranan dead-man's switch tam olarak
+bu. Kurulum bu turda **yapılmadı**, ayrı iş: her yedek script'i için bir
+heartbeat monitörü + iki script'e başarıda ping satırı. Bkz. "✅ KAPATILDI —
+Harici uptime izleme".
+
 ---
 
-# 📋 BACKLOG — Harici uptime izleme yok (12 Eylül 2026)
+# ✅ KAPATILDI — Harici uptime izleme (12 Eylül 2026)
 
-**Durum:** ⚠️ Açık — Supabase Free planının 7 gün duraklatma riskine karşı
-VPS'te ping cron'u kuruldu ("🧾 SUPABASE PLANI"); sunucu dışı izleme ayrı iş.
+**Durum:** ✅ **KAPATILDI** (12 Eylül 2026) — **UptimeRobot** (ücretsiz katman)
+kuruldu. Sunucu çöktüğünde artık e-posta geliyor.
 
-Ping cron'u sunucunun kendisinde çalışıyor. Sunucu çökerse (disk, bellek,
-sağlayıcı arızası, PM2 düşmesi) site kapanır, ping de durur ve **kimse haber
-almaz**. Kapalılık 7 günü geçerse Supabase projesi de duraklatılır; sunucu
-geri geldiğinde site yine açılmaz (Dashboard'dan elle başlatma gerekir).
+**Sorun (kapanmadan önceki hâl):** Supabase Free planının 7 gün duraklatma
+riskine karşı VPS'te ping cron'u kurulmuştu ("🧾 SUPABASE PLANI"), ama cron
+sunucunun kendisinde çalışıyor. Sunucu çökerse (disk, bellek, sağlayıcı
+arızası, PM2 düşmesi) site kapanır, ping de durur ve **kimse haber almazdı**.
 
-**Çözüm yönü:** sunucu dışından izleme (UptimeRobot vb. ücretsiz katmanlar):
-birkaç dakikada bir site adresine istek + düşünce e-posta. Ek kazanç: izleme
-de `/haberler`'e istek atarsa site ayaktayken Supabase'i canlı tutar (cron'un
-yedeği). Sunucu tamamen kapalıyken bile projeyi canlı tutmak istenirse izleme
-Supabase'e doğrudan (anon anahtarla bir REST sorgusu) atabilir — o zaman
-sunucu dönüşünde duraklatma sorunu kalmaz. Aynı hizmet "Yedek başarısızlığı
-kimseye bildirilmiyor" backlog'undaki "başarı sinyali gelmezse alarm"
-ihtiyacını da karşılayabilir — ikisi birlikte ele alınmalı.
+**Kurulan yapılandırma — UptimeRobot, 2 monitör:**
+
+| # | Adres | Aralık |
+|---|---|---|
+| 1 | `https://buyukdirilis.org.tr/haberler` | 5 dakika |
+| 2 | `https://kurmayteknoloji.com` | 5 dakika |
+
+İkisinde de aynı ayarlar:
+
+- **Bildirim:** suleymankaraman222@gmail.com — gecikme yok, tekrar yok
+- **Check SSL errors:** açık
+- **SSL expiry reminders:** açık — bitişten **30 / 14 / 7 / 0 gün** önce
+- **Konum:** varsayılan (otomatik seçim)
+- **Request timeout:** 30 sn
+
+**Neden `/haberler`:** sayfa dinamik ve her istekte Supabase'e sorgu atıyor →
+tek istek hem site kontrolünü hem Supabase'in 7 günlük hareketsizlik sayacını
+sıfırlamayı yapıyor (aynı gerekçeyle VPS cron'u da bu adresi kullanıyor, bkz.
+"🧾 SUPABASE PLANI"). 5 dakikalık aralık, 6 saatlik cron'un çok üstünde bir
+yedek sağlıyor.
+
+**Ek kazanç — SSL:** wildcard sertifika kendiliğinden **yenilenmiyor**
+(24 Kasım 2026 — "📦 VPS DEPLOY" → "0. Canlı ortam" → SSL). SSL expiry
+reminders açık olduğu için bitişten 30 gün önce e-posta gelecek; "elle
+yenilenmeli" maddesi artık hatırlatmalı.
+
+**Kalan sınır:** izleme site adresine istek atıyor, Supabase'e doğrudan değil.
+Sunucu 7 günden uzun kapalı kalırsa Supabase projesi yine duraklatılır — fark,
+bunun artık sessizce olmaması (ilk 5 dakikada e-posta). Sunucu kapalıyken de
+projeyi canlı tutmak istenirse izlemenin Supabase'e doğrudan (anon anahtarla
+bir REST sorgusu) atması gerekir; **yapılmadı**.
+
+**Ayrı iş:** aynı hesap "📋 BACKLOG — Yedek başarısızlığı kimseye
+bildirilmiyor" maddesindeki "başarı sinyali gelmezse alarm" ihtiyacını da
+karşılayabilir — UptimeRobot'un **Heartbeat monitor** tipi var. Bu turda
+yapılmadı.
 
 ---
 
@@ -3202,7 +3240,22 @@ canlıdaki gerçek hâl `crontab -l` ile teyit edilir.
 |---|---|---|
 | 04:00 | DB yedeği (custom format) | "💾 YEDEKTEN GERİ YÜKLEME" → "canlı cron'u yeni script'e geçirme" |
 | 04:30 | Storage aynası | "STORAGE YEDEĞİ" |
-| 6 saatte bir | Supabase Free 7 gün duraklatmasına karşı ping | "🧾 SUPABASE PLANI" — sınır: sunucu çökerse durur, harici izleme BACKLOG'da |
+| 6 saatte bir | Supabase Free 7 gün duraklatmasına karşı ping | "🧾 SUPABASE PLANI" — sunucu çökerse durur; sunucu dışı yedeği aşağıdaki izleme |
+
+### Harici izleme (UptimeRobot, 12 Eylül 2026)
+
+Yukarıdaki cron'lar sunucunun **içinde**; sunucu dışından izleme
+**UptimeRobot** (ücretsiz katman) ile yapılıyor — 5 dakikada bir istek,
+düşüşte e-posta:
+
+| # | Adres | Aralık | Not |
+|---|---|---|---|
+| 1 | `https://buyukdirilis.org.tr/haberler` | 5 dk | Dinamik sayfa → Supabase'i de canlı tutar (6 saatlik cron'un yedeği) |
+| 2 | `https://kurmayteknoloji.com` | 5 dk | Kurum custom domain'i |
+
+Bildirim `suleymankaraman222@gmail.com` (gecikme/tekrar yok); "Check SSL
+errors" ve "SSL expiry reminders" (30/14/7/0 gün) açık; timeout 30 sn.
+Ayrıntı ve gerekçe: "✅ KAPATILDI — Harici uptime izleme".
 
 **Kurulumda yaşananlar** (yeni sunucu açılırsa tekrar gerekebilir):
 - Sunucu **CentOS 7** ile geldi; Ubuntu 22.04'e çevrilmesi için isimtescil'e
@@ -3229,6 +3282,12 @@ Let's Encrypt **wildcard** sertifika, **manuel DNS-01** doğrulamasıyla alınd�
 komutu **tekrar elle** çalıştırılmalı ve doğrulama için **iki TXT kaydı**
 dnsenable.com'a elle eklenmelidir. Bitiş tarihinden en az bir hafta önceye
 hatırlatıcı koyun; sertifika düşerse tüm subdomain'ler dahil site kapanır.
+
+🔔 **Hatırlatma kuruldu (12 Eylül 2026):** UptimeRobot monitörlerinde "SSL
+expiry reminders" açık — bitişten **30 / 14 / 7 / 0 gün** önce
+suleymankaraman222@gmail.com'a e-posta gelir (yukarıda "Harici izleme").
+Yani tarih artık yalnız bu notta asılı değil. Yenileme yine **elle**: iki TXT
+kaydı + certbot komutu.
 
 ## 1. Build LOKALDE veya CI'da alınır — sunucuda ASLA
 
@@ -3377,8 +3436,9 @@ değil, yeniden üretilir).
 - b4: `news`/`announcements` composite index migration'ı +
   `homepage_section_items(section_id)` index'i
 - Uptime monitor (Supabase Free 7 gün inaktivite pause + genel sağlık) — ✅
-  kısmen (12 Eylül 2026): VPS'te 6 saatlik ping cron'u (0. bölüm → Cron
-  işleri); sunucu dışı izleme + alarm → "📋 BACKLOG — Harici uptime izleme yok"
+  **tamam** (12 Eylül 2026): VPS'te 6 saatlik ping cron'u (0. bölüm → Cron
+  işleri) **+** sunucu dışından UptimeRobot 5 dk / e-posta alarmı (0. bölüm →
+  Harici izleme). Gerekçe: "✅ KAPATILDI — Harici uptime izleme"
 
 ⏰ Deploy tamamlandığına göre bu liste artık **aktif** — sırayla ele alınacak.
 
