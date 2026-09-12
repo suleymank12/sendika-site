@@ -1096,8 +1096,51 @@ ayarları — Auth URL'leri, SMTP, e-posta şablonları — ve canlı deploy bun
 
 # ⚡ b4 TEŞHİSİ — liste index'leri (028) (12 Eylül 2026)
 
-**Durum:** ✅ Teşhis + ölçüm bitti, `028_liste_indeksleri.sql` **yazıldı**;
-canlıya **elle apply bekliyor** (Supabase SQL Editor).
+**Durum:** ✅ **TAMAMLANDI — 028 CANLIYA APPLY EDİLDİ** (12 Eylül 2026).
+Teşhis + ölçüm, migration ve apply aynı gün kapandı.
+
+## ✅ Apply kaydı (canlı, 12 Eylül 2026)
+
+Beş index de oluştu; doğrulama sorgusu (028 → "(a)") **5 satır** döndü:
+
+```
+idx_announcements_tenant_created
+idx_announcements_tenant_yayin
+idx_homepage_section_items_section
+idx_news_tenant_created
+idx_news_tenant_yayin
+```
+
+**Apply anındaki canlı hacim** (028 → "(0a)" envanteri):
+
+| Kurum | Haber | Duyuru |
+|---|---|---|
+| `default` (Büyük Diriliş) | 9 | 5 |
+| `kurmay-teknoloji` | 3 | 0 |
+
+Eşiğin (~50 haber/kurum) **çok altında** — beklendiği gibi. Yani bugün
+planner bu index'leri hâlâ kullanmıyor; migration bilinçli olarak
+**ileriye dönük**. Ne zaman tekrar bakılacağı 028 dosyasının "(e)"
+maddesinde: bir kurum 200 haberi geçtiğinde.
+
+Canlıda toplam **62 index** var ve verinin azlığından **hepsi 16 kB**.
+
+Apply öncesi `idx_scan` envanteri ayrı bir bulgu çıkardı (eski
+`*_published` index'leri 028'den önce bile hiç kullanılmamış) — oraya
+kaydedildi: "📋 BACKLOG — Gereksiz görünen index'ler".
+
+## 🧱 Baseline yeniden üretimi — ŞİMDİLİK GEREKMİYOR
+
+Kural ("MIGRATION BASELINE" → BAKIM STRATEJİSİ): baseline **~15 migration**
+biriktiğinde, **veya** yeni müşteri kurulumundan hemen önce, **veya** yılda
+bir yeniden üretilir. Şu an biriken: **2** (`027`, `028`). Üretim
+**yapılmadı**.
+
+⚠️ Ama bu, sıfırdan kurulumun bu iki dosyayı **elle** uygulaması demek —
+atlanırsa yeni sitede ne manşet tekilliği ne liste index'leri olur. Bu yüzden
+**KURULUM.md Adım 3 güncellendi** (12 Eylül 2026): madde 3'ün listesine ve
+"Yol A — psql" bloğuna `028_liste_indeksleri.sql` satırı eklendi. Bir sonraki
+migration da aynı iki yere eklenmeli.
 
 **Ölçüm yöntemi:** canlıya dokunulmadı. Yerel PG 18.3'e repodaki
 `000_baseline.sql` + `027` yüklendi (20 tablo, RLS/policy/fonksiyon dahil),
@@ -1186,26 +1229,69 @@ okunan satırı azaltmak: **sayfalama**.
 alınabilir, index **silmek** öyle değil; karar canlıdaki gerçek
 `pg_stat_user_indexes.idx_scan` sayaçlarına bakılmadan verilmemeli.
 
-028 teşhisi sırasında 5 aday çıktı:
+028 teşhisi sırasında 5 aday çıkmıştı; **028 apply'ından hemen önce alınan
+canlı `idx_scan` sayaçları** 6'ya çıkardı:
 
-| Index | Neden gereksiz görünüyor |
+| Index | Canlı `idx_scan` | Neden gereksiz görünüyor |
+|---|---|---|
+| `idx_news_tenant (tenant_id)` | **0** | `news_tenant_slug_key (tenant_id, slug)` **öneki** zaten karşılıyor; 028'ten sonra iki yeni bileşik de karşılıyor |
+| `idx_announcements_tenant (tenant_id)` | **0** | Aynı — `announcements_tenant_slug_key` öneki |
+| `idx_news_published (is_published, published_at DESC)` | **0** | 028'ten sonra **işlevsiz**: `tenant_id` olmadan `is_published` filtreleyen **tek bir sorgu yok** (kod taramasıyla doğrulandı) |
+| `idx_announcements_published` | **0** | Aynı gerekçe |
+| `idx_site_settings_tenant_key (tenant_id, key)` | **0** | `site_settings_tenant_key_key` UNIQUE kısıtıyla **BİREBİR aynı** — düpedüz çift kayıt |
+| `idx_news_slug (slug)` | **0** | ⬇️ aşağıdaki nota bakın — yerel ölçümle **çelişti** |
+
+Karşılaştırma için **gerçekten kullanılanlar** (aynı ölçüm):
+
+| Index | `idx_scan` |
 |---|---|
-| `idx_news_tenant (tenant_id)` | `news_tenant_slug_key (tenant_id, slug)` **öneki** zaten karşılıyor; 028'ten sonra iki yeni bileşik de karşılıyor |
-| `idx_announcements_tenant (tenant_id)` | Aynı — `announcements_tenant_slug_key` öneki |
-| `idx_news_published (is_published, published_at DESC)` | 028'ten sonra **işlevsiz**: `tenant_id` olmadan `is_published` filtreleyen **tek bir sorgu yok** (kod taramasıyla doğrulandı) |
-| `idx_announcements_published` | Aynı gerekçe |
-| `idx_site_settings_tenant_key (tenant_id, key)` | `site_settings_tenant_key_key` UNIQUE kısıtıyla **BİREBİR aynı** — düpedüz çift kayıt |
+| `tenants_slug_key` | 42.955 |
+| `tenants_custom_domain_key` | 37.872 |
+| `news_tenant_slug_key` | 7.912 |
+| `tenant_users_tenant_id_user_id_key` | 2.452 |
+| `super_admins_pkey` | 2.344 |
+| `site_settings_tenant_key_key` | 22 |
 
-**Ölçülen kazanç küçük:** 3 index düşürmek 2.000 INSERT'te ölçüm gürültüsünün
-içinde kaldı. Kazanç hız değil, **yazma yükü + disk** (Free planda 500 MB).
+## 🔎 Teşhisi doğrulayan bulgu
 
-**Sıra:** önce 028 apply → birkaç hafta gerçek trafik → sonra envanter SQL'i
-(`028` dosyasının "APPLY ÖNCESİ ENVANTER (0b)" bloğu) → `idx_scan = 0`
-kalanlar için ayrı migration.
+`idx_news_published` ve `idx_announcements_published` **028'den ÖNCE bile hiç
+kullanılmamış** (`idx_scan = 0`). "Lider kolon yanlış" teşhisi böylece canlı
+sayaçlarla da doğrulandı: planner onları zaten seçmiyormuş. Yani 028 bir
+index'i *iyileştirmedi* — **hiç işe yaramayan** iki index'in yerine çalışanını
+koydu.
 
-⚠️ `idx_news_slug (slug)` bu listede **YOK**: planner onu gerçekten seçiyor.
-Unique kısıt aynı işi aynı maliyetle görüyor (4 buffer, ikisi de), yani
-düşürülebilir — ama kanıt zayıf, aceleye gerek yok.
+## ⚠️ `idx_news_slug` — yerel ölçüm ile canlı sayaç ÇELİŞTİ
+
+Teşhis raporunda bu index listeye **alınmamıştı**: yerel ölçümde planner onu
+gerçekten seçiyordu (`Index Scan using idx_news_slug`). **Canlıda `idx_scan =
+0`.** Fark muhtemelen veri hacmi: yerelde 24.000 satır vardı ve slug tek
+başına çok seçiciydi; canlıda 12 satır var, planner seq scan yapıyor.
+
+Listeye **alındı**, ama bu çelişki tam olarak "tek ölçüme güvenme"nin kanıtı —
+silme kararı ancak gerçek trafikten sonra verilir.
+
+## 🔴 SAYAÇ GÜVENİLİRLİĞİ — bu envanter TEK BAŞINA YETMEZ
+
+`idx_scan = 0` görmek "bu index gereksiz" demek **değildir**. İki ayrı sebep:
+
+1. **Sayaçlar sıfırlanmış olabilir.** `pg_stat_user_indexes` sayaçları
+   Supabase tarafındaki bakım/restart ile (ya da `pg_stat_reset()` ile)
+   sıfırlanır. Sayaç ne kadar süredir birikiyor bilmiyoruz; `tenants_slug_key`
+   42.955'te olduğuna göre kısa değil, ama kesin değil.
+2. **Veri çok az.** Kurum başına 9 ve 3 haber var; planner bu hacimde
+   **doğru olarak** seq scan seçiyor. Yani index'in kullanılmaması onun
+   gereksiz olduğunu değil, **henüz sırasının gelmediğini** gösteriyor. 028'in
+   kendi index'leri de aynı sebeple bugün `idx_scan = 0` olacak.
+
+**Şart: birkaç hafta gerçek trafik.** Ondan önce hiçbir index silinmez.
+
+**Ölçülen kazanç zaten küçük:** 3 index düşürmek 2.000 INSERT'te ölçüm
+gürültüsünün içinde kaldı. Kazanç hız değil, **yazma yükü + disk** (Free
+planda 500 MB) — acele etmeyi gerektiren bir şey yok.
+
+**Sıra:** ✅ 028 apply edildi → ⏳ birkaç hafta gerçek trafik → envanter SQL'i
+(`028` dosyasının "APPLY ÖNCESİ ENVANTER (0b)" bloğu) tekrar → **hem** o turda
+hem bu turda `idx_scan = 0` kalanlar için ayrı migration.
 
 ---
 
@@ -3741,9 +3827,10 @@ değil, yeniden üretilir).
 - b3: Chrome sorgularına tenant-keyed unstable_cache (60 sn TTL) — tasarım
   şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat)
 - b4: `news`/`announcements` composite index migration'ı +
-  `homepage_section_items(section_id)` index'i — ✅ **028 YAZILDI**
-  (12 Eylül 2026), canlıya **elle apply bekliyor**. Teşhis, ölçüm ve
-  kararlar: "⚡ b4 TEŞHİSİ — liste index'leri (028)"
+  `homepage_section_items(section_id)` index'i — ✅ **TAMAM** (12 Eylül 2026):
+  `028_liste_indeksleri.sql` yazıldı ve **canlıya apply edildi**, 5 index de
+  oluştu. Teşhis, ölçüm, kararlar ve apply kaydı: "⚡ b4 TEŞHİSİ — liste
+  index'leri (028)"
 - Uptime monitor (Supabase Free 7 gün inaktivite pause + genel sağlık) — ✅
   **tamam** (12 Eylül 2026): VPS'te 6 saatlik ping cron'u (0. bölüm → Cron
   işleri) **+** sunucu dışından UptimeRobot 5 dk / e-posta alarmı (0. bölüm →
