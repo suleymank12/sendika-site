@@ -1094,6 +1094,121 @@ ayarları — Auth URL'leri, SMTP, e-posta şablonları — ve canlı deploy bun
 
 ---
 
+# ⚡ b4 TEŞHİSİ — liste index'leri (028) (12 Eylül 2026)
+
+**Durum:** ✅ Teşhis + ölçüm bitti, `028_liste_indeksleri.sql` **yazıldı**;
+canlıya **elle apply bekliyor** (Supabase SQL Editor).
+
+**Ölçüm yöntemi:** canlıya dokunulmadı. Yerel PG 18.3'e repodaki
+`000_baseline.sql` + `027` yüklendi (20 tablo, RLS/policy/fonksiyon dahil),
+üstüne sentetik veri kondu, planlar `anon` / `authenticated` / `service_role`
+rolleriyle `EXPLAIN ANALYZE` ile okundu. Yerel kurulum tarifi:
+[[local-pg-testing]] (memory) — aynı reçete.
+
+## Kök neden: lider kolon yanlış
+
+`idx_news_published` ve `idx_announcements_published` **`(is_published,
+published_at DESC)`** — `tenant_id` YOK. Uygulama ise **her** sorguda
+`tenant_id` filtreliyor (tek istisna yok, kod taramasıyla doğrulandı). Sonuç:
+planner tüm kurumların içeriğini tarayıp başkasınınkini sonradan eliyor.
+
+🔴 **Asıl çarpan satır sayısı değil, KURUM SAYISI.** İçerik girildikçe değil,
+**müşteri eklendikçe** kötüleşir. Bugün 2 kurum → ~2× israf; 40 kurumda ~%97.
+
+İkinci eksik: **panel `created_at` ile sıralıyor**, `published_at` ile değil
+(`admin/haberler/page.tsx:43`, `admin/duyurular/page.tsx:42`,
+`admin/page.tsx:141`). Bunu karşılayan hiçbir index yoktu. b4 maddesi bunu
+atlamıştı; **en büyük kazanç buradan çıktı.**
+
+## Ölçüm sonuçları (12 kurum × 2.000 haber = 24.000 satır)
+
+| Sorgu | ÖNCE | SONRA |
+|---|---|---|
+| Panel dashboard `LIMIT 5` | **13.738 ms** / 4.005 buffer | **0.785 ms** / 143 buffer |
+| Public liste 10. sayfa | 0.689 ms / 183 buf | 0.116 ms / 123 buf |
+| Sitemap (LIMIT yok) | 5.554 ms / 1.627 buf | 1.342 ms |
+| Public liste 1. sayfa | `Rows Removed by Filter: 121` | **0** |
+
+Index devreye girdikten sonra süre **100 satırdan 40.000'e kadar sabit**
+(0.02–0.04 ms). Index'in bütün değeri bu: eğri düzleşiyor.
+
+## ⚠️ Bugünkü veride ölçülebilir fayda YOK
+
+10 satırda planner index'i **kullanmıyor bile** — seq scan seçiyor (doğru
+seçim). Ölçüldü: index varken 0.046 ms, index devre dışıyken 0.032 ms.
+
+**Eşik:** ~50 haber/kurum. Canlıda bugün `EXPLAIN ANALYZE` çalıştırmak
+"öncesi = sonrası" gösterir, hiçbir şey kanıtlamaz. Apply sonrası plan hâlâ
+`Seq Scan` diyecek — **hata değil**, 028'in başlığında da yazıyor.
+
+**Sentetik veri canlıya KONMAZ:** `news` satırları public sitede ve
+sitemap'te anında görünür; temizlik `content_media`/storage artığı bırakır.
+Yerel kopya bu işi zaten yaptı.
+
+## Kararlar (hepsi ölçümle)
+
+| Karar | Sonuç | Gerekçe |
+|---|---|---|
+| Partial index (`WHERE is_published`) | ❌ **Hayır** | Planner tam bileşiği seçti; partial panelin **taslak filtresini** (`is_published = false`) kapsamıyor. 200 kB için kapsama kaybı |
+| `CONCURRENTLY` | ❌ **Hayır** | `CREATE INDEX` **ShareLock** alır → SELECT'i **engellemez**, sadece yazma bekler; bugünkü hacimde index başına **1.95 ms**, beşi ~10 ms. CONCURRENTLY transaction bloğunda çalışmaz (dosyanın `BEGIN/COMMIT` desenini bozar) ve yarıda kalırsa **INVALID index** bırakır |
+| Abiye apply haberi | ❌ Gerek yok | 10 ms yazma kilidi için mesaj orantısız; okuma zaten engellenmiyor |
+| `homepage_section_items(section_id)` | ✅ **Eklendi — ama SELECT için değil** | İki varyantı da kuruldu, planner **hiç kullanmadı** (`idx_scan = 0`). Tek gerçek gerekçe **FK cascade**: indekssiz FK'de `homepage_sections` silinince çocuk tablo seq-scan ediliyor (0.415 → 0.319 ms). 16 kB, neredeyse bedava |
+| Gereksiz index temizliği | ⏸️ **Ayrı tur** | Aşağıdaki backlog |
+
+🔴 `idx_homepage_section_items_section` için index'in **kendi COMMENT'ine**
+"idx_scan=0 görünmesi NORMALDIR, silmeyin" yazıldı — ileride biri sayaca
+bakıp silmesin.
+
+## b1 neden index'ten önce gelmeli (iki ölçülmüş kanıt)
+
+**a) Panel listesi (P7) index'le DÜZELMİYOR.** `admin/haberler/page.tsx:43`
+`LIMIT` kullanmıyor → 2.000 satırın hepsi zaten okunuyor, sıralama maliyeti
+yanında kalıyor. Ölçüm: 18.472 ms → 14 ms (**~1×**). Aynı sorgu `LIMIT 20`
+ile: **1.274 ms (11×)**. Yani index'in panel tarafındaki değeri **b1
+gelmeden açılmıyor**.
+
+**b) RLS `user_has_tenant_access()` SATIR BAŞINA çağrılıyor.** Policy
+`USING (user_has_tenant_access(tenant_id))` ve argüman bir **kolon** olduğu
+için planner çağrıyı dışarı çıkaramıyor. P7'de **2.000 çağrı**. Index bunu
+çözmez — çağrı sayısı okunan satır sayısına eşit, dolayısıyla tek çare
+okunan satırı azaltmak: **sayfalama**.
+
+> Yan bulgu (tasarımı değiştirmiyor): planner `tenant_id = ?` koşulunu RLS
+> filtresinin **altına itip Index Cond olarak kullanabiliyor** (`uuid`
+> eşitliği leakproof). Yani index tasarımında RLS için ekstra bir şey
+> yapmaya gerek yok.
+
+---
+
+# 📋 BACKLOG — Gereksiz görünen index'ler (12 Eylül 2026)
+
+**Durum:** ⚠️ Açık — **bilerek 028'e KATILMADI.** Index eklemek geri
+alınabilir, index **silmek** öyle değil; karar canlıdaki gerçek
+`pg_stat_user_indexes.idx_scan` sayaçlarına bakılmadan verilmemeli.
+
+028 teşhisi sırasında 5 aday çıktı:
+
+| Index | Neden gereksiz görünüyor |
+|---|---|
+| `idx_news_tenant (tenant_id)` | `news_tenant_slug_key (tenant_id, slug)` **öneki** zaten karşılıyor; 028'ten sonra iki yeni bileşik de karşılıyor |
+| `idx_announcements_tenant (tenant_id)` | Aynı — `announcements_tenant_slug_key` öneki |
+| `idx_news_published (is_published, published_at DESC)` | 028'ten sonra **işlevsiz**: `tenant_id` olmadan `is_published` filtreleyen **tek bir sorgu yok** (kod taramasıyla doğrulandı) |
+| `idx_announcements_published` | Aynı gerekçe |
+| `idx_site_settings_tenant_key (tenant_id, key)` | `site_settings_tenant_key_key` UNIQUE kısıtıyla **BİREBİR aynı** — düpedüz çift kayıt |
+
+**Ölçülen kazanç küçük:** 3 index düşürmek 2.000 INSERT'te ölçüm gürültüsünün
+içinde kaldı. Kazanç hız değil, **yazma yükü + disk** (Free planda 500 MB).
+
+**Sıra:** önce 028 apply → birkaç hafta gerçek trafik → sonra envanter SQL'i
+(`028` dosyasının "APPLY ÖNCESİ ENVANTER (0b)" bloğu) → `idx_scan = 0`
+kalanlar için ayrı migration.
+
+⚠️ `idx_news_slug (slug)` bu listede **YOK**: planner onu gerçekten seçiyor.
+Unique kısıt aynı işi aynı maliyetle görüyor (4 buffer, ikisi de), yani
+düşürülebilir — ama kanıt zayıf, aceleye gerek yok.
+
+---
+
 # 📋 BACKLOG — Yedekler uygulamayla aynı sunucuda; sunucu dışı kopya yok (11 Eylül 2026)
 
 **Durum:** ⚠️ Açık — bu turda uygulanmadı ("Yedekten geri yükleme"
@@ -3618,12 +3733,17 @@ değil, yeniden üretilir).
 
 ## 8. Deploy sonrası ilk hafta işleri (Tur 2 teşhisinden — sırayla)
 
-- b1: Admin listelerine kolon listesi + pagination + arama debounce
+- b1: Admin listelerine kolon listesi + pagination + arama debounce —
+  🔺 **ÖNCELİĞİ YÜKSELDİ** (12 Eylül 2026, b4 teşhisi): panel listesinin
+  yavaşlığı **index'le çözülmüyor**, tek çaresi sayfalama. Gerekçe:
+  "⚡ b4 TEŞHİSİ" → "b1 neden index'ten önce gelmeli"
 - b2: Detay sayfalarında bağımsız sorguları Promise.all'a alma
 - b3: Chrome sorgularına tenant-keyed unstable_cache (60 sn TTL) — tasarım
   şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat)
 - b4: `news`/`announcements` composite index migration'ı +
-  `homepage_section_items(section_id)` index'i
+  `homepage_section_items(section_id)` index'i — ✅ **028 YAZILDI**
+  (12 Eylül 2026), canlıya **elle apply bekliyor**. Teşhis, ölçüm ve
+  kararlar: "⚡ b4 TEŞHİSİ — liste index'leri (028)"
 - Uptime monitor (Supabase Free 7 gün inaktivite pause + genel sağlık) — ✅
   **tamam** (12 Eylül 2026): VPS'te 6 saatlik ping cron'u (0. bölüm → Cron
   işleri) **+** sunucu dışından UptimeRobot 5 dk / e-posta alarmı (0. bölüm →
