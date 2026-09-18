@@ -1,9 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTenant } from "@/lib/get-tenant";
+import { getCurrentTenantOrNull } from "@/lib/get-tenant";
 import SifremiUnuttumForm from "./SifremiUnuttumForm";
 
 export default async function SifremiUnuttumPage() {
-  const tenant = await getCurrentTenant();
+  // 🔴 SAYFA SEVIYESI FAIL-CLOSED — gerekcesi `admin/giris/page.tsx`'te:
+  // layout ile sayfa PARALEL kostugu icin layout'un kapisi bu fonksiyonun
+  // calismasini ve sonucunu Flight yukune yazmasini ENGELLEMIYOR.
+  const tenant = await getCurrentTenantOrNull();
+  if (!tenant) return null; // layout hata ekranini gosteriyor
 
   // site_title çek (RootLayout pattern'i)
   const supabase = createClient();

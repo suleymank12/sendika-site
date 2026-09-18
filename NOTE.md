@@ -87,6 +87,58 @@ arkada kapıyı tutuyordu, yani veri sızıntısı değil; ama desen yanlış.)
 **İlke: bilgi neredeyse karar orada.** Middleware custom_domain'de zaten DB
 sonucuna sahip olduğu için fail-closed orada bedavaydı; subdomain'de değil.
 
+### 🔴 DÜZELTME — fail-closed ilk denemede EKSİK kondu (19 Eylül 2026)
+
+Canlı test **başarısız** oldu: `olmayan-kurum.buyukdirilis.org.tr/admin` →
+`/admin/giris`'e yönlendi ve **DEFAULT kurumun giriş formu** açıldı.
+
+**Kök neden:** kapı yalnız `(authenticated)/layout.tsx`'e konmuştu; **giriş
+sayfası o grubun DIŞINDA**. `(authenticated)` dışındaki beş rota korumasızdı:
+`/admin/giris` · `/admin/davet-kabul` · `/admin/sifremi-unuttum` ·
+`/admin/yetkisiz` · `/admin/tenant-bulunamadi`. İkisi (`giris`,
+`sifremi-unuttum`) `getCurrentTenant()` kullanıp **default'a düşüyordu**.
+
+**Zarar sınırı:** veri sızıntısı değil — giriş yapılsa bile `(authenticated)`
+katmanı kapıyı tutuyor. Asıl sorun **kimlik avı yüzeyi**: herhangi bir joker
+subdomain markalı bir giriş formu servis ediyordu.
+
+**Çözüm: `app/admin/layout.tsx`** (yeni) — tüm `/admin/*` için tek kapı.
+
+| Seçenek | Karar |
+|---|---|
+| Her korumasız sayfaya ayrı ayrı | ❌ beş dosyada tekrar; altıncı sayfa eklenince sessizce unutulur — bu bug zaten "bir yer atlandı" bug'ı |
+| Middleware'de subdomain doğrulaması | ❌ +117 ms/istek, Edge'de cache'lenemez (Aşama 0 kararının aynısı) |
+| **`app/admin/layout.tsx`** | ✅ tek yer, **sıfır ek sorgu** (`getCurrentTenantOrNull` iki kat cache'li), yeni sayfalar otomatik korunur |
+
+🔴 **SONSUZ DÖNGÜ — `redirect` değil `render`.**
+`redirect("/admin/tenant-bulunamadi")` yazılsaydı o adres de aynı layout'un
+altında olduğu için layout tekrar çalışır ve **sonsuz yönlendirme** olurdu.
+Bunun yerine `children` **yerine** hata ekranı render ediliyor → gezinme yok →
+döngü **yapısal olarak imkânsız**. (Aynı desen `AdminTenantPasifView`'da zaten
+vardı.) Canlı doğrulama: `/admin` 1 yönlendirme (middleware auth), diğerleri 0.
+
+### 🔴 İkinci katman — layout kapısı TEK BAŞINA yetmiyor
+
+Düzeltmeden sonra ekran doğruydu ama HTML kaynağında hâlâ `Sendika Adı`
+görünüyordu. Sebep **b2'de ölçtüğümüz davranış**: Next layout ile sayfayı
+**paralel** çalıştırıyor. Layout `children`'ı atsa bile `giris/page.tsx`
+koşuyor, default'a düşüyor, DB'ye gidiyor ve sonucu **RSC Flight yüküne
+serialize ediyor** (`initialTitle:"Sendika Adı"`).
+
+**Kural:** *görsel kapı layout'ta, **veri kapısı sayfada**.* Tenant verisi
+OKUYAN her admin sayfası `getCurrentTenantOrNull()` kullanıp null'da
+`return null` yapmalı. `giris` ve `sifremi-unuttum` böyle düzeltildi;
+`yetkisiz`, `davet-kabul`, `tenant-bulunamadi` tenant verisi okumadığı için
+dokunulmadı.
+
+**Doğrulandı (yerel, `Host: olmayan-kurum.lvh.me`):** altı rotanın altısında
+da hata ekranı var, `type="password"` **0**, marka sızıntısı **0**. Geçerli
+host'ta giriş formu ve başlık bozulmadı; public taraf değişmedi.
+
+**/super-admin BİLEREK kapsam dışı:** platform seviyesi, tenant'a bağlı değil
+(kendi layout'unda tenant çözümü yok). "Yanlış kurum" riski yok; guard eklemek
+meşru süper admin'i kilitleyebilirdi.
+
 ### Public ve admin BİLEREK farklı davranıyor
 
 | Taraf | Slug çözülemezse | Gerekçe |
@@ -196,7 +248,12 @@ ve asıl garanti: **slug değişen her çiftte eski+yeni ikisi de listede.**
 | `src/lib/tenant.ts` | `unstable_cache` + oturumsuz istemci |
 | `src/lib/get-tenant.ts` | 🆕 `getCurrentTenantOrNull()` |
 | `src/app/layout.tsx` | metadata default'a düşmüyor |
-| `src/app/admin/(authenticated)/layout.tsx` | fail-closed → `/admin/tenant-bulunamadi` |
+| `src/app/admin/layout.tsx` | 🆕 **tüm `/admin/*` fail-closed kapısı** |
+| `src/app/admin/_components/AdminTenantBulunamadiView.tsx` | 🆕 ortak hata ekranı |
+| `src/app/admin/tenant-bulunamadi/page.tsx` | ortak bileşeni kullanıyor |
+| `src/app/admin/giris/page.tsx` | sayfa seviyesi fail-closed (Flight sızıntısı) |
+| `src/app/admin/sifremi-unuttum/page.tsx` | aynı |
+| `src/app/admin/(authenticated)/layout.tsx` | ikinci katman, render (redirect değil) |
 | `api/super-admin/{toggle,update,delete}-tenant/route.ts` | `revalidateTag` |
 
 ## Doğrulama

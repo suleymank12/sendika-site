@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenantOrNull } from "@/lib/get-tenant";
 import AdminShell from "@/components/admin/AdminShell";
 import AdminTenantPasifView from "../_components/AdminTenantPasifView";
+import AdminTenantBulunamadiView from "../_components/AdminTenantBulunamadiView";
 
 export default async function AuthenticatedAdminLayout({
   children,
@@ -25,17 +26,19 @@ export default async function AuthenticatedAdminLayout({
   }
 
   // 2) Tenant
-  // 🔴 FAIL-CLOSED (b3 / Asama 0): default'a DUSMEYEN surum kullaniliyor.
+  // FAIL-CLOSED — IKINCI KATMAN (b3).
   //
-  // middleware fail-closed'i yalnizca custom_domain dalinda calisiyor;
-  // olmayan bir SUBDOMAIN'de (olmayan-kurum.buyukdirilis.org.tr) slug
-  // cozulemez. Eski kod burada default tenant'a dusup DEFAULT'UN PANELINI
-  // aciyordu — 8 Eylul bug'inin zarar mekanizmasi tam olarak buydu.
-  // Yanlis panel acmaktansa hic panel acmamak dogru.
+  // Asil kapi artik UST layout'ta (`app/admin/layout.tsx`): tenant
+  // cozulemezse bu layout hic calismaz. Burasi savunma derinligi olarak
+  // duruyor ve `getCurrentTenantOrNull()` null donebildigi icin tip
+  // olarak da gerekli.
+  //
+  // Yonlendirme DEGIL render: ust layout ile ayni desen, sonsuz yonlendirme
+  // riski yok (gerekce: `app/admin/layout.tsx` basindaki dongu analizi).
   const tenant = await getCurrentTenantOrNull();
   if (!tenant) {
     console.error("[AdminLayout] Tenant resolve edilemedi — x-tenant-slug karsiligi yok");
-    redirect("/admin/tenant-bulunamadi");
+    return <AdminTenantBulunamadiView />;
   }
 
   // 2.5) Pasif tenant: her durumda kapali (super admin de gormez,
