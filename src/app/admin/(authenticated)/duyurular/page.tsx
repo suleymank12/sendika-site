@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -9,6 +9,7 @@ import {
   purgeContentMedia,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { useAdminList, PAGE_PARAM } from "@/hooks/useAdminList";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
 import ListLoadError from "@/components/admin/ListLoadError";
@@ -23,52 +24,66 @@ import { formatDate } from "@/lib/utils";
 import { Announcement } from "@/types";
 import toast from "react-hot-toast";
 
+/**
+ * Liste kolonlari (b1) — `select("*")` DEGIL. `cover_image` ekranda yok ama
+ * silme akisi storage temizligi icin okuyor. `content` bilerek cekilmiyor.
+ */
+const LIST_COLUMNS = "id, title, is_published, created_at, cover_image";
+
 export default function AdminAnnouncementsListPage() {
+  return (
+    <>
+      <AdminHeader
+        title="Duyurular"
+        description="Duyurular sayfasında liste olarak görünür. Kısa resmi bildirimler için."
+        helpTopic="duyurular"
+      />
+      {/* useSearchParams (useAdminList) Next 14'te <Suspense> siniri ister. */}
+      <Suspense
+        fallback={
+          <div className="p-4 lg:p-6">
+            <Loading className="py-12" text="Yükleniyor..." />
+          </div>
+        }
+      >
+        <AnnouncementsListContent />
+      </Suspense>
+    </>
+  );
+}
+
+function AnnouncementsListContent() {
   const router = useRouter();
   const { tenant } = useTenant();
-  const [items, setItems] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
   const [deleteItem, setDeleteItem] = useState<Announcement | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchData = async () => {
-    if (!tenant) return;
-    const supabase = createClient();
-    let query = supabase
-      .from("announcements")
-      .select("*")
-      .eq("tenant_id", tenant.id)
-      .order("created_at", { ascending: false });
-
-    if (search) {
-      query = query.ilike("title", `%${search}%`);
-    }
-
-    if (filter === "published") {
-      query = query.eq("is_published", true);
-    } else if (filter === "draft") {
-      query = query.eq("is_published", false);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      setLoadFailed(true);
-      setLoading(false);
-      return;
-    }
-    setLoadFailed(false);
-    setItems(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filter, tenant]);
+  const {
+    items,
+    loading,
+    // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+    loadFailed,
+    total,
+    page,
+    totalPages,
+    search,
+    setSearch,
+    searching,
+    goToPage,
+    refetch,
+  } = useAdminList<Announcement>({
+    table: "announcements",
+    columns: LIST_COLUMNS,
+    order: { column: "created_at", ascending: false },
+    searchColumn: "title",
+    filters:
+      filter === "published"
+        ? { is_published: true }
+        : filter === "draft"
+        ? { is_published: false }
+        : {},
+  });
 
   const handleDelete = async () => {
     if (!deleteItem || !tenant) return;
@@ -111,7 +126,9 @@ export default function AdminAnnouncementsListPage() {
     }
 
     toast.success("Duyuru silindi.");
-    setItems((prev) => prev.filter((n) => n.id !== deleteItem.id));
+    // Yerel filtreleme yerine sunucudan yeniden cek (b1) — toplam sayac ve
+    // sayfa dolulugu bozulmasin.
+    refetch();
     setDeleteItem(null);
     setDeleting(false);
   };
@@ -139,13 +156,10 @@ export default function AdminAnnouncementsListPage() {
     },
   ];
 
+  const pageSuffix = page > 1 ? `?${PAGE_PARAM}=${page}` : "";
+
   return (
     <>
-      <AdminHeader
-        title="Duyurular"
-        description="Duyurular sayfasında liste olarak görünür. Kısa resmi bildirimler için."
-        helpTopic="duyurular"
-      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {/* Top bar */}
@@ -169,8 +183,8 @@ export default function AdminAnnouncementsListPage() {
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
           ) : loadFailed ? (
-            <ListLoadError onRetry={fetchData} />
-          ) : items.length === 0 && !search ? (
+            <ListLoadError onRetry={refetch} />
+          ) : total === 0 && !search ? (
             <EmptyState
               icon={Megaphone}
               title="Henüz duyuru eklenmemiş"
@@ -182,11 +196,13 @@ export default function AdminAnnouncementsListPage() {
             <DataTable
               columns={columns}
               data={items}
-              onEdit={(item) => router.push(`/admin/duyurular/${item.id}`)}
+              onEdit={(item) => router.push(`/admin/duyurular/${item.id}${pageSuffix}`)}
               onDelete={(item) => setDeleteItem(item)}
               onSearch={setSearch}
               searchValue={search}
+              searching={searching}
               searchPlaceholder="Duyuru ara..."
+              pagination={{ page, totalPages, total, onPageChange: goToPage }}
             />
           )}
         </div>

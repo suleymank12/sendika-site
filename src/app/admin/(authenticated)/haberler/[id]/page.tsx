@@ -10,6 +10,7 @@ import {
   cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { listHrefWithPage } from "@/hooks/useAdminList";
 import { useDirtyForm, useDirtyTracker } from "@/hooks/useDirtyForm";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
@@ -131,7 +132,7 @@ export default function AdminNewsEditorPage() {
 
         if (error || !data) {
           toast.error("Haber bulunamadı.");
-          router.push("/admin/haberler");
+          router.push(listHrefWithPage("/admin/haberler"));
           return;
         }
 
@@ -430,7 +431,7 @@ export default function AdminNewsEditorPage() {
           toast("Taslağa alındığı için manşetten kaldırıldı.", { icon: "ℹ️" });
         }
       }
-      router.push("/admin/haberler");
+      router.push(listHrefWithPage("/admin/haberler"));
     }
 
     setSaving(false);

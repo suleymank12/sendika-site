@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -9,6 +9,7 @@ import {
   purgeContentMedia,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { useAdminList, PAGE_PARAM } from "@/hooks/useAdminList";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
 import ListLoadError from "@/components/admin/ListLoadError";
@@ -23,53 +24,72 @@ import { formatDate } from "@/lib/utils";
 import { News } from "@/types";
 import toast from "react-hot-toast";
 
+/**
+ * Liste ekraninin cektigi kolonlar (b1). `select("*")` DEGIL.
+ *
+ * `cover_image` ekranda GOSTERILMIYOR ama silme akisi storage temizligi icin
+ * okuyor (handleDelete). Cikarilirsa kapak gorselleri yetim kalir.
+ * `content` (ortalama 6 kB HTML) bilerek YOK — ag yukunun tamami oydu.
+ */
+const LIST_COLUMNS = "id, title, category, is_published, created_at, cover_image";
+
 export default function AdminNewsListPage() {
+  return (
+    <>
+      <AdminHeader
+        title="Haberler"
+        description="Anasayfada ve haberler sayfasında görünür. Görselli, akan içerik için."
+        helpTopic="haberler"
+      />
+      {/* useSearchParams (useAdminList icinde) Next 14'te <Suspense> siniri
+          ister; yoksa `next build` prerender asamasinda patlar. Sinir
+          AdminHeader'in ALTINDA: baslik fallback sirasinda da gorunsun. */}
+      <Suspense
+        fallback={
+          <div className="p-4 lg:p-6">
+            <Loading className="py-12" text="Yükleniyor..." />
+          </div>
+        }
+      >
+        <NewsListContent />
+      </Suspense>
+    </>
+  );
+}
+
+function NewsListContent() {
   const router = useRouter();
   const { tenant } = useTenant();
-  const [news, setNews] = useState<News[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Fetch hatasi "bos liste" olarak GOSTERILMEZ — kullanici verisinin
-  // silindigini sanir (Tur 3 b1). Hata durumunda ListLoadError cikar.
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "published" | "draft">("all");
   const [deleteItem, setDeleteItem] = useState<News | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchNews = async () => {
-    if (!tenant) return;
-    const supabase = createClient();
-    let query = supabase
-      .from("news")
-      .select("*")
-      .eq("tenant_id", tenant.id)
-      .order("created_at", { ascending: false });
-
-    if (search) {
-      query = query.ilike("title", `%${search}%`);
-    }
-
-    if (filter === "published") {
-      query = query.eq("is_published", true);
-    } else if (filter === "draft") {
-      query = query.eq("is_published", false);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      setLoadFailed(true);
-      setLoading(false);
-      return;
-    }
-    setLoadFailed(false);
-    setNews(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchNews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filter, tenant]);
+  const {
+    items: news,
+    loading,
+    // Fetch hatasi "bos liste" olarak GOSTERILMEZ — kullanici verisinin
+    // silindigini sanir (Tur 3 b1). Hata durumunda ListLoadError cikar.
+    loadFailed,
+    total,
+    page,
+    totalPages,
+    search,
+    setSearch,
+    searching,
+    goToPage,
+    refetch,
+  } = useAdminList<News>({
+    table: "news",
+    columns: LIST_COLUMNS,
+    order: { column: "created_at", ascending: false },
+    searchColumn: "title",
+    filters:
+      filter === "published"
+        ? { is_published: true }
+        : filter === "draft"
+        ? { is_published: false }
+        : {},
+  });
 
   const handleDelete = async () => {
     if (!deleteItem || !tenant) return;
@@ -114,7 +134,10 @@ export default function AdminNewsListPage() {
     }
 
     toast.success("Haber silindi.");
-    setNews((prev) => prev.filter((n) => n.id !== deleteItem.id));
+    // Sayfalamada yerel filtreleme YANLIS olurdu: sayfa 19 satira duser,
+    // toplam sayac eskir. Sunucudan yeniden cekiyoruz; sayfanin son satiri
+    // silindiyse useAdminList bir onceki sayfaya iner.
+    refetch();
     setDeleteItem(null);
     setDeleting(false);
   };
@@ -150,13 +173,12 @@ export default function AdminNewsListPage() {
     },
   ];
 
+  // Duzenlemeye giderken bulundugumuz sayfa taşinir; kaydettikten sonra
+  // detay sayfasi ayni sayfaya geri doner (b1).
+  const pageSuffix = page > 1 ? `?${PAGE_PARAM}=${page}` : "";
+
   return (
     <>
-      <AdminHeader
-        title="Haberler"
-        description="Anasayfada ve haberler sayfasında görünür. Görselli, akan içerik için."
-        helpTopic="haberler"
-      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {/* Top bar */}
@@ -180,8 +202,8 @@ export default function AdminNewsListPage() {
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
           ) : loadFailed ? (
-            <ListLoadError onRetry={fetchNews} />
-          ) : news.length === 0 && !search ? (
+            <ListLoadError onRetry={refetch} />
+          ) : total === 0 && !search ? (
             <EmptyState
               icon={Newspaper}
               title="Henüz haber eklenmemiş"
@@ -193,11 +215,13 @@ export default function AdminNewsListPage() {
             <DataTable
               columns={columns}
               data={news}
-              onEdit={(item) => router.push(`/admin/haberler/${item.id}`)}
+              onEdit={(item) => router.push(`/admin/haberler/${item.id}${pageSuffix}`)}
               onDelete={(item) => setDeleteItem(item)}
               onSearch={setSearch}
               searchValue={search}
+              searching={searching}
               searchPlaceholder="Haber ara..."
+              pagination={{ page, totalPages, total, onPageChange: goToPage }}
             />
           )}
         </div>

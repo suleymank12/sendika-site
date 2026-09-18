@@ -9,6 +9,7 @@ import {
   cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { listHrefWithPage } from "@/hooks/useAdminList";
 import { useDirtyTracker } from "@/hooks/useDirtyForm";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
@@ -103,7 +104,7 @@ export default function AdminAnnouncementEditorPage() {
 
         if (error || !data) {
           toast.error("Duyuru bulunamadı.");
-          router.push("/admin/duyurular");
+          router.push(listHrefWithPage("/admin/duyurular"));
           return;
         }
 
@@ -376,7 +377,7 @@ export default function AdminAnnouncementEditorPage() {
           toast("Taslağa alındığı için manşetten kaldırıldı.", { icon: "ℹ️" });
         }
       }
-      router.push("/admin/duyurular");
+      router.push(listHrefWithPage("/admin/duyurular"));
     }
 
     setSaving(false);

@@ -40,3 +40,7 @@ next-env.d.ts
 
 # Storage migration manifest'leri (çalışma çıktısı, repo'ya gitmesin)
 scripts/manifest-*.json
+
+# Tur raporları (yerel çalışma kaydı — GitHub'a gitmez).
+# Kalıcı kararlar NOTE.md'ye yazılır; buradakiler o turun ham raporudur.
+raporlar/

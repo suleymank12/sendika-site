@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
+import { useAdminList } from "@/hooks/useAdminList";
 import AdminHeader from "@/components/admin/AdminHeader";
 import ListLoadError from "@/components/admin/ListLoadError";
 import DeleteModal from "@/components/admin/DeleteModal";
@@ -10,13 +11,13 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Loading from "@/components/ui/Loading";
 import EmptyState from "@/components/ui/EmptyState";
+import Pagination from "@/components/ui/Pagination";
 import { Inbox, Mail, Trash2 } from "lucide-react";
 import { formatDateTime, truncateText, cn } from "@/lib/utils";
 import toast from "react-hot-toast";
 
 interface ContactMessage {
   id: string;
-  tenant_id: string;
   ad: string;
   email: string;
   telefon: string;
@@ -25,44 +26,88 @@ interface ContactMessage {
   created_at: string;
 }
 
+/**
+ * Liste kolonlari (b1). `tenant_id` disinda hepsi lazim: `mesaj` hem satirda
+ * kirpilmis onizleme hem detay modalinda tam metin olarak gosteriliyor,
+ * `telefon` modalda. Yine de `select("*")` yerine acik liste — yeni bir kolon
+ * eklendiginde sessizce listeye sizmasin.
+ */
+const LIST_COLUMNS = "id, ad, email, telefon, mesaj, okundu, created_at";
+
 // Sidebar okunmamis badge'inin yenilenmesi icin sinyal (poll yok).
 function notifyMessagesUpdated() {
   window.dispatchEvent(new Event("contact-messages-updated"));
 }
 
 export default function GelenMesajlarPage() {
+  return (
+    <>
+      <AdminHeader
+        title="Gelen Mesajlar"
+        description="İletişim formundan gelen mesajlar."
+        helpTopic="gelen-mesajlar"
+      />
+      {/* useSearchParams (useAdminList) Next 14'te <Suspense> siniri ister. */}
+      <Suspense
+        fallback={
+          <div className="p-4 lg:p-6">
+            <Loading className="py-12" text="Yükleniyor..." />
+          </div>
+        }
+      >
+        <GelenMesajlarContent />
+      </Suspense>
+    </>
+  );
+}
+
+function GelenMesajlarContent() {
   const { tenant } = useTenant();
-  const [items, setItems] = useState<ContactMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Fetch hatasi "Henuz mesaj yok" olarak GOSTERILMEZ (Tur 3 b1) — gelen
-  // mesajin kayboldugunu sanmak bu panelin en hassas destek senaryosu.
-  const [loadFailed, setLoadFailed] = useState(false);
   const [selected, setSelected] = useState<ContactMessage | null>(null);
   const [deleteItem, setDeleteItem] = useState<ContactMessage | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchData = useCallback(async () => {
+  const {
+    items,
+    loading,
+    // Fetch hatasi "Henuz mesaj yok" olarak GOSTERILMEZ (Tur 3 b1) — gelen
+    // mesajin kayboldugunu sanmak bu panelin en hassas destek senaryosu.
+    loadFailed,
+    total,
+    page,
+    totalPages,
+    goToPage,
+    refetch,
+  } = useAdminList<ContactMessage>({
+    table: "contact_messages",
+    columns: LIST_COLUMNS,
+    order: { column: "created_at", ascending: false },
+  });
+
+  /**
+   * 🔴 OKUNMAMIS SAYACI AYRI SORGU (b1).
+   *
+   * Eskiden `items.filter(m => !m.okundu).length` idi — YUKLU listeden
+   * sayiyordu. Sayfalama gelince bu sessizce bozulurdu: 20 satirlik sayfada
+   * "12 okunmamis" yerine "3 okunmamis" yazardi. Sidebar rozeti (Sidebar.tsx)
+   * bu deseni zaten dogru kullaniyor; burada da ayni.
+   */
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const fetchUnread = useCallback(async () => {
     if (!tenant) return;
     const supabase = createClient();
-    // RLS zaten tenant'a gore filtreler; explicit .eq mevcut admin pattern'i ile tutarli.
-    const { data, error } = await supabase
+    const { count } = await supabase
       .from("contact_messages")
-      .select("*")
+      .select("id", { count: "exact", head: true })
       .eq("tenant_id", tenant.id)
-      .order("created_at", { ascending: false });
-    if (error) {
-      setLoadFailed(true);
-      setLoading(false);
-      return;
-    }
-    setLoadFailed(false);
-    setItems((data as ContactMessage[]) || []);
-    setLoading(false);
+      .eq("okundu", false);
+    setUnreadCount(count ?? 0);
   }, [tenant]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    fetchUnread();
+  }, [fetchUnread]);
 
   // Detay ac; okunmamissa okundu=true isaretle
   const openDetail = async (item: ContactMessage) => {
@@ -75,9 +120,11 @@ export default function GelenMesajlarPage() {
         .eq("tenant_id", tenant.id)
         .eq("id", item.id);
       if (!error) {
-        setItems((prev) =>
-          prev.map((m) => (m.id === item.id ? { ...m, okundu: true } : m))
-        );
+        // Liste artik hook'ta; yerel yama yerine sayfayi yeniden cekiyoruz.
+        // refetch sessizdir (loading'i true'ya almaz), modal acikken titreme
+        // olmaz.
+        refetch();
+        fetchUnread();
         setSelected((prev) => (prev ? { ...prev, okundu: true } : prev));
         notifyMessagesUpdated();
       }
@@ -99,28 +146,24 @@ export default function GelenMesajlarPage() {
       return;
     }
     toast.success("Mesaj silindi.");
-    setItems((prev) => prev.filter((m) => m.id !== deleteItem.id));
+    // Sunucudan yeniden cek: sayfanin son satiri silindiyse useAdminList bir
+    // onceki sayfaya iner.
+    refetch();
+    fetchUnread();
     setDeleteItem(null);
     setDeleting(false);
     notifyMessagesUpdated();
   };
 
-  const unreadCount = items.filter((m) => !m.okundu).length;
-
   return (
     <>
-      <AdminHeader
-        title="Gelen Mesajlar"
-        description="İletişim formundan gelen mesajlar."
-        helpTopic="gelen-mesajlar"
-      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
           ) : loadFailed ? (
-            <ListLoadError onRetry={fetchData} />
-          ) : items.length === 0 ? (
+            <ListLoadError onRetry={refetch} />
+          ) : total === 0 ? (
             <EmptyState
               icon={Inbox}
               title="Henüz mesaj yok"
@@ -193,6 +236,20 @@ export default function GelenMesajlarPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Bu sayfa DataTable kullanmiyor (okunmamis noktasi + satir
+                  tiklama gibi kendine ozgu davranislari var), sayfalamayi
+                  kendisi basiyor. Pagination tek sayfada kendini gizler. */}
+              <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p className="text-sm text-text-muted">
+                  Toplam <span className="font-medium text-text-dark">{total}</span> mesaj
+                </p>
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={goToPage}
+                />
               </div>
             </>
           )}

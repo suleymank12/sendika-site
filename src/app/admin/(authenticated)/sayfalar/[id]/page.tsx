@@ -9,6 +9,7 @@ import {
   cleanupReplacedFile,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { listHrefWithPage } from "@/hooks/useAdminList";
 import { useDirtyTracker } from "@/hooks/useDirtyForm";
 import AdminHeader from "@/components/admin/AdminHeader";
 import FormField from "@/components/admin/FormField";
@@ -64,7 +65,7 @@ export default function AdminPageEditorPage() {
           .single();
         if (error || !data) {
           toast.error("Sayfa bulunamadı.");
-          router.push("/admin/sayfalar");
+          router.push(listHrefWithPage("/admin/sayfalar"));
           return;
         }
         setTitle(data.title);
@@ -228,7 +229,7 @@ export default function AdminPageEditorPage() {
       } else {
         toast.success(publish ? "Sayfa yayınlandı." : "Taslak kaydedildi.");
       }
-      router.push("/admin/sayfalar");
+      router.push(listHrefWithPage("/admin/sayfalar"));
     }
     setSaving(false);
   };

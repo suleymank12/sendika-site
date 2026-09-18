@@ -1,13 +1,27 @@
 "use client";
 
-import { Search, Edit, Trash2 } from "lucide-react";
+import { Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Pagination from "@/components/ui/Pagination";
 
 export interface Column<T> {
   key: string;
   label: string;
   render?: (item: T) => React.ReactNode;
   className?: string;
+}
+
+/**
+ * Sunucu tarafi sayfalama bilgisi (b1). Veriyi DataTable CEKMEZ — sayfalama
+ * sorguyla eslesmek zorunda oldugu icin durum `useAdminList`'te durur, buraya
+ * yalnizca gosterim icin iner.
+ */
+export interface DataTablePagination {
+  page: number;
+  totalPages: number;
+  /** Filtre/aramaya uyan toplam kayit. */
+  total: number;
+  onPageChange: (page: number) => void;
 }
 
 interface DataTableProps<T> {
@@ -18,6 +32,9 @@ interface DataTableProps<T> {
   searchPlaceholder?: string;
   onSearch?: (query: string) => void;
   searchValue?: string;
+  /** Kullanici yazdi, sorgu debounce'ta bekliyor → kutuda donen gosterge. */
+  searching?: boolean;
+  pagination?: DataTablePagination;
   actions?: boolean;
 }
 
@@ -29,6 +46,8 @@ export default function DataTable<T extends { id: string }>({
   searchPlaceholder = "Ara...",
   onSearch,
   searchValue = "",
+  searching = false,
+  pagination,
   actions = true,
 }: DataTableProps<T>) {
   return (
@@ -41,8 +60,15 @@ export default function DataTable<T extends { id: string }>({
             placeholder={searchPlaceholder}
             value={searchValue}
             onChange={(e) => onSearch(e.target.value)}
-            className="w-full rounded-lg border border-border pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            className="w-full rounded-lg border border-border pl-10 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
           />
+          {/* Debounce beklerken "takildi mi?" hissini onler (b1). */}
+          {searching && (
+            <Loader2
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted animate-spin"
+              aria-hidden="true"
+            />
+          )}
         </div>
       )}
 
@@ -108,6 +134,23 @@ export default function DataTable<T extends { id: string }>({
           </tbody>
         </table>
       </div>
+
+      {/* Sayfalama serisi. Pagination tek sayfada kendini gizler
+          (Pagination.tsx: totalPages <= 1 → null), bu yuzden az kayitli
+          kurumda yalniz "Toplam N kayit" satiri gorunur. */}
+      {pagination && pagination.total > 0 && (
+        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-sm text-text-muted">
+            Toplam{" "}
+            <span className="font-medium text-text-dark">{pagination.total}</span> kayıt
+          </p>
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.onPageChange}
+          />
+        </div>
+      )}
     </div>
   );
 }

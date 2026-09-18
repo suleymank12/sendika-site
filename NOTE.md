@@ -5,6 +5,294 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# 📝 ÇALIŞMA KURALI — her turun raporu `raporlar/` klasörüne yazılır (18 Eylül 2026)
+
+**Her turun sonunda** terminale verilen rapor, **birebir aynısı** olacak
+şekilde proje içinde bir markdown dosyasına da yazılır.
+
+| | |
+|---|---|
+| Klasör | `raporlar/` (yoksa oluşturulur) |
+| Dosya adı | `YYYY-AA-GG-HHMM-kisa-konu.md` |
+| Örnek | `2026-09-18-2250-b1-sayfalama-teshis.md` |
+| Kural | **Her tur AYRI dosya** — üzerine yazılmaz |
+| İçerik | Terminaldekiyle **BİREBİR** aynı: tablolar, kod blokları, ölçümler dahil |
+
+🔴 **`raporlar/` `.gitignore`'da** — GitHub'a **yüklenmez**. Bu dosyalar yerel
+çalışma kaydıdır.
+
+## Raporun sınırı — neresi kopyalanır
+
+**Turun SON mesajının TAMAMI**, ilk karakterinden son karakterine kadar.
+
+Buna dahil olanlar — özellikle unutulanlar:
+- ⚠️ Başlıktan **önceki giriş cümlesi** ("b1 uygulandı. Commit/push yapmadım…")
+- ⚠️ Onu izleyen **`---` ayıracı**
+- Tablolar, kod blokları, emoji işaretleri, kalın/italik vurgular
+- Sondaki kapanış paragrafı
+
+Dahil **olmayan** tek şey: tur ortasındaki ilerleme cümleleri ("Şimdi 4 liste
+sayfasını yazıyorum" gibi) — onlar rapor değil, komut aralarındaki anlatım.
+
+🔴 **Özetleme, kısaltma, yeniden düzenleme YOK.** Dosya raporun kopyasıdır,
+türevi değil.
+
+> **Geçmiş hata (18 Eylül 2026):** İlk üç rapor dosyasında gövde birebirdi ama
+> **giriş cümlesi + `---` ayıracı** kırpılmıştı; üçü de sonradan düzeltildi.
+> Yukarıdaki "raporun sınırı" tanımı bu yüzden eklendi — kural "birebir aynı"
+> derken raporun NEREDEN başladığını söylemiyordu.
+
+## Neden ikisi birden
+
+Terminal geçmişi kayboluyor; ölçüm tabloları ve gerekçeler onunla birlikte
+gidiyordu. Bu klasör "o turda tam olarak ne ölçüldü, neden öyle karar verildi"
+sorusunun ham kaydı.
+
+⚠️ **NOTE.md'nin yerini TUTMAZ.** İş bölümü:
+
+- `raporlar/` → o turun **ham raporu**, zaman damgalı, değişmez. Repoya gitmez.
+- `NOTE.md` → **kalıcı karar ve gerekçe**. Repoya gider, ekip bunu okur.
+
+Yani bir karar kalıcıysa **yine NOTE.md'ye de yazılır**; rapor dosyası onun
+yerine geçmez.
+
+---
+
+# 📄 b1 UYGULAMASI — panel listelerinde sayfalama (18 Eylül 2026)
+
+**Durum:** ✅ **Uygulandı.** Migration YOK, veritabanı şeması **dokunulmadı** —
+değişiklik tamamen uygulama tarafında. Teşhis ve kararlar için:
+"⚡ b4 TEŞHİSİ" → "b1 neden index'ten önce gelmeli".
+
+## Kapsam — hangi listeler
+
+Panelde 13 liste var; **4'ü** değişti:
+
+| Liste | Neden |
+|---|---|
+| `admin/haberler` | sınırsız büyür |
+| `admin/duyurular` | sınırsız büyür |
+| `admin/gelen-mesajlar` | sınırsız büyür (public iletişim formu besliyor) |
+| `admin/sayfalar` | yavaş ama sınırsız büyür |
+
+**Kalan 9 listeye DOKUNULMADI** (menü, slider, manşet, kategoriler, şubeler,
+yönetim kurulu, anasayfa bölümleri, galeri albümleri, galeri fotoğrafları).
+Hepsi `order` kolonlu **sürükle-bırak** — sayfalama bunları **bozar**:
+2. sayfadaki satır 1. sayfaya sürüklenemez. Manşette zaten
+`MANSET_LIMIT = 10` var.
+
+## Kararlar (hepsi ölçümle)
+
+| Karar | Sonuç | Gerekçe |
+|---|---|---|
+| Sayfa boyutu | **20** | `PAGE_SIZE.ADMIN_TABLE` zaten vardı, **hiç kullanılmıyordu** |
+| Arayüz | **numaralı** | `components/ui/Pagination.tsx` zaten vardı ve **ölü koddu** (hiçbir yerde import edilmiyordu); ellipsis'li, primary renkli |
+| Toplam sayı | **gösteriliyor** (`count: "exact"`) | ⚠️ bedeli var — aşağıdaki "count bedeli" |
+| `count: "planned"` | ❌ **Hayır** | Gerçek 2.000 iken planner **1.667** dedi (%17 sapma) → "100 sayfa" yerine "83 sayfa" yazardı |
+| offset vs keyset | **offset** (`.range()`) | Keyset derin sayfada 300× hızlı (20.000 satır/500. sayfa: 64.690 → 0.198 ms) ama **numaralı arayüzü imkânsız kılar** ve `created_at` eşitliğinde `id` tiebreaker ister (toplu içe aktarımda satır atlar). Admin sığ gezer |
+| URL'de sayfa | **`?sayfa=N`** | Public tarafla **aynı** parametre adı |
+| Silme sonrası | **sayfa korunur** | Sayfanın son satırı silinirse bir önceki sayfaya iner (`useAdminList` içinde) |
+
+## 🔴 count:"exact" bedeli — DB kazancı YOK, kazanç AĞDA
+
+Dürüst sonuç: `count(*) OVER ()` filtreye uyan **tüm** satırları okumak
+zorunda, dolayısıyla **DB tarafındaki kazancı tümüyle yiyor.** 2.000 haberde:
+
+| | Süre | Buffer |
+|---|---|---|
+| ÖNCE (`select("*")`, LIMIT yok) | 14.664 ms | 2.097 |
+| SONRA (uygulanan: kolon + count + LIMIT 20) | **15.564 ms** | 2.094 |
+| *(seçilmeyen yol: count YOK)* | *0.266 ms* | *23* |
+
+**Kazancın tamamı ağ yükünde** (aşağıdaki tablo). Bu bilinçli bir takas:
+numaralı arayüz toplam sayı ister, toplam sayı O(n)'dir. Kabul edilebilir
+çünkü count **kurum başına** ölçeklenir, toplam satırla değil.
+
+🔴 **EŞİK: bir kurum ~5.000 satırı geçerse** `count` ve `offset` **birlikte**
+yeniden değerlendirilmeli (keyset + "Daha fazla yükle"). Ölçülen eğri:
+500 satır → 6.191 ms, 2.000 → 16.363 ms, 20.000 → **150.387 ms**.
+
+## Ölçüm — yerel PG 18.3, canlıya dokunulmadı
+
+Yöntem b4'ün aynısı: repodaki `000_baseline` + `027` + `028`, Supabase taklidi
+(`auth.uid()`, `anon`/`authenticated`/`service_role`), `EXPLAIN ANALYZE`
+`authenticated` rolüyle. Sentetik `content` **gerçekçi entropiyle** üretildi —
+ilk denemede tekrarlı metni pglz 30× sıkıştırdı ve TOAST boş kaldı, bu
+`select("*")` maliyetini olduğundan küçük gösteriyordu.
+
+### Ağ yükü (PostgREST JSON gövdesi, gzip öncesi) — asıl kazanç
+
+| Liste | Hacim | ÖNCE | SONRA | Kazanç |
+|---|---|---|---|---|
+| haberler | 2.000 | **13 MB** | 5.801 B | **2.300×** |
+| duyurular | 500 | 1.551 kB | 3.274 B | **485×** |
+| sayfalar | 40 | 394 kB | 3.760 B | **107×** |
+| gelen mesajlar | 1.500 | 1.018 kB | 13 kB | **78×** |
+| haberler | **bugünkü canlı (9)** | **55 kB** | **1.771 B** | **31×** |
+
+Bugünkü hacimde bile 31× — çünkü `news.content` (ortalama 6 kB HTML) listede
+gösterilmediği hâlde çekiliyordu.
+
+### Süre / buffer
+
+| Liste | ÖNCE | SONRA |
+|---|---|---|
+| haberler (2.000) | 14.664 ms / 2.097 buf | 15.564 ms / 2.094 buf |
+| duyurular (500) | 4.168 ms / 627 buf | 4.021 ms / 627 buf |
+| sayfalar (40) | 0.325 ms / 42 buf | 0.352 ms / 42 buf |
+| gelen mesajlar (1.500) | 13.934 ms / 1.611 buf | 12.716 ms / 1.611 buf |
+| haberler (bugünkü, 9) | 0.131 ms | 0.129 ms |
+
+Süreler count yüzünden **aynı kalıyor** — yukarıdaki "count bedeli".
+
+### RLS izole edildi — b4'teki (b) iddiasının sayısı
+
+Aynı sorgu, 2.000 satır, iki rol:
+
+| Rol | Süre | Buffer |
+|---|---|---|
+| `service_role` (BYPASSRLS) | **1.342 ms** | 97 |
+| `authenticated` (RLS açık) | **13.422 ms** | 2.230 |
+| `authenticated` + LIMIT 20 | **0.171 ms** | 23 |
+
+`user_has_tenant_access()` tek başına **+12 ms ve +2.133 buffer**. LIMIT çağrı
+sayısını 2.000'den 20'ye indiriyor. Teşhis doğrulandı.
+
+## 🔴 Sessiz regresyon önlendi — okunmamış mesaj sayacı
+
+`gelen-mesajlar` eskiden `items.filter(m => !m.okundu).length` ile **yüklü
+listeden** sayıyordu. Sayfalama gelince bu sessizce bozulacaktı: "12 okunmamış"
+yerine **"3 okunmamış"** yazardı. Ayrı bir `count: "exact", head: true`
+sorgusuna alındı (Sidebar rozetinin zaten kullandığı desen — `Sidebar.tsx`).
+Maliyeti ölçüldü: 1.500 mesajda **7.333 ms**, ayrı sorgu olduğu için liste
+sorgusuyla paralel gider.
+
+## Suspense sınırı — baştan kuruldu
+
+`useSearchParams` Next 14'te client component'te **`<Suspense>` sınırı ister**,
+yoksa `next build` prerender aşamasında bailout üretir. Dört liste sayfasının
+her biri `AdminHeader`'ın **altından** Suspense ile sarmalandı (başlık fallback
+sırasında da görünür).
+
+Detay sayfaları (`haberler/[id]` 608 satır, `duyurular/[id]` 530,
+`sayfalar/[id]` 353) **sarmalanmadı** — bilerek. Oradaki `?sayfa=N` okuması
+`listHrefWithPage()` yardımcısıyla yapılıyor ve bu yardımcı yalnızca **olay
+işleyicilerinde** (kaydet) ve **mount sonrası efektlerde** ("kayıt bulunamadı")
+çalışır, render sırasında asla → prerender'da hiç çalışmaz, bailout üretmez.
+
+> Not: `npm run build` çıktısında tüm `/admin/*` rotaları zaten `ƒ (Dynamic)`.
+> Yani bailout bugün fiilen tetiklenmiyordu; Suspense yine de **doğru desen**
+> ve istemci tarafı gezinmede düzgün fallback veriyor.
+
+## Değişen dosyalar
+
+| Dosya | Değişiklik |
+|---|---|
+| `src/lib/admin-list.ts` | 🆕 **saf mantık** — React'ten bağımsız, test edilebilir |
+| `src/hooks/useAdminList.tsx` | 🆕 ortak hook + `listHrefWithPage()` |
+| `scripts/test-admin-list.mjs` | 🆕 **37 kontrol** (`npm run test:admin-list`) |
+| `package.json` | `test:admin-list` script'i |
+| `src/components/admin/DataTable.tsx` | `pagination` + `searching` prop'ları |
+| `src/app/admin/(authenticated)/haberler/page.tsx` | hook + Suspense + kolon listesi |
+| `src/app/admin/(authenticated)/duyurular/page.tsx` | aynı |
+| `src/app/admin/(authenticated)/sayfalar/page.tsx` | aynı |
+| `src/app/admin/(authenticated)/gelen-mesajlar/page.tsx` | hook + Suspense + **ayrı okunmamış sayacı** + kendi `<Pagination>` |
+| `src/app/admin/(authenticated)/{haberler,duyurular,sayfalar}/[id]/page.tsx` | dönüşte `?sayfa=N` korunuyor (2'şer satır) |
+
+⚠️ **Kolon listelerinde `cover_image` var ama ekranda gösterilmiyor** — silme
+akışı storage temizliği için okuyor. Çıkarılırsa **yetim dosya** kalır. Her
+dosyada yorumu yazılı.
+
+## Doğrulama
+
+`npx tsc --noEmit` ✅ · `npm run lint` ✅ (0 uyarı) · `npm run build` ✅ ·
+**14 test script'i ✅** (yeni `test:admin-list` 37/37 dahil).
+
+### Neden ayrı bir saf modül (`src/lib/admin-list.ts`)
+
+Sayfalamanın bütün sınır durumları **kullanıcının elinden** gelir: adres
+çubuğuna `?sayfa=abc` yazılabilir, sayfanın **son satırı** silinebilir. İkisi
+de yanlış kurulursa panel ya boş tablo gösterir ya da **sonsuz yönlendirme
+döngüsüne** girer. Mantık React'ten ayrıldığı için `test-admin-list.mjs` bunu
+doğrudan sınıyor; iki test özellikle döngü içindir:
+
+- "hedef her zaman `page`'ten KÜÇÜK" — 50 sayfa × 9 farklı toplam taranıyor
+- "düzeltme TEK adımda oturur" — inilen sayfa yeniden taşmamalı
+
+Ayrıca "ardışık sayfalar bitişik" testi `.range()` sınırlarında **satır
+kaybı/tekrarı** olmadığını garanti ediyor.
+
+### 🔴 Sessiz döngü riski — `searchParams` nesnesi vs string
+
+`buildHref → replacePage → fetchPage → veri çekme efekti` diye bir bağımlılık
+zinciri var. `useSearchParams()`'ın döndürdüğü **nesneyi** dep olarak vermek,
+kimliği her render'da değişirse **sonsuz sorgu döngüsü** üretir. Bu yüzden
+`searchParams.toString()` (metin) kullanılıyor — zincirin tamamı değer tabanlı.
+`useAdminList.tsx` içinde yorumu yazılı; oraya dokunacak olan okusun.
+
+---
+
+# 📋 BACKLOG — b1'den çıkan üç ayrı madde (18 Eylül 2026)
+
+**Durum:** ⚠️ Açık — b1 teşhisi sırasında ölçüldü, **bilerek b1'e katılmadı**
+(üçü de ayrı problem, ayrı risk profili).
+
+## a) Galeri albüm listesinde sayaç alt-sorgusu
+
+`admin/galeri/page.tsx:154` → `select("*, gallery_images(count)")`.
+PostgREST bunu **albüm başına ayrı alt-sorgu** olarak çeviriyor.
+
+Ölçüm (120 albüm × 25 fotoğraf, yerel):
+```
+Execution Time: 29.327 ms   Buffers: 6.368
+  SubPlan 3 → Bitmap Heap Scan (loops=120, Heap Blocks: exact=3000)
+```
+Sadece **saymak** için 3.000 fotoğraf satırı okunuyor — haberler listesinden
+(13 ms) iki kat kötü.
+
+🔴 **Sayfalama bunu ÇÖZMEZ:** galeri sürükle-bırak, sayfalanamaz. Çözüm tek
+`group by` sorgusu: albümler ayrı çekilir, sayılar
+`gallery_images` üzerinde tek `select("album_id").in(...)` veya bir view ile
+alınır. Bugünkü hacimde (bir avuç albüm) fark edilmez — **eşik ~50 albüm.**
+
+## b) Arama için trigram index
+
+`ilike("title", "%...%")` **hiçbir B-tree index'i kullanamaz** (sol tarafı
+joker). Ölçüldü (2.000 haber, eşleşen terim):
+
+| | Süre |
+|---|---|
+| Arama, LIMIT yok | 15.476 ms |
+| Arama + LIMIT 20 | 14.469 ms (**%7**) |
+
+Yani **b1 aramanın DB tarafını düzeltmedi** — kazanç yalnız ağda (1.111 satır
+→ 20 satır). Kalıcı çözüm:
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX idx_news_title_trgm ON news USING gin (title gin_trgm_ops);
+```
+⚠️ Karar verilmeden önce: (1) Supabase Free'de `pg_trgm` mevcut mu doğrulanmalı,
+(2) index `tenant_id` içermiyor — RLS + tenant filtresiyle planner'ın onu
+gerçekten seçip seçmediği **ölçülmeli** (b4'teki "lider kolon yanlış" hatasına
+düşmeyin), (3) yazma maliyeti artar. **Eşik: bir kurum ~2.000 satırı geçince.**
+
+## c) Public haberler sayfa numarası listesi
+
+`src/app/(public)/haberler/page.tsx:85`:
+```tsx
+{Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => ( ... ))}
+```
+**Tüm** sayfa numaralarını basıyor — 100 sayfada 100 `<Link>`. `duyurular`
+sayfasında da aynı desen var.
+
+Çözüm hazır: `components/ui/Pagination.tsx` ellipsis'li mantığı zaten içeriyor
+(b1'de panele takıldı). Public tarafa taşımak için tek engel: `Pagination`
+`onPageChange` callback'i alıyor (client), public sayfalar ise `<Link href>`
+kullanıyor (SSR + SEO). **`href` üreten bir varyant gerekiyor** — sayfa
+bağlantıları gerçek `<a>` kalmalı, yoksa SEO'da sayfalama izlenemez.
+
+---
+
 # 🏷️ PANEL İSİMLENDİRME VE AÇIKLAMA TURU (12 Eylül 2026)
 
 **Durum:** ✅ Uygulandı. Kod değişikliği yalnız **metin + bilgi kutusu**;
@@ -3820,9 +4108,12 @@ değil, yeniden üretilir).
 ## 8. Deploy sonrası ilk hafta işleri (Tur 2 teşhisinden — sırayla)
 
 - b1: Admin listelerine kolon listesi + pagination + arama debounce —
-  🔺 **ÖNCELİĞİ YÜKSELDİ** (12 Eylül 2026, b4 teşhisi): panel listesinin
-  yavaşlığı **index'le çözülmüyor**, tek çaresi sayfalama. Gerekçe:
-  "⚡ b4 TEŞHİSİ" → "b1 neden index'ten önce gelmeli"
+  ✅ **TAMAM** (18 Eylül 2026): 4 liste (haberler, duyurular, sayfalar,
+  gelen-mesajlar) `useAdminList` hook'una alındı; ağ yükü haberlerde
+  **13 MB → 5.8 kB**. Sürükle-bırak sıralı 9 listeye dokunulmadı.
+  Migration yok. Kararlar, ölçüm ve değişen dosyalar:
+  "📄 b1 UYGULAMASI — panel listelerinde sayfalama".
+  Çıkan üç yeni madde: "📋 BACKLOG — b1'den çıkan üç ayrı madde"
 - b2: Detay sayfalarında bağımsız sorguları Promise.all'a alma
 - b3: Chrome sorgularına tenant-keyed unstable_cache (60 sn TTL) — tasarım
   şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat)

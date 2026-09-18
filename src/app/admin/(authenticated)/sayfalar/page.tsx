@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -9,6 +9,7 @@ import {
   purgeContentMedia,
 } from "@/lib/storage";
 import { useTenant } from "@/hooks/useTenant";
+import { useAdminList, PAGE_PARAM } from "@/hooks/useAdminList";
 import AdminHeader from "@/components/admin/AdminHeader";
 import DataTable, { Column } from "@/components/admin/DataTable";
 import ListLoadError from "@/components/admin/ListLoadError";
@@ -23,43 +24,60 @@ import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 import { Page } from "@/types";
 import toast from "react-hot-toast";
 
+/**
+ * Liste kolonlari (b1) — `select("*")` DEGIL. `cover_image` ekranda yok ama
+ * silme akisi storage temizligi icin okuyor. `content` (tuzuk gibi sayfalarda
+ * cok uzun) bilerek cekilmiyor: 40 satirda 394 kB -> 6.8 kB.
+ */
+const LIST_COLUMNS = "id, title, slug, is_published, updated_at, cover_image";
+
 export default function AdminPagesListPage() {
+  return (
+    <>
+      <AdminHeader
+        title="Sayfalar"
+        description="Hakkımızda, Tüzük gibi kendi adresi olan sayfalar. Menüye elle eklenir."
+        helpTopic="sayfalar"
+      />
+      {/* useSearchParams (useAdminList) Next 14'te <Suspense> siniri ister. */}
+      <Suspense
+        fallback={
+          <div className="p-4 lg:p-6">
+            <Loading className="py-12" text="Yükleniyor..." />
+          </div>
+        }
+      >
+        <PagesListContent />
+      </Suspense>
+    </>
+  );
+}
+
+function PagesListContent() {
   const router = useRouter();
   const { tenant } = useTenant();
-  const [pages, setPages] = useState<Page[]>([]);
-  const [loading, setLoading] = useState(true);
-  // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [search, setSearch] = useState("");
   const [deleteItem, setDeleteItem] = useState<Page | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchPages = async () => {
-    if (!tenant) return;
-    const supabase = createClient();
-    let query = supabase
-      .from("pages")
-      .select("*")
-      .eq("tenant_id", tenant.id)
-      .order("created_at", { ascending: false });
-    if (search) {
-      query = query.ilike("title", `%${search}%`);
-    }
-    const { data, error } = await query;
-    if (error) {
-      setLoadFailed(true);
-      setLoading(false);
-      return;
-    }
-    setLoadFailed(false);
-    setPages(data || []);
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    fetchPages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, tenant]);
+  const {
+    items: pages,
+    loading,
+    // Fetch hatasi "bos liste" olarak GOSTERILMEZ (Tur 3 b1) — ListLoadError.
+    loadFailed,
+    total,
+    page,
+    totalPages,
+    search,
+    setSearch,
+    searching,
+    goToPage,
+    refetch,
+  } = useAdminList<Page>({
+    table: "pages",
+    columns: LIST_COLUMNS,
+    order: { column: "created_at", ascending: false },
+    searchColumn: "title",
+  });
 
   const handleDelete = async () => {
     if (!deleteItem || !tenant) return;
@@ -89,7 +107,8 @@ export default function AdminPagesListPage() {
     await removeFilesFromStorage(supabase, "images", [coverPath, ...galleryPaths]);
 
     toast.success("Sayfa silindi.");
-    setPages((prev) => prev.filter((p) => p.id !== deleteItem.id));
+    // Yerel filtreleme yerine sunucudan yeniden cek (b1).
+    refetch();
     setDeleteItem(null);
     setDeleting(false);
   };
@@ -119,13 +138,10 @@ export default function AdminPagesListPage() {
     },
   ];
 
+  const pageSuffix = page > 1 ? `?${PAGE_PARAM}=${page}` : "";
+
   return (
     <>
-      <AdminHeader
-        title="Sayfalar"
-        description="Hakkımızda, Tüzük gibi kendi adresi olan sayfalar. Menüye elle eklenir."
-        helpTopic="sayfalar"
-      />
       <div className="p-4 lg:p-6">
         <div className="rounded-xl bg-white border border-border p-5">
           <div className="flex items-center justify-end mb-4">
@@ -144,8 +160,8 @@ export default function AdminPagesListPage() {
           {loading ? (
             <Loading className="py-12" text="Yükleniyor..." />
           ) : loadFailed ? (
-            <ListLoadError onRetry={fetchPages} />
-          ) : pages.length === 0 && !search ? (
+            <ListLoadError onRetry={refetch} />
+          ) : total === 0 && !search ? (
             <EmptyState
               icon={FileText}
               title="Henüz sayfa eklenmemiş"
@@ -157,11 +173,13 @@ export default function AdminPagesListPage() {
             <DataTable
               columns={columns}
               data={pages}
-              onEdit={(item) => router.push(`/admin/sayfalar/${item.id}`)}
+              onEdit={(item) => router.push(`/admin/sayfalar/${item.id}${pageSuffix}`)}
               onDelete={(item) => setDeleteItem(item)}
               onSearch={setSearch}
               searchValue={search}
+              searching={searching}
               searchPlaceholder="Sayfa ara..."
+              pagination={{ page, totalPages, total, onPageChange: goToPage }}
             />
           )}
         </div>
