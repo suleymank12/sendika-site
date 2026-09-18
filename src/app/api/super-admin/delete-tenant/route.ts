@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { tenantTag } from "@/lib/tenant-cache";
 import {
   cleanupOrphanUserIfNeeded,
   type CleanupResult,
@@ -126,6 +128,13 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  // 3.5) 🔴 CACHE GECERSIZLESTIRME (b3) — BURADA, silme basarili olur olmaz.
+  //      Bu fonksiyonun asagida birden fazla `return` yolu var (kismi basari
+  //      dahil); etiketi en sona koymak bazi yollarda atlanmasina yol acardi.
+  //      Silinen kurum cache'te kalirsa TTL boyunca yayinda gorunur.
+  const deletedTag = tenantTag(tenant.slug);
+  if (deletedTag) revalidateTag(deletedTag);
 
   // 4) Cascade-after: her uye icin helper cagir (excludeTenantId omit —
   //    cascade tenant_users satirlarini zaten sildi, saf count yeterli).

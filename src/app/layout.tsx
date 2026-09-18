@@ -1,12 +1,26 @@
 import type { Metadata } from "next";
-import { getCurrentTenant } from "@/lib/get-tenant";
+import { getCurrentTenantOrNull } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
 import { buildTenantPublicUrl } from "@/lib/tenant-url";
 import HydrationFlag from "@/components/HydrationFlag";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const tenant = await getCurrentTenant();
+  // Default'a DUSMEYEN surum (b3 / Asama 0). Root layout HER rotayi sarar —
+  // `/admin/tenant-bulunamadi` dahil. Burada default'a dusulurse o hata
+  // sayfasi default kurumun basligiyla acilir; daha kotusu, cozulemeyen bir
+  // host'ta sanki gecerli bir siteymis gibi metadata uretilir.
+  const tenant = await getCurrentTenantOrNull();
+
+  // Tenant cozulemedi: notr baslik + noindex. `metadataBase` verilmez —
+  // hangi host'un kanonik oldugu belli degil.
+  if (!tenant) {
+    return {
+      title: "Site Bulunamadı",
+      description: "Bu adrese tanımlı bir site bulunmuyor.",
+      robots: { index: false, follow: false },
+    };
+  }
 
   // Pasif tenant: notr baslik + noindex (arama motorlari indekslemesin)
   if (!tenant.is_active) {

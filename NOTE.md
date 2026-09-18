@@ -58,6 +58,184 @@ yerine geçmez.
 
 ---
 
+# 🔑 b3 UYGULAMASI — tenant çözümlemesi cache (19 Eylül 2026)
+
+**Durum:** ✅ **Uygulandı.** Migration YOK, şema **dokunulmadı**. İki aşama:
+önce fail-closed düzeltmesi, sonra cache.
+
+## Neden bu sırayla
+
+Cache, **yanlış çözülen bir slug'ı 60 sn boyunca sabitler**. Önce
+çözümlemeyi doğrultmak, sonra hızlandırmak gerekiyordu.
+
+## AŞAMA 0 — subdomain fail-closed
+
+**Bulunan açık:** `middleware.ts:92-94` subdomain'i DB'ye sormadan kabul
+ediyor; fail-closed yalnız `custom_domain` dalında var. Sonuç:
+`olmayan-kurum.buyukdirilis.org.tr/admin` isteğinde slug çözülemiyor ve eski
+`get-tenant.ts` **sessizce `default`'a düşüp default'un admin panelini
+açıyordu** — 8 Eylül bug'ının zarar mekanizmasının aynısı. (Üyelik kontrolü
+arkada kapıyı tutuyordu, yani veri sızıntısı değil; ama desen yanlış.)
+
+### 🔴 Nerede düzeltileceği kararı — middleware DEĞİL, sayfa katmanı
+
+| Seçenek | Maliyet | Karar |
+|---|---|---|
+| Middleware'de subdomain'i DB ile doğrula | **+117 ms / her subdomain isteği**, ve Edge'de `unstable_cache` çalışmadığı için **asla geri alınamaz** → b3'ün tüm kazancını yerdi | ❌ |
+| Sayfa katmanında default'a düşmeyi kaldır | **0 ms** — sorgu zaten orada yapılıyor, cevap zaten elde | ✅ |
+
+**İlke: bilgi neredeyse karar orada.** Middleware custom_domain'de zaten DB
+sonucuna sahip olduğu için fail-closed orada bedavaydı; subdomain'de değil.
+
+### Public ve admin BİLEREK farklı davranıyor
+
+| Taraf | Slug çözülemezse | Gerekçe |
+|---|---|---|
+| **Public** | default siteye düşer (**değişmedi**) | `middleware.ts` fail-closed bölümünde **belgeli karar**: "ziyaretçi default siteyi görür, salt okuma, zarar yok, site tamamen kapanmaz". Yanlış yazılmış bir subdomain yüzünden çalışan siteyi 404'e düşürmek orantısız |
+| **Admin** | `/admin/tenant-bulunamadi` | "Yanlış panel açmaktansa hiç panel açmamak doğru" |
+
+**Public için ayrı "kurum bulunamadı" sayfası YAPILMADI** — yukarıdaki belgeli
+kararla çelişirdi.
+
+`app/layout.tsx` `generateMetadata` de default'a düşmeyen sürüme geçti: root
+layout **her rotayı** sarıyor (`/admin/tenant-bulunamadi` dahil), orada
+default'a düşmek hata sayfasını başka kurumun başlığıyla açardı.
+
+## AŞAMA 1 — cache
+
+`lib/tenant.ts` → `unstable_cache`, **TTL 60 sn**, tag `tenant:<slug>`.
+
+### Anahtar slug, host DEĞİL
+
+Normalizasyon cache'ten **önce** bitiyor: `parseHostname` (www soyar) →
+middleware (custom_domain → slug) → `x-tenant-slug` → cache.
+
+| Host | Cache anahtarı |
+|---|---|
+| `kurmayteknoloji.com` | `kurmay-teknoloji` |
+| `www.kurmayteknoloji.com` | `kurmay-teknoloji` (aynı) |
+| `metalsen.buyukdirilis.org.tr` | `metalsen` |
+| `buyukdirilis.org.tr` / `www.…` | `default` |
+
+🟢 **Cache hiçbir zaman host görmez.** Sonucu: domain→slug eşlemesi
+**cache'lenmez**, süper admin bir custom_domain'i taşırsa middleware anında
+görür.
+
+### 🔴 Oturumsuz istemci ZORUNLU
+
+`lib/supabase/server.ts` **kullanılamaz**, iki sebeple:
+
+1. `cookies()` çağırıyor; `unstable_cache` callback'i içinde `cookies()`
+   Next 14'te **hata** verir.
+2. Daha önemlisi **doğruluk**: cache sunucu genelinde paylaşılıyor. Çereze
+   bağlı (kullanıcıya özgü) bir istemcinin sonucunu cache'lemek, bir
+   kullanıcının gördüğünü herkese servis etmektir.
+
+Bu sorgu kullanıcıdan bağımsız olmalı — öyle de: `tenants_public_select`
+policy'si `USING (true)` (baseline satır 1534), middleware de aynı şekilde
+anon key ile okuyor.
+
+⚠️ `createTenantLookupClient()`'a **başka sorgu eklenmemeli**.
+
+### Geçersizleştirme — b3'ün yapılma şartı
+
+| Endpoint | Etiket |
+|---|---|
+| `toggle-tenant` | `tenantTag(tenant.slug)` |
+| `delete-tenant` | `tenantTag(tenant.slug)` — silme başarılı olur olmaz (fonksiyonun **birden fazla `return` yolu** var, sona konsa atlanırdı) |
+| `update-tenant` | `tenantTagsForUpdate(existing.slug, normalizedSlug)` — **eski VE yeni** |
+
+🔴 **En kolay unutulan hata:** slug değişiminde **eski** etiketi temizlememek.
+O zaman eski adres TTL boyunca eski kaydı gösterir. Karar mantığı
+`lib/tenant-cache.ts`'te ayrı tutuldu ve **testi var**.
+
+TTL yalnızca "tag atılamadı" durumunun ağı; `revalidateTag` varken pasife
+alma **anında** yansır.
+
+## 🔴 PM2 fork_mode — bu tasarımın ön şartı
+
+`revalidateTag` **tek proseste** çalışır. Canlıda PM2 **fork_mode, tek
+instance** (bu dosyada "Tek Node prosesi" maddesi) → tek Data Cache, tag her
+yere ulaşır.
+
+⚠️ **Cluster'a geçilirse bu tasarım GEÇERSİZ olur:** her proses kendi Data
+Cache'ini tutar, `revalidateTag` yalnız çağrıyı alan proseste çalışır,
+diğerleri TTL dolana kadar bayat veri servis eder. Pasife alınan kurum bazı
+proseslerde açık kalır. Cluster'a geçilecekse önce paylaşılan bir cache
+(Redis vb.) ya da `revalidateTag` yerine merkezî bir çözüm gerekir.
+
+## Test — geçersizleştirme otomatikleştirildi
+
+`npm run test:tenant-cache` — **19 kontrol**. Next'in cache makinesi değil,
+**etiket kararı** test ediliyor (mantık `lib/tenant-cache.ts`'te React/Next'ten
+ayrı tutulduğu için doğrudan çalıştırılabiliyor).
+
+Sınadıkları: normalizasyon (`Kurmay` ≡ `kurmay`, boşluk kırpma — iki taraf
+aynı etikete düşmezse `revalidateTag` **ıskalar**), geçersiz girdide `null`
+(boş etiket hiçbir şeyi geçersizleştirmez ama "temizledim" yanılgısı verir),
+ve asıl garanti: **slug değişen her çiftte eski+yeni ikisi de listede.**
+
+## Ölçüm
+
+`tenants` sorgusu canlı Supabase'te **medyan ~114 ms** (8 tekrar), satır
+**328 byte**, toplam 2 tenant. b2'deki 117 ms RTT modeliyle birebir.
+
+| Host tipi | ÖNCE | SONRA |
+|---|---|---|
+| apex | 1 sorgu | **0** (cache ısındıktan sonra) |
+| subdomain | 1 sorgu | **0** |
+| custom domain | **2 sorgu** | **1** (middleware kalıyor) |
+
+## Değişen dosyalar
+
+| Dosya | Değişiklik |
+|---|---|
+| `src/lib/tenant-cache.ts` | 🆕 saf etiket mantığı |
+| `scripts/test-tenant-cache.mjs` | 🆕 19 kontrol |
+| `package.json` | `test:tenant-cache` |
+| `src/lib/tenant.ts` | `unstable_cache` + oturumsuz istemci |
+| `src/lib/get-tenant.ts` | 🆕 `getCurrentTenantOrNull()` |
+| `src/app/layout.tsx` | metadata default'a düşmüyor |
+| `src/app/admin/(authenticated)/layout.tsx` | fail-closed → `/admin/tenant-bulunamadi` |
+| `api/super-admin/{toggle,update,delete}-tenant/route.ts` | `revalidateTag` |
+
+## Doğrulama
+
+`npx tsc --noEmit` ✅ · `npm run lint` ✅ · `npm run build` ✅ ·
+**15 test script'i ✅**.
+
+---
+
+# 📋 BACKLOG — custom domain middleware sorgusu (19 Eylül 2026)
+
+**Durum:** ⚠️ Açık — **b3 bunu ÇÖZMÜYOR**, bilerek kapsam dışı.
+
+Custom domain'li kurumlar (`kurmayteknoloji.com`) her istekte
+`middleware.ts:161-176`'daki `tenants` lookup'ını ödemeye devam ediyor:
+**~117 ms**. b3 sayfa tarafını sıfırladı ama bunu dokunamadı.
+
+🔴 **Neden cache'lenemiyor:** middleware **Edge runtime**'da çalışıyor,
+`unstable_cache` orada yok. Next 14'te middleware runtime'ı Node'a
+çevrilemiyor.
+
+**İroni:** custom domain SaaS'ta **premium** özellik; subdomain kurumları
+0 sorgu öderken custom domain kurumları 1 sorgu ödüyor.
+
+**Çözüm yönleri (hiçbiri ölçülmedi):**
+1. **domain→slug eşlemesini env'e almak** — build zamanı sabit. Basit ve
+   sıfır maliyetli, ama her domain değişikliğinde **yeniden deploy** gerekir.
+   Az sayıda kurumda mantıklı, ölçeklenmez.
+2. **Edge-uyumlu KV** (Upstash/Vercel KV) — ölçeklenir, dış bağımlılık ve
+   maliyet ekler; VPS kurulumunda ayrıca kurulum ister.
+3. **Middleware modül-seviyesi bellek + TTL** — kolay ama **izolasyon başına**
+   ve geçersizleştirilemez; `revalidateTag` ulaşamaz. Pasife alma gecikeceği
+   için b3'ün şartıyla çelişir. **Önerilmez.**
+
+**Eşik:** bugün 2 kurum var, biri custom domain. Custom domain'li kurum sayısı
+artınca (ya da o kurumlar hız şikâyeti edince) yeniden bakılmalı.
+
+---
+
 # ⚡ b2 UYGULAMASI — bağımsız sorguları paralelleştirme (18 Eylül 2026)
 
 **Durum:** ✅ **Uygulandı.** Migration YOK, şema **dokunulmadı**.
@@ -4284,12 +4462,13 @@ değil, yeniden üretilir).
   ✅ **TAMAM** (18 Eylül 2026): 6 sayfada derinlik 1 azaldı, 9 sayfada
   gM↔page sorgu tekrarı kaldırıldı. Canlı RTT **117 ms** ölçüldü.
   Ayrıntı, ölçüm ve düzeltilen hata: "⚡ b2 UYGULAMASI"
-- b3: Chrome sorgularına tenant-keyed unstable_cache (60 sn TTL) — tasarım
-  şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat).
-  🔺 **KAPSAMI DEĞİŞTİ** (18 Eylül 2026, b2 ölçümü): menü/ayarlar layout'ta
-  ve layout sayfayla **paralel** çalışıyor → cache'lemek **gecikmeyi
-  düşürmez**. Asıl aday `getCurrentTenant()`: her istekte kritik yolun
-  başında +117 ms. Gerekçe: "⚡ b2 UYGULAMASI" → "b3 İÇİN ASIL SORU"
+- b3: Chrome sorgularına tenant-keyed unstable_cache (60 sn TTL) —
+  ✅ **TAMAM** (19 Eylül 2026), ama **kapsamı değişerek**: menü/ayarlar
+  layout'ta ve layout sayfayla paralel çalıştığı için cache'lemek gecikmeyi
+  düşürmezdi (b2 ölçümü). Bunun yerine `getCurrentTenant()` cache'lendi —
+  her istekte kritik yolun başındaki +117 ms. Ayrıca subdomain fail-closed
+  açığı kapatıldı. Ayrıntı: "🔑 b3 UYGULAMASI".
+  Çözülmeyen: "📋 BACKLOG — custom domain middleware sorgusu"
 - b4: `news`/`announcements` composite index migration'ı +
   `homepage_section_items(section_id)` index'i — ✅ **TAMAM** (12 Eylül 2026):
   `028_liste_indeksleri.sql` yazıldı ve **canlıya apply edildi**, 5 index de

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { tenantTag } from "@/lib/tenant-cache";
 
 /**
  * Tenant'in is_active durumunu degistirir (aktif/pasif toggle).
@@ -100,6 +102,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+
+  // 3) 🔴 CACHE GECERSIZLESTIRME (b3) — bu satir OLMADAN pasife alinan bir
+  //    kurum TTL boyunca (60 sn) yayinda kalir. b3'un yapilma sarti buydu.
+  const tag = tenantTag(tenant.slug);
+  if (tag) revalidateTag(tag);
 
   return NextResponse.json({ ok: true, tenantId, isActive }, { status: 200 });
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { tenantTagsForUpdate } from "@/lib/tenant-cache";
 import {
   RESERVED_TENANT_SLUGS,
   SLUG_REGEX,
@@ -258,6 +260,15 @@ export async function POST(request: NextRequest) {
       { error: updateError.message || "Guncelleme basarisiz oldu." },
       { status: 500 }
     );
+  }
+
+  // 8) 🔴 CACHE GECERSIZLESTIRME (b3) — ESKI VE YENI slug birlikte.
+  //
+  //    Slug degistiyse tek etiket YETMEZ: eski slug'in cache kaydi TTL
+  //    boyunca ayakta kalir ve o adres hala eski veriyi gosterir. Karar
+  //    mantigi `lib/tenant-cache.ts`'te, testi `npm run test:tenant-cache`.
+  for (const tag of tenantTagsForUpdate(existing.slug, normalizedSlug)) {
+    revalidateTag(tag);
   }
 
   return NextResponse.json(
