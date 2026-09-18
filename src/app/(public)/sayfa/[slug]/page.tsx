@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getPageBySlug } from "@/lib/public-queries";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import SafeHtml from "@/components/SafeHtml";
@@ -14,15 +15,11 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("pages")
-    .select("title, content")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_published", true)
-    .single();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
+  // 🔴 Buradaki tekrar dokuz sayfa içinde en pahalısıydı: `content` (tüzük
+  // gibi sayfalarda onlarca kB tam HTML) hem burada hem sayfada çekiliyordu.
+  const data = await getPageBySlug(tenant.id, params.slug);
 
   if (!data) return { title: "Sayfa" };
 
@@ -43,13 +40,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function DynamicPage({ params }: Props) {
   const supabase = createClient();
   const tenant = await getCurrentTenant();
-  const { data: page } = await supabase
-    .from("pages")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_published", true)
-    .single();
+  // Bu sayfa BİLEREK seri kaldı (b2): content_media sorgusu `page.id`
+  // istiyor, elimizde yalnız slug var — gerçek bağımlılık.
+  const page = await getPageBySlug(tenant.id, params.slug);
 
   if (!page) notFound();
 

@@ -1,5 +1,5 @@
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getBoardMemberBySlug } from "@/lib/public-queries";
 import { notFound } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import Breadcrumb from "@/components/public/Breadcrumb";
@@ -13,18 +13,15 @@ interface Props {
   params: { slug: string };
 }
 
-// createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
-// manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
+// Sorgu artık `lib/public-queries.ts`'teki getBoardMemberBySlug'da (b2).
+// createAdminClient (RLS bypass) kasıtlı seçim olarak orada korunuyor:
+// tenant izolasyonu ve aktiflik manuel .eq("tenant_id") /
+// .eq("is_active", true) filtreleriyle sağlanıyor.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("board_members")
-    .select("name, title, photo")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_active", true)
-    .single();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
+  // Bu sayfada tek sorgu var; tekrar giderilince istek başına 2 → 1.
+  const data = await getBoardMemberBySlug(tenant.id, params.slug);
 
   if (!data) return { title: "Üye Bulunamadı" };
 
@@ -37,16 +34,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BoardMemberDetailPage({ params }: Props) {
-  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
 
-  const { data: member } = await supabase
-    .from("board_members")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_active", true)
-    .maybeSingle();
+  const member = await getBoardMemberBySlug(tenant.id, params.slug);
 
   if (!member) notFound();
 

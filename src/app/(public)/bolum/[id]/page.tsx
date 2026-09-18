@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getHomepageSectionById } from "@/lib/public-queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import SafeImage from "@/components/SafeImage";
@@ -8,7 +9,7 @@ import * as LucideIcons from "lucide-react";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import { truncateText } from "@/lib/utils";
 import { buildPublicMetadata } from "@/lib/seo";
-import type { HomepageSection, HomepageSectionItem } from "@/types";
+import type { HomepageSectionItem } from "@/types";
 import type { Metadata } from "next";
 
 interface Props {
@@ -28,15 +29,9 @@ function getLucideIcon(name: string | null | undefined) {
 // manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
 // (homepage_* public SELECT policy'leri 026 ile DROP edildi.)
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("homepage_sections")
-    .select("title")
-    .eq("tenant_id", tenant.id)
-    .eq("id", params.id)
-    .eq("is_active", true)
-    .maybeSingle();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
+  const data = await getHomepageSectionById(tenant.id, params.id);
 
   if (!data) return { title: "Sayfa Bulunamadı" };
 
@@ -52,28 +47,33 @@ export default async function SectionPage({ params }: Props) {
   const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
 
-  const { data: sectionData } = await supabase
-    .from("homepage_sections")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("id", params.id)
-    .eq("is_active", true)
-    .maybeSingle();
+  // TEK DALGA — öğe sorgusu `section.id` kullanıyordu ama o değer zaten
+  // `params.id`'nin aynısı; gerçek bağımlılık yok (b2).
+  //
+  // İKİ KAPI DEĞERLENDİRİLDİ: `!section` ve `source !== "custom"`. İkisi de
+  // artık öğe sorgusundan sonra çalışıyor, yani bu durumlarda sorgu boşa
+  // gidiyor. Kabul edildi çünkü `/bolum/[id]` bağlantısı YALNIZCA custom
+  // bölümler için üretiliyor — `HomepageSection.tsx`'te news/announcements
+  // dalları daha önce `return` ediyor, "Tümünü Gör" linki sadece custom
+  // dalında var. Yani ikinci kapı gerçek gezinmede tetiklenmez; yalnız elle
+  // yazılmış ya da eskimiş URL'lerde.
+  const [sectionData, itemsRes] = await Promise.all([
+    getHomepageSectionById(tenant.id, params.id),
+    supabase
+      .from("homepage_section_items")
+      .select("*")
+      .eq("tenant_id", tenant.id)
+      .eq("section_id", params.id)
+      .eq("is_active", true)
+      .order("order", { ascending: true }),
+  ]);
 
   if (!sectionData) notFound();
-  const section = sectionData as HomepageSection;
+  const section = sectionData;
 
   if (section.source !== "custom") notFound();
 
-  const { data: itemsData } = await supabase
-    .from("homepage_section_items")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("section_id", section.id)
-    .eq("is_active", true)
-    .order("order", { ascending: true });
-
-  const items = (itemsData as HomepageSectionItem[]) || [];
+  const items = (itemsRes.data as HomepageSectionItem[]) || [];
 
   return (
     <div className="bg-bg-light min-h-screen">

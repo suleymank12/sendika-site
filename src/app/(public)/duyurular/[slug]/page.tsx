@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getAnnouncementBySlug } from "@/lib/public-queries";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
@@ -15,16 +16,16 @@ interface Props {
   params: { slug: string };
 }
 
+/**
+ * İlgili duyuru kartının kullandığı kolonlar (b2/b1). Kart yalnızca tarih +
+ * başlık gösteriyor; `content` BİLEREK yok.
+ */
+const RELATED_COLUMNS = "id, slug, title, published_at, created_at";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("announcements")
-    .select("title, summary, cover_image, published_at, updated_at")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_published", true)
-    .single();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
+  const data = await getAnnouncementBySlug(tenant.id, params.slug);
 
   if (!data) return { title: "Duyuru Bulunamadı" };
 
@@ -44,32 +45,32 @@ export default async function AnnouncementDetailPage({ params }: Props) {
   const supabase = createClient();
   const tenant = await getCurrentTenant();
 
-  const { data } = await supabase
-    .from("announcements")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_published", true)
-    .single();
+  // 1. DALGA — duyurunun kendisi + ilgili duyurular PARALEL (b2).
+  // `.neq("id", item.id)` yerine `.neq("slug", params.slug)`: bağımlılık
+  // kalkıyor. Güvenli: `announcements_tenant_slug_key` UNIQUE (tenant_id, slug).
+  const [data, relatedRes] = await Promise.all([
+    getAnnouncementBySlug(tenant.id, params.slug),
+    supabase
+      .from("announcements")
+      .select(RELATED_COLUMNS)
+      .eq("tenant_id", tenant.id)
+      .eq("is_published", true)
+      .neq("slug", params.slug)
+      .order("published_at", { ascending: false })
+      .limit(3),
+  ]);
 
   if (!data) notFound();
 
-  const item = data as Announcement;
+  const item = data;
 
-  const { data: related } = await supabase
-    .from("announcements")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("is_published", true)
-    .neq("id", item.id)
-    .order("published_at", { ascending: false })
-    .limit(5);
-
-  const relatedItems = ((related as Announcement[]) || []).slice(0, 3);
+  // limit(5) + slice(3) idi; artık limit(3).
+  const relatedItems = (relatedRes.data as unknown as Announcement[]) || [];
   // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
   const cleanContent = sanitizeContentHtml(item.content);
   const editorImages = extractImagesFromHtml(cleanContent);
 
+  // 2. DALGA — content_media GERÇEKTEN bağımlı (`item.id` lazım).
   const { data: mediaData } = await supabase
     .from("content_media")
     .select("url")

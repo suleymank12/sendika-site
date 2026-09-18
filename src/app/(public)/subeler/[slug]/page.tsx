@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getBranchBySlug } from "@/lib/public-queries";
 import { isSafeMapEmbedUrl } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
@@ -18,15 +19,9 @@ interface Props {
 // createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
 // manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("branches")
-    .select("name, city, address")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_active", true)
-    .single();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
+  const data = await getBranchBySlug(tenant.id, params.slug);
 
   if (!data) return { title: "Şube Bulunamadı" };
 
@@ -57,40 +52,43 @@ export default async function BranchDetailPage({ params }: Props) {
   const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
 
-  const { data: branchData } = await supabase
-    .from("branches")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_active", true)
-    .single();
+  // 1. DALGA — şubenin kendisi.
+  //
+  // NOT: `branches` tablosunda (tenant_id, slug) UNIQUE kısıtı YOK
+  // (baseline'da yalnız news/announcements/pages/news_categories'te var).
+  // Bu yüzden haber/duyurudaki `.neq("slug", …)` numarası burada
+  // KULLANILMADI — diğer şubeler sorgusu `branch.id` ile eliyor.
+  const branchData = await getBranchBySlug(tenant.id, params.slug);
 
   if (!branchData) notFound();
 
-  const branch = branchData as Branch;
+  const branch = branchData;
 
-  let boardManager: BoardMember | null = null;
-  if (branch.manager_id) {
-    const { data } = await supabase
-      .from("board_members")
+  // 2. DALGA — yönetici + diğer şubeler PARALEL (b2). İkisi de yalnız
+  // `branch`'e bağlı, birbirine değil. Yönetici koşullu olduğu için
+  // yokken sorgu AÇILMIYOR (Promise.resolve ile boş geçiliyor).
+  const [managerRes, otherBranchesRes] = await Promise.all([
+    branch.manager_id
+      ? supabase
+          .from("board_members")
+          .select("*")
+          .eq("tenant_id", tenant.id)
+          .eq("id", branch.manager_id)
+          .eq("is_active", true)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("branches")
       .select("*")
       .eq("tenant_id", tenant.id)
-      .eq("id", branch.manager_id)
       .eq("is_active", true)
-      .single();
-    boardManager = (data as BoardMember) || null;
-  }
+      .neq("id", branch.id)
+      .order("order", { ascending: true })
+      .limit(4),
+  ]);
 
-  const { data: otherBranchesData } = await supabase
-    .from("branches")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("is_active", true)
-    .neq("id", branch.id)
-    .order("order", { ascending: true })
-    .limit(4);
-
-  const otherBranches = (otherBranchesData as Branch[]) || [];
+  const boardManager = (managerRes.data as BoardMember) || null;
+  const otherBranches = (otherBranchesRes.data as Branch[]) || [];
 
   const mapEmbed = buildMapEmbed(branch);
   const mapsLink = buildMapsLink(branch);

@@ -96,6 +96,15 @@ export default async function HomePage() {
 
   const rawHeadlines = (headlinesRes.data as Headline[]) || [];
 
+  const news = (newsRes.data as unknown as News[]) || [];
+  const announcements = (announcementsRes.data as unknown as Announcement[]) || [];
+  const sliders = (slidersRes.data as Slider[]) || [];
+  const layoutType = settings.layout_type || "layout1";
+
+  const sections = ((sectionsRes?.data as HomepageSectionType[]) || []).filter((s) =>
+    ["custom", "news", "announcements"].includes(s.source)
+  );
+
   // Haber/duyuru kaynaklı manşetlerin slug'larını topla
   const newsIds = rawHeadlines
     .filter((h) => h.source_type === "news" && h.source_id)
@@ -104,7 +113,34 @@ export default async function HomePage() {
     .filter((h) => h.source_type === "announcement" && h.source_id)
     .map((h) => h.source_id as string);
 
-  const [newsSlugsRes, annSlugsRes] = await Promise.all([
+  const customSectionIds = sections.filter((s) => s.source === "custom").map((s) => s.id);
+  const needsExtraNews = sections.some((s) => s.source === "news");
+  const needsExtraAnnouncements = sections.some((s) => s.source === "announcements");
+  const maxNewsCount = Math.max(
+    ...sections.filter((s) => s.source === "news").map((s) => s.item_count),
+    0
+  );
+  const maxAnnCount = Math.max(
+    ...sections.filter((s) => s.source === "announcements").map((s) => s.item_count),
+    0
+  );
+
+  // 2. DALGA — eskiden İKİ ayrı dalgaydı (manşet slug'ları, sonra bölüm
+  // içerikleri). İkisi de YALNIZ 1. dalganın sonucuna bağlı, birbirine
+  // DEĞİL: slug'lar `rawHeadlines`'tan, bölüm sorguları `sections` +
+  // `news`/`announcements` uzunluklarından türüyor. Birleştirildi → sayfanın
+  // seri round-trip derinliği 4'ten 3'e indi (b2).
+  //
+  // ⚠️ Koşullu dallardaki `Promise.resolve({ data: … })` kaçışları KORUNDU:
+  // gereksiz sorgu açmıyorlar ve `Promise.all`'a normal promise olarak
+  // giriyorlar.
+  const [
+    newsSlugsRes,
+    annSlugsRes,
+    customItemsRes,
+    extraNewsRes,
+    extraAnnRes,
+  ] = await Promise.all([
     newsIds.length > 0
       ? supabase
           .from("news")
@@ -119,42 +155,6 @@ export default async function HomePage() {
           .eq("tenant_id", tenant.id)
           .in("id", announcementIds)
       : Promise.resolve({ data: [] as { id: string; slug: string }[] }),
-  ]);
-
-  const slugMap = new Map<string, string>();
-  (newsSlugsRes.data || []).forEach((r) => slugMap.set(`news:${r.id}`, r.slug));
-  (annSlugsRes.data || []).forEach((r) => slugMap.set(`announcement:${r.id}`, r.slug));
-
-  const headlines: Headline[] = rawHeadlines.map((h) => ({
-    ...h,
-    source_slug:
-      h.source_type && h.source_id
-        ? slugMap.get(`${h.source_type}:${h.source_id}`) || null
-        : null,
-  }));
-
-  const news = (newsRes.data as unknown as News[]) || [];
-  const announcements = (announcementsRes.data as unknown as Announcement[]) || [];
-  const sliders = (slidersRes.data as Slider[]) || [];
-  const layoutType = settings.layout_type || "layout1";
-
-  const sections = ((sectionsRes?.data as HomepageSectionType[]) || []).filter((s) =>
-    ["custom", "news", "announcements"].includes(s.source)
-  );
-
-  const customSectionIds = sections.filter((s) => s.source === "custom").map((s) => s.id);
-  const needsExtraNews = sections.some((s) => s.source === "news");
-  const needsExtraAnnouncements = sections.some((s) => s.source === "announcements");
-  const maxNewsCount = Math.max(
-    ...sections.filter((s) => s.source === "news").map((s) => s.item_count),
-    0
-  );
-  const maxAnnCount = Math.max(
-    ...sections.filter((s) => s.source === "announcements").map((s) => s.item_count),
-    0
-  );
-
-  const [customItemsRes, extraNewsRes, extraAnnRes] = await Promise.all([
     customSectionIds.length > 0
       ? adminSupabase
           .from("homepage_section_items")
@@ -183,6 +183,18 @@ export default async function HomePage() {
           .limit(Math.max(maxAnnCount, announcements.length))
       : Promise.resolve({ data: null }),
   ]);
+
+  const slugMap = new Map<string, string>();
+  (newsSlugsRes.data || []).forEach((r) => slugMap.set(`news:${r.id}`, r.slug));
+  (annSlugsRes.data || []).forEach((r) => slugMap.set(`announcement:${r.id}`, r.slug));
+
+  const headlines: Headline[] = rawHeadlines.map((h) => ({
+    ...h,
+    source_slug:
+      h.source_type && h.source_id
+        ? slugMap.get(`${h.source_type}:${h.source_id}`) || null
+        : null,
+  }));
 
   const customItemsBySection = new Map<string, HomepageSectionItem[]>();
   ((customItemsRes.data as HomepageSectionItem[]) || []).forEach((item) => {

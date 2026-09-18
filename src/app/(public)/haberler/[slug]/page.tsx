@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getNewsBySlug } from "@/lib/public-queries";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import NewsCard from "@/components/public/NewsCard";
@@ -14,16 +15,19 @@ interface Props {
   params: { slug: string };
 }
 
+/**
+ * İlgili haber kartının (NewsCard) kullandığı kolonlar (b2/b1).
+ * `content` (ort. 6 kB HTML) BİLEREK yok — kartta gösterilmiyor, 5 satırda
+ * ~30 kB boşuna taşınıyordu.
+ */
+const RELATED_COLUMNS =
+  "id, slug, title, summary, cover_image, category, published_at, created_at";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("news")
-    .select("title, summary, cover_image, published_at, updated_at")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_published", true)
-    .single();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır, DB'ye tek
+  // istek gider (b2). Eskiden burada ayrı bir 5 kolonluk sorgu vardı.
+  const data = await getNewsBySlug(tenant.id, params.slug);
 
   if (!data) return { title: "Haber Bulunamadı" };
 
@@ -43,32 +47,36 @@ export default async function NewsDetailPage({ params }: Props) {
   const supabase = createClient();
   const tenant = await getCurrentTenant();
 
-  const { data: news } = await supabase
-    .from("news")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_published", true)
-    .single();
+  // 1. DALGA — haberin kendisi + ilgili haberler PARALEL (b2).
+  //
+  // İlgili haberler eskiden `.neq("id", item.id)` kullandığı için haberin
+  // gelmesini BEKLİYORDU. `.neq("slug", params.slug)` aynı satırı eler ama
+  // elde olan parametreye dayanır → bağımlılık tamamen kalkar, sorgu bu
+  // dalgaya iner. Güvenli: `news_tenant_slug_key` UNIQUE (tenant_id, slug).
+  const [news, relatedRes] = await Promise.all([
+    getNewsBySlug(tenant.id, params.slug),
+    supabase
+      .from("news")
+      .select(RELATED_COLUMNS)
+      .eq("tenant_id", tenant.id)
+      .eq("is_published", true)
+      .neq("slug", params.slug)
+      .order("published_at", { ascending: false })
+      .limit(3),
+  ]);
 
   if (!news) notFound();
 
-  const item = news as News;
+  const item = news;
 
-  const { data: related } = await supabase
-    .from("news")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("is_published", true)
-    .neq("id", item.id)
-    .order("published_at", { ascending: false })
-    .limit(5);
-
-  const relatedNews = ((related as News[]) || []).slice(0, 3);
+  // limit(5) + slice(3) idi: 2 satır hep boşuna geliyordu, artık limit(3).
+  const relatedNews = (relatedRes.data as unknown as News[]) || [];
   // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
   const cleanContent = sanitizeContentHtml(item.content);
   const editorImages = extractImagesFromHtml(cleanContent);
 
+  // 2. DALGA — content_media GERÇEKTEN bağımlı: `item.id` lazım, elimizde
+  // yalnız slug var. Paralelleştirilemez.
   const { data: mediaData } = await supabase
     .from("content_media")
     .select("url")

@@ -58,6 +58,172 @@ yerine geçmez.
 
 ---
 
+# ⚡ b2 UYGULAMASI — bağımsız sorguları paralelleştirme (18 Eylül 2026)
+
+**Durum:** ✅ **Uygulandı.** Migration YOK, şema **dokunulmadı**.
+
+## 🔴 İki varsayım ölçümle çürüdü — teşhisin en değerli kısmı bu
+
+**a) "VPS ve Supabase aynı bölgede" — DEĞİL.** VPS `185.33.234.67`
+(isimtescil VDS-Eko, Türkiye), Supabase `eu-west-1` (İrlanda). Her sorgu
+ülkeler arası gidiyor.
+
+**b) "Next sorguları sıralı çalıştırıyor" — HAYIR.** Geçici ölçüm rotalarıyla
+(`await sleep()`, DB yok) ölçüldü, sonra silindi:
+
+| Yapı | Sıralı olsaydı | Ölçülen |
+|---|---|---|
+| page 600 ms | 600 | 683 ms |
+| layout 600 + page 600 | 1200 | **684 ms** |
+| generateMetadata 600 + page 600 | 1200 | **672 ms** |
+| layout **1200** + page 600 | 1800 | **1.271 ms** |
+
+**Next 14.2.35'te layout ∥ page ve generateMetadata ∥ page.** Yani yalnızca
+**tek bir bileşenin İÇİNDEKİ** ardışık `await` zinciri gecikme üretir. b2'nin
+kapsamı bu bulguyla daraldı — "her yere Promise.all" işi değil.
+
+## RTT — maliyetin tamamı ağ
+
+Canlı VPS'te ölçüldü (10 istek, `time_starttransfer − time_appconnect`):
+**medyan ~117 ms/sorgu.** b1'de ölçülen DB çalışma süresi bugünkü veride
+**milisaniyenin altındaydı** — yani sorgu maliyeti veritabanı değil, ağ.
+
+Paralel istekler sıraya girmiyor (6 sorgu: sıralı 1.149 ms, paralel 289 ms).
+Bağlantı HTTP/1.1, undici origin başına birden çok bağlantı açıyor.
+
+**Model:** `sayfa süresi ≈ seri round-trip derinliği × 117 ms`. Canlı VPS
+ölçümüyle doğrulandı (`/haberler/[slug]` derinlik 4 → 500 ms).
+
+## 🔴 Teşhiste yaptığım HATA — düzeltme
+
+Teşhis raporunda "`haberler/[slug]` derinlik **4 → 2**, −230 ms" yazmıştım.
+**Yanlış.** Doğrusu **4 → 3, −117 ms**.
+
+Gerekçe: `.neq("slug", params.slug)` numarası yalnızca **ilgili haberler**
+sorgusunu serbest bırakıyor. `content_media` sorgusu `item.id` istiyor ve
+elimizde yalnız slug var → **gerçek bağımlılık, kaldırılamaz.** PostgREST
+gömülü kaynağıyla tek sorguya indirmek de mümkün değil: `content_media`
+polimorfik `(content_type, content_id)` ile bağlı, FK yok.
+
+**Derinlik 3 bu sayfanın tabanı** (şema değişmeden).
+
+## Yapılanlar
+
+| # | İş | Derinlik | Dosya |
+|---|---|---|---|
+| 1 | `related` sorgusu `.neq("id", item.id)` → `.neq("slug", params.slug)`, 1. dalgaya alındı | 4→3 | `haberler/[slug]`, `duyurular/[slug]` |
+| 2 | Bağımsız çift `Promise.all` | 3→2 | `galeri/[albumId]`, `bolum/[id]` |
+| 3 | Yönetici + diğer şubeler paralel | 4→3 | `subeler/[slug]` |
+| 4 | Dalga 2 + 3 birleştirildi | 4→3 | `(public)/page.tsx` |
+| 5 | gM↔page tekrarı `cache()`'li ortak okuyucuya | — | 9 sayfa |
+| 6 | İlgili haberler `select("*")` → kolon listesi, `limit(5)+slice(3)` → `limit(3)` | — | `haberler/[slug]`, `duyurular/[slug]` |
+
+### Dokunulmayanlar (bilerek)
+
+| Sayfa | Neden |
+|---|---|
+| `manset/[id]` | 2. sorgu `source_type`'a göre **dallanıyor** (news mi announcement mı) — ikisi aynı anda çalışamaz |
+| `subeler/[slug]/yonetici` | 2. sorgu `manager_id` varsa açılıyor ve sonucuna göre **redirect** ediyor |
+| `sayfa/[slug]` | `content_media` `page.id` istiyor, elde yalnız slug var |
+
+Üçü de yalnızca **5. maddeden** (tekrar giderme) yararlandı.
+
+## Ölçüm — yerel dev, aynı ortamda önce/sonra
+
+| Sayfa | ÖNCE | SONRA | Fark |
+|---|---|---|---|
+| `/` | 510 ms | **375 ms** | −135 |
+| `/haberler/[slug]` | 460 ms | **350 ms** | −110 |
+| `/duyurular/[slug]` | 440 ms | **342 ms** | −98 |
+| `/sayfa/hakkimizda` | 375 ms | **350 ms** | −25 |
+| `/haberler` (liste) | 250 ms | **255 ms** | 0 ✓ |
+
+Liste sayfasının değişmemesi **doğru** — derinliği zaten 2'ydi ve dokunulmadı.
+`sayfa/[slug]`'daki küçük düşüş derinlikten değil, tekrar eden `content`
+transferinin kalkmasından.
+
+## `cache()` tekilleştirmesi ÖLÇÜLDÜ
+
+5. maddenin tüm dayanağı buydu, varsayım bırakılmadı: `getNewsBySlug`'a geçici
+sayaç konuldu, tek istek atıldı, **1 log** çıktı (2 değil) — `generateMetadata`
+ve sayfa aynı sorguyu paylaşıyor. Sayaç sonra kaldırıldı.
+
+⚠️ Bu kazanç **gecikmede değil**: gM zaten sayfayla paralel çalışıyordu.
+Kazanç **istek başına 9 gereksiz sorgunun** kalkması — Supabase kotası, DB
+yükü, bant genişliği. En belirgini `sayfa/[slug]`: `content` (tüzük gibi
+sayfalarda onlarca kB) iki kez taşınıyordu.
+
+## 🔴 b3 İÇİN ASIL SORU — `getCurrentTenant()`
+
+`getCurrentTenant()` her istekte **kritik yolun en başında +1 round trip**
+(~117 ms) ve **her sayfa** bunu ödüyor. Bugün `React.cache()` ile yalnızca
+**istek-içi** memoize; istekler arası cache **bilerek yok** (tenant sızıntısı
+riski — `lib/get-tenant.ts:8-11`).
+
+**İstekler arası cache'lenirse tek başına b2'nin toplamından fazla kazandırır.**
+
+Buna karşılık b3'ün bugünkü tanımındaki hedef (menü + site ayarları) **kritik
+yolda değil** — layout'talar ve §"iki varsayım"da ölçüldüğü gibi layout sayfayla
+**paralel** gidiyor. Yani menüyü cache'lemek **gecikmeyi düşürmez**, yalnız
+yükü azaltır.
+
+🔺 **b3 tasarlanırken asıl soru `tenants` lookup'ı olmalı, menü/ayarlar değil.**
+Tenant sızıntısı riski gerçek; cache anahtarı host/slug bazlı olmalı ve
+`is_active` değişimi anında yansımalı (pasif tenant cache'te kalmamalı).
+
+## Değişen dosyalar
+
+| Dosya | Değişiklik |
+|---|---|
+| `src/lib/public-queries.ts` | 🆕 `cache()`'li 8 ortak okuyucu |
+| `(public)/haberler/[slug]/page.tsx` | 1. dalga paralel + kolon listesi + dedup |
+| `(public)/duyurular/[slug]/page.tsx` | aynı |
+| `(public)/galeri/[albumId]/page.tsx` | tek dalga + dedup |
+| `(public)/bolum/[id]/page.tsx` | tek dalga + dedup |
+| `(public)/subeler/[slug]/page.tsx` | 2. dalga paralel + dedup |
+| `(public)/page.tsx` | dalga 2+3 birleşti |
+| `(public)/sayfa/[slug]/page.tsx` | yalnız dedup |
+| `(public)/manset/[id]/page.tsx` | yalnız dedup |
+| `(public)/subeler/[slug]/yonetici/page.tsx` | yalnız dedup |
+| `(public)/yonetim-kurulu/[slug]/page.tsx` | yalnız dedup (sorgu kalmadı) |
+
+⚠️ **`public-queries.ts`'te istemci seçimi KASITLI.** anon client
+(`createClient`) RLS uyguluyor — `is_published` filtresini RLS taşıyorsa
+service-role'e taşımak **yayınlanmamış içeriği açar**. admin client
+(`createAdminClient`) yalnız 026'da public policy'si DROP edilen tablolar için.
+Her fonksiyonun üstünde hangisi olduğu yazılı; çağıran sayfayla aynı olmalı.
+
+## Tuzaklar — nasıl ele alındı
+
+- **`Promise.all` hata yayar mı?** Hayır. supabase-js **reject etmiyor**,
+  `{ data, error }` döndürüyor. `allSettled` gerekmedi. Anasayfadaki koşullu
+  `Promise.resolve({ data: … })` kaçışları **korundu**.
+- **Erken çıkış kaybı.** `notFound()` artık paralel dalgadan sonra; 404'te bir
+  sorgu boşa gidiyor. Kabul edildi (404 nadir).
+- **`bolum/[id]` iki kapı** (`!section`, `source !== "custom"`): ikinci kapı
+  gerçek gezinmede **tetiklenmiyor** — `/bolum/[id]` bağlantısı
+  `HomepageSection.tsx`'te yalnız `custom` dalında üretiliyor
+  (news/announcements dalları önce `return` ediyor). Yalnız elle yazılmış
+  URL'lerde boşa sorgu olur.
+- **`subeler`'de slug numarası KULLANILMADI:** `branches` tablosunda
+  `(tenant_id, slug)` UNIQUE kısıtı **yok** (baseline'da yalnız
+  news/announcements/pages/news_categories'te var). Eleme `branch.id` ile
+  yapılıyor.
+
+## Doğrulama
+
+`npx tsc --noEmit` ✅ · `npm run lint` ✅ (0 uyarı) · `npm run build` ✅ ·
+**14 test script'i ✅**.
+
+## 📋 Açık — anasayfa modelden yüksek
+
+Canlıda `/` **730 ms**, model 4 × 117 = 468 ms diyor. Fark araştırılmadı
+(öncelik değil). Olası sebepler: 1. dalgadaki 6 sorgunun bir kısmının
+serialize olması, ya da render maliyeti (anasayfa en ağır JSX'e sahip).
+b2 sonrası 730 → ~615 ms beklenir; ölçülünce fark hâlâ duruyorsa ayrı bakılır.
+
+---
+
 # 📄 b1 UYGULAMASI — panel listelerinde sayfalama (18 Eylül 2026)
 
 **Durum:** ✅ **Uygulandı.** Migration YOK, veritabanı şeması **dokunulmadı** —
@@ -4114,9 +4280,16 @@ değil, yeniden üretilir).
   Migration yok. Kararlar, ölçüm ve değişen dosyalar:
   "📄 b1 UYGULAMASI — panel listelerinde sayfalama".
   Çıkan üç yeni madde: "📋 BACKLOG — b1'den çıkan üç ayrı madde"
-- b2: Detay sayfalarında bağımsız sorguları Promise.all'a alma
+- b2: Detay sayfalarında bağımsız sorguları Promise.all'a alma —
+  ✅ **TAMAM** (18 Eylül 2026): 6 sayfada derinlik 1 azaldı, 9 sayfada
+  gM↔page sorgu tekrarı kaldırıldı. Canlı RTT **117 ms** ölçüldü.
+  Ayrıntı, ölçüm ve düzeltilen hata: "⚡ b2 UYGULAMASI"
 - b3: Chrome sorgularına tenant-keyed unstable_cache (60 sn TTL) — tasarım
-  şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat)
+  şartları Tur 2 teşhis raporu madde 6'da (sızıntı riskine dikkat).
+  🔺 **KAPSAMI DEĞİŞTİ** (18 Eylül 2026, b2 ölçümü): menü/ayarlar layout'ta
+  ve layout sayfayla **paralel** çalışıyor → cache'lemek **gecikmeyi
+  düşürmez**. Asıl aday `getCurrentTenant()`: her istekte kritik yolun
+  başında +117 ms. Gerekçe: "⚡ b2 UYGULAMASI" → "b3 İÇİN ASIL SORU"
 - b4: `news`/`announcements` composite index migration'ı +
   `homepage_section_items(section_id)` index'i — ✅ **TAMAM** (12 Eylül 2026):
   `028_liste_indeksleri.sql` yazıldı ve **canlıya apply edildi**, 5 index de

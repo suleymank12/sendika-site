@@ -1,12 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getBranchBySlug } from "@/lib/public-queries";
 import { notFound, redirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import SafeHtml from "@/components/SafeHtml";
 import { User, Phone, Mail } from "lucide-react";
 import { buildPublicMetadata } from "@/lib/seo";
-import type { Branch } from "@/types";
 import type { Metadata } from "next";
 
 interface Props {
@@ -16,15 +16,10 @@ interface Props {
 // createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
 // manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("branches")
-    .select("name, manager_name, manager_title")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_active", true)
-    .single();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
+  // Aynı okuyucu `subeler/[slug]` tarafından da kullanılıyor.
+  const data = await getBranchBySlug(tenant.id, params.slug);
 
   if (!data || !data.manager_name) return { title: "Yönetici Bulunamadı" };
 
@@ -39,17 +34,13 @@ export default async function BranchManagerPage({ params }: Props) {
   const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
 
-  const { data: branchData } = await supabase
-    .from("branches")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("slug", params.slug)
-    .eq("is_active", true)
-    .single();
+  // Bu sayfa BİLEREK seri kaldı (b2): ikinci sorgu `branch.manager_id`
+  // varsa açılıyor ve sonucuna göre redirect ediyor — gerçek bağımlılık.
+  const branchData = await getBranchBySlug(tenant.id, params.slug);
 
   if (!branchData) notFound();
 
-  const branch = branchData as Branch;
+  const branch = branchData;
 
   // Yönetim kurulundan seçilmişse o sayfaya yönlendir
   if (branch.manager_id) {

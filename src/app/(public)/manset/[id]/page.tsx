@@ -3,6 +3,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { getHeadlineById } from "@/lib/public-queries";
 import { notFound, redirect } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import SafeHtml from "@/components/SafeHtml";
@@ -17,14 +18,9 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const supabase = createClient();
   const tenant = await getCurrentTenant();
-  const { data } = await supabase
-    .from("headlines")
-    .select("title, subtitle, image_url")
-    .eq("tenant_id", tenant.id)
-    .eq("id", params.id)
-    .maybeSingle();
+  // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
+  const { headline: data } = await getHeadlineById(tenant.id, params.id);
 
   if (!data) return { title: "Manşet Bulunamadı" };
 
@@ -41,15 +37,13 @@ export default async function MansetDetailPage({ params }: Props) {
   const tenant = await getCurrentTenant();
 
   // is_active filtresi yok — pasif manşetlere de direkt URL ile erişilebilsin
-  const { data, error } = await supabase
-    .from("headlines")
-    .select("*")
-    .eq("tenant_id", tenant.id)
-    .eq("id", params.id)
-    .maybeSingle();
+  //
+  // Bu sayfa BİLEREK seri kaldı (b2): ikinci sorgu `source_type`'a göre
+  // DALLANIYOR (news mi announcement mı), ikisi aynı anda çalışamaz.
+  const { headline: data, error } = await getHeadlineById(tenant.id, params.id);
 
   if (error) {
-    console.error("[manset/[id]] Supabase sorgu hatası:", error.message);
+    console.error("[manset/[id]] Supabase sorgu hatası:", error);
   }
 
   if (!data) {
