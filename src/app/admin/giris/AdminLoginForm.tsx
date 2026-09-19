@@ -7,8 +7,18 @@ import { createClient } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
+/**
+ * `/super-admin` BİLEREK DIŞARIDA (Deploy 2, 19 Eylül 2026): süper admin
+ * paneli kendi host'unda ve kurum host'larında o yol 404 (middleware
+ * kural (b)). Buradan oraya yollamak kullanıcıyı 404'e atmak olurdu.
+ */
 function isSafeNext(next: string | null): next is string {
-  return !!next && next.startsWith("/") && !next.startsWith("//");
+  return (
+    !!next &&
+    next.startsWith("/") &&
+    !next.startsWith("//") &&
+    !next.startsWith("/super-admin")
+  );
 }
 
 export default function AdminLoginForm({ initialTitle }: { initialTitle: string }) {
@@ -44,42 +54,17 @@ export default function AdminLoginForm({ initialTitle }: { initialTitle: string 
         return;
       }
 
-      // Süper admin kontrolü — RPC hatasında sessizce false varsay
-      let isSuperAdmin = false;
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          const { data, error: rpcError } = await supabase.rpc("is_super_admin", {
-            user_id: user.id,
-          });
-          if (rpcError) {
-            console.error("is_super_admin RPC hatası:", rpcError);
-          } else {
-            isSuperAdmin = data === true;
-          }
-        }
-      } catch (rpcErr) {
-        console.error("is_super_admin RPC hatası:", rpcErr);
-      }
-
-      // Yönlendirme: next varsa ve güvenliyse onu kullan; yoksa role'e göre
+      // YÖNLENDİRME 8 (Deploy 2) — hedef ARTIK HER ZAMAN kurum paneli.
+      //
+      // Bu sayfa yalnız kurum host'larında var ve o host'larda
+      // `/super-admin` 404 (middleware kural (b)). Süper admin panele
+      // kendi host'undan, kendi oturumuyla girer — çerezler host-only.
+      //
+      // `is_super_admin` RPC'si BU YÜZDEN KALDIRILDI: tek işi hedefi
+      // seçmekti. Panelin adresi burada ANILMAZ (bu form her müşteri
+      // domaininde açık).
       const rawNext = searchParams.get("next");
-      const next = isSafeNext(rawNext) ? rawNext : null;
-
-      let target: string;
-      if (next) {
-        if (next.startsWith("/super-admin")) {
-          target = isSuperAdmin ? next : "/admin";
-        } else {
-          target = next;
-        }
-      } else {
-        target = isSuperAdmin ? "/super-admin" : "/admin";
-      }
-
-      router.push(target);
+      router.push(isSafeNext(rawNext) ? rawNext : "/admin");
       router.refresh();
     } catch {
       setError("Bir hata oluştu. Lütfen tekrar deneyin.");

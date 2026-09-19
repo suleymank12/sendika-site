@@ -11,6 +11,7 @@ import {
   CUSTOM_DOMAIN_REGEX,
 } from "@/lib/constants";
 import { normalizeCustomDomain } from "@/lib/tenant-hostname";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 /**
  * Tenant alanlarini gunceller (name, slug, custom_domain, is_active, enabled_modules).
@@ -66,6 +67,10 @@ async function requireSuperAdmin() {
 }
 
 export async function POST(request: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(request);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 

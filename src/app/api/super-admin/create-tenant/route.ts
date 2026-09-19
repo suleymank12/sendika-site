@@ -10,6 +10,7 @@ import {
 } from "@/lib/super-admin/admin-invite";
 import { RESERVED_TENANT_SLUGS } from "@/lib/constants";
 import { normalizeCustomDomain } from "@/lib/tenant-hostname";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 interface RequestBody {
   name: string;
@@ -25,6 +26,10 @@ interface RequestBody {
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 
 export async function POST(req: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(req);
+  if (denied) return denied;
+
   // 1) Auth — gelen istekteki kullanıcıyı al
   const supabase = createClient();
   const {

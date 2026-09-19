@@ -9,6 +9,7 @@ import {
   decideAdminInviteAction,
   type AdminInviteOutcome,
 } from "@/lib/super-admin/admin-invite";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 async function requireSuperAdmin() {
   const supabase = createClient();
@@ -31,6 +32,10 @@ async function requireSuperAdmin() {
 
 // POST: tenant'a admin ekle (e-posta ile bul/invite et + tenant_users insert)
 export async function POST(req: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(req);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 
@@ -151,6 +156,10 @@ export async function POST(req: NextRequest) {
 // kullanıcıyı silerse cascade üyelik satırını da götürür; silmezse satır
 // elle kaldırılır.
 export async function DELETE(req: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(req);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 

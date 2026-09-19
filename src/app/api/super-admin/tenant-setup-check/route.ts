@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/super-admin/orphan-users";
 import { runSetupProbes } from "@/lib/super-admin/setup-probes";
 import { createNodeProbeDeps } from "@/lib/super-admin/setup-probe-deps";
 import type { SetupAdmin, SetupSnapshot } from "@/lib/super-admin/setup-checklist";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 // Durum her açılışta CANLI ölçülür — önbellekten eski sonuç, düzeltilmiş bir
 // adımı hâlâ "Eksik" (ya da tersi) gösterir.
@@ -115,6 +116,10 @@ async function countRows(
 }
 
 export async function GET(req: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(req);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 

@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tenantTag } from "@/lib/tenant-cache";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 /**
  * Tenant'in is_active durumunu degistirir (aktif/pasif toggle).
@@ -43,6 +44,10 @@ async function requireSuperAdmin() {
 }
 
 export async function POST(request: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(request);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 

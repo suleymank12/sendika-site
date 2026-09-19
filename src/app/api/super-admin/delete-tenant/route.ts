@@ -12,6 +12,7 @@ import {
   purgeTenantStorage,
   ROUTE_STORAGE_BUDGET_MS,
 } from "@/lib/super-admin/tenant-storage-purge.mjs";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 /**
  * Bir tenant'i tum bagimliliklariyla siler ve YALNIZCA bu tenant'a bagli
@@ -63,6 +64,10 @@ async function requireSuperAdmin() {
 }
 
 export async function POST(request: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(request);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 

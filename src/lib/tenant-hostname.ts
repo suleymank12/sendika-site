@@ -263,7 +263,8 @@ export function getSuperAdminHost(): string {
 
 /**
  * Istek bu host'a mi geldi? TEK KARAR NOKTASI — middleware'deki iki kural,
- * root layout'un notr metadata'si ve testler hep bunu cagirir.
+ * root layout'un notr metadata'si, API host guard'i ve testler hep bunu
+ * cagirir.
  *
  * Saf ve senkron: DB yok, ag yok, BASARISIZ OLAMAZ. Bilinmeyen host
  * custom_domain'e duser, yani `false` — super admin yuzeyi supheli her
@@ -271,6 +272,38 @@ export function getSuperAdminHost(): string {
  */
 export function isSuperAdminHost(hostname: string): boolean {
   return parseHostname(hostname).type === "super_admin";
+}
+
+/**
+ * `Origin` basligi istegin gittigi host'un kendisi mi?
+ *
+ * NEDEN VAR (Deploy 2): `superadminpanel.{kok}` ile `{kok}` AYNI SITE
+ * (ayni kayitli alan adi). Supabase cerezi `sameSite: "lax"` oldugu icin
+ * alt alanlar arasi isteklerde GONDERILIYOR — yani default kurumun
+ * sitesindeki bir XSS, super admin API'sine cerezli istek atabilir
+ * (CSRF). Token'i OKUYAMAZ ve cevabi OKUYAMAZ (CORS yok), ama JSON
+ * olmayan bir form POST'u preflight'a da takilmaz.
+ *
+ * Bu kontrol o yuzeyi kapatiyor: tarayicidan gelen her cross-origin istek
+ * `Origin` tasir ve burada elenir.
+ *
+ * KARSILASTIRMA HOST BAZINDA (sema degil): canlida https, yerelde http.
+ * Sema de karsilastirilsaydi yerel gelistirme kirilirdi; http/https
+ * ayrimini zorlamak MITM senaryosuna karsi bir sey kazandirmiyor (o
+ * durumda zaten her sey kirik).
+ *
+ * Bicimsiz ya da "null" Origin -> false (fail-closed).
+ *
+ * @param origin `Origin` basligi. YOKLUGU burada karar DEGIL — cagiran
+ *   tarafta ele alinir (tarayici disi cagrilar Origin gondermez).
+ */
+export function isSameHostOrigin(origin: string | null, host: string): boolean {
+  if (!origin) return false;
+  try {
+    return new URL(origin).host.toLowerCase() === host.trim().toLowerCase();
+  } catch {
+    return false;
+  }
 }
 
 /**

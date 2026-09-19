@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserEmailsByIds } from "@/lib/supabase/admin-helpers";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 // GET ?tenantId=...
 // Bir tenant'a bağlı kullanıcıları (email ile birlikte) döner.
 export async function GET(req: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(req);
+  if (denied) return denied;
+
   const supabase = createClient();
   const {
     data: { user },

@@ -1,5 +1,5 @@
 /**
- * Super admin ayri host testi — Deploy 1 (19 Eylul 2026).
+ * Super admin ayri host testi — Deploy 1 + Deploy 2 (19 Eylul 2026).
  *
  * CALISTIRMA:
  *   npm run test:super-admin-host
@@ -14,7 +14,8 @@
  *   domaininden de aciliyordu. Panel kendi host'una tasiniyor:
  *   `superadminpanel.{kok}`.
  *
- * BU TEST NEYI DOGRULAR (Deploy 1 kapsami):
+ * BU TEST NEYI DOGRULAR:
+ *   DEPLOY 1
  *   (a) parseHostname — super_admin tipi, tenant'tan AYRI
  *   (b) fail-closed — supheli her host super admin DEGIL
  *   (c) slug rezervasyonu — o alt alanla kurum olusturulamaz
@@ -22,18 +23,24 @@
  *   (e) kural (a) — middleware'de, auth/CSP kurulumundan ONCE, 404
  *   (f) giris akisi — yeni sayfa tenant'a dokunmuyor, yonlendirmeler 1-6
  *   (g) notr marka — root layout o host'ta kurum cozmuyor
+ *   DEPLOY 2
+ *   (h) kural (b) — diger host'larda /super-admin 404, yonlendirme YOK
+ *   (i) API host guard — 8 route / 10 handler, DOSYADAN SAYILIR
+ *   (j) Origin kontrolu — ayni-site CSRF kapisi (saf fonksiyon birimi)
+ *   (k) yonlendirme 7-8 — giris sonrasi hedef daima /admin
+ *   (l) /api/contact — super admin host'unda kapali
  *
- * ⚠️ KAPSAM SINIRI: kural (b) ("diger host'larda /super-admin KAPALI")
- *   DEPLOY 2'de gelecek — burada BILEREK sinanmiyor. Deploy 1'de eski
- *   adres calismaya devam ediyor ki gecis boyunca kilitlenme penceresi
- *   acilmasin.
+ * ⚠️ KAPSAM SINIRI: gercek HTTP istegi ATILMAZ (repoda kosucu yok).
+ *   Kural (a)/(b)'nin calisan davranisi yerelde `npm run dev` ile
+ *   olculdu; canli davranis NOTE.md manuel test tablosunda.
  *
  * .ts dosyalari Node 22.18+/23+ tarafindan dogrudan calistirilir.
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   getSuperAdminHost,
+  isSameHostOrigin,
   isSuperAdminHost,
   parseHostname,
   planTenantQuery,
@@ -299,22 +306,157 @@ header("(g) Notr marka — root layout");
 }
 
 // ---------------------------------------------------------------------------
-header("(h) Deploy 2 kapsami — BU TURDA YOK (bilincli)");
+header("(h) Kural (b) — diger host'larda /super-admin KAPALI");
 // ---------------------------------------------------------------------------
 {
   const mw = stripComments(read("src/middleware.ts"));
-  // Kural (b) Deploy 2'de gelecek. Deploy 1'de eski adres CALISMAYA DEVAM
-  // ETMELI ki gecis boyunca kilitlenme penceresi acilmasin. Bu kontrol,
-  // kural (b)'nin yanlislikla Deploy 1'e sizmadigini dogrular.
-  okTrue(
-    "deploy-2",
-    "kural (b) henuz YOK (eski adres acik kalmali)",
-    !mw.includes('match.type !== "super_admin"'),
-    "middleware"
-  );
-  // Ayni sekilde API host guard'i da Deploy 2'de
-  const api = read("src/app/api/super-admin/delete-tenant/route.ts");
-  okTrue("deploy-2", "API host guard'i henuz YOK", !stripComments(api).includes("isSuperAdminHost"), "delete-tenant");
+
+  okTrue("kural-b", "kural var", mw.includes('if (!superAdminHost && pathname.startsWith("/super-admin"))'), "middleware");
+
+  // 🔴 YONLENDIRME OLMAMALI: kural (b) HER host'ta gecerli, bir 301 super
+  // admin adresini her musteri domaininden yayinlardi.
+  const bStart = mw.indexOf("if (!superAdminHost");
+  const bBlock = mw.slice(bStart, bStart + 200);
+  okTrue("kural-b", "blokta redirect YOK", !bBlock.includes("redirect"), "middleware");
+  okTrue("kural-b", "notFound() donuyor", bBlock.includes("return notFound();"), "middleware");
+
+  // Iki kural da auth/CSP kurulumundan ONCE
+  okTrue("kural-b", "createServerClient'tan ONCE", mw.indexOf("if (!superAdminHost") < mw.indexOf("createServerClient("), "sira");
+
+  // Kural (b) gelince fail-closed sartindaki /super-admin dali ULASILAMAZ
+  // oldu (custom_domain host'u super admin host'u olamaz) -> temizlendi.
+  okTrue("kural-b", "olu fail-closed dali temizlendi", !mw.includes('pathname.startsWith("/admin") || pathname.startsWith("/super-admin")'), "middleware");
+}
+
+// ---------------------------------------------------------------------------
+header("(i) API host guard — 8 route, 10 handler");
+// ---------------------------------------------------------------------------
+{
+  // 🔴 NEDEN AYRI KATMAN: middleware matcher'i `api`'yi disliyor, yani
+  // kural (b) API rotalarina HIC ugramaz. Yalniz middleware'e konsaydi
+  // panelin UI'si tasinmis ama tehlikeli API yuzeyi her musteri
+  // domaininde acik kalmis olurdu.
+  const guardSrc = read("src/lib/super-admin/api-host-guard.ts");
+  okTrue("api", "helper var", guardSrc.includes("export function requireSuperAdminHost"), "api-host-guard");
+  okTrue("api", "host disi -> 404 (403 degil)", stripComments(guardSrc).includes("status: 404"), "api-host-guard");
+  okTrue("api", "Origin uyusmazligi -> 403", stripComments(guardSrc).includes("status: 403"), "api-host-guard");
+
+  // DOSYADAN SAY: dokuzuncu route eklenip guard unutulursa bu blok kirilir.
+  const routes = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = `${dir}/${e.name}`;
+      if (e.isDirectory()) walk(full);
+      else if (e.name === "route.ts") routes.push(full);
+    }
+  };
+  walk("src/app/api/super-admin");
+
+  ok("api", "route dosyasi sayisi", routes.length, 8, "api/super-admin");
+
+  let handlers = 0;
+  let guards = 0;
+  for (const r of routes) {
+    const src = read(r);
+    const code = stripComments(src);
+    const h = (src.match(/^export async function (GET|POST|PUT|PATCH|DELETE)/gm) || []).length;
+    const g = (code.match(/const denied = requireSuperAdminHost\(/g) || []).length;
+    handlers += h;
+    guards += g;
+    const short = r.replace("src/app/api/super-admin/", "");
+    ok("api", `${short}: her handler korunuyor`, g, h, `${h} handler`);
+    okTrue("api", `${short}: helper import edildi`, code.includes('from "@/lib/super-admin/api-host-guard"'), short);
+
+    // Host kapisi AUTH'tan ONCE olmali: reddedilecek istek icin Supabase
+    // istemcisi kurup getUser() cagirmak bosa is.
+    //
+    // ⚠️ SIRA HANDLER GOVDESI ICINDE olculur, dosya genelinde DEGIL:
+    // cogu route'ta lokal `requireSuperAdmin` helper'i handler'in USTUNDE
+    // tanimli ve icinde `auth.getUser()` geciyor. Dosya genelinde bakmak
+    // sahte FAIL veriyordu (ilk olcumde 6 tane).
+    for (const body of src.split(/^export async function /m).slice(1)) {
+      const method = body.slice(0, body.indexOf("("));
+      const bodyCode = stripComments(body);
+      const gi = bodyCode.indexOf("requireSuperAdminHost(");
+      const authAt = ["auth.getUser()", "requireSuperAdmin()"]
+        .map((t) => bodyCode.indexOf(t))
+        .filter((i) => i !== -1);
+      const ai = authAt.length > 0 ? Math.min(...authAt) : Infinity;
+      okTrue("api", `${short} ${method}: host kapisi auth'tan ONCE`, gi !== -1 && gi < ai, short);
+    }
+  }
+  ok("api", "toplam handler", handlers, 10, "8 dosya");
+  ok("api", "toplam guard", guards, handlers, "birebir");
+}
+
+// ---------------------------------------------------------------------------
+header("(j) Origin kontrolu — ayni-site CSRF kapisi");
+// ---------------------------------------------------------------------------
+{
+  const HOST = "superadminpanel.buyukdirilis.org.tr";
+
+  ok("origin", "ayni host (https)", isSameHostOrigin(`https://${HOST}`, HOST), true, "https");
+  ok("origin", "ayni host (http, yerel)", isSameHostOrigin(`http://${HOST}`, HOST), true, "http");
+  ok("origin", "port dahil eslesme", isSameHostOrigin("http://superadminpanel.lvh.me:3000", "superadminpanel.lvh.me:3000"), true, "portlu");
+  ok("origin", "buyuk/kucuk harf", isSameHostOrigin(`https://${HOST.toUpperCase()}`, HOST), true, "case");
+
+  // 🔴 ASIL SENARYO: default kurumun sitesindeki XSS. Ayni SITE oldugu icin
+  // sameSite=lax cerezi GONDERIR; bu kontrol o istegi eler.
+  ok("origin", "apex (ayni site, FARKLI origin) reddedilir", isSameHostOrigin("https://buyukdirilis.org.tr", HOST), false, "apex");
+  ok("origin", "musteri domaini reddedilir", isSameHostOrigin("https://kurmayteknoloji.com", HOST), false, "musteri");
+  ok("origin", "kurum subdomain'i reddedilir", isSameHostOrigin("https://kurmay.buyukdirilis.org.tr", HOST), false, "subdomain");
+  ok("origin", "port farki reddedilir", isSameHostOrigin("http://superadminpanel.lvh.me:3001", "superadminpanel.lvh.me:3000"), false, "port");
+
+  // Fail-closed: bicimsiz / null / bos
+  for (const bad of ["null", "", "javascript:alert(1)", "not a url", "//evil.com"]) {
+    ok("origin", `bicimsiz reddedilir: "${bad}"`, isSameHostOrigin(bad, HOST), false, bad);
+  }
+  ok("origin", "null girdi reddedilir", isSameHostOrigin(null, HOST), false, "null");
+
+  // Origin YOKLUGU kabul edilir: tarayici disi cagrilar bu basligi
+  // gondermez ve onlarda CSRF yoktur (kurbanin cerezi yok).
+  const guardSrc = stripComments(read("src/lib/super-admin/api-host-guard.ts"));
+  okTrue("origin", "Origin yoklugu kabul ediliyor", guardSrc.includes("origin !== null && !isSameHostOrigin(origin, host)"), "api-host-guard");
+}
+
+// ---------------------------------------------------------------------------
+header("(k) Yonlendirme 7-8 — giris sonrasi hedef");
+// ---------------------------------------------------------------------------
+{
+  const mw = stripComments(read("src/middleware.ts"));
+  const form = stripComments(read("src/app/admin/giris/AdminLoginForm.tsx"));
+
+  // Kural (b) sonrasi tenant host'unda /super-admin 404 — oraya yollamak
+  // kullaniciyi 404'e atmak olurdu.
+  okTrue("yon-7", "middleware next=/super-admin'i eliyor", mw.includes('!rawNext.startsWith("/super-admin")'), "middleware");
+  okTrue("yon-7", "middleware hedefi daima /admin", mw.includes('url.pathname = safeNext ? rawNext! : "/admin";'), "middleware");
+  okTrue("yon-7", "middleware artik /super-admin'e YOLLAMIYOR", !mw.includes('url.pathname = isSuperAdmin ? "/super-admin"'), "middleware");
+  // Hedef secimi kalmadigi icin RPC de gereksiz — her giristen biri eksildi.
+  okTrue("yon-7", "is_super_admin RPC'si kaldirildi", !mw.includes('"is_super_admin"'), "middleware");
+
+  okTrue("yon-8", "form next=/super-admin'i eliyor", form.includes('!next.startsWith("/super-admin")'), "AdminLoginForm");
+  okTrue("yon-8", "form hedefi daima /admin", form.includes('router.push(isSafeNext(rawNext) ? rawNext : "/admin")'), "AdminLoginForm");
+  okTrue("yon-8", "form is_super_admin RPC'si kaldirildi", !form.includes("is_super_admin"), "AdminLoginForm");
+
+  // Panelin adresi kurum host'larindaki giris yuzeyinde ANILMAMALI:
+  // o sayfa her musteri domaininde acik.
+  for (const p of ["src/middleware.ts", "src/app/admin/giris/AdminLoginForm.tsx", "src/app/admin/giris/page.tsx"]) {
+    okTrue("yon-8", `panel host'u anilmiyor: ${p.split("/").pop()}`, !stripComments(read(p)).includes(SUPER_ADMIN_SUBDOMAIN), p);
+  }
+}
+
+// ---------------------------------------------------------------------------
+header("(l) /api/contact — super admin host'unda KAPALI");
+// ---------------------------------------------------------------------------
+{
+  // Kural (a)'nin butun anlami "bu host panelden baska HICBIR SEY yapmaz".
+  // Anlamli cevap veren tek bir uc nokta bile host'un VARLIGINI dogrular.
+  const guardSrc = read("src/lib/super-admin/api-host-guard.ts");
+  okTrue("contact", "ters helper var", guardSrc.includes("export function rejectSuperAdminHost"), "api-host-guard");
+
+  const contact = stripComments(read("src/app/api/contact/route.ts"));
+  okTrue("contact", "route ters helper'i cagiriyor", contact.includes("const denied = rejectSuperAdminHost(req);"), "contact");
+  okTrue("contact", "cagri body parse'tan ONCE", contact.indexOf("rejectSuperAdminHost(") < contact.indexOf("await req.text()"), "sira");
 }
 
 // ---------------------------------------------------------------------------

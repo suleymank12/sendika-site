@@ -84,6 +84,14 @@ const TENANT_ERROR_PATH = "/admin/tenant-bulunamadi";
  */
 const SUPER_ADMIN_PUBLIC_PATHS = [SUPER_ADMIN_LOGIN_PATH];
 
+/** Host kurallarının cevabı — gövdesiz, markasız, sessiz. */
+function notFound(): NextResponse {
+  return new NextResponse("Not Found", {
+    status: 404,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
 export async function middleware(request: NextRequest) {
   // Hostname'i parse et (DB'siz, senkron). Server Component'ler tenant'i
   // x-tenant-slug header'i üzerinden okuyacak.
@@ -116,16 +124,29 @@ export async function middleware(request: NextRequest) {
   // tamamen boşa iş. Statik varlıklar (`/_next/static`, `/_next/image`)
   // ve `/api` zaten matcher'ın dışında — panel çalışmaya devam eder.
   //
-  // ⚠️ KURAL (b) — "diğer host'larda /super-admin KAPALI" BU DEPLOY'DA YOK.
-  // Deploy 2'de gelecek (middleware + 7 API route guard'ı + Origin
-  // kontrolü). Bu sayede eski adres (`{kök}/super-admin`) geçiş boyunca
-  // çalışmaya devam ediyor ve kilitlenme penceresi açılmıyor.
   const superAdminHost = match.type === "super_admin";
   if (superAdminHost && !pathname.startsWith("/super-admin")) {
-    return new NextResponse("Not Found", {
-      status: 404,
-      headers: { "content-type": "text/plain; charset=utf-8" },
-    });
+    return notFound();
+  }
+
+  // ==========================================================================
+  // KURAL (b) — DİĞER HOST'LARDA /super-admin KAPALI  (Deploy 2)
+  // ==========================================================================
+  // Panel eskiden HER host'tan açılıyordu: apex, her kurum subdomain'i ve
+  // her müşteri custom domain'i. Buradaki koruma yalnız oturuma bakıyordu,
+  // host'a hiç bakmıyordu; süper adminlik ise KULLANICININ özelliği. Yani
+  // süper admin paneli müşterinin kendi alan adından servis ediliyordu.
+  //
+  // 🔴 YÖNLENDİRME YOK — ve ASLA EKLENMEMELİ. Bu kural her host'ta geçerli
+  // olduğu için bir 301, süper admin adresini `kurmayteknoloji.com/super-admin`
+  // gibi HER MÜŞTERİ DOMAİNİNDEN yayınlardı. Host joker DNS (`A *`) ve joker
+  // sertifika altında olduğu için ne DNS'ten ne Certificate Transparency
+  // loglarından sayılabiliyor; 404 bu obsküriteyi koruyor.
+  //
+  // ⚠️ Bu kural YALNIZ SAYFALARI kapatır — `/api` matcher'ın dışında.
+  // API tarafının karşılığı: lib/super-admin/api-host-guard.
+  if (!superAdminHost && pathname.startsWith("/super-admin")) {
+    return notFound();
   }
 
   // apex / custom_domain başlangıçta "default"; subdomain doğrudan slug.
@@ -230,9 +251,14 @@ export async function middleware(request: NextRequest) {
   // /admin/giris DAHIL: cozulemeyen bir host'ta giris yapmak da yanlis
   // tenant'a girmek demektir. TENANT_ERROR_PATH'in kendisi haric tutulur
   // (yoksa sonsuz yonlendirme).
+  //
+  // `/super-admin` BU KOSULDAN CIKARILDI (Deploy 2): kural (b) artik bu
+  // noktadan ONCE 404 veriyor. `tenantResolveFailed` yalniz custom_domain
+  // dalinda true olabiliyor, custom_domain host'u da super admin host'u
+  // olamaz — yani sart ULASILAMAZ hale gelmisti.
   if (
     tenantResolveFailed &&
-    (pathname.startsWith("/admin") || pathname.startsWith("/super-admin")) &&
+    pathname.startsWith("/admin") &&
     pathname !== TENANT_ERROR_PATH
   ) {
     const url = request.nextUrl.clone();
@@ -315,34 +341,29 @@ export async function middleware(request: NextRequest) {
 
   // Giris yapmis kullanici giris sayfasina giderse rolune gore yonlendir
   if (pathname === "/admin/giris" && user) {
-    // Super admin kontrolu icin RPC (nadir cagri, performans tolere edilir)
-    const { data: isSuperAdmin, error: rpcError } = await supabase.rpc(
-      "is_super_admin",
-      { user_id: user.id }
-    );
-
-    if (rpcError) {
-      console.error("[Middleware] is_super_admin RPC hatasi:", rpcError);
-      // Hata durumunda guvenli taraf: normal admin'e at
-    }
-
+    // YÖNLENDİRME 7 (Deploy 2) — hedef ARTIK HER ZAMAN kurum paneli.
+    //
+    // `/admin/giris` yalnız kurum host'larında var (süper admin host'unda
+    // `/admin` kural (a) ile 404). O host'larda `/super-admin` de kural (b)
+    // ile 404 — yani buradan oraya yollamak kullanıcıyı 404'e atmak olurdu.
+    // Süper admin panele kendi host'undan, kendi oturumuyla girer.
+    //
+    // `is_super_admin` RPC'si BU YÜZDEN KALDIRILDI: tek işi hedefi seçmekti,
+    // seçim kalmadı. Her girişten bir RPC eksildi.
+    //
+    // Süper admin panelinin adresi burada ANILMAZ: bu sayfa her müşteri
+    // domaininde açık, oradan panel adresini duyurmak kural (b)'nin
+    // 404 kararını boşa çıkarırdı.
     const rawNext = request.nextUrl.searchParams.get("next");
     const safeNext =
-      !!rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//");
+      !!rawNext &&
+      rawNext.startsWith("/") &&
+      !rawNext.startsWith("//") &&
+      !rawNext.startsWith("/super-admin");
 
     const url = request.nextUrl.clone();
     url.search = ""; // next param redirect URL'inden temizle
-
-    if (safeNext && rawNext!.startsWith("/super-admin")) {
-      // next /super-admin/* ise: super admin ise oraya, degilse /admin'e
-      url.pathname = isSuperAdmin ? rawNext! : "/admin";
-    } else if (safeNext) {
-      // next normal yolsa: oldugu gibi git (super admin de tenant sayfasina donebilir)
-      url.pathname = rawNext!;
-    } else {
-      // next yoksa: super admin -> /super-admin, normal -> /admin
-      url.pathname = isSuperAdmin ? "/super-admin" : "/admin";
-    }
+    url.pathname = safeNext ? rawNext! : "/admin";
 
     return NextResponse.redirect(url);
   }

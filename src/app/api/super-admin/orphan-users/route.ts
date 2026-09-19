@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cleanupOrphanUserIfNeeded } from "@/lib/super-admin/cleanup-orphan-user";
 import { isUuid, listOrphanUsers } from "@/lib/super-admin/orphan-users";
+import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 // Liste her istekte canlı okunmalı (önbellekten eski liste silme kararını
 // yanıltır). cookies() zaten dinamik yapıyor; açıkça da işaretli.
@@ -38,7 +39,11 @@ async function requireSuperAdmin() {
   return { user };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(req);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 
@@ -55,6 +60,10 @@ export async function GET() {
 }
 
 export async function DELETE(req: NextRequest) {
+  // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).
+  const denied = requireSuperAdminHost(req);
+  if (denied) return denied;
+
   const guard = await requireSuperAdmin();
   if ("error" in guard) return guard.error;
 

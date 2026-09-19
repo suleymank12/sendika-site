@@ -60,10 +60,11 @@ yerine geçmez.
 
 # 🛡️ SÜPER ADMİN AYRI HOST — `superadminpanel.{kök}` (19 Eylül 2026)
 
-**Durum:** 🟡 **DEPLOY 1 uygulandı** (kod hazır, canlıya çıkmadı) —
-tsc + build + lint + **16 Node test script'i** geçti
-(`npm run test:super-admin-host` 77 kontrol). Migration **YOK**, şema
-**dokunulmadı**. **DEPLOY 2 BEKLİYOR** (aşağıda).
+**Durum:**
+✅ **DEPLOY 1 CANLIDA** (19 Eylül 2026) — sunucuda ve tarayıcıda test edildi.
+✅ **DEPLOY 2 uygulandı** (kod hazır, canlıya çıkmadı) — tsc + build + lint +
+**16 Node test script'i** geçti (`npm run test:super-admin-host` **140**
+kontrol). Migration **YOK**, şema **dokunulmadı**.
 
 **Yeni adres:** `https://superadminpanel.buyukdirilis.org.tr/super-admin`
 
@@ -89,7 +90,7 @@ tsc + build + lint + **16 Node test script'i** geçti
 | Kural | Nerede | Durum |
 |---|---|---|
 | **(a)** Süper admin host'unda **yalnız `/super-admin`** açık | `middleware.ts` | ✅ Deploy 1 |
-| **(b)** Diğer host'larda `/super-admin` **kapalı** | `middleware.ts` **+ 7 API route guard'ı** | ⏰ Deploy 2 |
+| **(b)** Diğer host'larda `/super-admin` **kapalı** | `middleware.ts` **+ 8 API route (10 handler) guard'ı** | ✅ Deploy 2 |
 
 **Kural (a) — 404, yönlendirme DEĞİL.** Public site, `/admin`, `robots.txt`,
 `sitemap.xml` — hepsi kapalı. Kural, Supabase istemcisi kurulmadan ve
@@ -108,6 +109,53 @@ Saf, senkron, DB yok, ağ yok, **başarısız olamaz**. Bilinmeyen host
 `custom_domain`'e düşer → süper admin yüzeyi kapalı. `NEXT_PUBLIC_ROOT_DOMAIN`
 yanlışsa hiçbir host `super_admin` olmaz → panel her yerde kapalı (rahatsız
 edici ama güvenli yön).
+
+## 🔴 API HOST GUARD — kural (b)'nin yarısı middleware'de OLAMAZ
+
+`middleware.ts` matcher'ı **`api`'yi dışlıyor**:
+`"/((?!_next/static|_next/image|favicon.ico|api).*)"`. Yani iki host kuralı
+da API rotalarına **hiç uğramaz**. Kural (b) yalnız middleware'e konsaydı
+panelin **UI'si taşınmış, tehlikeli API yüzeyi her müşteri domaininde açık
+kalmış** olurdu:
+
+```
+https://kurmayteknoloji.com/api/super-admin/delete-tenant
+```
+
+8 route'un kendi `requireSuperAdmin` guard'ı sağlam ama yalnız "bu
+**kullanıcı** süper admin mi" diye sorar. Süper admin bir müşteri host'unda
+oturum açmışsa (kuruma destek verirken) o host'taki çağrı kabul ediliyordu.
+
+**Çözüm:** `lib/super-admin/api-host-guard.ts` — 8 route dosyasının 10
+handler'ının **her birinin ilk satırı**, auth'tan **ÖNCE**:
+
+```ts
+const denied = requireSuperAdminHost(req);
+if (denied) return denied;
+```
+
+**Neden matcher'a `api` eklenmedi:** o seçenek `/api/contact` dahil TÜM
+API'leri middleware'den geçirir ve her API isteğine Supabase auth ekler —
+**ölçülmemiş** bir performans/davranış değişikliği. Güvenlik düzeltmesiyle
+aynı tura sokulmadı.
+
+⚠️ Test **dosyadan sayıyor**: 8 route, 10 handler, her handler'ın guard'ı ve
+guard'ın auth'tan önce geldiği. **Dokuzuncu route eklenip guard unutulursa
+test kırılır.**
+
+## Origin kontrolü — aynı-site CSRF kapısı
+
+`superadminpanel.{kök}` ile `{kök}` **aynı site**; `sameSite: "lax"` çerezi
+alt alanlar arası isteklerde **gönderir**. Müşteri sitesindeki XSS token'ı
+okuyamaz ve cevabı okuyamaz (CORS yok), ama **istek gönderebilir**.
+
+`requireSuperAdminHost` host kontrolüyle **aynı satırda** bunu da kapatıyor:
+`Origin` başlığı **varsa** ve istenen host'la eşleşmiyorsa **403**.
+
+- **Origin yokluğu KABUL** — tarayıcı dışı çağrılar (curl, sunucudan
+  sunucuya) bu başlığı göndermez ve onlarda CSRF yoktur (kurbanın çerezi yok).
+- Karşılaştırma **host bazında**, şema değil: canlıda https, yerelde http.
+- Biçimsiz / `null` Origin → **reddedilir** (fail-closed).
 
 ## `parseHostname`'e DÖRDÜNCÜ tip
 
@@ -169,10 +217,21 @@ src/app/super-admin/
 | 5 | `idle-timeout.ts` `buildIdleLoginUrl` | `loginPath` parametresi (varsayılan `/admin/giris` — kurum paneli **değişmedi**) |
 | 6 | `useIdleTimeout` bfcache dönüşü | aynı `loginPath` |
 
-⏰ **Deploy 2'de 7-8:** `middleware.ts` ve `AdminLoginForm` giriş sonrası
-süper admini `/super-admin`'e yolluyor — kural (b) sonrası tenant host'unda
-orası **404** olacak, `/admin`'e çevrilmeli. **Atlanırsa süper admin müşteri
-panelinde giriş yapınca 404'e düşer.**
+| 7 | `middleware.ts` `/admin/giris` girişli kullanıcı (**Deploy 2**) | Hedef **daima `/admin`**; `next=/super-admin*` elenir |
+| 8 | `AdminLoginForm` giriş sonrası (**Deploy 2**) | Hedef **daima `/admin`**; `next=/super-admin*` elenir |
+
+**7-8 neden şart:** kural (b) sonrası tenant host'unda `/super-admin` 404 —
+eski kod süper admini oraya yollasaydı **giriş yapar yapmaz 404'e** düşerdi.
+
+🟢 **Yan kazanç:** hedef seçimi kalmadığı için `is_super_admin` RPC'si hem
+middleware'den hem `AdminLoginForm`'dan **kaldırıldı** — her girişten bir
+RPC eksildi.
+
+🔴 **Süper admin panelinin adresi kurum giriş yüzeyinde ANILMAZ.**
+`/admin/giris` her müşteri domaininde açık; oradan panel adresini duyurmak
+kural (b)'nin 404 kararını boşa çıkarırdı. Test üç dosyada
+(`middleware.ts`, `AdminLoginForm.tsx`, `giris/page.tsx`) alt alan adının
+geçmediğini doğruluyor.
 
 ## Oturum — host-only çerez, AYRI oturum
 
@@ -233,8 +292,8 @@ satırla eklenir.
 
 | | İçerik |
 |---|---|
-| **Deploy 1** (bu tur) | 4. tip + sabitler + rezervasyon, kural (a), `/super-admin/giris` + `(authenticated)`, yönlendirme 1-6. **Kural (b) YOK** → eski adres çalışmaya devam eder |
-| **Deploy 2** (ayrı tur) | Kural (b) middleware + 7 API route guard'ı + `Origin` kontrolü + yönlendirme 7-8 |
+| **Deploy 1** ✅ canlıda | 4. tip + sabitler + rezervasyon, kural (a), `/super-admin/giris` + `(authenticated)`, yönlendirme 1-6. **Kural (b) YOK** → eski adres çalışmaya devam etti |
+| **Deploy 2** ✅ kod hazır | Kural (b) middleware + **8 route / 10 handler** API guard'ı + `Origin` kontrolü + yönlendirme 7-8 + `/api/contact` kapatıldı |
 
 **Neden iki deploy:** ikisi aynı anda giderse ve yeni host herhangi bir
 sebeple çalışmazsa panel **hiçbir adresten** açılmaz; kurtarma SSH ister.
@@ -260,7 +319,22 @@ unutulabilir ve unutulduğunda **sessizce** çalışır.
 Süper admin host'unun HTML'inde müşteri markası **yok** (tek eşleşme Next'in
 kendi `/favicon.ico` referansı — ayrı backlog).
 
-## Dokunulan dosyalar (Deploy 1)
+### Deploy 2 ölçümü (aynı yöntem)
+
+| Senaryo | Sonuç |
+|---|---|
+| `lvh.me` ve `kurmay.lvh.me` → `/super-admin`, `/super-admin/giris`, `/super-admin/tenants` | **404**, `redirect_url` **boş** |
+| Süper admin host'u → kural (a) davranışı | **değişmedi** |
+| Her iki tenant host'u → `/api/super-admin/{orphan-users, tenant-setup-check, delete-tenant, toggle-tenant}` | **404** |
+| Süper admin host'u → aynı API, **Origin yok** (curl) | **401** (host kapısı geçti, auth'a takıldı) |
+| Süper admin host'u → aynı API, `Origin: http://superadminpanel.lvh.me:3000` | **401** |
+| Süper admin host'u → `Origin: http://lvh.me:3000` (**aynı site!**) | **403** |
+| … `Origin: http://kurmay.lvh.me:3000` · `https://evil.example` · `null` | **403** |
+| … `POST /api/super-admin/delete-tenant` + apex Origin | **403** |
+| `/api/contact` → süper admin host'u | **404** `{"error":"Bulunamadı."}` |
+| `/api/contact` → apex | **400** (gövde doğrulaması — route normal çalışıyor) |
+
+## Dokunulan dosyalar
 
 | Dosya | Ne |
 |---|---|
@@ -274,9 +348,15 @@ kendi `/favicon.ico` referansı — ayrı backlog).
 | `src/components/super-admin/SuperAdminShell.tsx` / `SuperAdminSidebar.tsx` | `loginPath`, çıkış yolu |
 | `src/lib/idle-timeout.ts` · `src/hooks/useIdleTimeout.tsx` | `loginPath` parametresi |
 | `src/hooks/useTenant.tsx` | `null` planda sorgu atmaz |
-| `src/app/api/contact/route.ts` | Yalnız yorum — süper admin host'u "default"a düşüyor, Deploy 2 notu |
-| `scripts/test-super-admin-host.mjs` · `package.json` | **YENİ** test (77 kontrol) |
-| `scripts/test-idle-timeout.mjs` · `test-setup-checklist.mjs` | Taşınan yol + yeni prop |
+| `scripts/test-super-admin-host.mjs` · `package.json` | **YENİ** test (**140** kontrol) |
+| `scripts/test-idle-timeout.mjs` · `test-setup-checklist.mjs` · `test-orphan-users.mjs` | Taşınan yol + yeni prop (route grubu) |
+| **— Deploy 2 —** | |
+| `src/lib/super-admin/api-host-guard.ts` | **YENİ** — `requireSuperAdminHost` + `rejectSuperAdminHost` |
+| `src/lib/tenant-hostname.ts` | `isSameHostOrigin` (saf, test edilir) |
+| `src/middleware.ts` | Kural (b), ortak `notFound()`, yönlendirme 7, ölü fail-closed dalı temizlendi |
+| `src/app/api/super-admin/**` (8 dosya) | 10 handler'ın başına host kapısı |
+| `src/app/api/contact/route.ts` | `rejectSuperAdminHost` — süper admin host'unda **kapalı** |
+| `src/app/admin/giris/AdminLoginForm.tsx` | Yönlendirme 8; `is_super_admin` RPC'si kaldırıldı |
 
 ---
 
@@ -286,9 +366,17 @@ kendi `/favicon.ico` referansı — ayrı backlog).
   verisine erişiyor; çerez `httpOnly: false` olduğu için token hırsızlığına
   karşı en yüksek getirili ek katman. Kurum adminlerinin 2FA'sı zaten
   konuşuluyor — süper admin tarafı **o turda birlikte** ele alınacak.
-- **`/api/contact` süper admin host'unda "default"a düşüyor** (yorumla
-  işaretli). Pratikte erişilemez (o host'ta formu render eden sayfa yok),
-  Deploy 2'nin API host guard'ına eklenmeli.
+- ✅ **KAPATILDI (Deploy 2):** `/api/contact` süper admin host'unda
+  "default"a düşüyordu. Artık `rejectSuperAdminHost` ile 404.
+  **Karar gerekçesi:** asıl sorun spam değil — kural (a)'nın bütün anlamı
+  "bu host panelden başka **hiçbir şey** yapmaz". Anlamlı cevap veren tek
+  bir uç nokta bile host'un **varlığını doğrular** ve joker DNS + joker
+  sertifika sayesinde kazanılan obskürıteyi boşa çıkarır. Maliyeti 2 satır
+  olduğu için "zararsız, kalsın" demek orantısız olurdu.
+- **Yeni API route'u eklerken host kapısı unutulmasın.**
+  `/api/super-admin/*` → `requireSuperAdminHost`, diğerleri →
+  `rejectSuperAdminHost`. `test:super-admin-host` dosyadan sayıyor, ama
+  kural insanın aklında da dursun.
 
 ---
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseHostname } from "@/lib/tenant-hostname";
+import { rejectSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
 // SHA-256 (crypto) icin Node.js runtime sart (Edge runtime'da yok).
 export const runtime = "nodejs";
@@ -50,12 +51,10 @@ async function resolveTenantId(
 
   // subdomain → slug; apex → "default"
   //
-  // ⚠️ super_admin host'u (19 Eylül 2026) burada "default"a düşüyor: o
-  // host'tan gönderilen bir iletişim formu default kurumun kutusuna yazar.
-  // Middleware kural (a) yalnız SAYFALARI kapatıyor; /api matcher'ın
-  // dışında (yukarıdaki NOT). Pratikte erişilemez — o host'ta iletişim
-  // formu render eden bir sayfa YOK ve form CSRF/rate-limit'li. Yine de
-  // simetri için Deploy 2'nin API host guard'ına bu route da eklenmeli.
+  // super_admin host'u buraya HİÇ GELMEZ: POST'un başındaki
+  // rejectSuperAdminHost o host'u 404 ile eliyor (Deploy 2). Eskiden
+  // "default"a düşüyordu, yani o host'a atılan bir form default kurumun
+  // kutusuna yazıyordu.
   const slug = match.type === "subdomain" ? match.slug : "default";
   const { data } = await admin
     .from("tenants")
@@ -67,6 +66,11 @@ async function resolveTenantId(
 }
 
 export async function POST(req: NextRequest) {
+  // Host kapisi — super admin host'u bu ucu KULLANAMAZ (Deploy 2).
+  // Gerekce: lib/super-admin/api-host-guard → rejectSuperAdminHost.
+  const denied = rejectSuperAdminHost(req);
+  if (denied) return denied;
+
   // 1) Body parse (ham boyut siniri + JSON)
   let body: ContactBody;
   try {
