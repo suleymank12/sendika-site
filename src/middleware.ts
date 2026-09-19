@@ -2,6 +2,11 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
 import { SUPER_ADMIN_HOME_PATH, SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
+import {
+  isAuthCookieName,
+  isTransportAuthError,
+  sanitizeAuthCookies,
+} from "@/lib/supabase/cookie-sanitize";
 
 // ===========================================================================
 // CSP (Guvenlik bulgusu Y2 / ikinci savunma katmani)
@@ -199,13 +204,42 @@ export async function middleware(request: NextRequest) {
     request: { headers: requestHeaders },
   });
 
+  // Çözümlenemediği için elenen auth çerezlerinin adları — `getAll()`
+  // doldurur, `yanit()` bunları tarayıcıdan düşürür.
+  const bozukCerezAdlari: string[] = [];
+
+  /**
+   * Middleware'in DÖNDÜĞÜ HER yanıt buradan geçer (bu noktadan sonraki tüm
+   * `return`'ler). Tek işi: kullanılamaz bulunan auth çerezlerini tarayıcıdan
+   * düşürmek — sistem kendini onarsın, kullanıcı "çerezleri temizle"yi
+   * bilmek zorunda kalmasın.
+   *
+   * `Max-Age=0` + aynı `path`: çerez host-only ve `path=/` yazıldığı için
+   * (bkz. @supabase/ssr DEFAULT_COOKIE_OPTIONS) bu silme eşleşir.
+   */
+  const yanit = (res: NextResponse): NextResponse => {
+    for (const name of bozukCerezAdlari) {
+      res.cookies.set(name, "", { path: "/", maxAge: 0 });
+    }
+    return res;
+  };
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll();
+          // 🔴 BOZUK ÇEREZ SAVUNMASI — ilk katman (20 Eylül 2026).
+          // Çözümlenemeyen auth çerezi Supabase istemcisine HİÇ verilmez;
+          // verilirse `Invalid UTF-8 sequence` fırlatır ve middleware her
+          // rotada çalıştığı için PUBLIC SİTE DAHİL her şey 500 olur.
+          // Elenen adlar aşağıda yanıtta süresi doldurularak silinir.
+          const { kept, droppedNames } = sanitizeAuthCookies(request.cookies.getAll());
+          for (const name of droppedNames) {
+            if (!bozukCerezAdlari.includes(name)) bozukCerezAdlari.push(name);
+          }
+          return kept;
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) =>
@@ -282,7 +316,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = TENANT_ERROR_PATH;
     url.search = "";
-    return NextResponse.redirect(url);
+    return yanit(NextResponse.redirect(url));
   }
 
   // Final slug belli. Forward edilen request header'ına yaz ve response'u
@@ -294,9 +328,64 @@ export async function middleware(request: NextRequest) {
   });
   supabaseResponse.headers.set("x-tenant-slug", tenantSlug);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // ==========================================================================
+  // 🔴 BOZUK ÇEREZ SAVUNMASI — ikinci katman (20 Eylül 2026)
+  // ==========================================================================
+  // `getAll()` süzgeci çözümlenemeyen çerezleri zaten ayıklıyor; buraya
+  // ondan KAÇAN bir şey düşerse (parça birleştirme, kütüphane sürüm
+  // değişikliği, hiç beklemediğimiz bir biçim) istek yine de 500 olmamalı.
+  //
+  // İKİ HATA SINIFI AYRI (gerekçe + ölçüm: lib/supabase/cookie-sanitize):
+  //   - ÇÖZÜMLEME  → çerez kullanılamaz durumda, SİLİNİR (kendini onarma)
+  //   - TAŞIMA     → Supabase erişilemiyor, çerez KORUNUR (kesinti geçince
+  //                  kimse yeniden giriş yapmak zorunda kalmasın)
+  //
+  // Her iki durumda da istek OTURUMSUZ sürer: `user` null olur, /admin
+  // rotaları girişe yönlenir, public site açık kalır.
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    user = data.user;
+
+    if (error && !isTransportAuthError(error)) {
+      // 4xx: saklanan oturum kullanılamıyor (bozuk/geçersiz). Sessizce
+      // geçilmez — çerez düşürülür ki kullanıcı bir daha aynı duvara
+      // toslamasın. "Oturum yok" (çerezsiz istek) bu dala HİÇ girmez:
+      // orada silinecek bir ad da yoktur.
+      for (const cookie of request.cookies.getAll()) {
+        if (isAuthCookieName(cookie.name) && !bozukCerezAdlari.includes(cookie.name)) {
+          bozukCerezAdlari.push(cookie.name);
+        }
+      }
+      if (bozukCerezAdlari.length > 0) {
+        console.warn(
+          "[Middleware] Oturum cerezi kullanilamaz, dusuruluyor:",
+          error.name,
+          error.status,
+          bozukCerezAdlari.join(", ")
+        );
+      }
+    } else if (error) {
+      // TAŞIMA: çerez korunur. Log şart — sessiz kalırsa Supabase kesintisi
+      // "kullanıcılar giriş yapamıyor" diye gelir ve saatler kaybedilir.
+      console.error(
+        "[Middleware] Supabase auth erisilemedi (cerez KORUNDU):",
+        error.name,
+        error.status,
+        error.message
+      );
+    }
+  } catch (err) {
+    // Beklenmeyen fırlatma — YUTULMUYOR, tam hâliyle loglanıyor.
+    // Çözümleme sınıfı sayılır (taşıma hataları fırlatmıyor, ölçüldü):
+    // çerez düşürülür, istek oturumsuz sürer.
+    console.error("[Middleware] auth.getUser() beklenmeyen hata:", err);
+    for (const cookie of request.cookies.getAll()) {
+      if (isAuthCookieName(cookie.name) && !bozukCerezAdlari.includes(cookie.name)) {
+        bozukCerezAdlari.push(cookie.name);
+      }
+    }
+  }
 
   // setAll hic tetiklenmediyse (cerez yenilenmedi) response'a CSP'yi yazan
   // tek yer burasi. getUser'dan SONRA olmali: setAll auth.getUser() sirasinda
@@ -316,7 +405,7 @@ export async function middleware(request: NextRequest) {
     if (!user) {
       const loginUrl = new URL("/admin/giris", request.url);
       loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+      return yanit(NextResponse.redirect(loginUrl));
     }
   }
 
@@ -336,7 +425,7 @@ export async function middleware(request: NextRequest) {
     if (!user) {
       const loginUrl = new URL(SUPER_ADMIN_LOGIN_PATH, request.url);
       loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+      return yanit(NextResponse.redirect(loginUrl));
     }
   }
 
@@ -354,7 +443,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.search = "";
     url.pathname = safeNext ? rawNext! : "/super-admin";
-    return NextResponse.redirect(url);
+    return yanit(NextResponse.redirect(url));
   }
 
   // Giris yapmis kullanici giris sayfasina giderse rolune gore yonlendir
@@ -383,10 +472,10 @@ export async function middleware(request: NextRequest) {
     url.search = ""; // next param redirect URL'inden temizle
     url.pathname = safeNext ? rawNext! : "/admin";
 
-    return NextResponse.redirect(url);
+    return yanit(NextResponse.redirect(url));
   }
 
-  return supabaseResponse;
+  return yanit(supabaseResponse);
 }
 
 export const config = {

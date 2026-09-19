@@ -58,6 +58,143 @@ yerine geçmez.
 
 ---
 
+# 🍪 BOZUK ÇEREZ TÜM SİTEYİ DÜŞÜRÜYORDU + "YETKİSİZ" EKRANI (20 Eylül 2026)
+
+**Durum:** ✅ **Kod hazır** — tsc + build + lint + **22 Node test script'i,
+1627 kontrol, 0 başarısız**. Yeni: `npm run test:admin-access` (51, saf) ve
+`npm run test:cerez` (58, canlı HTTP — dev sunucu yoksa atlar).
+
+## 1. 🔴 Bozuk çerez sınıfı — ölçülen kusur
+
+Tek bir bozuk oturum çerezi **bütün siteyi** 500'e düşürüyordu. Panel değil,
+**public site dahil** (20 Eylül, yerel ölçüm):
+
+```
+Cookie: sb-<ref>-auth-token=base64-BOZUKVERI
+/                -> 500     ← PUBLIC ANASAYFA
+/haberler        -> 500
+/admin/giris     -> 500     ← kendini kurtarma yolu da kapalı
+/admin/yetkisiz  -> 500
+```
+
+Sebep — `@supabase/ssr` çerezi çözerken **fırlatıyor**, middleware de her
+rotada çalışıyor:
+
+```
+⨯ unhandledRejection: Error: Invalid UTF-8 sequence
+    at stringFromUTF8 (@supabase/ssr/.../base64url.js:200)
+    at Object.getItem (@supabase/ssr/.../cookies.js:254)
+    at SupabaseAuthClient._getUser (...)   [middleware]
+```
+
+Kullanıcı çerez temizlemeyi bilmiyorsa **çıkışı olmayan bir çıkmaz**: panele
+giremez, giriş sayfasını açamaz, public siteyi bile göremez. Düşme yolları:
+yarım yazılmış çerez, eklenti/proxy bozması, **aynı adlı iki çerez** (üst alan
+adı + host-only çakışması), bir alt alan adındaki XSS'in üst alana çöp çerez
+yazması (kalıcı DoS).
+
+## 2. 🔴 İKİ HATA SINIFI AYRI — ve ayrım ölçümle kuruldu
+
+Sezgisel kural ("fırlatırsa çözümleme, döndürürse taşıma") **YANLIŞ**;
+gerçek kütüphaneyle ölçüldü:
+
+| Durum | `getUser()` | Karar |
+|---|---|---|
+| `base64-BOZUKVERI` | **FIRLATIR** `Invalid UTF-8 sequence` | çerez **SİL** |
+| base64 geçerli, JSON değil | DÖNDÜRÜR `AuthSessionMissingError` **400** | çerez **SİL** |
+| ağ yok | DÖNDÜRÜR `AuthRetryableFetchError` **status 0** | çerez **KORU** |
+| Supabase 503 | DÖNDÜRÜR `AuthRetryableFetchError` **503** | çerez **KORU** |
+
+Ayrım `lib/supabase/cookie-sanitize.ts` → `isTransportAuthError()`: ad **veya**
+status (0 / ≥500) taşıma sayılır; 4xx çözümleme sayılır; **tanınmayan hata
+taşıma sayılır** (şüphede SİLME).
+
+**Neden taşımada silmiyoruz:** Supabase'de 5 dakikalık bir kesintide çerezleri
+silersek bütün müşterilerin bütün adminleri oturumdan düşer ve kesinti bitince
+yeniden giriş yapmak zorunda kalır — geçici kesintiyi **kalıcı hasara**
+çevirmiş oluruz. O istek oturumsuz sürer, çerez yerinde kalır, kesinti bitince
+her şey kendiliğinden düzelir.
+
+**Uçtan uca doğrulandı** (Supabase adresi erişilemez bir dev sunucuyla):
+
+```
+sağlam çerez + /           -> 200, çerez silme: hayır   ← kesinti hasarsız
+sağlam çerez + /admin/giris-> 200, çerez silme: hayır
+BOZUK çerez + /admin/giris -> 200, çerez silme: EVET    ← kendini onarma
+log: "[Middleware] Supabase auth erisilemedi (cerez KORUNDU): AuthRetryableFetchError 0"
+log: "[Middleware] Oturum cerezi kullanilamaz, dusuruluyor: AuthSessionMissingError 400"
+```
+
+## 3. İki katman — ve `/api` boşluğu
+
+| Katman | Yer | İş |
+|---|---|---|
+| 1 | `middleware.ts` → `getAll()` | Çözümlenemeyen auth çerezi istemciye **hiç verilmez** |
+| 1 | `lib/supabase/server.ts` → `getAll()` | **Aynı süzgeç** — çünkü `/api` rotalarına **middleware hiç uğramıyor** (matcher `/api`'yi dışlıyor). Ölçüm: bozuk çerezle `/api/panel-yoneticileri` → **401** (500 değil) |
+| 2 | `middleware.ts` → `getUser()` try/catch | Süzgeçten kaçan her şey; **hata yutulmuyor**, tam hâliyle loglanıyor |
+| 3 | `yanit()` sarmalayıcısı | Middleware'in **her** return'ü bozuk çerezi `Max-Age=0` ile düşürür |
+
+Mutasyon testinde görüldü: **katman 1'i tek başına kaldırmak yetmiyor**,
+katman 2 yakalıyor. İkisi birden kaldırılınca canlı test 11 kontrolle kırılıyor.
+
+## 4. "Yetkisiz Erişim" ekranı artık kendini açıklıyor
+
+Ekran **hangi hesapla girildiğini yazmıyordu**; 20 Eylül'de şifre sıfırlama
+sonrası saatler bu yüzden kaybedildi (gizli pencerede çalışıyor, normal
+pencerede "yetkisiz" — çünkü tarayıcı başka hesabı dolduruyordu).
+
+- Giriş yapılan **e-posta ekranda**
+- "Bu hesabın bu kuruluşun panelinde yetkisi yok. **Yanlış hesapla giriş
+  yapmış olabilirsiniz.**"
+- **"Çıkış Yap ve Başka Hesapla Gir"** — gerçekten `signOut()` + tam yenileme
+- Hesap **süper adminse**: "platform yöneticisi hesabı, kurum panellerine
+  erişmez" (19 Eylül kararının doğru çalışması)
+
+🔴 **Süper admin panelinin ADRESİ bu ekranda ANILMAZ** — sayfa her müşteri
+domaininde açık; adres yazmak middleware kural (b)'nin obskürite kararını
+boşa çıkarırdı. Testte kilitli (`superadminpanel` ve `/super-admin` geçmiyor).
+
+## 5. Geçici hata ≠ yetkisizlik
+
+Layout eskiden iki AYRI durumu aynı ekrana çıkarıyordu:
+
+```ts
+if (memberError) redirect("/admin/yetkisiz");   // geçici DB hatası
+if (!membership) redirect("/admin/yetkisiz");   // gerçek yetkisizlik
+```
+
+Artık karar saf fonksiyonda (`lib/admin-access.ts` → `decideAdminAccess`):
+`giris` · `kurum-yok` · `kurum-pasif` · **`gecici-hata`** · `yetkisiz` · `izin`.
+Hata dalı **"Geçici Bir Sorun Oluştu" + "Tekrar Dene"** ekranı gösteriyor
+(`router.refresh()` — sorgu düzelirse panel kendiliğinden açılır).
+
+🔴 **FAIL-CLOSED KORUNDU:** hata dalında da panele **sokulmuyor**; değişen tek
+şey kapının hangi yazıyla kapandığı. Sıra da önemli ve testle kilitli: hata
+kontrolü `!membership` kontrolünden **ÖNCE** (hata varsa `membership` zaten
+null gelir, "yetkin yok" demek yanlış olurdu).
+
+## 6. Mutasyon testi (20 Eylül)
+
+Her koruma tek tek bozuldu, test kırıldı, dosya birebir geri yüklendi:
+
+| Bozulan | Sonuç |
+|---|---|
+| `isTransportAuthError` hep false (taşımada da siler) | 51 → **47/4** |
+| Karar sırası ters (hata kontrolü sonraya) | 51 → **50/1** |
+| Bir `return` `yanit()`'tan çıkarıldı | 51 → **50/1** |
+| Yetkisiz ekranından e-posta silindi | 51 → **50/1** |
+| `server.ts` süzgeci kaldırıldı (`/api` açığı) | 51 → **50/1** |
+| **Her iki middleware katmanı da kaldırıldı** (canlı) | 58 → **47/11** |
+
+## 7. Bilinmeyenler
+
+- Canlı (VPS/Nginx) davranışın yerelle birebir aynı olduğu **varsayıldı**;
+  500 ölçümü ve düzeltme doğrulaması yerelde yapıldı.
+- Tarayıcının çerezi **kendiliğinden** bozabildiği bir vaka gözlenmedi; düşme
+  yolları yapısal olarak listelendi, sahada hangisinin gerçekleştiği bilinmiyor.
+
+---
+
 # 🔑 ŞİFRE SIFIRLAMA PKCE'DEN ÇIKARILDI (P1, 20 Eylül 2026)
 
 **Durum:** ✅ **P1 kod tarafı bitti** — tsc + build + lint + tüm Node test

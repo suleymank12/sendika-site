@@ -30,6 +30,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { decideAdminAccess } from "../src/lib/admin-access.ts";
 
 // ---------------------------------------------------------------------------
 // Kucuk test kosucusu (diger test script'leriyle ayni desen)
@@ -103,7 +104,33 @@ header("(a) Layout — super admin muafiyeti KALKTI");
   // Uyelik kontrolu DURUYOR ve tek olcut o
   okTrue("layout", "tenant_users uyelik sorgusu duruyor", code.includes('.from("tenant_users")'), LAYOUT);
   okTrue("layout", "uye degilse /admin/yetkisiz", code.includes('redirect("/admin/yetkisiz")'), LAYOUT);
-  okTrue("layout", "uyelik yoksa panel ACILMIYOR", code.includes("if (!membership) {"), LAYOUT);
+  // 20 Eylul 2026: karar layout'tan `lib/admin-access`e tasindi (gecici DB
+  // hatasi ile gercek yetkisizlik ayrilsin diye). Iddia AYNI — "uyelik
+  // yoksa panel acilmaz" — ama artik metin degil DAVRANIS dogrulaniyor:
+  // saf fonksiyon cagrilip sonucuna bakiliyor.
+  okTrue("layout", "karar saf fonksiyonda", code.includes("decideAdminAccess({"), LAYOUT);
+  okTrue(
+    "layout",
+    "uyelik yoksa panel ACILMIYOR",
+    decideAdminAccess({
+      user: { id: "u1" },
+      tenant: { id: "t1", is_active: true },
+      membership: null,
+      membershipError: null,
+    }).kind === "yetkisiz",
+    "decideAdminAccess(membership=null)"
+  );
+  okTrue(
+    "layout",
+    "uyelik VARSA panel acilir (kapi fazla kapanmiyor)",
+    decideAdminAccess({
+      user: { id: "u1" },
+      tenant: { id: "t1", is_active: true },
+      membership: { id: "m1" },
+      membershipError: null,
+    }).kind === "izin",
+    "decideAdminAccess(membership var)"
+  );
 
   // AdminShell'e TEK cikis olmali: uyelik kontrolunden SONRA.
   // Iki cikis varsa biri yine bypass demektir.

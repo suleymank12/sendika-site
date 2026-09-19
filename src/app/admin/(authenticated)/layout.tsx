@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenantOrNull } from "@/lib/get-tenant";
+import { decideAdminAccess } from "@/lib/admin-access";
 import AdminShell from "@/components/admin/AdminShell";
 import AdminTenantPasifView from "../_components/AdminTenantPasifView";
 import AdminTenantBulunamadiView from "../_components/AdminTenantBulunamadiView";
+import AdminGeciciHataView from "../_components/AdminGeciciHataView";
 
 export default async function AuthenticatedAdminLayout({
   children,
@@ -79,11 +81,29 @@ export default async function AuthenticatedAdminLayout({
     .eq("tenant_id", tenant.id)
     .maybeSingle();
 
-  if (memberError) {
+  // KARAR SAF FONKSIYONDA (20 Eylul 2026) — `lib/admin-access`.
+  //
+  // Burada eskiden iki AYRI durum ayni ekrana cikiyordu:
+  //   if (memberError) redirect("/admin/yetkisiz");   // gecici DB hatasi
+  //   if (!membership) redirect("/admin/yetkisiz");   // gercek yetkisizlik
+  // Supabase bir anligina hata dondugunde kullaniciya "bu kurumda yetkiniz
+  // yok" deniyordu — yanlis cumle, ustelik "tekrar dene" yolu da yoktu.
+  //
+  // 🔴 FAIL-CLOSED KORUNDU: hata dalinda da panele SOKULMUYOR; yalniz
+  // ekranin yazisi ve cikis yolu degisti. Uc dal testte kilitli
+  // (scripts/test-admin-access.mjs).
+  const decision = decideAdminAccess({
+    user,
+    tenant,
+    membership,
+    membershipError: memberError,
+  });
+
+  if (decision.kind === "gecici-hata") {
     console.error("[AdminLayout] Membership check failed:", memberError);
-    redirect("/admin/yetkisiz");
+    return <AdminGeciciHataView />;
   }
-  if (!membership) {
+  if (decision.kind === "yetkisiz") {
     redirect("/admin/yetkisiz");
   }
 
