@@ -49,6 +49,13 @@ async function resolveTenantId(
   }
 
   // subdomain → slug; apex → "default"
+  //
+  // ⚠️ super_admin host'u (19 Eylül 2026) burada "default"a düşüyor: o
+  // host'tan gönderilen bir iletişim formu default kurumun kutusuna yazar.
+  // Middleware kural (a) yalnız SAYFALARI kapatıyor; /api matcher'ın
+  // dışında (yukarıdaki NOT). Pratikte erişilemez — o host'ta iletişim
+  // formu render eden bir sayfa YOK ve form CSRF/rate-limit'li. Yine de
+  // simetri için Deploy 2'nin API host guard'ına bu route da eklenmeli.
   const slug = match.type === "subdomain" ? match.slug : "default";
   const { data } = await admin
     .from("tenants")

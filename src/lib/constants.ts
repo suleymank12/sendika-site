@@ -57,10 +57,42 @@ export const DEFAULT_META = {
 } as const;
 
 /**
+ * Super admin panelinin KENDI alt alani (19 Eylul 2026).
+ *
+ * Panel `{SUPER_ADMIN_SUBDOMAIN}.{NEXT_PUBLIC_ROOT_DOMAIN}` host'unda
+ * calisir; baska hicbir host'ta acilmaz, bu host'ta da panelden baska
+ * hicbir sey acilmaz (middleware.ts iki kural).
+ *
+ * NEDEN AYRI HOST: panel butun musterilerin verisine erisiyor ve Supabase
+ * oturum cerezi `httpOnly: false` (bkz. @supabase/ssr DEFAULT_COOKIE_OPTIONS)
+ * — yani AYNI ORIGIN'deki bir XSS token'i dogrudan okuyabilir. Panel
+ * eskiden `buyukdirilis.org.tr/super-admin` idi, yani default kurumun
+ * public sitesiyle ayni origin; dahasi host kontrolu olmadigi icin HER
+ * musteri domaininden de aciliyordu.
+ *
+ * 🔴 NEDEN ENV DEGISKENI DEGIL: `NEXT_PUBLIC_*` BUILD ANINDA gomuluyor
+ * (NOTE.md -> VPS DEPLOY -> Tuzak 2; bu tuzaga bir kez dusulmus). Host'u
+ * ayri bir env'e koymak, build makinesindeki deger yanlissa paneli
+ * SESSIZCE kapatirdi. Kok domain zaten `getRootDomain()` ile tek kaynaktan
+ * okunuyor; host ondan TURETILIYOR (lib/tenant-hostname.ts).
+ *
+ * Deger degisecekse: burasi + RESERVED_TENANT_SLUGS (asagida, bu sabitten
+ * besleniyor) + Nginx/DNS tarafinda yeni ad. Yerelde karsiligi
+ * `superadminpanel.lvh.me:3000` (lvh.me joker olarak 127.0.0.1'e cozulur).
+ */
+export const SUPER_ADMIN_SUBDOMAIN = "superadminpanel";
+
+/** Super admin giris sayfasi — tenant'a BAGLI DEGIL (notr marka). */
+export const SUPER_ADMIN_LOGIN_PATH = "/super-admin/giris";
+
+/**
  * Tenant slug'i olarak kullanilamaz. Sebepler:
  * - "default": sistem fallback tenant'i (014 trigger + endpoint korumasi)
  * - "www", "admin", "api": yaygin subdomain rezervasyonlari (carpisma)
  * - "app", "auth", "static", "cdn": teknik subdomain'ler
+ * - SUPER_ADMIN_SUBDOMAIN: o alt alan super admin paneline ait; bir kurum
+ *   o slug'i alirsa host CAKISIR. Sabitten besleniyor ki ad degisirse
+ *   rezervasyon geride kalmasin.
  */
 export const RESERVED_TENANT_SLUGS = [
   "default",
@@ -71,6 +103,7 @@ export const RESERVED_TENANT_SLUGS = [
   "auth",
   "static",
   "cdn",
+  SUPER_ADMIN_SUBDOMAIN,
 ] as const;
 
 export type ReservedTenantSlug = (typeof RESERVED_TENANT_SLUGS)[number];

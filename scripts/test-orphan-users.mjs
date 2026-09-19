@@ -411,8 +411,20 @@ ok("uuid", "enjeksiyon gecersiz", isUuid(`${uid(1)}' OR 1=1`), false, "inj");
 
 {
   // 207 uyarisindaki baglanti kirik olmasin: sayfa dosyasi ve sidebar ayni yolu kullanmali.
-  const pageFile = `src/app${ORPHAN_ACCOUNTS_PATH}/page.tsx`;
-  okTrue("yol", "sayfa dosyasi var", existsSync(pageFile), pageFile);
+  //
+  // ROUTE GRUPLARI URL'E YANSIMAZ (19 Eylul 2026): super admin ayri host'a
+  // tasinirken giris sayfasi auth kapisinin disinda kalsin diye sayfalar
+  // `(authenticated)` grubuna alindi. URL ayni, DOSYA YOLU bir klasor
+  // derinlesti. Bu yuzden iki aday da kabul edilir — kontrolun amaci
+  // "bu URL'in gercek bir sayfasi var mi", dosyanin tam yeri degil.
+  const pageCandidates = [
+    `src/app${ORPHAN_ACCOUNTS_PATH}/page.tsx`,
+    `src/app${ORPHAN_ACCOUNTS_PATH.replace(
+      "/super-admin/",
+      "/super-admin/(authenticated)/"
+    )}/page.tsx`,
+  ];
+  okTrue("yol", "sayfa dosyasi var", pageCandidates.some(existsSync), pageCandidates.join(" | "));
   const sidebar = readFileSync("src/components/super-admin/SuperAdminSidebar.tsx", "utf8");
   okTrue("yol", "sidebar ayni yola bagli", sidebar.includes(`href: "${ORPHAN_ACCOUNTS_PATH}"`), ORPHAN_ACCOUNTS_PATH);
 }

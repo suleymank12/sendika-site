@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface MenuItem {
@@ -44,7 +45,9 @@ export default function SuperAdminSidebar({ isOpen, onClose, email }: Props) {
   const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/admin/giris");
+    // /admin/giris DEĞİL: o sayfa tenant'a bağlı ve süper admin host'unda
+    // kurum yok (19 Eylül 2026).
+    router.push(SUPER_ADMIN_LOGIN_PATH);
   };
 
   return (

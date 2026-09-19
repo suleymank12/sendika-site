@@ -58,6 +58,240 @@ yerine geçmez.
 
 ---
 
+# 🛡️ SÜPER ADMİN AYRI HOST — `superadminpanel.{kök}` (19 Eylül 2026)
+
+**Durum:** 🟡 **DEPLOY 1 uygulandı** (kod hazır, canlıya çıkmadı) —
+tsc + build + lint + **16 Node test script'i** geçti
+(`npm run test:super-admin-host` 77 kontrol). Migration **YOK**, şema
+**dokunulmadı**. **DEPLOY 2 BEKLİYOR** (aşağıda).
+
+**Yeni adres:** `https://superadminpanel.buyukdirilis.org.tr/super-admin`
+
+## Neden taşındı — üç ölçüm
+
+1. 🔴 **Panel HER müşteri domaininde açıktı.** `middleware.ts`'teki
+   `/super-admin` koruması yalnız oturuma bakıyordu, **host'a hiç
+   bakmıyordu**; `super-admin/layout.tsx` de yalnız `is_super_admin` RPC'sine.
+   Süper adminlik **kullanıcının** özelliği, host'un değil → panel
+   `kurmayteknoloji.com/super-admin`, `kurmay-teknoloji.buyukdirilis.org.tr/super-admin`
+   ve bundan sonraki **her müşteri domaininden** açılıyordu.
+2. 🔴 **`/api/super-admin/*` de aynı durumdaydı** ve middleware oraya **hiç
+   girmiyor** (matcher `api`'yi dışlıyor). 7 route'un guard'ı sağlam ama
+   yalnız "bu kullanıcı süper admin mi" diye soruyor.
+3. 🔴 **Oturum çerezi JavaScript'e açık.** `@supabase/ssr`
+   `DEFAULT_COOKIE_OPTIONS` → **`httpOnly: false`**, `sameSite: "lax"`,
+   `maxAge` 400 gün; projede override **yok**. Yani **aynı origin'deki bir
+   XSS token'ı `document.cookie` ile doğrudan OKUR**. Risk "oturum
+   etkilenir" değil, "oturum **çalınır**".
+
+## İki kural
+
+| Kural | Nerede | Durum |
+|---|---|---|
+| **(a)** Süper admin host'unda **yalnız `/super-admin`** açık | `middleware.ts` | ✅ Deploy 1 |
+| **(b)** Diğer host'larda `/super-admin` **kapalı** | `middleware.ts` **+ 7 API route guard'ı** | ⏰ Deploy 2 |
+
+**Kural (a) — 404, yönlendirme DEĞİL.** Public site, `/admin`, `robots.txt`,
+`sitemap.xml` — hepsi kapalı. Kural, Supabase istemcisi kurulmadan ve
+`auth.getUser()` çağrılmadan **ÖNCE** çalışır (reddedilen istek için o iş
+boşa). Statik varlıklar ve `/api` zaten matcher dışında, panel çalışır.
+
+🔴 **YÖNLENDİRME ASLA EKLENMEMELİ.** Kural (b) **her host'ta** geçerli
+olacağı için `{host}/super-admin → 301 superadminpanel...` yazmak, süper
+admin adresini **her müşterinin alan adından yayınlamak** demektir. Host
+joker DNS (`A *`) ve joker sertifika altında olduğu için **DNS'ten de
+Certificate Transparency'den de sayılamıyor**; 404 bu obsküriteyi bedavaya
+koruyor, 301 tek hamlede harcardı.
+
+**Fail-closed:** karar tek girdiye dayanıyor — `parseHostname(host).type`.
+Saf, senkron, DB yok, ağ yok, **başarısız olamaz**. Bilinmeyen host
+`custom_domain`'e düşer → süper admin yüzeyi kapalı. `NEXT_PUBLIC_ROOT_DOMAIN`
+yanlışsa hiçbir host `super_admin` olmaz → panel her yerde kapalı (rahatsız
+edici ama güvenli yön).
+
+## `parseHostname`'e DÖRDÜNCÜ tip
+
+```ts
+| { type: "super_admin"; host: string }
+```
+
+**Neden ayrı tip:** "subdomain" bırakılsaydı slug `superadminpanel` olarak
+tüm katmanlara yayılır, `getCurrentTenant()` **DEFAULT kuruma düşer** ve
+panel host'u default kurumun sitesini (robots + sitemap dahil) servis
+ederdi. Ayrı tip, TypeScript exhaustiveness'ıyla **her çağıranı** karar
+vermeye zorluyor.
+
+**Neden env değişkeni DEĞİL:** `NEXT_PUBLIC_*` **build anında** gömülüyor
+(→ "VPS DEPLOY" Tuzak 2; bu tuzağa bir kez düşülmüş). Ayrı bir env, build
+makinesindeki değer yanlışsa paneli **sessizce kapatırdı**. Host
+`SUPER_ADMIN_SUBDOMAIN` + `getRootDomain()` ile **türetiliyor**.
+
+⚠️ `SUPER_ADMIN_SUBDOMAIN` **`RESERVED_TENANT_SLUGS`'a sabitten besleniyor**
+— ad değişirse rezervasyon geride kalmasın. O slug'la kurum oluşturulursa
+host çakışırdı.
+
+## Giriş akışı — `/super-admin/giris`
+
+`/admin/giris` **tenant'a bağlı** (`getCurrentTenantOrNull`), süper admin
+host'unda kurum olmadığı için orada "Kurum bulunamadı" ekranına düşerdi.
+
+Yeni yapı `/admin`'in desenini aynalıyor — **URL'ler DEĞİŞMEDİ** (route
+grupları adrese yansımaz):
+
+```
+src/app/super-admin/
+├── giris/page.tsx + SuperAdminLoginForm.tsx   ← auth kapısının DIŞINDA
+├── _components/SuperAdminYetkisizView.tsx
+└── (authenticated)/   layout.tsx · page.tsx · tenants/… · baglantisiz-hesaplar/
+```
+
+- 🔴 **Giriş sayfası tenant'a HİÇ dokunmaz**: `getCurrentTenant` yok,
+  `site_settings` sorgusu yok, logo yok. Bu host **hiçbir müşteri markası
+  taşımamalı** (kimlik avı yüzeyi — `app/admin/layout.tsx` başlığındaki aynı
+  gerekçe). Root layout da bu host'ta kurumu hiç çözmeyip nötr metadata
+  döndürüyor (`Platform Yönetimi` + noindex).
+- **"Şifremi unuttum" YOK.** Süper adminin **davet akışı yok** (hesap
+  `super_admins` tablosuna elle INSERT); şifre sıfırlama Supabase
+  Dashboard'dan. Böylece **Supabase'e yeni Redirect URL satırı GEREKMİYOR.**
+- **Yetkisiz kullanıcı → RENDER, yönlendirme değil.** Giriş yapmış birini
+  giriş sayfasına atmak (a) süper admin host'unda ölü adrese gider,
+  (b) middleware'in "girişli kullanıcıyı panele al" kuralıyla **döngü**
+  üretir.
+
+### Değişen yönlendirmeler (Deploy 1'de 1-6)
+
+| # | Yer | Sonra |
+|---|---|---|
+| 1 | `middleware.ts` oturumsuz `/super-admin` | `/super-admin/giris?next=` |
+| 2 | `(authenticated)/layout.tsx` oturumsuz | `/super-admin/giris` |
+| 3 | `(authenticated)/layout.tsx` yetkisiz | `<SuperAdminYetkisizView />` (render) |
+| 4 | `SuperAdminSidebar` çıkış | `/super-admin/giris` |
+| 5 | `idle-timeout.ts` `buildIdleLoginUrl` | `loginPath` parametresi (varsayılan `/admin/giris` — kurum paneli **değişmedi**) |
+| 6 | `useIdleTimeout` bfcache dönüşü | aynı `loginPath` |
+
+⏰ **Deploy 2'de 7-8:** `middleware.ts` ve `AdminLoginForm` giriş sonrası
+süper admini `/super-admin`'e yolluyor — kural (b) sonrası tenant host'unda
+orası **404** olacak, `/admin`'e çevrilmeli. **Atlanırsa süper admin müşteri
+panelinde giriş yapınca 404'e düşer.**
+
+## Oturum — host-only çerez, AYRI oturum
+
+Supabase çerezlerinde `domain` set edilmiyor → çerez **host-only**. Süper
+admin host'u, apex ve her müşteri domaini **ayrı oturum** taşır.
+
+🔴 **ÇEREZ `domain=.buyukdirilis.org.tr` YAPILMAMALI — ASLA.** Taşımayı
+tamamen anlamsızlaştırır: paylaşılan çerez, müşteri sitesindeki XSS'in
+süper admin token'ına ulaşması demektir (`httpOnly: false`). "İki kez giriş
+yapmak zorunda kalıyorum" şikâyetinin doğru cevabı bu **değildir**.
+
+### Taşımanın ÇÖZMEDİĞİ risk (dürüstlük kaydı)
+
+`superadminpanel.buyukdirilis.org.tr` ile `buyukdirilis.org.tr` **aynı site**
+(aynı kayıtlı alan adı) → `sameSite: "lax"` çerezleri alt alanlar arası
+isteklerde **gönderir**. Müşteri sitesindeki bir XSS token'ı **okuyamaz** ve
+cevabı **okuyamaz** (CORS yok), ama **istek gönderebilir** (CSRF). JSON
+POST'lar preflight'a takılır, `text/plain` form POST'u takılmaz.
+
+→ **Deploy 2'de API guard'ına `Origin` kontrolü** eklenecek (host
+kontrolüyle aynı satır, ek maliyet yok). Tam bağışıklık ancak **farklı
+kayıtlı alan adı** ile olurdu; alt alan bilinçli tercih, bedeli bu.
+
+## Sunucu tarafı — DNS/SSL/Nginx'te iş YOK
+
+- **DNS:** joker `A *` zaten var → host kendiliğinden çözülür.
+- **SSL:** joker sertifika `*.buyukdirilis.org.tr` tek seviye kapsıyor →
+  yeni sertifika gerekmez, CT'de görünmez.
+- **Nginx:** müşteri subdomain'leri çalıştığına göre blok jokeri yakalıyor →
+  ayrı blok gerekmez. ⏰ `nginx -T | grep server_name` ile **doğrulanmalı**.
+  Ayrı blok yazılırsa `X-Forwarded-Host`/`X-Forwarded-Port` **birebir
+  kopyalanmalı** (→ VPS DEPLOY Tuzak 1: eksikse tüm yönlendirmeler
+  `localhost:3000`'e çıkar, giriş kırılır).
+
+### 🔴 YENİ BAĞIMLILIK — joker sertifika ile eşzamanlılık
+
+Panel artık **joker sertifikaya** bağlı. O sertifika `certbot renew` ile
+yenilenmiyor — **24 Kasım 2026'da ELLE**, iki TXT kaydıyla (→ "VPS DEPLOY"
+→ "0. Canlı ortam" → SSL). Düşerse bugün siteler kapanıyor; taşımadan
+sonra **panel de kapanır** — yani "sertifikayı yenileyeceğim panel" de
+erişilemez olur. Yenileme zaten SSH ile yapıldığı için **kilitlenme yok**,
+ama sırayı bilerek yap: **önce sertifika, sonra panel**.
+
+⏰ **UptimeRobot'a eklenecek:** `https://superadminpanel.buyukdirilis.org.tr/super-admin/giris`
+→ 200. Hem panelin kapandığını haber verir hem SSL expiry hatırlatmasını bu
+host için de çalıştırır. Bedeli: host adı üçüncü tarafta (kabul edildi).
+
+## IP kısıtlaması — ELENDİ (karar, tekrar tartışılmasın)
+
+Nginx `allow`/`deny` **değerlendirildi ve elendi**: kullanıcının IP'si
+**değişken**. Modem yeniden başlayıp IP değişince panele girilemez, açmak
+SSH gerektirir — müşteri sitesi kapalıyken kurum aktifleştirmek gerektiği
+bir anda kabul edilemez. Yerine: ayrı origin + 404 + `Origin` kontrolü +
+mevcut 30 dk oturum zaman aşımı. **Sabit IP alınırsa** Nginx bloğu 3
+satırla eklenir.
+
+## Geçiş — İKİ DEPLOY, kilitlenme penceresi SIFIR
+
+| | İçerik |
+|---|---|
+| **Deploy 1** (bu tur) | 4. tip + sabitler + rezervasyon, kural (a), `/super-admin/giris` + `(authenticated)`, yönlendirme 1-6. **Kural (b) YOK** → eski adres çalışmaya devam eder |
+| **Deploy 2** (ayrı tur) | Kural (b) middleware + 7 API route guard'ı + `Origin` kontrolü + yönlendirme 7-8 |
+
+**Neden iki deploy:** ikisi aynı anda giderse ve yeni host herhangi bir
+sebeple çalışmazsa panel **hiçbir adresten** açılmaz; kurtarma SSH ister.
+Deploy 1'de iki adres de açık olduğu için yeni host **kesintisiz** denenir.
+
+**Neden env bayrağı değil:** güvenlik kuralını kapatan bir bayrak açık
+unutulabilir ve unutulduğunda **sessizce** çalışır.
+
+⏰ **Deploy 2 öncesi Deploy 1 çıktısını sakla** — `/var/www/sendika-site`
+`rsync --delete` ile yeniden yazılıyor.
+
+## Yerel doğrulama (19 Eylül, `npm run dev`, gerçek istekler)
+
+| Host | Yol | Sonuç |
+|---|---|---|
+| `superadminpanel.lvh.me:3000` | `/`, `/haberler`, `/iletisim`, `/robots.txt`, `/sitemap.xml`, `/admin`, `/admin/giris` | **404** (yönlendirme yok) |
+| | `/super-admin` | 307 → `/super-admin/giris?next=%2Fsuper-admin` |
+| | `/super-admin/giris` | **200**, `<title>Platform Yönetimi</title>` + `noindex` |
+| `lvh.me:3000` (apex) | `/`, `/haberler`, `/robots.txt` | **200** — etkilenmedi |
+| | `/super-admin` | 307 → `/super-admin/giris` (Deploy 1'de **açık**) |
+| `kurmay.lvh.me:3000` | `/`, `/admin`, `/super-admin` | Etkilenmedi |
+
+Süper admin host'unun HTML'inde müşteri markası **yok** (tek eşleşme Next'in
+kendi `/favicon.ico` referansı — ayrı backlog).
+
+## Dokunulan dosyalar (Deploy 1)
+
+| Dosya | Ne |
+|---|---|
+| `src/lib/constants.ts` | `SUPER_ADMIN_SUBDOMAIN`, `SUPER_ADMIN_LOGIN_PATH`, rezervasyon |
+| `src/lib/tenant-hostname.ts` | 4. tip, `getSuperAdminHost`, `isSuperAdminHost`, `planTenantQuery` → `null` |
+| `src/middleware.ts` | Kural (a) + yeni giriş yolu + `SUPER_ADMIN_PUBLIC_PATHS` |
+| `src/app/layout.tsx` | Süper admin host'unda nötr metadata (kurum çözülmez) |
+| `src/app/super-admin/giris/**` | **YENİ** — sayfa + form |
+| `src/app/super-admin/_components/SuperAdminYetkisizView.tsx` | **YENİ** |
+| `src/app/super-admin/(authenticated)/**` | 6 dosya taşındı (URL aynı) |
+| `src/components/super-admin/SuperAdminShell.tsx` / `SuperAdminSidebar.tsx` | `loginPath`, çıkış yolu |
+| `src/lib/idle-timeout.ts` · `src/hooks/useIdleTimeout.tsx` | `loginPath` parametresi |
+| `src/hooks/useTenant.tsx` | `null` planda sorgu atmaz |
+| `src/app/api/contact/route.ts` | Yalnız yorum — süper admin host'u "default"a düşüyor, Deploy 2 notu |
+| `scripts/test-super-admin-host.mjs` · `package.json` | **YENİ** test (77 kontrol) |
+| `scripts/test-idle-timeout.mjs` · `test-setup-checklist.mjs` | Taşınan yol + yeni prop |
+
+---
+
+# 📋 BACKLOG — süper admin güvenliği (19 Eylül 2026)
+
+- **Supabase MFA / 2FA — süper admin hesabı.** Panel tüm müşterilerin
+  verisine erişiyor; çerez `httpOnly: false` olduğu için token hırsızlığına
+  karşı en yüksek getirili ek katman. Kurum adminlerinin 2FA'sı zaten
+  konuşuluyor — süper admin tarafı **o turda birlikte** ele alınacak.
+- **`/api/contact` süper admin host'unda "default"a düşüyor** (yorumla
+  işaretli). Pratikte erişilemez (o host'ta formu render eden sayfa yok),
+  Deploy 2'nin API host guard'ına eklenmeli.
+
+---
+
 # 🧭 BAŞLANGIÇ ADIMLARI — kurum admini kurulum rehberi (19 Eylül 2026)
 
 **Durum:** ✅ Uygulandı — tsc + build + lint + **15 Node test script'i**
@@ -4631,6 +4865,13 @@ Let's Encrypt **wildcard** sertifika, **manuel DNS-01** doğrulamasıyla alınd�
 komutu **tekrar elle** çalıştırılmalı ve doğrulama için **iki TXT kaydı**
 dnsenable.com'a elle eklenmelidir. Bitiş tarihinden en az bir hafta önceye
 hatırlatıcı koyun; sertifika düşerse tüm subdomain'ler dahil site kapanır.
+
+🔴 **19 Eylül 2026'dan beri SÜPER ADMİN PANELİ DE bu sertifikaya bağlı.**
+Panel `superadminpanel.buyukdirilis.org.tr` adresine taşındı (bkz.
+"🛡️ SÜPER ADMİN AYRI HOST"). Sertifika düşerse **panel de kapanır** — yani
+"sertifikayı yenileyeceğim panel" de erişilemez olur. Yenileme zaten SSH ile
+yapıldığı için kilitlenme yok, ama **sırayı bilerek yap: önce sertifika,
+sonra panel.**
 
 🔔 **Hatırlatma kuruldu (12 Eylül 2026):** UptimeRobot monitörlerinde "SSL
 expiry reminders" açık — bitişten **30 / 14 / 7 / 0 gün** önce

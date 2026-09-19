@@ -1,11 +1,29 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { getCurrentTenantOrNull } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
 import { buildTenantPublicUrl } from "@/lib/tenant-url";
+import { isSuperAdminHost } from "@/lib/tenant-hostname";
 import HydrationFlag from "@/components/HydrationFlag";
 import "./globals.css";
 
 export async function generateMetadata(): Promise<Metadata> {
+  // SUPER ADMIN HOST'U — kurum HIC cozulmez (19 Eylul 2026).
+  //
+  // Bu host bir kuruma ait degil; `getCurrentTenantOrNull()` slug
+  // bulamayip DEFAULT kuruma duserdi ve panelin sekme basligi/favicon'u
+  // default kurumun markasi olurdu. Panel host'u HICBIR musteri markasi
+  // tasimamali — giris sayfasinin notr olmasinin ayni gerekcesi.
+  //
+  // Yan fayda: bu dalda site_settings sorgusu da atilmiyor.
+  if (isSuperAdminHost(headers().get("host") || "")) {
+    return {
+      title: "Platform Yönetimi",
+      description: "Platform yönetim paneli.",
+      robots: { index: false, follow: false },
+    };
+  }
+
   // Default'a DUSMEYEN surum (b3 / Asama 0). Root layout HER rotayi sarar —
   // `/admin/tenant-bulunamadi` dahil. Burada default'a dusulurse o hata
   // sayfasi default kurumun basligiyla acilir; daha kotusu, cozulemeyen bir

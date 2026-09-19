@@ -23,6 +23,7 @@ import {
   isIdleExpired,
   parseStoredActivity,
   serializeActivity,
+  DEFAULT_IDLE_LOGIN_PATH,
   sessionIdFromAccessToken,
   shouldWriteActivity,
 } from "@/lib/idle-timeout";
@@ -82,7 +83,18 @@ function currentPath(): string {
   return window.location.pathname + window.location.search;
 }
 
-export function IdleTimeoutProvider({ children }: { children: React.ReactNode }) {
+export function IdleTimeoutProvider({
+  children,
+  loginPath = DEFAULT_IDLE_LOGIN_PATH,
+}: {
+  children: React.ReactNode;
+  /**
+   * Cikisin gidecegi giris sayfasi. SuperAdminShell SUPER_ADMIN_LOGIN_PATH
+   * verir: super admin paneli ayri host'ta ve orada /admin/giris YOK
+   * (19 Eylul 2026).
+   */
+  loginPath?: string;
+}) {
   const pathname = usePathname();
   // SuperAdminShell'de DirtyFormProvider yok -> null.
   const dirtyForm = useOptionalDirtyForm();
@@ -139,9 +151,9 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
     }
     // 3) replace: geri tusu dolmus sayfaya donmesin.
     window.location.replace(
-      buildIdleLoginUrl({ expired: true, dirty: wasDirty, next: currentPath() })
+      buildIdleLoginUrl({ expired: true, dirty: wasDirty, next: currentPath(), loginPath })
     );
-  }, [takeDirty]);
+  }, [takeDirty, loginPath]);
 
   const followSignOut = useCallback(() => {
     if (leavingRef.current) return;
@@ -155,9 +167,9 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
       isIdleExpired(stored.t, now, TIMEOUT_MS);
     const wasDirty = takeDirty();
     window.location.replace(
-      buildIdleLoginUrl({ expired, dirty: wasDirty, next: currentPath() })
+      buildIdleLoginUrl({ expired, dirty: wasDirty, next: currentPath(), loginPath })
     );
-  }, [takeDirty]);
+  }, [takeDirty, loginPath]);
 
   const check = useCallback(() => {
     if (leavingRef.current) return;
@@ -269,7 +281,7 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
       // bfcache: cikistan sonra GERI tusu sayfayi JS bellegiyle birlikte geri
       // getirebilir -> tekrar giris sayfasina.
       if (e.persisted && leavingRef.current) {
-        window.location.replace("/admin/giris");
+        window.location.replace(loginPath);
         return;
       }
       check();
@@ -285,7 +297,7 @@ export function IdleTimeoutProvider({ children }: { children: React.ReactNode })
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("pageshow", onPageShow);
     };
-  }, [check]);
+  }, [check, loginPath]);
 
   const acquireHold = useCallback(() => {
     holdsRef.current += 1;

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu } from "lucide-react";
 import SuperAdminSidebar from "./SuperAdminSidebar";
 import { IdleTimeoutProvider } from "@/hooks/useIdleTimeout";
+import { SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
 
 interface Props {
   email: string;
@@ -14,8 +15,10 @@ export default function SuperAdminShell({ email, children }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
   // Oturum zaman asimi: admin paneliyle ayni sure (hooks/useIdleTimeout.tsx).
+  // loginPath: bu panel ayri host'ta ve orada /admin/giris YOK — zaman
+  // asimi kendi giris sayfasina donmeli (19 Eylul 2026).
   return (
-    <IdleTimeoutProvider>
+    <IdleTimeoutProvider loginPath={SUPER_ADMIN_LOGIN_PATH}>
       <div className="flex h-screen bg-gray-50">
         <SuperAdminSidebar isOpen={isOpen} onClose={() => setIsOpen(false)} email={email} />
         <div className="flex flex-1 flex-col overflow-hidden">

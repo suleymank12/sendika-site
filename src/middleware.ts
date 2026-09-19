@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
+import { SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
 
 // ===========================================================================
 // CSP (Guvenlik bulgusu Y2 / ikinci savunma katmani)
@@ -77,6 +78,12 @@ function buildCsp(nonce: string): string {
  */
 const TENANT_ERROR_PATH = "/admin/tenant-bulunamadi";
 
+/**
+ * Super admin host'unda GIRIS gerektirmeyen yollar. `/super-admin/giris`
+ * burada olmazsa oturumsuz kullanici kendi kendine yonlendirilir (dongu).
+ */
+const SUPER_ADMIN_PUBLIC_PATHS = [SUPER_ADMIN_LOGIN_PATH];
+
 export async function middleware(request: NextRequest) {
   // Hostname'i parse et (DB'siz, senkron). Server Component'ler tenant'i
   // x-tenant-slug header'i üzerinden okuyacak.
@@ -87,6 +94,39 @@ export async function middleware(request: NextRequest) {
   // custom_domain cozulemedigi durumda admin yollarini auth islemlerinden
   // ONCE kesmek icin gerekli.
   const { pathname } = request.nextUrl;
+
+  // ==========================================================================
+  // KURAL (a) — SUPER ADMIN HOST'UNDA YALNIZ /super-admin AÇIK
+  // ==========================================================================
+  // (19 Eylül 2026) `superadminpanel.{kök}` host'u BİR KURUM DEĞİL. Orada
+  // public site, /admin, robots.txt ve sitemap.xml dahil her şey kapalı.
+  //
+  // Neden gerekli: bu host `parseHostname`'de ayrı bir tip, ama tenant
+  // çözümleyen katmanlar (root layout metadata, robots.ts, sitemap.ts)
+  // slug bulamayınca DEFAULT kuruma düşüyor. Kural olmasaydı panel host'u
+  // default kurumun sitesinin ikinci bir kopyasını servis ederdi.
+  //
+  // Neden 404, yönlendirme değil: yönlendirme "burada bir şey var" der.
+  // 404 sessiz — host joker DNS ve joker sertifika altında olduğu için
+  // DNS'ten de Certificate Transparency'den de sayılamıyor; bu obskürite
+  // bedavaya korunuyor.
+  //
+  // Neden BURADA, auth/CSP kurulumundan ÖNCE: reddedilen istek için
+  // Supabase istemcisi kurmak, nonce üretmek ve `auth.getUser()` çağırmak
+  // tamamen boşa iş. Statik varlıklar (`/_next/static`, `/_next/image`)
+  // ve `/api` zaten matcher'ın dışında — panel çalışmaya devam eder.
+  //
+  // ⚠️ KURAL (b) — "diğer host'larda /super-admin KAPALI" BU DEPLOY'DA YOK.
+  // Deploy 2'de gelecek (middleware + 7 API route guard'ı + Origin
+  // kontrolü). Bu sayede eski adres (`{kök}/super-admin`) geçiş boyunca
+  // çalışmaya devam ediyor ve kilitlenme penceresi açılmıyor.
+  const superAdminHost = match.type === "super_admin";
+  if (superAdminHost && !pathname.startsWith("/super-admin")) {
+    return new NextResponse("Not Found", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
 
   // apex / custom_domain başlangıçta "default"; subdomain doğrudan slug.
   // custom_domain için final slug aşağıda DB sorgusuyla belirlenir.
@@ -239,12 +279,38 @@ export async function middleware(request: NextRequest) {
   // Süper admin rotalarını da auth ile koru.
   // Süper admin yetkisi kontrolü (is_super_admin) middleware'de YAPILMAZ
   // (her request'te RPC çağırmak pahalı). Bu kontrol layout'ta yapılır.
-  if (pathname.startsWith("/super-admin")) {
+  //
+  // Giriş artık /admin/giris DEĞİL — o sayfa tenant'a bağlı
+  // (`admin/giris/page.tsx` getCurrentTenantOrNull kullanıyor) ve süper
+  // admin host'unda kurum olmadığı için "Kurum bulunamadı" ekranına
+  // düşerdi. /super-admin/giris tenant'a hiç dokunmuyor, dolayısıyla HER
+  // host'ta çalışır — host'a göre dallanmaya gerek yok.
+  if (
+    pathname.startsWith("/super-admin") &&
+    !SUPER_ADMIN_PUBLIC_PATHS.includes(pathname)
+  ) {
     if (!user) {
-      const loginUrl = new URL("/admin/giris", request.url);
+      const loginUrl = new URL(SUPER_ADMIN_LOGIN_PATH, request.url);
       loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
+  }
+
+  // Giriş yapmış kullanıcı süper admin giriş sayfasına giderse panele al.
+  // Süper admin DEĞİLSE de /super-admin'e gider ve orada "yetkiniz yok"
+  // ekranını görür — is_super_admin RPC'si burada ÇAĞRILMAZ (karar tek
+  // yerde, (authenticated)/layout.tsx'te).
+  if (pathname === SUPER_ADMIN_LOGIN_PATH && user) {
+    const rawNext = request.nextUrl.searchParams.get("next");
+    // next YALNIZ /super-admin altına gidebilir: bu sayfa süper admin
+    // yüzeyinin kapısı, başka bir yere sıçrama tahtası değil.
+    const safeNext =
+      !!rawNext && rawNext.startsWith("/super-admin") && !rawNext.startsWith("//");
+
+    const url = request.nextUrl.clone();
+    url.search = "";
+    url.pathname = safeNext ? rawNext! : "/super-admin";
+    return NextResponse.redirect(url);
   }
 
   // Giris yapmis kullanici giris sayfasina giderse rolune gore yonlendir

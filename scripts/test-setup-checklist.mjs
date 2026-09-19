@@ -745,7 +745,10 @@ ok("tutarlilik", "iki modulun donus yolu ayni (import'suz kopya)", SUPABASE_RETU
 {
   const upd = readFileSync("src/app/api/super-admin/update-tenant/route.ts", "utf8");
   okTrue("tutarlilik", "update-tenant kaydedilen custom domain'i doner", upd.includes("customDomain: normalizedCustomDomain"), "update-tenant");
-  const page = readFileSync("src/app/super-admin/tenants/[id]/page.tsx", "utf8");
+  // (authenticated) route grubu — 19 Eylul 2026, super admin ayri host'a
+  // tasinirken giris sayfasi auth kapisinin disinda kalsin diye eklendi.
+  // URL degismedi (/super-admin/tenants/[id]); YALNIZ dosya yolu degisti.
+  const page = readFileSync("src/app/super-admin/(authenticated)/tenants/[id]/page.tsx", "utf8");
   okTrue("tutarlilik", "tenants/[id] listeyi ve pencereyi baglar", page.includes("<SetupChecklist") && page.includes("<DomainChangeDialog") && page.includes("buildDomainChangeNotice("), "page");
 }
 

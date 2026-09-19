@@ -19,6 +19,8 @@
  * (ayrinti: NOTE.md → VPS DEPLOY, 4. bolum Tuzak 2)
  */
 
+import { SUPER_ADMIN_SUBDOMAIN } from "./constants.ts";
+
 const ROOT_DOMAIN_FALLBACK = "lvh.me";
 
 /**
@@ -124,7 +126,19 @@ export function buildTenantAdminUrl(
 export type HostnameMatch =
   | { type: "apex" }
   | { type: "subdomain"; slug: string }
-  | { type: "custom_domain"; host: string };
+  | { type: "custom_domain"; host: string }
+  /**
+   * Super admin panelinin kendi host'u (19 Eylul 2026):
+   * `{SUPER_ADMIN_SUBDOMAIN}.{kok}`. Bir TENANT DEGIL — bu host'ta kurum
+   * cozumlenmez, x-tenant-slug yazilmaz, public site servis edilmez.
+   *
+   * AYRI TIP olmasi bilincli: "subdomain" olarak biraksaydik slug
+   * "superadminpanel" olarak tum katmanlara yayilir, getCurrentTenant()
+   * DEFAULT kuruma duser ve panel host'u default kurumun sitesini (robots
+   * ve sitemap dahil) servis ederdi. Ayri tip, TypeScript exhaustiveness
+   * kontroluyle HER caginani karar vermeye zorluyor.
+   */
+  | { type: "super_admin"; host: string };
 
 /**
  * Hostname'i parse eder, hangi kategoride oldugunu belirler.
@@ -180,6 +194,12 @@ export function parseHostname(hostname: string): HostnameMatch {
       // Coklu parca slug'lari kabul etmiyoruz (ornek: a.b.lvh.me)
       // Sadece tek seviye subdomain
       if (!sub.includes(".")) {
+        // Super admin paneli TENANT DEGIL — subdomain dalindan ONCE
+        // ayrilir. RESERVED_TENANT_SLUGS bu adi zaten rezerve ediyor,
+        // yani bu dala dusecek bir kurum olusturulamaz.
+        if (sub === SUPER_ADMIN_SUBDOMAIN) {
+          return { type: "super_admin", host };
+        }
         return { type: "subdomain", slug: sub };
       }
     }
@@ -217,7 +237,12 @@ export type TenantQuery =
   | { by: "custom_domain"; value: string }
   | { by: "slug"; value: string };
 
-export function planTenantQuery(hostname: string): TenantQuery {
+/**
+ * @returns null = bu host'ta SORULACAK bir kurum yok (super admin paneli).
+ *   Cagiran sorguyu HIC atmamali; "default"a dusurmek, bu dosyanin ustunde
+ *   anlatilan 8 Eylul bug'inin deseninin ta kendisi olurdu.
+ */
+export function planTenantQuery(hostname: string): TenantQuery | null {
   const match = parseHostname(hostname);
   switch (match.type) {
     case "custom_domain":
@@ -226,7 +251,26 @@ export function planTenantQuery(hostname: string): TenantQuery {
       return { by: "slug", value: match.slug };
     case "apex":
       return { by: "slug", value: "default" };
+    case "super_admin":
+      return null;
   }
+}
+
+/** Super admin panelinin host'u: `{SUPER_ADMIN_SUBDOMAIN}.{kok}` (portsuz). */
+export function getSuperAdminHost(): string {
+  return `${SUPER_ADMIN_SUBDOMAIN}.${getRootDomain()}`;
+}
+
+/**
+ * Istek bu host'a mi geldi? TEK KARAR NOKTASI — middleware'deki iki kural,
+ * root layout'un notr metadata'si ve testler hep bunu cagirir.
+ *
+ * Saf ve senkron: DB yok, ag yok, BASARISIZ OLAMAZ. Bilinmeyen host
+ * custom_domain'e duser, yani `false` — super admin yuzeyi supheli her
+ * durumda KAPALI (fail-closed).
+ */
+export function isSuperAdminHost(hostname: string): boolean {
+  return parseHostname(hostname).type === "super_admin";
 }
 
 /**

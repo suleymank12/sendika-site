@@ -256,7 +256,11 @@ ok(
     adminShell.indexOf("</IdleTimeoutProvider>") < adminShell.indexOf("</DirtyFormProvider>"),
   true
 );
-ok("karar", "SuperAdminShell: saglayici bagli (super admin de 30 dk)", read("src/components/super-admin/SuperAdminShell.tsx").includes("<IdleTimeoutProvider>"), true);
+ok("karar", "SuperAdminShell: saglayici bagli (super admin de 30 dk)", read("src/components/super-admin/SuperAdminShell.tsx").includes("<IdleTimeoutProvider"), true);
+// Super admin paneli AYRI HOST'ta (19 Eylul 2026) ve orada /admin/giris YOK
+// -> zaman asimi kendi giris sayfasina donmeli.
+ok("karar", "SuperAdminShell: cikis /super-admin/giris'e doner", read("src/components/super-admin/SuperAdminShell.tsx").includes("loginPath={SUPER_ADMIN_LOGIN_PATH}"), true);
+ok("karar", "AdminShell: varsayilan giris yolu (kurum paneli degismedi)", read("src/components/admin/AdminShell.tsx").includes("loginPath"), false);
 
 for (const f of [
   "src/components/admin/ImageUploader.tsx",

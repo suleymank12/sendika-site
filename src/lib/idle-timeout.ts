@@ -186,18 +186,29 @@ export function shouldWriteActivity(lastWriteAt: number, now: number): boolean {
   return now - lastWriteAt >= IDLE_WRITE_THROTTLE_MS;
 }
 
+/** Kurum paneli girisi — `loginPath` verilmezse kullanilan varsayilan. */
+export const DEFAULT_IDLE_LOGIN_PATH = "/admin/giris";
+
 /**
  * Cikis sonrasi giris adresi. AdminLoginForm bu parametreleri okur:
  *   oturum=zaman-asimi  -> "Uzun sure islem yapilmadigi icin..." mesaji
  *   kaydedilmemis=1     -> "Kaydedilmemis degisiklikleriniz kaydedilemedi."
  *   next                -> girisle ayni sayfaya donus (AdminLoginForm isSafeNext)
  * Guvensiz next ("//host", "/\host", mutlak URL) yazilmaz.
+ *
+ * `loginPath` (19 Eylul 2026): super admin paneli ayri host'a tasindi ve
+ * kendi giris sayfasi var (`/super-admin/giris`). Deger SABIT kalsaydi
+ * super admin panelinde zaman asimi, o host'ta OLMAYAN /admin/giris'e
+ * yonlendirirdi. Varsayilan degismedi — kurum paneli cagrilari aynen
+ * calisiyor.
  */
 export function buildIdleLoginUrl(opts: {
   expired: boolean;
   dirty: boolean;
   next: string | null;
+  loginPath?: string;
 }): string {
+  const loginPath = opts.loginPath || DEFAULT_IDLE_LOGIN_PATH;
   const params = new URLSearchParams();
   if (opts.expired) params.set("oturum", "zaman-asimi");
   if (opts.dirty) params.set("kaydedilmemis", "1");
@@ -206,5 +217,5 @@ export function buildIdleLoginUrl(opts: {
     params.set("next", next);
   }
   const query = params.toString();
-  return query ? `/admin/giris?${query}` : "/admin/giris";
+  return query ? `${loginPath}?${query}` : loginPath;
 }

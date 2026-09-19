@@ -60,7 +60,16 @@ export function TenantProvider({
 
       // TEK sorgu. Fallback zinciri BILEREK yok: bulunamayan host'ta
       // default'a dusmek, bu bug'in mekanizmasiydi.
+      //
+      // null = super admin paneli host'u — orada kurum YOK. Sorgu hic
+      // atilmaz, tenant null KALIR (19 Eylul 2026).
       const plan = planTenantQuery(window.location.hostname);
+      if (!plan) {
+        setTenant(null);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("tenants")
         .select("*")
