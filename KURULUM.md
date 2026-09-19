@@ -76,10 +76,17 @@ postgresql://postgres.<ref>:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/pos
 2. `supabase/migrations/001_seed_default.sql` — sitenin ilk açılışta patlamaması
    için gereken minimum veri (default tenant + 10 ayar + 5 menü öğesi).
 3. **`027_*.sql` ve sonrası** — baseline dondurulduktan sonra yazılan
-   migration'lar, **numara sırasıyla**. Şu an **iki dosya**:
+   migration'lar, **numara sırasıyla**. Şu an **üç dosya**:
    - `027_headlines_kaynak_tekil.sql` — aynı haber iki kez manşet olamaz
    - `028_liste_indeksleri.sql` — haber/duyuru liste index'leri (`tenant_id`
      lider) + `homepage_section_items(section_id)` FK index'i
+   - `029_super_admin_kurum_erisimi_kaldir.sql` — **güvenlik**: süper adminin
+     kurum verisine otomatik erişimi kaldırılır (`user_has_tenant_access`
+     artık yalnız `tenant_users`'a bakar). Süper admin bir kurumun panelinde
+     iş yapacaksa önce kendini o kurumun **Tenant Admin Kullanıcıları**
+     listesine ekler, işi bitince çıkarır — erişim böylece iz bırakır.
+     ⚠️ **Yeni kurulumda atlanırsa süper admin her müşterinin verisine
+     kayıtsız erişir.** Gerekçe: NOTE.md → "SÜPER ADMİN KURUM ERİŞİMİ".
 
    Bu adım atlanırsa yeni sitede o düzeltmeler olmaz. Baseline yeniden
    üretilince bu dosyalar baseline'a karışır ve liste boşalır
@@ -94,6 +101,7 @@ psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/000
 psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/001_seed_default.sql
 psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/027_headlines_kaynak_tekil.sql
 psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/028_liste_indeksleri.sql
+psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/029_super_admin_kurum_erisimi_kaldir.sql
 ```
 
 `--single-transaction` + `ON_ERROR_STOP=1`: hata olursa **hiçbir şey kalmaz**,

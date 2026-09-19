@@ -58,6 +58,193 @@ yerine geçmez.
 
 ---
 
+# 🔐 SÜPER ADMİN KURUM ERİŞİMİ — kaldırıldı (P1, 19 Eylül 2026)
+
+**Durum:** ✅ Kod hazır — tsc + build + lint + **17 Node test script'i** geçti
+(`npm run test:super-admin-kurum` 70 kontrol).
+⏰ **Migration 029 canlıya ELLE uygulanacak** (drift kontrolü önce).
+**P2 (şeffaflık) ayrı tur** — aşağıda.
+
+## Bulgu (canlı ölçüm)
+
+Süper admin hesabı **hiçbir kurumun üyesi olmadığı hâlde**
+`kurmayteknoloji.com/admin`'den Kurmay'ın panelinde açıldı ve kurumun
+**gerçek** verisini gördü.
+
+## 🔴 Kök neden İKİ KATMANLIYDI — bu ayrım kritik
+
+| # | Katman | Yer |
+|---|---|---|
+| 1 | UI kapısı: üyelik kontrolünü atlayan "süper admin bypass" | `app/admin/(authenticated)/layout.tsx` |
+| 2 | **ASIL YETKİ** | `user_has_tenant_access` → `OR public.is_super_admin(auth.uid())` |
+
+🔴 **(1) tek başına düzeltilse YETMEZDİ.** Tarayıcı Supabase PostgREST'e
+**doğrudan** konuşuyor (`createBrowserClient` + oturum JWT'si); layout
+yalnızca sunucuda çizilen bir ekran. Onu kapatmak veriyi kapatmaz —
+**gerçek sınır RLS'tir.** "Layout'u sildik, düzeldi" demek bu açığı açık
+bırakırdı.
+
+Fonksiyon **16 içerik tablosunun + 3 storage politikasının** tek kapısıydı.
+Politikalar `FOR ALL` ve `USING` ile `WITH CHECK` **aynı** fonksiyonu
+çağırıyor → okuma ile yazma arasında **hiçbir ayrım yoktu**.
+
+## Bilinçli miydi? — Evet, ama gerekçesi hiç yazılmamıştı
+
+`OR is_super_admin` fonksiyonun **ilk** sürümünde var (`archive/012`, Sprint 1);
+NOTE'ta **kabul testi** olarak bile yazılmış: *"Test F: Süper admin her tenant'a
+erişim … → açılır **(bypass)**"*. Storage tarafı da bilerek
+(*"otomatik bypass (012'den)"*). Süper admin panelinde **butonu** vardı.
+
+**Ama "neden süper admin kurum verisine YAZABİLMELİ?" sorusunun cevabı hiçbir
+yerde yazılmamıştı.** Okuma/yazma ayrımı, KVKK, iz bırakma — üçü de hiç
+konuşulmamış. Karar bilinçli, **kapsamı düşünülmemişti**.
+
+## Ne yapabiliyordu
+
+İçerik **ekle/düzenle/sil** (haber, duyuru, sayfa, manşet, galeri, bölümler),
+**site ayarlarını değiştir**, **görsel yükle/sil** (her kurumun klasörüne),
+yönetim kurulu/şubeler, **gelen mesajları oku ve SİL**. Tek sınır pasif kurum.
+
+🔴 **Hiçbir iz kalmıyordu** — projede denetim/log tablosu **yok**. Müşterinin
+haberi kaybolsa, bunu operatörün yapmadığını kanıtlayacak kayıt yoktu.
+
+## KVKK gerekçesi
+
+`contact_messages` gerçek kişisel veri tutuyor: **ad, e-posta, telefon, mesaj**.
+Bunlar **sendika** siteleri; KVKK **md. 6** *"sendika üyeliği"*ni **özel
+nitelikli kişisel veri** sayıyor ve bir sendikanın iletişim formuna yazan
+kişinin mesajı bu ilişkiyi ele verebiliyor. Müşteri = **veri sorumlusu**,
+platform = **veri işleyen** (md. 12). Sınırsız + kayıtsız + müşterinin haberi
+olmayan erişim savunulabilir değildi.
+
+## KARAR: süper admin kurum paneline HİÇ giremez
+
+**"Salt okunur" seçeneği değerlendirildi ve ELENDİ.** Asıl dert yazma değil
+**iz**; salt okunur erişim de gelen mesajları kayıtsız okumaya devam ederdi.
+Ayrıca 16 tablonun `FOR ALL` politikasını ikiye bölmek (~32 + 3 politika) ve
+19 admin sayfasında düğme devre dışı bırakmak gerekirdi — ~10 kat maliyet,
+daha az fayda.
+
+### ⏰ GERİ DÖNME YOLU — süper admin girmesi gerekirse
+
+1. Süper admin paneli → kurumu aç → **"Tenant Admin Kullanıcıları"**
+2. **Kendi e-postanı ekle** (davet gider ya da mevcut hesap bağlanır)
+3. İşini yap
+4. 🔴 **İşin bitince kendini LİSTEDEN ÇIKAR**
+
+Erişim böylece bir `tenant_users` satırına bağlanır: `created_at` damgası
+düşer, listede görünür — **iz bırakır**. Bu yol `tenant_users_super_admin_insert`
+politikasıyla çalışıyor ve o politika **doğrudan** `is_super_admin`'e dayanıyor,
+yani 029'dan **etkilenmedi** (test bunu ayrıca doğruluyor — etkilenseydi süper
+admin kendini kilitlerdi).
+
+### 🔴 KABUL EDİLEN SONUÇ — istisna YOK
+
+Süper admin hesabı artık **hiçbir** kurum paneline giremez, **`default`
+(buyukdirilis.org.tr) dahil**. Kullanıcı kararı: *"Kural tutarlı olsun,
+istisna açmayalım."* Default kurumun kendi admini zaten var
+(`…+tenanttest@gmail.com`).
+
+## Migration 029
+
+`029_super_admin_kurum_erisimi_kaldir.sql` — **imza-uyumlu `CREATE OR REPLACE`**,
+tek satır kalkıyor. **Politikalara DOKUNULMUYOR** (16 tablo + 3 storage
+politikası aynı fonksiyonu çağırmaya devam ediyor, yalnız cevabı değişti).
+
+Değiştirilmemesi gerekenler — değişirse apply patlar ya da güvenlik geriler:
+`tenant_id_param` (parametre adı), `SECURITY DEFINER`, `SET search_path = public`,
+`LANGUAGE sql`, `STABLE`.
+
+⚠️ **Apply öncesi drift kontrolü ŞART** (emsali: Sprint 4 Madde 5):
+`SELECT pg_get_functiondef('public.user_has_tenant_access(uuid)'::regprocedure);`
+→ çıktıda `is_super_admin` **geçiyor olmalı**. Geçmiyorsa canlı zaten farklıdır,
+**durulur**. Apply sonrası doğrulama + rollback migration dosyasının sonunda.
+
+⚠️ `000_baseline.sql` **elle düzenlenmedi** (KURULUM kuralı) — baseline'da
+kısayol hâlâ duruyor; 029 onun üstüne uygulanıyor. Baseline yeniden
+üretilince kısayolsuz hâl oraya işlenir.
+
+## ✅ YEREL GERÇEK PostgreSQL DOĞRULAMASI (19 Eylül 2026)
+
+Migration **gerçekten uygulandı ve davranışı ölçüldü** — geçici PG18 kümesi +
+Supabase taklidi (roller, `auth.users`, `auth.uid()`, `storage.foldername`),
+`000_baseline.sql` yüklendi, sonra `029` canlıdaki komutun aynısıyla
+(`--single-transaction`) uygulandı.
+
+**Apply temiz geçti** — imza uyumu doğrulandı (bu tür `CREATE OR REPLACE`
+tam da apply anında *"cannot change name of input parameter"* ile patlar).
+Nitelikler korundu: `prosecdef=true`, `provolatile=s`,
+`proconfig=search_path=public`, `tenant_id_param uuid`.
+
+Süper admin **hiçbir kurumun üyesi değil** (canlı durumun aynısı):
+
+| Kim | Ölçüm | Sonuç |
+|---|---|---|
+| Süper admin | `user_has_tenant_access` | **false** |
+| Süper admin | görülen gelen mesaj | **0** |
+| Süper admin | görülen taslak haber | **0** |
+| Süper admin | haber ekleyebildi mi | **HAYIR — RLS reddetti** |
+| Süper admin | silebildiği gelen mesaj | **0** |
+| Kurum admini | `user_has_tenant_access` | **true** |
+| Kurum admini | görülen gelen mesaj / taslak haber | **1 / 1** |
+| Süper admin | **kendini kuruma ekleyebildi mi** | **EVET** — geri dönme yolu açık ✅ |
+| Süper admin (üye olduktan sonra) | erişim / taslak haber | **true / 1** |
+
+Son iki satır kritik: düzeltme süper admini **kilitlemiyor**, yalnızca
+erişimi iz bırakan bir adımın arkasına koyuyor.
+
+**Ölçümle çürüyen bir varsayımım:** fonksiyona bağlı politika sayısını "17"
+yazmıştım; canlı sorgu **16** dedi (`pg_policies` dökümü). Migration, NOTE ve
+test metinleri düzeltildi.
+
+## Ne KIRILMAZ (tek tek doğrulandı, test ediyor)
+
+| Akış | Dayandığı |
+|---|---|
+| Süper admin paneli (kurum listesi/detayı) | `tenants` → **doğrudan** `is_super_admin` politikaları |
+| Kurum oluştur/sil/aç-kapa/düzenle, Kurulum Durumu, yetim hesaplar | **service role** (`createAdminClient`) |
+| **Tenant admin ekle/çıkar** (geri dönme yolu) | `tenant_users_super_admin_*` → **doğrudan** `is_super_admin` |
+| Yedekleme / storage süpürme cron'ları | service role |
+
+## "Admin paneline gir" butonu → bilgi metni
+
+Buton **tamamen silinmedi** (kullanıcı kararı: *"kaybolursa 'nasıl girerim'
+sorusu havada kalır"*). Yerinde `ShieldOff` işareti + kısa ipucu duruyor;
+tablonun üstünde tam metin:
+
+> **Kurum panellerine doğrudan girilmez.** Bir kurumun panelinde iş yapmanız
+> gerekiyorsa kurumu açın, **Tenant Admin Kullanıcıları** listesine kendinizi
+> ekleyin; işiniz bitince **çıkarın**. Böylece erişim kayıt altına girer —
+> müşteri verisine kimin, ne zaman eriştiği belli olur.
+
+## Dokunulan dosyalar
+
+| Dosya | Ne |
+|---|---|
+| `supabase/migrations/029_super_admin_kurum_erisimi_kaldir.sql` | **YENİ** — fonksiyondan kısayol kalkar |
+| `src/app/admin/(authenticated)/layout.tsx` | Bypass kaldırıldı; tek ölçüt üyelik |
+| `src/app/super-admin/(authenticated)/tenants/page.tsx` | Buton → bilgi metni; `buildTenantAdminUrl` importu kalktı |
+| `KURULUM.md` | Adım 3: 029 listede + psql komutunda (**üç dosya**) |
+| `scripts/test-super-admin-kurum-erisimi.mjs` · `package.json` | **YENİ** test (70 kontrol) |
+
+## ⏰ P2 — ŞEFFAFLIK (ayrı tur, bekliyor)
+
+Bugün kurum admini, kurumuna eklenmiş **diğer** yöneticileri **göremiyor**:
+`tenant_users_self_or_super_select` yalnız kendi satırını gösteriyor
+(`user_id = auth.uid() OR is_super_admin`). Kurum panelinde "Yöneticiler"
+ekranı da **hiç yok**.
+
+Yani P1 izi **DB'ye** yazıyor ama **müşteriye göstermiyor**. Kullanıcı kararı:
+**müşteri görebilmeli.** P2 kapsamı:
+
+1. `tenant_users` SELECT politikası **kurum sınırında** genişletilir
+   (⚠️ `user_has_tenant_access` ile **değil** — o artık süper admini
+   kapsamıyor; doğrudan `tenant_id` eşleşmesiyle)
+2. Kurum paneline **salt okunur "Yöneticiler"** ekranı (ad/e-posta + eklenme
+   tarihi)
+
+---
+
 # 🛡️ SÜPER ADMİN AYRI HOST — `superadminpanel.{kök}` (19 Eylül 2026)
 
 **Durum:**
@@ -5916,11 +6103,23 @@ test et.
 2. Sayfa açılmalı (guard yok).
 3. **"Çıkış Yap"** → `/admin/giris`
 
-### Test F: Süper admin her tenant'a erişim
-1. Süper admin ile login.
-2. `http://lvh.me:3000/admin` → açılır.
-3. `http://test-acme.lvh.me:3000/admin` → açılır (bypass).
-4. Her ikisinde de sidebar görünür, verileri yüklenir.
+### Test F: Süper admin her tenant'a erişim — ⛔ GEÇERSİZ (19 Eylül 2026)
+
+🔴 **Bu test ARTIK TERSİNE DÖNDÜ. Aşağıdaki beklentiler YANLIŞ.**
+Süper adminin kurum verisine otomatik erişimi **kaldırıldı** (migration 029 +
+layout bypass) — gerekçe: "🔐 SÜPER ADMİN KURUM ERİŞİMİ".
+
+**Yeni beklenti:** süper admin hesabıyla `…/admin` → **"Yetkisiz"** (hiçbir
+kurum paneline giremez, `default` dahil). Girmesi gerekirse önce kendini
+"Tenant Admin Kullanıcıları" listesine ekler, işi bitince çıkarır.
+
+Tarihsel kayıt olarak duruyor — bu turda kaldırılan şeyin bir zamanlar
+**kabul testi** olarak yazıldığını gösteriyor:
+
+~~1. Süper admin ile login.~~
+~~2. `http://lvh.me:3000/admin` → açılır.~~
+~~3. `http://test-acme.lvh.me:3000/admin` → açılır (bypass).~~
+~~4. Her ikisinde de sidebar görünür, verileri yüklenir.~~
 
 ### Build doğrulaması
 ```bash

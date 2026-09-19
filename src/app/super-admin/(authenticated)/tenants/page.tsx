@@ -4,9 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Plus, Search, Edit, Trash2, Building2, Power, PowerOff, ExternalLink } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Building2, Power, PowerOff, ShieldOff, Info } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
 import toast from "react-hot-toast";
 import DeleteModal from "@/components/admin/DeleteModal";
 import ListLoadError from "@/components/admin/ListLoadError";
@@ -167,6 +166,28 @@ export default function SuperAdminTenantsPage() {
       </div>
 
       <div className="rounded-xl bg-white border border-border p-5">
+        {/* Kurum paneline erişim kuralı — 19 Eylül 2026.
+            Süper adminin otomatik erişimi kaldırıldı (migration 029 +
+            admin layout). Bu satır "nasıl girerim" sorusunu havada
+            bırakmamak için duruyor: yol açık yazılı, iz bırakma gereği
+            de anlaşılıyor. */}
+        <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-border bg-bg-light/60 px-4 py-3 text-sm text-text-muted">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <p>
+            <strong className="font-medium text-text-dark">
+              Kurum panellerine doğrudan girilmez.
+            </strong>{" "}
+            Bir kurumun panelinde iş yapmanız gerekiyorsa kurumu açın,{" "}
+            <strong className="font-medium text-text-dark">
+              Tenant Admin Kullanıcıları
+            </strong>{" "}
+            listesine kendinizi ekleyin; işiniz bitince{" "}
+            <strong className="font-medium text-text-dark">çıkarın</strong>.
+            Böylece erişim kayıt altına girer — müşteri verisine kimin, ne
+            zaman eriştiği belli olur.
+          </p>
+        </div>
+
         {/* Search */}
         <div className="mb-4 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted" />
@@ -236,25 +257,17 @@ export default function SuperAdminTenantsPage() {
                     </td>
                     <td className="py-3 pl-3 text-right">
                       <div className="inline-flex items-center gap-1">
-                        {t.is_active ? (
-                          <a
-                            href={buildTenantAdminUrl(t.slug, t.custom_domain)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-1.5 text-text-muted hover:text-primary rounded-lg hover:bg-primary/10 transition-colors"
-                            title="Admin paneline gir (yeni sekmede)"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        ) : (
-                          <span
-                            className="p-1.5 text-text-muted/30 cursor-not-allowed"
-                            title="Pasif tenant — admin paneline erişilemez"
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </span>
-                        )}
+                        {/* Eskiden "Admin paneline gir" bağlantısıydı; süper
+                            adminin kurum paneline doğrudan girmesi 19 Eylül
+                            2026'da kapatıldı. Bağlantı tamamen silinmedi:
+                            yerinde, yolu anlatan bir işaret duruyor (tam
+                            metin tablonun üstündeki bilgi satırında). */}
+                        <span
+                          className="p-1.5 text-text-muted/40 cursor-help"
+                          title="Kurum paneline doğrudan girilmez. Gerekiyorsa kurumu açıp 'Tenant Admin Kullanıcıları' listesine kendinizi ekleyin, işiniz bitince çıkarın."
+                        >
+                          <ShieldOff className="h-4 w-4" />
+                        </span>
                         <button
                           onClick={() => handleToggle(t)}
                           disabled={t.slug === "default" || togglingId === t.id}

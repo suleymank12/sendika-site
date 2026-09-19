@@ -47,20 +47,31 @@ export default async function AuthenticatedAdminLayout({
     return <AdminTenantPasifView />;
   }
 
-  // 3) Süper admin bypass
-  const { data: isSuperAdmin, error: rpcError } = await supabase.rpc(
-    "is_super_admin",
-    { user_id: user.id }
-  );
-  if (rpcError) {
-    console.error("[AdminLayout] is_super_admin RPC hatası:", rpcError);
-    // Güvenli taraf: normal üyelik kontrolüne düş
-  }
-  if (isSuperAdmin) {
-    return <AdminShell initialTenant={tenant}>{children}</AdminShell>;
-  }
-
-  // 4) Tenant üyelik kontrolü
+  // 3) Tenant üyelik kontrolü — SÜPER ADMİN MUAFİYETİ YOK (19 Eylül 2026)
+  //
+  // Burada eskiden bir "süper admin bypass" vardı: `is_super_admin` RPC'si
+  // true dönerse üyelik kontrolü atlanıp panel açılıyordu. Kaldırıldı.
+  // Artık tek ölçüt var: BU KULLANICI BU KURUMUN ÜYESİ Mİ?
+  //
+  // NEDEN KALDIRILDI: süper admin hiçbir kurumun üyesi olmadığı hâlde her
+  // müşterinin panelinde iş yapabiliyordu — haber silmek, site ayarlarını
+  // değiştirmek, gelen mesajları (ad/e-posta/telefon/mesaj) okuyup silmek
+  // dahil. Projede denetim kaydı yok, yani HİÇBİR İZ kalmıyordu. Bu
+  // siteler sendika siteleri; KVKK md. 6 "sendika üyeliği"ni özel nitelikli
+  // kişisel veri sayıyor ve iletişim formu mesajları bu ilişkiyi ele
+  // verebiliyor.
+  //
+  // 🔴 BU KONTROL TEK BAŞINA YETMEZ — ve yetmesi de beklenmiyor. Tarayıcı
+  // Supabase PostgREST'e DOĞRUDAN konuşuyor (createBrowserClient + oturum
+  // JWT'si); burası yalnızca sunucuda çizilen bir ekran. Asıl sınır RLS:
+  // `user_has_tenant_access` fonksiyonundaki süper admin kısayolu
+  // **migration 029** ile kaldırıldı. Bu iki değişiklik BİRLİKTE anlamlı;
+  // biri uygulanıp diğeri unutulursa açık kapanmaz.
+  //
+  // GİRMESİ GEREKİRSE: süper admin panelinden kendini o kurumun "Tenant
+  // Admin Kullanıcıları" listesine ekler, işi bitince çıkarır — erişim
+  // böylece bir `tenant_users` satırı olarak iz bırakır.
+  // Gerekçe ve tam karar: NOTE.md → "SÜPER ADMİN KURUM ERİŞİMİ".
   const { data: membership, error: memberError } = await supabase
     .from("tenant_users")
     .select("id, role")
