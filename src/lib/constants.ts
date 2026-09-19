@@ -86,6 +86,12 @@ export const SUPER_ADMIN_SUBDOMAIN = "superadminpanel";
 export const SUPER_ADMIN_LOGIN_PATH = "/super-admin/giris";
 
 /**
+ * Super admin panelinin ana sayfasi. Panel host'unun KOK adresi (`/`)
+ * buraya yonlendirilir (20 Eylul 2026) — bkz. middleware.ts kural (a).
+ */
+export const SUPER_ADMIN_HOME_PATH = "/super-admin";
+
+/**
  * Tenant slug'i olarak kullanilamaz. Sebepler:
  * - "default": sistem fallback tenant'i (014 trigger + endpoint korumasi)
  * - "www", "admin", "api": yaygin subdomain rezervasyonlari (carpisma)

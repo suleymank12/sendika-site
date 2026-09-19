@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { createAuthMailClient } from "@/lib/supabase/auth-mail-client";
+import { buildRecoveryReturnUrl } from "@/lib/super-admin/admin-invite";
 
 export default function SifremiUnuttumForm({ initialTitle }: { initialTitle: string }) {
   const [title] = useState(initialTitle);
@@ -16,8 +17,15 @@ export default function SifremiUnuttumForm({ initialTitle }: { initialTitle: str
     setError("");
     setLoading(true);
 
-    const supabase = createClient();
-    const redirectUrl = `${window.location.origin}/admin/davet-kabul`;
+    // 🔴 PKCE'siz istemci — bu satırın gerekçesi `lib/supabase/auth-mail-client`
+    // başlığında: PKCE'de doğrulayıcı (code_verifier) isteğin yapıldığı
+    // tarayıcının deposunda kalır, link başka tarayıcıda/cihazda açılınca
+    // kod takası tamamlanamaz (19 Eylül 2026 canlı bug'ı).
+    const supabase = createAuthMailClient();
+
+    // Dönüş adresi SORGU TAŞIMAZ — mail şablonu jetonu buraya `?` ile
+    // ekliyor (bkz. AUTH_LINK_JOINER). `test-auth-link.mjs` mühürlüyor.
+    const redirectUrl = buildRecoveryReturnUrl(window.location.origin);
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       email,

@@ -69,6 +69,7 @@ import {
   probeErrorCode,
   runSetupProbes,
 } from "../src/lib/super-admin/setup-probes.ts";
+import { buildRecoveryReturnUrl } from "../src/lib/super-admin/admin-invite.ts";
 
 // ---------------------------------------------------------------------------
 // Kucuk test kosucusu (diger test script'leriyle ayni desen)
@@ -740,7 +741,17 @@ ok("tutarlilik", "iki modulun donus yolu ayni (import'suz kopya)", SUPABASE_RETU
 }
 {
   const form = readFileSync("src/app/admin/sifremi-unuttum/SifremiUnuttumForm.tsx", "utf8");
-  okTrue("tutarlilik", "sifirlama origin + /admin/davet-kabul'e doner (Supabase satiri bu yol)", form.includes("window.location.origin") && form.includes(AUTH_RETURN_PATH), "SifremiUnuttumForm");
+  // 20 Eylul 2026: donus adresi artik elle kurulmuyor, `buildRecoveryReturnUrl`
+  // uretiyor (AUTH_LINK_JOINER sozlesmesi tek yerde dursun diye). Iddia ayni
+  // kaldi — sifirlama origin + AUTH_RETURN_PATH'e doner, Supabase satiri bu
+  // yolu kapsar — ama yardimci fonksiyonun CIKTISI dogrulaniyor.
+  okTrue("tutarlilik", "sifirlama donus adresi yardimcidan", form.includes("buildRecoveryReturnUrl(window.location.origin)"), "SifremiUnuttumForm");
+  okTrue(
+    "tutarlilik",
+    "sifirlama origin + /admin/davet-kabul'e doner (Supabase satiri bu yol)",
+    buildRecoveryReturnUrl("https://ornek.test") === `https://ornek.test${AUTH_RETURN_PATH}`,
+    "buildRecoveryReturnUrl"
+  );
 }
 {
   const upd = readFileSync("src/app/api/super-admin/update-tenant/route.ts", "utf8");

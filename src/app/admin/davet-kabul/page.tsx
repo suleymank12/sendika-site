@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { buildTenantAdminUrl } from "@/lib/tenant-hostname";
@@ -8,13 +8,15 @@ import {
   INVITE_TENANT_PARAM,
   chooseInviteTenant,
   describeAuthLinkError,
+  parseAuthLink,
   parseAuthLinkError,
   parseInviteTenantId,
   type AuthLinkError,
+  type AuthLinkMode,
 } from "@/lib/super-admin/admin-invite";
 
 type Status = "loading" | "invalid" | "ready" | "saving";
-type Mode = "invite" | "recovery";
+type Mode = AuthLinkMode;
 
 // Recovery mode kalicilik bayragi: PKCE ?code URL'den temizlendikten sonra
 // sayfa yenilenirse mode kaybolmasin diye sessionStorage'da tutulur.
@@ -72,6 +74,9 @@ export default function DavetKabulPage() {
   );
   // Kurum adresi okunurken true — butonlar tiklanamaz (bkz. PendingLink).
   const [tenantLinksPending, setTenantLinksPending] = useState(false);
+  // 🔴 STRICTMODE KİLİDİ — `verifyOtp` ÖMÜRDE BİR KEZ çağrılsın diye.
+  // Gerekçesi aşağıda, token_hash dalının içinde.
+  const verifyStartedRef = useRef(false);
 
   useEffect(() => {
     // 1) Hash'ten parametreleri ÖNCE oku (Supabase temizlemeden önce)
@@ -144,6 +149,100 @@ export default function DavetKabulPage() {
       }
 
       setStatus("invalid");
+      return;
+    }
+
+    // 2) YENİ AKIŞ — şablon jetonu taşıyor: ?token_hash=<hash>&type=recovery
+    //    (20 Eylül 2026, P1). Link ARTIK Supabase'in /verify ucuna değil
+    //    doğrudan bu sayfaya geliyor; doğrulama buradan POST ile yapılıyor.
+    //    Kazanç: (a) PKCE doğrulayıcısı gerekmediği için link HER tarayıcıda
+    //    ve HER cihazda açılır — 19 Eylül canlı bug'ının kökü buydu;
+    //    (b) linki otomatik açan mail tarayıcıları (Outlook Safe Links,
+    //    kurumsal proxy) jetonu YAKMAZ, çünkü tüketim GET ile değil bu
+    //    POST ile oluyor.
+    //
+    //    ⚠️ Bugün bu dala YALNIZCA şablon P2'de değiştirildikten sonra
+    //    gerçek link düşer; kod önce gelsin diye şimdiden burada.
+    const link = parseAuthLink(window.location.search, window.location.hash);
+    if (link.route === "token_hash") {
+      // 🔴 ÖNLEM 1 — TEK ÇAĞRI KİLİDİ. `reactStrictMode` açık (Next 14
+      //    varsayılanı, next.config.mjs'de kapatılmamış): geliştirmede
+      //    effect iki kez koşar. İkinci `verifyOtp` jetonu bulamaz
+      //    ("otp_expired") ve kullanıcıya SAHTE bir "geçersiz" ekranı
+      //    gösterirdi — yani bu hafta kovaladığımız hatanın birebir
+      //    kopyası. Ref aynı mount'ta yaşar, ikinci koşuyu keser.
+      if (verifyStartedRef.current) return;
+      verifyStartedRef.current = true;
+
+      setMode(link.mode);
+
+      // Mod kalıcılığı — jeton birazdan URL'den silinecek; sayfa yenilenirse
+      // ikinci yüklemede linkten okunacak bir şey KALMAZ ve mod varsayılana
+      // ("invite") düşerdi: sıfırlama yapan kişi davet metnini görür,
+      // "Şifreyi Belirle" sonrası panele yönlendirilirdi. Bugünkü `?code`
+      // akışının bayrağı burada da kullanılıyor (aşağıda `storedRecoveryFlag`
+      // onu okuyor), davet gelirse bayrak TEMİZLENİYOR — aynı sekmede yarım
+      // kalmış bir sıfırlamadan kalan bayrak daveti recovery sanmasın.
+      try {
+        if (link.mode === "recovery") {
+          sessionStorage.setItem(RECOVERY_FLAG_KEY, "1");
+        } else {
+          sessionStorage.removeItem(RECOVERY_FLAG_KEY);
+        }
+      } catch {
+        // sessionStorage kapali olabilir — state zaten set edildi
+      }
+
+      // Davet de bu yola taşındığında (P3) kurum parametresi gerekecek;
+      // bugün sıfırlama linki taşımıyor, okumak bedava.
+      setInviteTenantId(
+        parseInviteTenantId(
+          new URLSearchParams(window.location.search).get(INVITE_TENANT_PARAM)
+        )
+      );
+
+      // 🔴 ÖNLEM 2 — JETONU URL'DEN SİL, doğrulamadan ÖNCE.
+      //    İki işi var: (a) sayfa yenilenirse aynı tek-kullanımlık jetonla
+      //    ikinci doğrulama denenip sahte "geçersiz" üretilmesin;
+      //    (b) jeton tarayıcı geçmişinde ve aynı-origin Referer başlığında
+      //    durmasın (replaceState mevcut geçmiş kaydının ÜSTÜNE yazar).
+      //    Yalnız auth parametreleri silinir — `?tenant=` korunur.
+      const cleaned = new URL(window.location.href);
+      cleaned.searchParams.delete("token_hash");
+      cleaned.searchParams.delete("type");
+      window.history.replaceState(
+        null,
+        "",
+        `${cleaned.pathname}${cleaned.search}${cleaned.hash}`
+      );
+
+      // 🔴 ÖNLEM 3 — oturum CEREZE yazılsın diye ssr istemcisi (mail
+      //    tetikleyen PKCE'siz istemci DEĞİL): sonraki `updateUser` ve
+      //    middleware bu oturumu görmek zorunda.
+      const verifyLink = async () => {
+        try {
+          const { data, error } = await createClient().auth.verifyOtp({
+            token_hash: link.tokenHash,
+            type: link.mode,
+          });
+
+          if (error || !data.session) {
+            console.error("[DavetKabul] verifyOtp hatası:", error);
+            setLinkError({ code: error?.code ?? null, flow: "token_hash" });
+            setStatus("invalid");
+            return;
+          }
+
+          setStatus("ready");
+        } catch (err) {
+          // Ağ/beklenmeyen hata — auth hatası değil, kod da gelmez.
+          console.error("[DavetKabul] verifyOtp beklenmeyen hata:", err);
+          setLinkError({ code: null, flow: "token_hash" });
+          setStatus("invalid");
+        }
+      };
+
+      verifyLink();
       return;
     }
 

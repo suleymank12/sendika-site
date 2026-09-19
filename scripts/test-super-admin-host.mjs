@@ -96,6 +96,13 @@ function stripComments(src) {
     .join("\n");
 }
 
+/** Kaynakta A, B'den ONCE mi geciyor? (ikisi de bulunmali) */
+function comesBefore(src, a, b) {
+  const ia = src.indexOf(a);
+  const ib = src.indexOf(b);
+  return ia !== -1 && ib !== -1 && ia < ib;
+}
+
 // Testler NEXT_PUBLIC_ROOT_DOMAIN'siz kosar -> lvh.me fallback'i gecerli.
 const ROOT = "lvh.me";
 const SUPER = `${SUPER_ADMIN_SUBDOMAIN}.${ROOT}`;
@@ -187,8 +194,36 @@ header("(e) Kural (a) — middleware");
 
   // 🔴 Yonlendirme OLMAMALI: kural (b) her host'ta gecerli olacagi icin bir
   // 301, super admin adresini HER MUSTERI DOMAININDEN yayinlardi.
+  //
+  // 20 Eylul 2026 — TEK ISTISNA: panel host'unun KOK adresi (`/`) panele
+  // yonlendiriliyor. Bu satir yalniz panel host'unda calisir, yani adresi
+  // ZATEN bilen birine cevap verir; kural (b) hic degismedi. Iddia
+  // daraltildi ama GEVSEMEDI: blokta tek bir redirect olabilir, o da
+  // SADECE kok yol icin (bkz. NOTE.md "TEK ISTISNA").
   const ruleBlock = code.slice(code.indexOf("superAdminHost"), code.indexOf("let tenantSlug"));
-  okTrue("kural-a", "kural blogunda redirect YOK", !ruleBlock.includes("redirect"), "middleware");
+  const redirectSatirlari = ruleBlock
+    .split("\n")
+    .filter((line) => line.includes("redirect"))
+    .map((line) => line.trim());
+  ok(
+    "kural-a",
+    "kural blogunda TEK redirect (yalniz kok yol)",
+    redirectSatirlari,
+    ["return NextResponse.redirect(new URL(SUPER_ADMIN_HOME_PATH, request.url));"],
+    "middleware"
+  );
+  okTrue(
+    "kural-a",
+    "o redirect yalniz pathname === '/' icin",
+    comesBefore(ruleBlock, 'if (superAdminHost && pathname === "/") {', "NextResponse.redirect("),
+    "middleware"
+  );
+  okTrue(
+    "kural-a",
+    "404 kurali redirect'ten SONRA duruyor",
+    comesBefore(ruleBlock, "NextResponse.redirect(", 'if (superAdminHost && !pathname.startsWith("/super-admin"))'),
+    "middleware"
+  );
 
   // Kural, auth/CSP kurulumundan ONCE calismali: reddedilen istek icin
   // Supabase istemcisi kurmak ve getUser() cagirmak bosa is.

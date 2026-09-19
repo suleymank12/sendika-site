@@ -259,8 +259,14 @@ Desendeki `*`, `.` ve `/` karakterlerini geçemez: subdomain adına ve
 Bugünkü akışta davetler `NEXT_PUBLIC_SITE_URL`'e (Adım 8) döner. Bu değer Site
 URL ile birebir aynıysa (şema + host) apex satırındaki `*` hiç devreye girmez;
 farklı yazılırsa (ör. `www.` ile) davetleri o `*` kurtarır — koymak bedava,
-koymamak o hatayı sessiz yapar. Şifre sıfırlama linkleri kurumun kendi
-adresine döner ve query taşımaz.
+koymamak o hatayı sessiz yapar.
+
+Şifre sıfırlama linkleri kurumun **kendi adresine** döner. ⚠️ **20 Eylül 2026
+düzeltmesi:** burada eskiden "query taşımaz" yazıyordu — **artık yanlış**.
+Dönüş adresinin kendisi hâlâ query taşımaz (bilerek, bkz. `AUTH_LINK_JOINER`),
+ama mail şablonu jetonu o adrese `?token_hash=…&type=recovery` diye ekler.
+Yani linkin tamamı query taşır → **satır sonundaki `*` sıfırlama için de
+şarttır.**
 
 **Wildcard satırı zorunludur.** Her kurum bir subdomain'de çalışır; wildcard
 yoksa subdomain'e düşen şifre sıfırlama linkleri Supabase tarafından
@@ -282,7 +288,14 @@ kapsar: Supabase'in glob'unda `*` `.` ve `/` karakterlerini geçmez;
 - **Neden zorunlu:** şifre sıfırlama linki isteğin yapıldığı adrese döner
   (`window.location.origin` + `/admin/davet-kabul`); www → apex 301 yüzünden
   bu adres her zaman apex'tir. Satır yoksa Supabase adresi **hata vermeden**
-  Site URL köküne düşürür.
+  Site URL köküne düşürür — GoTrue dönüş adresini izin listesinde bulamazsa
+  Site URL'e çevirir (kaynak: `utilities.GetReferrer`; ölçüldü 20 Eylül 2026:
+  listede olmayan domain → `303 https://<site-url>`). Kişi kendi sitesi
+  yerine platformun ana sayfasına düşer, şifre formunu hiç göremez.
+  <br>⚠️ **20 Eylül 2026:** bu maddenin gerekçesi eskiden "PKCE doğrulayıcısı
+  custom domain'in tarayıcı deposunda kalır" idi. Sıfırlama artık PKCE
+  kullanmıyor (doğrulayıcı diye bir şey yok), ama **satır yine de zorunlu**:
+  sebep artık yalnızca yukarıdaki adres çevirme davranışı.
 - **Canlı örnek (Kurmay Teknoloji, 11 Eylül 2026):** satır yokken
   `kurmayteknoloji.com`'da istenen sıfırlama linki
   `https://buyukdirilis.org.tr/?code=…` adresine düştü — kişi şifre formu
@@ -321,6 +334,32 @@ Ayrıca **Authentication → Providers → Email**:
 - **Allow new users to sign up:** **kapatın**. Uygulamada kayıt ekranı yok;
   tüm adminler süper admin panelinden davet ediliyor. Açık kalırsa herkes
   `auth.users`'a kayıt açabilir (yetkisi olmaz ama gereksiz hesap birikir).
+  <br>⚠️ 20 Eylül 2026 ölçümünde canlı projede bu ayar **AÇIK** bulundu
+  (`GET /auth/v1/settings` → `"disable_signup": false`). Kontrol edin.
+
+### 6.2 — 🔴 Mail şablonu her değiştiğinde ZORUNLU uçtan uca test
+
+Şablon **repoda değil, Supabase panelinde** yaşıyor: hiçbir test, hiçbir
+build onu göremez. Bozulursa sessiz bozulur — link hata vermez, jeton yok
+olur. Bu yüzden **Invite User** ya da **Reset Password** şablonuna dokunan
+herkes şu iki testi yapar:
+
+| # | Test | Nasıl | Beklenen |
+|---|---|---|---|
+| 1 | **Cihazlar arası (ileri yön)** | Sıfırlamayı **telefondan** iste → maildeki linke **bilgisayardan** tıkla | "Yeni Şifre Belirleyin" formu açılır, şifre değişir |
+| 2 | **Cihazlar arası (ters yön)** | Sıfırlamayı **bilgisayardan** iste → linke **telefondan** tıkla | Aynı sonuç |
+
+**İki yön de geçmeden adım kapanmaz.** Tek cihazda test etmek YETMEZ — 19
+Eylül 2026'da canlı bug tam olarak buradan kaçtı: aynı pencerede test edilince
+çalışıyordu, gerçek kullanıcı başka pencerede açınca "geçersiz" diyordu
+(NOTE.md → "ŞİFRE SIFIRLAMA PKCE'DEN ÇIKARILDI").
+
+Ek kontrol (davet şablonuna dokunulduysa): tek gerçek davet gönderip linkin
+**farklı bir tarayıcıda** açıldığını görün.
+
+Linkin biçimi bozulduysa belirti şudur: sayfa "Davet/Sıfırlama Linki
+Geçersiz" der ya da kişi ana sayfaya düşer. Şablondaki birleştirme karakteri
+(`?` / `&`) sözleşmesi için: NOTE.md → `AUTH_LINK_JOINER`.
 
 ---
 

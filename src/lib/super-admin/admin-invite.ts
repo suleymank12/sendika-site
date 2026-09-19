@@ -155,7 +155,7 @@ export function buildInviteRedirectUrl(tenant: InviteTenantRef): string | undefi
   const query = `?${INVITE_TENANT_PARAM}=${encodeURIComponent(tenant.id)}`;
 
   if (process.env.NODE_ENV !== "production") {
-    return `http://${tenant.slug}.lvh.me:3000/admin/davet-kabul${query}`;
+    return `http://${tenant.slug}.lvh.me:3000${AUTH_RETURN_PATH}${query}`;
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
@@ -168,7 +168,157 @@ export function buildInviteRedirectUrl(tenant: InviteTenantRef): string | undefi
     return undefined;
   }
 
-  return `${siteUrl.replace(/\/+$/, "")}/admin/davet-kabul${query}`;
+  return `${siteUrl.replace(/\/+$/, "")}${AUTH_RETURN_PATH}${query}`;
+}
+
+/**
+ * Davet ve şifre sıfırlama linklerinin döndüğü YOL.
+ *
+ * Aynı değer `setup-checklist.ts` (AUTH_RETURN_PATH) ve `setup-probes.ts`
+ * (SUPABASE_RETURN_PATH) içinde de var — o dosyalar Kurulum Durumu'nun
+ * yoklamalarını besliyor. Üç sabit birbirinden BAĞIMSIZ tanımlı (bu dosya
+ * bilerek import'suz; bkz. başlık); `test-auth-link.mjs` üçünün eşit
+ * olduğunu doğruluyor.
+ */
+export const AUTH_RETURN_PATH = "/admin/davet-kabul";
+
+/**
+ * Şifre sıfırlama linkinin döneceği adres — `origin` + dönüş yolu.
+ *
+ * 🔴 SORGU PARAMETRESİ TAŞIMAZ ve taşımamalı. Sebep AUTH_LINK_JOINER'da
+ * yazılı: mail şablonu jetonu bu adrese `?` ile ekliyor. Buraya bir query
+ * eklenirse link `...?a=1?token_hash=...` olur ve `token_hash` SESSİZCE
+ * kaybolur. `test-auth-link.mjs` bunu commit anında yakalar.
+ *
+ * Davetin aksine kurum (`?tenant=`) TAŞINMAZ: sıfırlama zaten kişinin kendi
+ * kurumunun adresinde başlar ve oraya döner; kabul sayfası da sıfırlama
+ * modunda kişiyi panele değil `/admin/giris`e yolluyor.
+ */
+export function buildRecoveryReturnUrl(origin: string): string {
+  return `${origin.replace(/\/+$/, "")}${AUTH_RETURN_PATH}`;
+}
+
+/**
+ * 🔴 MAİL ŞABLONU SÖZLEŞMESİ — jeton dönüş adresine hangi karakterle eklenir.
+ *
+ * Bu karakter KODDA DEĞİL, Supabase panelindeki mail şablonunda yaşıyor:
+ *
+ *     Reset Password : <a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">
+ *     Invite User    : <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=invite">
+ *
+ * `{{ .RedirectTo }}` kodun gönderdiği (ve Supabase'in DOĞRULADIĞI) dönüş
+ * adresidir. Sıfırlamanın dönüş adresi query TAŞIMAZ → `?` ile bağlanır;
+ * davetinki `?tenant=<uuid>` TAŞIR → `&` ile bağlanır.
+ *
+ * YANLIŞ KARAKTER SESSİZ ARIZA ÜRETİR — 20 Eylül 2026 ölçümü:
+ *
+ *     .../davet-kabul?tenant=abc-123?token_hash=HASH&type=invite
+ *     → tenant     = "abc-123?token_hash=HASH"   (kirlendi)
+ *     → token_hash = null                        (KAYBOLDU)
+ *
+ * Yani link hata vermez, jeton yok olur. Şablon repoda olmadığı için tek
+ * savunma bu sabit + `test-auth-link.mjs`: sabit değişirse ya da dönüş
+ * adresinin şekli değişirse test KIRILIR.
+ *
+ * ⚠️ Davet satırı P3'te devreye girecek (bugün davet hâlâ
+ * `{{ .ConfirmationURL }}` kullanıyor); sabit şimdiden burada ki sıra
+ * geldiğinde karakter tartışması yeniden açılmasın.
+ */
+export const AUTH_LINK_JOINER = {
+  recovery: "?",
+  invite: "&",
+} as const;
+
+/** Mail linkinin taşıdığı akış — `type` parametresinin kabul edilen değerleri. */
+export type AuthLinkMode = "invite" | "recovery";
+
+/**
+ * Supabase mail şablonunun üreteceği linki KODDA kurar — yalnızca testte
+ * kullanılır (üretimde bu linki Supabase'in şablon motoru üretir).
+ *
+ * Şablon repoda olmadığı için "şablonun üreteceği şey" ancak böyle
+ * sınanabilir: sözleşmeyi (AUTH_LINK_JOINER + dönüş adresinin şekli) tek
+ * yerde birleştirir, test de çıkan linki gerçek ayrıştırıcıya verir.
+ */
+export function buildTemplateAuthLink(
+  returnUrl: string,
+  mode: AuthLinkMode,
+  tokenHash: string
+): string {
+  return `${returnUrl}${AUTH_LINK_JOINER[mode]}token_hash=${encodeURIComponent(
+    tokenHash
+  )}&type=${mode}`;
+}
+
+/**
+ * Kabul sayfasının (davet-kabul) URL'den okuduğu GİRİŞ YOLU.
+ *
+ * - `error`      : Supabase linki reddetti (#error=... / ?error=...)
+ * - `token_hash` : YENİ yol — şablon jetonu taşıyor, sayfa `verifyOtp` çağırır
+ * - `hash_token` : davet (implicit) — `#access_token=...&refresh_token=...`
+ * - `pkce`       : ESKİ sıfırlama linkleri (`?code=...`) — geçiş dönemi
+ * - `none`       : linkten okunacak bir şey yok (oturum kontrolüne düşer)
+ */
+export type AuthLinkRoute =
+  | { route: "error"; error: AuthLinkError }
+  | { route: "token_hash"; tokenHash: string; mode: AuthLinkMode }
+  | { route: "hash_token"; accessToken: string; refreshToken: string; mode: AuthLinkMode }
+  | { route: "pkce" }
+  | { route: "none" };
+
+/**
+ * Linkin hangi yolla geldiğine karar verir. SAF fonksiyon — `window` yok.
+ *
+ * SIRA ÖNEMLİ (öncelik, çakışma değil):
+ *  1. Hata her şeyin önünde gelir. auth-js URL'deki hatada tarayıcıdaki
+ *     MEVCUT oturumu silmiyor; sayfa hatayı görmezse o oturuma düşer ve
+ *     geçersiz linke tıklayan kişiye şifre formu gösterir (10 Eylül 2026
+ *     yan bulgusu, bkz. `parseAuthLinkError`).
+ *  2. token_hash — yeni akış.
+ *  3. hash token — davet.
+ *  4. ?code — eski sıfırlama linkleri (şablon değişince tükenirler).
+ *
+ * `type` bilinmeyen bir değerse (`signup` vb.) token_hash yolu KABUL
+ * EDİLMEZ: bu uygulamada yalnızca davet ve sıfırlama mailleri var, geri
+ * kalanı "okunacak bir şey yok" sayılır.
+ */
+export function parseAuthLink(search: string, hash: string): AuthLinkRoute {
+  const linkError = parseAuthLinkError(hash, search);
+  if (linkError) {
+    return { route: "error", error: linkError };
+  }
+
+  const query = new URLSearchParams(search);
+  const hashParams = new URLSearchParams(hash.replace(/^#/, ""));
+
+  const tokenHash = (query.get("token_hash") ?? "").trim();
+  const queryType = (query.get("type") ?? "").trim();
+  if (tokenHash && isAuthLinkMode(queryType)) {
+    return { route: "token_hash", tokenHash, mode: queryType };
+  }
+
+  const accessToken = hashParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token");
+  if (accessToken && refreshToken) {
+    const hashType = (hashParams.get("type") ?? "").trim();
+    return {
+      route: "hash_token",
+      accessToken,
+      refreshToken,
+      // Hash'te `type` yoksa davet sayılır — bugünkü sayfanın davranışı.
+      mode: hashType === "recovery" ? "recovery" : "invite",
+    };
+  }
+
+  if ((query.get("code") ?? "").trim()) {
+    return { route: "pkce" };
+  }
+
+  return { route: "none" };
+}
+
+function isAuthLinkMode(value: string): value is AuthLinkMode {
+  return value === "invite" || value === "recovery";
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -248,10 +398,15 @@ export interface AuthLinkError {
   /**
    * Hatanın geldiği akış. Supabase hatayı HER ZAMAN hash'e yazar; PKCE
    * akışında ayrıca query'ye de yazar (Auth kaynağı: prepErrorRedirectURL).
-   * Bu uygulamada PKCE = tarayıcıdan başlayan şifre sıfırlama, implicit =
-   * sunucudan gönderilen davet.
+   * Bu uygulamada PKCE = tarayıcıdan başlayan ESKİ şifre sıfırlama linkleri,
+   * implicit = sunucudan gönderilen davet.
+   *
+   * `token_hash`: bu değeri `parseAuthLinkError` URL'den ÜRETMEZ — hata adres
+   * çubuğunda değil, kabul sayfasının `verifyOtp` cevabında geldiğinde sayfa
+   * elle bu değeri yazar (20 Eylül 2026, yeni sıfırlama akışı). Amacı
+   * "Geçersiz" ekranında hata kodunu gösterebilmek.
    */
-  flow: "implicit" | "pkce";
+  flow: "implicit" | "pkce" | "token_hash";
 }
 
 const AUTH_ERROR_KEYS = ["error", "error_code", "error_description"] as const;

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
-import { SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
+import { SUPER_ADMIN_HOME_PATH, SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
 
 // ===========================================================================
 // CSP (Guvenlik bulgusu Y2 / ikinci savunma katmani)
@@ -117,7 +117,7 @@ export async function middleware(request: NextRequest) {
   // Neden 404, yönlendirme değil: yönlendirme "burada bir şey var" der.
   // 404 sessiz — host joker DNS ve joker sertifika altında olduğu için
   // DNS'ten de Certificate Transparency'den de sayılamıyor; bu obskürite
-  // bedavaya korunuyor.
+  // bedavaya korunuyor. (TEK İSTİSNA kök yol — hemen aşağıda, gerekçesiyle.)
   //
   // Neden BURADA, auth/CSP kurulumundan ÖNCE: reddedilen istek için
   // Supabase istemcisi kurmak, nonce üretmek ve `auth.getUser()` çağırmak
@@ -125,6 +125,24 @@ export async function middleware(request: NextRequest) {
   // ve `/api` zaten matcher'ın dışında — panel çalışmaya devam eder.
   //
   const superAdminHost = match.type === "super_admin";
+
+  // KÖK YOL TEK İSTİSNA (20 Eylül 2026): panel host'unun kökü (`/`) 404
+  // yerine panele yönlendirilir — adresi elle yazan süper admin boş bir
+  // 404 görmesin.
+  //
+  // Obskürite neden bozulmuyor: bu satır YALNIZ panel host'unda çalışır,
+  // yani adresi ZATEN bilen birine cevap verir. Kural (b) (aşağıda) hiç
+  // değişmedi: başka hiçbir host'ta `/super-admin` açılmaz, hiçbir host
+  // panelin adresini yayınlamaz. Tek kabul edilen bedel, host'u bulmuş
+  // bir tarayıcının `/` yoklamasında panelin varlığını öğrenmesi —
+  // `/super-admin`'i denese zaten öğrenecekti.
+  //
+  // 307 (geçici) bilerek: kalıcı yönlendirme tarayıcıda önbelleğe alınır,
+  // karardan dönmek istersek elimizi bağlar.
+  if (superAdminHost && pathname === "/") {
+    return NextResponse.redirect(new URL(SUPER_ADMIN_HOME_PATH, request.url));
+  }
+
   if (superAdminHost && !pathname.startsWith("/super-admin")) {
     return notFound();
   }

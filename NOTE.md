@@ -58,6 +58,191 @@ yerine geçmez.
 
 ---
 
+# 🔑 ŞİFRE SIFIRLAMA PKCE'DEN ÇIKARILDI (P1, 20 Eylül 2026)
+
+**Durum:** ✅ **P1 kod tarafı bitti** — tsc + build + lint + tüm Node test
+script'leri geçti — **20 script, 1516 kontrol, 0 başarısız**
+(`npm run test:auth-link` 77 kontrol). ⏰ **P2 (mail şablonu)
+ve P3 (davet + temizlik) BEKLİYOR** — aşağıda.
+
+## Kök sebep — kanıt Supabase auth loglarında
+
+"Şifremi unuttum" linki başka bir tarayıcıda/cihazda açılınca "geçersiz"
+diyordu. 19 Eylül 2026 canlı loglar (UTC; TSİ'de +3):
+
+```
+17:18:45  /recover  200  user_recovery_requested   ← TEK istek
+17:18:58  /verify   303  auth_event: action=login  ← BAŞARILI
+17:19:04  /verify   403  "One-time token not found"
+17:19:26  /verify   403  "One-time token not found"
+```
+
+**Link ilk kullanımda ÇALIŞTI.** Kullanıcının gördüğü "geçersiz" ekranı ikinci
+ve üçüncü denemenin sonucuydu (jeton tek kullanımlık, ilk açılışta tükendi).
+
+İlk açılışta şifre formunun gelmemesinin sebebi **PKCE**: sıfırlama gizli
+pencerede istenmiş, linke normal pencerede tıklanmıştı. PKCE'de doğrulayıcı
+(`code_verifier`) **isteğin yapıldığı tarayıcının deposunda** kalır; kod
+takası onsuz tamamlanamaz (`GoTrueClient.js:1448-1454`,
+`AuthPKCECodeVerifierMissingError`).
+
+**Canlıda doğrulandı:** aynı pencerede iste + aynı pencerede tıkla → çalışıyor.
+Aynı pencerede iste + telefondan tıkla → "geçersiz".
+
+## Neden davet çalışıyordu da sıfırlama çalışmıyordu
+
+| | **Davet** | **Şifre sıfırlama (eski)** |
+|---|---|---|
+| Çağrı | `admin.auth.admin.inviteUserByEmail` | `supabase.auth.resetPasswordForEmail` |
+| Nereden | **Sunucu**, `service_role` | **Tarayıcı**, anon |
+| Akış | **implicit** → `#access_token=…&type=invite` | **PKCE** → `?code=…` |
+| Cihazlar arası | ✅ çalışır (doğrulayıcı yok) | ❌ çalışmaz |
+| Dönüş adresi | `NEXT_PUBLIC_SITE_URL` + `?tenant=<uuid>` | isteğin yapıldığı host |
+
+Yani fark koddaydı: davet hiçbir zaman PKCE kullanmıyordu.
+
+🔴 **`@supabase/ssr`'nin `createBrowserClient`'ında PKCE KAPATILAMAZ** —
+`flowType: "pkce"` değeri `...options?.auth` yayılımından **sonra** yazılıyor
+(`createBrowserClient.js:33-40`, ölçüldü). Bu yüzden mail tetikleyen çağrı için
+ayrı bir istemci var: `src/lib/supabase/auth-mail-client.ts` (implicit,
+`persistSession: false`, depoya hiç dokunmaz). Oturum gerektiren çağrılar
+(`verifyOtp`, `updateUser`) **ssr istemcisiyle** yapılır — oturumun çereze
+yazılması ve middleware'in görmesi gerekir.
+
+## AUTH_LINK_JOINER sözleşmesi — jeton dönüş adresine hangi karakterle eklenir
+
+`src/lib/super-admin/admin-invite.ts` → `AUTH_LINK_JOINER`:
+
+| Akış | Karakter | Neden |
+|---|---|---|
+| Şifre sıfırlama | **`?`** | Dönüş adresi query TAŞIMAZ (`buildRecoveryReturnUrl`) |
+| Davet | **`&`** | Dönüş adresi `?tenant=<uuid>` TAŞIR (`buildInviteRedirectUrl`) |
+
+Bu karakter **kodda değil, Supabase panelindeki mail şablonunda** yaşıyor.
+Yanlış karakter **sessiz arıza** üretir — 20 Eylül 2026 ölçümü:
+
+```
+.../davet-kabul?tenant=abc-123?token_hash=HASH&type=invite
+→ tenant     = "abc-123?token_hash=HASH"   (kirlendi)
+→ token_hash = null                        (KAYBOLDU)
+```
+
+Link hata vermez, jeton yok olur. Şablon repoda olmadığı için tek savunma bu
+sabit + `scripts/test-auth-link.mjs`. **Sıfırlamanın dönüş adresine ASLA query
+eklenmeyecek**; eklenirse test kırılır (bilerek).
+
+## Canlı ölçüm — token_hash zinciri çalışıyor (20 Eylül 2026)
+
+`service_role` ile, mail göndermeden, test hesabında:
+
+```
+generate_link (type=recovery) → 200, hashed_token = 56 karakter hex,
+                                pkce_ öneki YOK (sunucu çağrısı = implicit)
+POST /auth/v1/verify {token_hash, type:"recovery"} → 200, access_token GELDİ
+aynı jetonla ikinci deneme → 403 otp_expired (tek kullanımlık, doğrulandı)
+```
+
+Ayrıca: `POST /verify` `type:"invite"` için de kabul ediliyor (sahte jetonla
+403 `otp_expired`) → P3'ün önü açık. GoTrue sürümü: **v2.197.0**;
+`{{ .RedirectTo }}` ve `{{ .TokenHash }}` bu sürümde şablon değişkeni olarak
+**var** (kaynak: `internal/mailer/templatemailer/templatemailer.go:339-346`).
+
+⚠️ Bu ölçüm test hesabının (`…+tenanttest@…`) recovery jetonunu tüketti ve
+hesabı onaylamış/giriş yapmış duruma getirdi — o adrese "+ Admin Ekle"
+yapılırsa artık `linked_existing` döner (mail gönderilmez). Beklenen davranış.
+
+## P1'de ne değişti (canlıda mail biçimi AYNI)
+
+| Dosya | Değişiklik |
+|---|---|
+| `src/lib/supabase/auth-mail-client.ts` | **YENİ** — PKCE'siz, depolamasız istemci |
+| `src/app/admin/sifremi-unuttum/SifremiUnuttumForm.tsx` | `resetPasswordForEmail` o istemciye alındı; dönüş adresi `buildRecoveryReturnUrl` |
+| `src/lib/super-admin/admin-invite.ts` | `AUTH_RETURN_PATH`, `buildRecoveryReturnUrl`, `AUTH_LINK_JOINER`, `buildTemplateAuthLink`, `parseAuthLink`, `AuthLinkMode`; `AuthLinkError.flow` union'ına `token_hash` |
+| `src/app/admin/davet-kabul/page.tsx` | `?token_hash=&type=` dalı → `verifyOtp` (diğer dallar aynen duruyor) |
+| `scripts/test-auth-link.mjs` | **YENİ** — 77 kontrol (`npm run test:auth-link`) |
+
+**Şablon değişmediği için** link hâlâ `{{ .ConfirmationURL }}` ile geliyor —
+ama istemci artık implicit olduğu için o link `#access_token=…&type=recovery`
+ile dönüyor ve kabul sayfasının **mevcut davet dalı** onu işliyor. Yani
+**cihazlar arası sıfırlama P1 ile çalışmaya başlıyor**; `token_hash` dalı
+P2'de devreye girecek.
+
+## 🔴 R1 — StrictMode tuzağı ve üç önlem
+
+`next.config.mjs`'de `reactStrictMode` yok → Next 14 varsayılanı **açık**.
+Effect iki kez koşarsa ikinci `verifyOtp` jetonu bulamaz ("otp_expired") ve
+kullanıcıya **sahte** bir "geçersiz" ekranı gösterir — bu haftaki bug'ın
+birebir kopyası. Üç önlem birlikte (hepsi testle mühürlü):
+
+1. `verifyStartedRef` kilidi — ikinci koşu kesilir
+2. `history.replaceState` ile jeton URL'den silinir (**doğrulamadan önce**);
+   `?tenant=` korunur, yalnız `token_hash` + `type` silinir
+3. `verifyOtp` **ssr istemcisiyle** çağrılır (oturum çereze yazılsın)
+
+**Mutasyon testi yapıldı (20 Eylül):** üç önlemden biri silinince ya da
+`AUTH_LINK_JOINER` yanlış değere çevrilince test **kırılıyor** (77 → 74/75),
+dosya geri yüklenince yeniden 77/0. Aynı yöntemle `flowType` `"pkce"`ye
+çevrildiğinde de kırılıyor — yani PKCE'ye geri dönüş sessizce olamaz.
+
+**Davranış testi (ağa çıkmadan):** `test-auth-link.mjs` → `(k)` grubu sahte
+`fetch` ile `/recover` isteğinin gövdesine bakıyor: yeni istemcide
+`code_challenge` **yok**; aynı çağrı `createBrowserClient` ile yapıldığında
+(üstelik `flowType: "implicit"` seçeneği **verilerek**) `code_challenge`
+**var** ve yöntem `s256`. Ayrı istemcinin gerekçesi böylece kaynak
+okumasına değil ölçüme dayanıyor.
+
+## ⏰ P2 — SENİN YAPACAĞIN (Supabase paneli, ayrı tur)
+
+`Authentication` → `Emails` → `Templates` → **Reset Password** → Message body:
+
+```html
+<h2>Merhaba,</h2>
+<p>Hesabınız için şifre sıfırlama talebinde bulunuldu. Aşağıdaki
+bağlantıya tıklayarak yeni şifrenizi belirleyebilirsiniz.</p>
+
+<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Yeni Şifre Belirle</a></p>
+
+<p>Eğer bu talebi siz yapmadıysanız bu maili görmezden gelebilirsiniz.
+Bağlantı 1 saat geçerlidir.</p>
+```
+
+Kazanç: linki **otomatik açan** mail tarayıcıları (Outlook Safe Links,
+kurumsal proxy) jetonu yakamaz — tüketim GET ile değil sayfanın POST'uyla olur.
+
+**Geri dönüş (30 saniye, deploy yok):** eski gövdeyi yapıştır —
+
+```html
+<p><a href="{{ .ConfirmationURL }}">Yeni Şifre Belirle</a></p>
+```
+
+## ⏰ P3 — sonraki turlar
+
+1. **Daveti de `token_hash`'e taşı** — şablon `&` ile (yukarıdaki sözleşme).
+   Kazanç: davet linkinde artık URL fragment'ında **canlı oturum JWT'si**
+   taşınmaz. Risk: davet müşteri kurulumunun tek yolu → ayrı commit, tek
+   gerçek davetle test.
+2. **Apex yakalayıcı** (`middleware.ts`): müşteri domaini Redirect URLs'e
+   eklenmemişse GoTrue dönüş adresini Site URL köküne çevirir; kökte
+   `?token_hash=&type=` görülürse `/admin/davet-kabul`e yönlendir. Arıza
+   "hiç çalışmıyor"dan "yanlış host'ta çalışıyor"a düşer.
+3. **`Referrer-Policy: no-referrer`** — yalnız `/admin/davet-kabul` için;
+   jeton aynı-origin Referer başlığıyla sunucu log'una düşmesin.
+4. **Eski dalların temizliği** — `?code` dalı + `RECOVERY_FLAG_KEY`; davet de
+   taşındıysa `#access_token` dalı + `INVITE_TENANT_KEY`. ⚠️ Davet
+   taşınmadan `#access_token` dalını SİLME.
+5. Nginx access log'unda query temizliği (sunucu tarafı, ölçülmedi).
+
+## Bilinmeyenler (uydurulmadı)
+
+- Sunucudaki Nginx `access_log` formatı — `$request_uri` / `$http_referer`
+  içeriyor mu, görülmedi.
+- Resend'de "Click tracking" açık mı. Yeni akışta zararsız hale geliyor
+  (tarayıcının GET'i jetonu tüketmiyor), yine de bilinmeli.
+- `Email OTP Expiration`'ın bugünkü değeri: 11 Eylül'de **3600** ölçüldü,
+  o günden beri teyit edilmedi.
+
+---
+
 # 🚪 YETKİ KALDIRILDIKTAN SONRA AÇIK OTURUM (19 Eylül 2026)
 
 **Durum:** ✅ Kod hazır — tsc + build + lint + **19 Node test script'i**
@@ -686,6 +871,18 @@ joker DNS (`A *`) ve joker sertifika altında olduğu için **DNS'ten de
 Certificate Transparency'den de sayılamıyor**; 404 bu obsküriteyi bedavaya
 koruyor, 301 tek hamlede harcardı.
 
+> **TEK İSTİSNA — panel host'unun KÖK adresi (20 Eylül 2026).**
+> `superadminpanel.{kök}/` artık 404 değil, **307 → `/super-admin`**
+> (`SUPER_ADMIN_HOME_PATH`). Üstteki yasak **aynen geçerli**: yasaklanan şey
+> *başka* host'lardan panelin adresini yayınlamak; bu satır ise yalnız panel
+> host'unda, yani adresi **zaten bilen** birine cevap veriyor. Kabul edilen
+> tek bedel: host'u bulmuş bir tarayıcı `/` yoklamasında panelin varlığını
+> öğrenir — `/super-admin`'i denese zaten öğrenecekti. Diğer bütün yollar
+> (`/haberler`, `/admin`, `robots.txt`…) **404 kalıyor**; 307 bilerek
+> (kalıcı yönlendirme tarayıcıda önbelleğe alınır, karardan dönmeyi
+> zorlaştırırdı). Mühür: `test-auth-link.mjs` → `(j)` grubu (yalnız `/`
+> yönleniyor, kural (b) metni yerinde).
+
 **Fail-closed:** karar tek girdiye dayanıyor — `parseHostname(host).type`.
 Saf, senkron, DB yok, ağ yok, **başarısız olamaz**. Bilinmeyen host
 `custom_domain`'e düşer → süper admin yüzeyi kapalı. `NEXT_PUBLIC_ROOT_DOMAIN`
@@ -891,7 +1088,8 @@ unutulabilir ve unutulduğunda **sessizce** çalışır.
 
 | Host | Yol | Sonuç |
 |---|---|---|
-| `superadminpanel.lvh.me:3000` | `/`, `/haberler`, `/iletisim`, `/robots.txt`, `/sitemap.xml`, `/admin`, `/admin/giris` | **404** (yönlendirme yok) |
+| `superadminpanel.lvh.me:3000` | `/haberler`, `/iletisim`, `/robots.txt`, `/sitemap.xml`, `/admin`, `/admin/giris` | **404** (yönlendirme yok) |
+| | `/` | 19 Eylül'de **404**'tü; **20 Eylül'den beri 307 → `/super-admin`** (tek istisna, gerekçesi yukarıda). 20 Eylül'de `npm run dev` ile yeniden ölçüldü: `/` → 307 → `/super-admin` → 307 → `/super-admin/giris`; `/haberler`, `/admin/giris`, `/robots.txt` **hâlâ 404**; `lvh.me` apex'te `/super-admin` **hâlâ 404** |
 | | `/super-admin` | 307 → `/super-admin/giris?next=%2Fsuper-admin` |
 | | `/super-admin/giris` | **200**, `<title>Platform Yönetimi</title>` + `noindex` |
 | `lvh.me:3000` (apex) | `/`, `/haberler`, `/robots.txt` | **200** — etkilenmedi |
