@@ -31,11 +31,29 @@ export const MAX_UPLOAD_MB = {
   VIDEO: 50,
 } as const;
 
+/**
+ * Kurulumda tohumlanan logo degeri (create-tenant) — "gercek logo YOK"
+ * sentinel'i. Navbar bu degeri gorurse harf avatarina duser
+ * (components/public/Navbar.tsx), iki kurulum listesi de "varsayilan logo
+ * duruyor" der.
+ *
+ * TEK KAYNAK (19 Eylul 2026): deger iki kurulum listesinde de kullaniliyor —
+ * super admin (lib/super-admin/setup-checklist.ts) ve kurum admini
+ * (lib/setup-guide.ts). Ayrisirsa iki panel birbirini yalanlar: super admin
+ * "varsayilan logo duruyor" derken kurum paneli "tamam" gosterir.
+ *
+ * Ikisi de BURADAN import eder. setup-checklist.ts bilerek import'suzdu;
+ * bu onun tek istisnasi. Goreli yollar ".ts" uzantili, cunku Node test
+ * script'leri bu dosyalari type stripping ile dogrudan calistiriyor
+ * (test-idle-timeout.mjs bu dosyayi zaten oyle aliyor).
+ */
+export const PLACEHOLDER_LOGO_URL = "/placeholder-logo.png";
+
 // Varsayilan meta tag degerleri
 export const DEFAULT_META = {
   TITLE: "Sendika Adı",
   DESCRIPTION: "Sendika Adı Kurumsal Web Sitesi",
-  OG_IMAGE: "/placeholder-logo.png",
+  OG_IMAGE: PLACEHOLDER_LOGO_URL,
 } as const;
 
 /**

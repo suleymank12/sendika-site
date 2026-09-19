@@ -37,7 +37,20 @@ export const helpContent: Record<string, HelpTopic> = {
       {
         id: "ozet",
         title: "Sayfada ne var?",
-        body: "Üstte hızlı işlem kartları, ortada toplam içerik istatistikleri, altta son eklenen haber ve duyurular.",
+        body: "Üstte Başlangıç Adımları, altında hızlı işlem kartları, ortada toplam içerik istatistikleri, en altta son eklenen haber ve duyurular.",
+      },
+      {
+        id: "baslangic",
+        title: "Başlangıç Adımları",
+        body: "Sitenin ziyaretçiye eksik görünen yanlarını listeler ve her birinin yanındaki düğme seni doğrudan ilgili ekrana götürür. Liste işaretleme değil ÖLÇÜM: bir adımı tamamladığında kendiliğinden yeşile döner, tekrar buraya gelip işaretlemen gerekmez.",
+        tips: [
+          "Sırayla ilerlemen yeterli — üstteki adımlar alttakilerin önünü açar (önce kategori, sonra haber).",
+          "Haber eklerken 'Manşete Ekle' kutusunu işaretlersen manşet adımı da aynı anda kapanır.",
+          "Bir şeyi bilerek boş bırakıyorsan 'Gizle' ile listeyi kapatabilirsin; sayfanın en altındaki 'Kurulum rehberini göster' bağlantısıyla her zaman geri getirilir.",
+        ],
+        warnings: [
+          "'Gizle' kuruluş geneli çalışır: aynı kuruluşun diğer yöneticileri de listeyi görmez.",
+        ],
       },
       {
         id: "kullanim",
@@ -46,6 +59,7 @@ export const helpContent: Record<string, HelpTopic> = {
           "Hızlı işlem kartlarına tıklayarak yeni haber/duyuru/sayfa ekleyebilirsin.",
           "Son haberler/duyurular listesinden başlığa tıklayıp doğrudan düzenleyebilirsin.",
           "Sağ üstteki menüden 'Siteyi Görüntüle' ile ziyaretçi tarafını yeni sekmede açabilirsin.",
+          "Bir sayaçta rakam yerine '—' görüyorsan o bilgi okunamamış demektir (veri silinmiş değil) — sayfayı yenile.",
         ],
       },
     ],

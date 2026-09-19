@@ -18,7 +18,14 @@
  *
  * Bu dosya IMPORT'SUZ: client bileşeni (SetupChecklist), tenants/[id]
  * sayfası ve Node test script'i (type stripping) aynı kodu kullanır.
+ * TEK istisna: PLACEHOLDER_LOGO_URL — kurum panelindeki kardeş listeyle
+ * ortak olması gerektiği için lib/constants.ts'ten alınır (aşağıda gerekçe).
  * Test: scripts/test-setup-checklist.mjs
+ *
+ * KARDEŞ LİSTE: kurum admini tarafındaki "Başlangıç Adımları"
+ * (lib/setup-guide.ts). Beş madde ortak (logo, iletişim, kategori, menü,
+ * anasayfa bölümleri). Birine madde eklenirken diğeri de gözden geçirilir;
+ * sunum BİLEREK ayrı (orası 6 durumlu teşhis, burası 2 durumlu yönlendirme).
  */
 
 // ---------------------------------------------------------------------------
@@ -44,8 +51,22 @@ export const AUTH_RETURN_PATH = "/admin/davet-kabul";
  */
 export const TENANT_ERROR_PATH = "/admin/tenant-bulunamadi";
 
-/** Tohumdaki logo (create-tenant) — hâlâ buysa logo yüklenmemiş. */
-export const PLACEHOLDER_LOGO_URL = "/placeholder-logo.png";
+/**
+ * Tohumdaki logo (create-tenant) — hâlâ buysa logo yüklenmemiş.
+ *
+ * TEK KAYNAK `lib/constants.ts` (19 Eylül 2026). Kurum panelindeki kardeş
+ * liste (`lib/setup-guide.ts`) de aynı değeri oradan alır: ayrışırsa iki
+ * panel birbirini yalanlar — süper admin "varsayılan logo duruyor" derken
+ * kurum paneli "tamam" gösterir.
+ *
+ * Dosyanın import'suzluğundaki TEK istisna. Göreli yol ".ts" uzantılı,
+ * çünkü Node test script'i bu dosyayı type stripping ile doğrudan
+ * çalıştırıyor ve uzantısız göreli yolu çözemiyor (ölçüldü); TypeScript
+ * tarafında `allowImportingTsExtensions` açık.
+ */
+import { PLACEHOLDER_LOGO_URL } from "../constants.ts";
+
+export { PLACEHOLDER_LOGO_URL };
 
 /**
  * Sertifika bitişine bu kadar gün kala uyarı. certbot kendiliğinden

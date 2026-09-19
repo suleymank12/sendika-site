@@ -58,6 +58,276 @@ yerine geçmez.
 
 ---
 
+# 🧭 BAŞLANGIÇ ADIMLARI — kurum admini kurulum rehberi (19 Eylül 2026)
+
+**Durum:** ✅ Uygulandı — tsc + build + lint + **15 Node test script'i**
+geçti (`npm run test:setup-guide` 153 kontrol). Migration **YOK**, şema
+**dokunulmadı**. Canlı manuel test (aşağıdaki tablo) **bekliyor**.
+
+⚠️ `npm run test:backup-db` bu turda da **koşmadı** — Git Bash / NTFS'te
+`chmod 600` etkisiz olduğu için script kendini atlıyor (çıkış kodu 1).
+Ortam kısıtı, bu turla ilgisiz; Linux'ta `wsl bash scripts/test-backup-db.sh`.
+
+**Neden:** panele ilk giren kurum admini **13 ekran** görüyor ve nereden
+başlayacağını bilmiyordu. Süper admin tarafında canlı ölçümlü "Kurulum
+Durumu" vardı; kurum admini tarafında karşılığı yoktu.
+
+## Nerede / nasıl
+
+- **Özet ekranında, "Hoş Geldiniz" banner'ının ALTINDA** beyaz kart. Banner
+  bilgi taşımıyor ama "doğru yerdeyim" hissi veriyor ve kalıcı; rehber
+  geçici — bu yüzden banner'ın yerine geçmedi.
+- **Onay kutusu / "yapıldı" kaydı YOK.** Her madde her açılışta DB'den
+  yeniden ölçülür (süper admin listesiyle aynı ilke).
+- Adım tamamlanınca kendiliğinden yeşile döner; **hepsi bitince kart tek
+  yeşil satıra iner** ("Site kurulumu tamamlandı" + Gizle). Kendiliğinden
+  kaybolmaz: adımlar başka ekranlarda tamamlanıyor, "bitti" onayının bir kez
+  görülmesi gerekiyor.
+
+## Maddeler ve ölçümleri — 8 adım (+1 koşullu)
+
+| # | Madde | Ziyaretçi ne görüyor | Ölçüm |
+|---|---|---|---|
+| 0 | Site menüsü | Navbar bomboş | `menu_items` = **0** — YALNIZ o zaman listeye girer |
+| 1 | Logo | Navbar'da sendikanın baş harfi (Navbar sentinel'i) | `tenants.logo_url \|\| site_settings.logo_url` boş ya da `/placeholder-logo.png` |
+| 2 | İletişim bilgileri | Telefon satırı yok; **adres yoksa harita bölümü hiç render edilmiyor** | `contact_phone` / `contact_address` boş |
+| 3 | Haber kategorileri | Ziyaretçi filtreleyemiyor; editör "Henüz kategori yok" diyor | `news_categories` = 0 |
+| 4 | İlk haber | `/haberler` → "Henüz haber bulunmuyor." | `news` toplam = 0 |
+| 5 | İlk duyuru | `/duyurular` → "Henüz duyuru bulunmuyor." | `announcements` toplam = 0 |
+| 6 | Manşet | Anasayfanın en üstünde **"Manşet Eklenmemiş"** kutusu | `headlines(is_active)` = 0 **VE** `sliders(is_active)` = 0 |
+| 7 | Anasayfa bölümleri | Anasayfanın gövdesi boş | `homepage_sections(is_active)` = 0 |
+| 8 | Fotoğraf galerisi | Varsayılan menüdeki "Galeri" bağlantısı boş sayfaya gidiyor | `gallery_albums` = 0 |
+
+**Listeye girme ölçütü:** madde *ziyaretçinin gördüğü* bir boşluk üretmeli
+**ve bilinçli tercih olamamalı.** Bu yüzden bilinçli olarak listede YOK:
+sosyal medya (hesabı olmayabilir, footer ikonu zaten gizleniyor), favicon
+(tarayıcı kendi ikonunu gösteriyor), navbar rengi / anasayfa düzeni
+(varsayılan geçerli bir tercih), yönetim kurulu / şubeler (varsayılan menüde
+linkleri yok).
+
+🔴 **"Menü hâlâ varsayılan 5 öğe" BİLİNÇLİ OLARAK eksik sayılmıyor.**
+Anasayfa/Haberler/Duyurular/Galeri/İletişim çalışan ve makul bir menü; bunu
+"eksik" ilan etmek tam da kaçınılan şey olurdu. Menü yalnız **0 öğede**
+konuşur — o da `create-tenant`'ın 207 yolu (menü insert'i patlarsa uyarı
+yalnız SÜPER ADMİNE gidiyor, kurum admini boş navbar görüp nereye bakacağını
+bilmiyor). Dolu menü "tamamlandı" diye de listelenmiyor: onu admin yapmadı.
+
+## Ton — süper adminin sözlüğü buraya TAŞINMADI
+
+Orada ✅ Tamam / ❌ **Eksik** / ⚠️ Uyarı / ❓ Belirlenemedi var; o bir teşhis
+ekranı, okuyan kişi operatör. Burada okuyan kişi teknik değil ve **hiçbir
+şeyi yanlış yapmamış**. Kurallar:
+
+- **Kırmızı yok** (`text-error` kullanılmıyor), **durum kelimesi yok** —
+  iki hal var: yapıldı / yapılmadı.
+- Her açık adımın metninde **özne site**, admin değil: "Anasayfanın en
+  üstünde şu kutu görünüyor", "şunu yapmadın" değil.
+- İlerleme olumlu çerçevelenir: **"8 adımdan 3 tanesi tamam"**.
+- ⚠️ **Türkçe iyelik eki tuzağı:** "3'ü / 5'i / 6'sı" rakamın OKUNUŞUNA göre
+  değişiyor (üçü, beşi, altısı, sekizi…) — tek şablonla üretilemez. Bu
+  yüzden **"N tanesi"** kullanılıyor; test her rakamda kesme işareti
+  olmadığını doğruluyor.
+
+## Sıra — envanter değil, YOL
+
+`menü(0) → logo → iletişim → kategori → haber → duyuru → manşet → bölümler
+→ galeri`
+
+Süper adminin sırasından bilerek farklı: ilk iki adım 3 dakikada bitip
+"ilerliyorum" hissi veriyor, zor iş (bölümler) sona kalıyor. Gerçek
+bağımlılık: **kategori → haber** (kategori sonradan eklenirse eski haberlere
+tek tek dönmek gerekir). Manşet adımının metni kısayolu söylüyor: haber
+eklerken "Manşete Ekle" işaretlenirse 4. ve 6. adım **tek hamlede** kapanır.
+
+## Kapatma tercihi — `site_settings`, localStorage DEĞİL
+
+Anahtar: **`setup_guide_dismissed`** (`"true"` / `"false"`).
+
+"Biz manşet kullanmıyoruz" bir **KURULUŞ kararıdır**, tarayıcı tercihi değil.
+localStorage cihaz/tarayıcı başına yazar — ofiste kapatıp telefondan girince
+rehber geri gelirdi, yani "kalıcı kapat" vaadi bozulurdu. Kurumda ikinci
+admin de olabiliyor (`tenant_users` çoklu kayıt destekliyor); karar ikisi
+için de geçerli. Kod tabanında zaten hiç `localStorage` kullanılmıyor
+(yalnız `davet-kabul`'de `sessionStorage`).
+
+**Kabul edilen iki bedel:** (1) `site_settings`'te public SELECT politikası
+var → bayrak herkese açık okunabilir (anlamsız bir boolean). (2) Bayrak
+`getSiteSettings()` çıktısına bir **satır** ekler; ek **sorgu** değil.
+
+**Geri kapısı zorunlu:** gizlendikten sonra Özet'in en altında tek satır
+"Kurulum rehberini göster" bağlantısı kalıyor — kalıcı kapatma bir şeyi
+ULAŞILMAZ kılmamalı. Madde bazında gizleme **yok** (v1): liste 8 maddelik ve
+sonlu; madde bazlı gizleme onay kutusu tarlasına dönüşürdü. Gerekirse aynı
+anahtara virgüllü id listesi yazılarak eklenir, ek sorgu gerekmez.
+
+## Sorgu maliyeti — +6, derinlik DEĞİŞMEDİ
+
+Özet ekranı 6 → **12 sorgu**, hepsi **TEK `Promise.all` dalgasında** (b2
+dersi: gecikme = derinlik × ~115 ms). Derinlik **1'de kaldı** → rehberin
+gecikme maliyeti ≈ 0. Yeni sorguların hepsi indeksli `tenant_id` üzerinde
+`head:true` sayımı.
+
+- **Haber / duyuru / galeri için YENİ sorgu açılmadı** — ekranda zaten duran
+  toplam sayaçlar kullanıldı. "Yayında mı" değil "hiç var mı" ölçülüyor;
+  bilinçli: taslak yazmış admin Haberler ekranını zaten bulmuştur (yayında
+  saymak 2 sorgu daha isterdi).
+- **`sliders` sorgusu koşulsuz atılıyor.** "Manşet varsa slider'a bakma"
+  denseydi ikinci dalga doğar, derinlik 2 olurdu (−115 ms'lik hata).
+- **Tek RPC'ye indirmek** (12 → 7) mümkün ama yapılmadı: yeni migration +
+  canlıda elle uygulama gerektirir, kazanç ölçülemez (aynı dalga). Liste 15
+  maddeye çıkarsa yeniden değerlendirilir.
+- **`is_active` filtresi** bölüm/manşet/kapak sayımlarında var — süper admin
+  listesi filtresiz sayıyor. Doğrusu burası: pasif kayıt ziyaretçiye
+  görünmüyor, public anasayfa da aynı filtreyi uyguluyor. Bilinçli fark.
+
+## 🔴 ÖN KOŞUL — Özet ekranındaki hata yutma düzeltildi
+
+Rehber mevcut sayaçlardan beslendiği için önce bu düzeltildi:
+
+Eskiden `newsCount.count || 0` yazılıyordu ve **hiçbir sorgunun `.error`'ı
+kontrol edilmiyordu** — patlayan sorgu ekranda **"0"** olarak görünüyordu.
+Sahte ama tamamen normal duran bir ekran. Rehber eklenince aynı hata sahte
+**"adım açık"** da üretirdi ("haberiniz yok" derken aslında sorgu patlamış
+olurdu).
+
+| Ne | Eski | Yeni |
+|---|---|---|
+| Sayaç hata verdi | **0** gösteriyordu | **—** (soluk, `title="Okunamadı"`) |
+| Son haberler/duyurular hata verdi | "Henüz haber eklenmemiş." | **`ListLoadError`** + Tekrar Dene |
+| Rehber sorgularından biri hata verdi | — | Kart tek nötr satıra iner: "Kurulum durumu okunamadı. Sayfayı yenileyin." |
+
+`0` ile `null` ayrımı bu işin can damarı: **0 bir bilgidir, hata değil.**
+`evaluateSetupGuide` tek bir `null` okumada bile TÜM liste hakkında susar —
+süper admindeki "asla sahte Tamam" ilkesinin karşılığı, ama 6 durumlu
+`CheckStatus` sözlüğü getirilmeden.
+
+"Hata durumunda EmptyState ASLA gösterilmez" kuralı zaten `ListLoadError`'ın
+var olma nedeniydi (b1 / Tur 3); Özet ekranı o kuralın dışında kalmıştı.
+
+## 🔗 KARDEŞ LİSTELER — süper admin ve kurum admini
+
+İki kurulum listesi var, **kardeşler**:
+
+| | Süper admin | Kurum admini |
+|---|---|---|
+| Dosya | `lib/super-admin/setup-checklist.ts` | `lib/setup-guide.ts` |
+| Başlık | "Kurulum Durumu" | "Başlangıç Adımları" |
+| Nerede koşar | **Sunucu**, service-role | **Tarayıcı**, kullanıcının RLS oturumu |
+| Durum sözlüğü | 6 durum | 2 durum |
+| Canlı yoklama | var (DNS/TLS/HTTP) | yok — hepsi DB |
+| Amaç | teşhis + hazır metin | yönlendirme + eylem butonu |
+
+**Beş madde ortak:** logo, iletişim, kategori, menü, anasayfa bölümleri.
+Üçü yalnız kurum tarafında: manşet, ilk haber, ilk duyuru, galeri.
+
+🔴 **Kural: birine madde eklenirken diğeri de gözden geçirilir.** Ortak olan
+YALNIZ eşikler; **sunum bilerek ayrı** — ortak evaluator, kurum panelini
+`CheckStatus`/`Snippet` sözlüğüne, süper admini eylem-butonu dünyasına
+sokardı.
+
+**Paylaşılan tek değer: `PLACEHOLDER_LOGO_URL` → `lib/constants.ts`.**
+Ayrışırsa iki panel birbirini yalanlar (süper admin "varsayılan logo
+duruyor" derken kurum paneli "tamam" gösterir). `DEFAULT_META.OG_IMAGE` de
+artık bu sabitten türüyor.
+
+⚠️ `setup-checklist.ts` **bilerek import'suzdu** (Node test script'i type
+stripping ile doğrudan çalıştırıyor); bu onun **tek istisnası**. Göreli yol
+`"../constants.ts"` — **uzantı zorunlu**, Node uzantısız göreli yolu çözemiyor
+(ölçüldü: `ERR_MODULE_NOT_FOUND`). TypeScript tarafında bunun için
+`tsconfig.json`'a **`allowImportingTsExtensions: true`** eklendi (`noEmit`
+zaten açık; tsc + build + 185 kontrollük `test:setup` ile doğrulandı).
+`test-idle-timeout.mjs` `constants.ts`'i zaten böyle alıyordu.
+
+## Dokunulan dosyalar
+
+| Dosya | Ne |
+|---|---|
+| `src/lib/setup-guide.ts` | **YENİ** — saf mantık: eşikler, sıra, metinler, okunamadı hali |
+| `src/components/admin/SetupGuide.tsx` | **YENİ** — sunum + kapatma tetiği |
+| `scripts/test-setup-guide.mjs` | **YENİ** — 153 kontrol (`npm run test:setup-guide`) |
+| `src/app/admin/(authenticated)/page.tsx` | 12 sorgu tek dalga, hata yutma düzeltmesi, rehber + geri kapısı |
+| `src/app/admin/(authenticated)/ayarlar/page.tsx` | Bölümlere `id` (`#genel`, `#iletisim`, `#sosyal-medya`, `#tema`, `#footer`) + `scroll-mt-20` + yükleme bitince elle kaydırma |
+| `src/lib/constants.ts` | `PLACEHOLDER_LOGO_URL` (tek kaynak); `DEFAULT_META.OG_IMAGE` ondan türüyor |
+| `src/lib/super-admin/setup-checklist.ts` | Sabiti import ediyor + kardeş liste notu |
+| `src/lib/help-content.ts` | Özet yardımına "Başlangıç Adımları" bölümü |
+| `tsconfig.json` | `allowImportingTsExtensions: true` |
+| `package.json` | `test:setup-guide` script'i |
+
+⚠️ **Çapa kaydırması elle yapılıyor:** `/admin/ayarlar#iletisim` açıldığında
+sayfa henüz "Yükleniyor" ekranında, hedef bölüm DOM'da yok → tarayıcının
+kendi çapa kaydırması boşa gidiyor. Yükleme bitince `requestAnimationFrame`
+içinde `scrollIntoView` çağrılıyor. Ayarlar sayfasına yeni bölüm eklenirse
+`id` vermeyi unutmayın.
+
+## ⏰ Manuel test (canlıda / yerelde yapılacak)
+
+| # | Adım | Beklenen |
+|---|---|---|
+| 1 | Yeni kurumun panelinde Özet | Banner'ın altında "Başlangıç Adımları", **"8 adım"**, 8 açık satır, "0 tamamlanan adım" yok |
+| 2 | "Logo yükle" → kaydet → Özet | Ayarlar **Genel bölümüne kayıyor**; dönüşte "8 adımdan 1 tanesi tamam", Logo tamamlananlara geçmiş |
+| 3 | "Bilgileri gir" | Ayarlar **İletişim bölümüne** kayıyor (sayfa başına değil) |
+| 4 | Yalnız telefonu doldur | Adım açık kalır, metin **"adres ve harita görünmüyor"**a döner |
+| 5 | Haber ekle + "Manşete Ekle" işaretle | **İki adım birden** kapanır (İlk haber + Manşet) |
+| 6 | Tüm adımlar tamam | Kart tek yeşil satır: "Site kurulumu tamamlandı." + Gizle |
+| 7 | "Gizle" | Kart kaybolur, sayfanın en altında "Kurulum rehberini göster" |
+| 8 | Çıkış → başka tarayıcı/cihazdan gir | Rehber **hâlâ gizli** (localStorage olsaydı geri gelirdi) |
+| 9 | "Kurulum rehberini göster" | Kart geri gelir, sayılar doğru |
+| 10 | Ağı kes → Özet'i yenile | Sayaçlar **"—"**, listeler **"Liste yüklenemedi"**, rehber **"Kurulum durumu okunamadı"** — hiçbir yerde sahte "0" / "Henüz ... eklenmemiş" yok |
+| 11 | Süper admin → aynı kurumun sayfası | "Kurum admininin işleri" grubu kurum panelindeki adımlarla **çelişmiyor** (özellikle Logo) |
+
+---
+
+# 📋 BACKLOG — Başlangıç Adımları turundan çıkan üç madde (19 Eylül 2026)
+
+Teşhis sırasında bulundu, **bu turda UYGULANMADI** — ayrı ele alınacak.
+
+## a) `public/` klasörü repoda YOK → og:image 404
+
+`sendika-site/public/` dizini **hiç yok**; dolayısıyla `/placeholder-logo.png`
+ve `/favicon.ico` fiziksel olarak da yok.
+
+- **Logo tarafında sorun değil:** `Navbar.tsx` bu yolu "gerçek logo yok"
+  **sentinel'i** sayıp harf avatarına düşüyor — dosya hiç istenmiyor.
+- 🔴 **Sorun `DEFAULT_META.OG_IMAGE`:** aynı yolu **og:image** olarak veriyor.
+  Sosyal medyada paylaşılan her sayfa **404 görsel** referansı taşıyor.
+- **Seçenekler:** (1) gerçek bir `public/og-default.png` ekle ve
+  `OG_IMAGE`'ı ona bağla, (2) logo yoksa `og:image`'ı hiç yazma,
+  (3) tenant'ın yüklediği logoyu og:image yap (logosu olan kurumlarda en
+  iyisi; olmayanlarda yine (1) ya da (2)).
+- `favicon.ico` yokluğu ayrı ve daha küçük: tarayıcı varsayılan ikon
+  gösteriyor, sayfa hatası yok.
+
+## b) Ziyaretçiye ADMİN dili gösteriliyor
+
+Ziyaretçi tarafındaki boş durum metinleri panelden bahsediyor:
+
+- `src/app/(public)/kurumsal/hakkimizda/page.tsx:36` →
+  *"Bu sayfa henüz oluşturulmamış. **Admin panelden** içerik
+  ekleyebilirsiniz."*
+- `components/public/HeadlineSlider.tsx` + `FullWidthSlider.tsx` →
+  *"Manşet Eklenmemiş — **Admin panelden** manşet ekleyebilirsiniz."*
+  (anasayfanın en üstünde, tam genişlikte)
+
+Ziyaretçi o paneli açamaz; metin hem anlamsız hem de sitenin yarım
+olduğunu ilan ediyor. **Öneri:** ziyaretçiye ya nötr bir şey göster
+("Bu sayfa hazırlanıyor.") ya da bölümü **hiç render etme**.
+⚠️ Manşet kutusunu kaldırmadan önce düşünün: Başlangıç Adımları'nın
+6. maddesi tam da bu kutunun görünürlüğüne dayanıyor — ölçüm DB'den
+geldiği için madde çalışmaya devam eder, ama metni güncellenmeli.
+
+## c) `tenants.logo_url` ölü kolon
+
+Kolon var, `(public)/layout.tsx:60` onu `site_settings.logo_url`'den **ÖNCE**
+okuyor — ama **hiçbir kod yazmıyor**, pratikte hep `NULL`. `favicon_url` de
+aynı durumda.
+
+Bugün zararsız. Ya doldurulmalı ya da okuma zincirinden çıkarılmalı;
+"okunan ama yazılmayan kolon" ileride birinin doldurup şaşırmasına açık.
+`setup-guide.ts` bu zinciri **birebir** izliyor (tenant kolonu doluysa o
+kazanır, sentinel bile olsa) — kolon kaldırılırsa orası da sadeleşir.
+
+---
+
 # 🔑 b3 UYGULAMASI — tenant çözümlemesi cache (19 Eylül 2026)
 
 **Durum:** ✅ **Uygulandı.** Migration YOK, şema **dokunulmadı**. İki aşama:

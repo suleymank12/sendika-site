@@ -113,15 +113,27 @@ const LAYOUT_OPTIONS = [
 ];
 
 interface SectionProps {
+  /**
+   * Çapa (`/admin/ayarlar#iletisim`). Özet ekranındaki Başlangıç Adımları
+   * buraya doğrudan yollar; çapasız link sayfanın başına düşer ve teknik
+   * olmayan kullanıcı aradığı alanı bulamaz.
+   *
+   * `scroll-mt-20`: AdminHeader `sticky top-0` — çapa hizası olmadan bölüm
+   * başlığı header'ın altında kalıyor.
+   */
+  id: string;
   icon: React.ElementType;
   title: string;
   description: string;
   children: React.ReactNode;
 }
 
-function SettingsSection({ icon: Icon, title, description, children }: SectionProps) {
+function SettingsSection({ id, icon: Icon, title, description, children }: SectionProps) {
   return (
-    <section className="rounded-xl bg-white border border-border overflow-hidden">
+    <section
+      id={id}
+      className="scroll-mt-20 rounded-xl bg-white border border-border overflow-hidden"
+    >
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr]">
         <div className="p-6 lg:border-r border-border bg-bg-light/40">
           <div className="flex items-center gap-3 mb-2">
@@ -192,6 +204,21 @@ export default function AdminSettingsPage() {
     };
     fetchSettings();
   }, [tenant, retryKey]);
+
+  // Çapaya kaydırma (`/admin/ayarlar#iletisim` — Özet'teki Başlangıç
+  // Adımları böyle yönlendiriyor). Tarayıcının KENDİ çapa kaydırması burada
+  // işe yaramıyor: sayfa açılırken ekranda yalnız "Yükleniyor" var, hedef
+  // bölüm henüz DOM'da değil. Yükleme bitince elle kaydırıyoruz.
+  useEffect(() => {
+    if (loading || loadFailed) return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    // Bölümler BU render'da DOM'a giriyor — bir frame beklenir.
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [loading, loadFailed]);
 
   const handleSave = async () => {
     if (!tenant) {
@@ -313,6 +340,7 @@ export default function AdminSettingsPage() {
         <div className="space-y-6">
           {/* Genel */}
           <SettingsSection
+            id="genel"
             icon={Globe}
             title="Genel Ayarlar"
             description="Sitenizin temel bilgileri. Başlık ve açıklama arama motorlarında da görünür."
@@ -365,6 +393,7 @@ export default function AdminSettingsPage() {
 
           {/* İletişim */}
           <SettingsSection
+            id="iletisim"
             icon={Contact}
             title="İletişim Bilgileri"
             description="Ziyaretçilerin iletişim sayfasında ve footer'da göreceği bilgiler."
@@ -399,6 +428,7 @@ export default function AdminSettingsPage() {
 
           {/* Sosyal Medya */}
           <SettingsSection
+            id="sosyal-medya"
             icon={AtSign}
             title="Sosyal Medya"
             description="Sosyal medya hesaplarınızın adresleri. Doldurmadığınız hesaplar sitede görünmez — yalnızca kullandıklarınızı eklemeniz yeterli."
@@ -442,6 +472,7 @@ export default function AdminSettingsPage() {
 
           {/* Tema */}
           <SettingsSection
+            id="tema"
             icon={Palette}
             title="Tema ve Görünüm"
             description="Sitenizin ana rengi ve anasayfa düzeni. Değişiklikler tüm sayfalara uygulanır."
@@ -506,6 +537,7 @@ export default function AdminSettingsPage() {
 
           {/* Footer */}
           <SettingsSection
+            id="footer"
             icon={PanelBottom}
             title="Footer"
             description="Sitenin en altında görünecek telif hakkı yazısı ve yapımcı bilgisi."
