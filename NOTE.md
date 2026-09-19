@@ -58,6 +58,214 @@ yerine geçmez.
 
 ---
 
+# 👁️ PANEL YÖNETİCİLERİ — şeffaflık (P2, 19 Eylül 2026)
+
+**Durum:** ✅ Kod hazır — tsc + build + lint + **18 Node test script'i** geçti
+(`npm run test:panel-yoneticileri` 69 kontrol) + **yerel gerçek PostgreSQL**
+doğrulaması (aşağıda).
+⏰ **Migration 030 canlıya ELLE uygulanacak.**
+
+## Neden
+
+P1 (029) süper adminin kurum verisine otomatik erişimini kaldırdı: artık bir
+kurumda iş yapacaksa **önce kendini o kurumun `tenant_users` listesine
+ekliyor**, yani erişim `created_at` damgalı bir satır olarak **iz bırakıyor**.
+
+Ama **müşteri o izi göremiyordu**: politika herkese yalnızca **kendi**
+satırını gösteriyordu, kurum panelinde de kullanıcı listesi yoktu.
+
+**KVKK:** müşteri = veri sorumlusu; **md. 12** ona verisinin güvenliğini
+sağlama yükümlülüğü veriyor. *"Verime kim erişebiliyor?"* sorusunu
+cevaplayamayan bir sorumlu bu yükümlülüğü yerine getiremez. P1 + P2 birlikte:
+erişim (a) üyelik gerektiriyor, (b) tarihli kayıt bırakıyor, (c) **müşteriye
+görünüyor**.
+
+## 🔴 ÖZYİNELEME — ölçüldü, tuzak gerçek
+
+"Aynı kurumun üyeleri" koşulunun **düz yazımı** sonsuz özyineleme veriyor:
+
+```sql
+USING (tenant_id IN (
+  SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid()
+))
+-- HATA 42P17: infinite recursion detected in policy for relation "tenant_users"
+```
+
+`tenant_users`'a gelen SELECT politikayı tetikler → politika `tenant_users`'a
+SELECT atar → politika yine tetiklenir.
+
+⚠️ Bu yazım canlıya çıksaydı `admin/(authenticated)/layout.tsx`'teki **üyelik
+sorgusu** da `tenant_users` okuduğu için **her kurumun her admini panele
+giremezdi**.
+
+**Çözüm:** `public.user_has_tenant_access` — `SECURITY DEFINER`, sahibi
+`postgres` (tablonun sahibi) ve `tenant_users`'ta `relforcerowsecurity=false`
+olduğu için fonksiyonun **içindeki** SELECT politikayı **tetiklemiyor**
+(sahip RLS'ten muaf). Bugün 16 içerik tablosunun politikası da aynı fonksiyonu
+böyle çağırıyor.
+
+### 🔴 `tenant_users`'a ASLA `FORCE ROW LEVEL SECURITY` AÇILMAMALI
+
+Politika yukarıdaki **sahiplik muafiyetine** dayanıyor. `FORCE` açılırsa
+muafiyet kalkar, politika özyinelemeye düşer ve **tüm kurum adminleri
+kilitlenir**.
+
+```sql
+-- false OLMALI:
+SELECT relforcerowsecurity FROM pg_class WHERE oid='public.tenant_users'::regclass;
+```
+
+`test:panel-yoneticileri` **tüm migration dosyalarında** `FORCE ROW LEVEL
+SECURITY` geçmediğini doğruluyor — biri eklerse test kırılır.
+
+### Neden yeni fonksiyon açılmadı
+
+`is_tenant_member(uuid)` değerlendirildi ve **elendi**: gövdesi 029 sonrası
+`user_has_tenant_access` ile birebir aynı olurdu = drift kaynağı. 029
+fonksiyonun anlamını zaten netleştirmişti.
+
+### Neden `is_super_admin` dalı politikada AÇIK
+
+029'un dersi: **yetki fonksiyonun içine gizlenmesin, politikada görünsün.**
+`user_has_tenant_access` artık süper admini kapsamıyor; onun `tenant_users`
+okuyabilmesi ayrı ve açık bir karar. (INSERT/UPDATE/DELETE politikaları zaten
+doğrudan `is_super_admin`; yalnız SELECT'i kaldırmak tutarsız olurdu. Satır
+PII taşımıyor.)
+
+## Migration 030 — politika
+
+```sql
+BEGIN;
+DROP POLICY IF EXISTS tenant_users_self_or_super_select ON public.tenant_users;
+CREATE POLICY tenant_users_same_tenant_select ON public.tenant_users
+  FOR SELECT TO authenticated
+  USING (
+    user_id = auth.uid()                        -- (1) kendi satırım
+    OR public.user_has_tenant_access(tenant_id) -- (2) aynı kurumun üyesiyim
+    OR public.is_super_admin(auth.uid())        -- (3) platform yönetimi
+  );
+COMMIT;
+```
+
+`DROP`+`CREATE` (`ALTER POLICY` değil): politikanın **adı** da anlamını
+taşıyor. 🔴 `BEGIN/COMMIT` **şart** — arada politikasız bir an kalırsa
+(RLS açık + politika yok = hiç kimse okuyamaz) o aralıktaki istekler
+kilitlenir.
+
+Dal (1) teknik olarak (2)'nin içinde ama **bilerek duruyor**: en ucuz kontrol
+ve "kendimi her hâlükârda görürüm" garantisi fonksiyondan bağımsız olsun.
+`davet-kabul` akışı da bu dalla çalışır.
+
+## ✅ YEREL GERÇEK PostgreSQL DOĞRULAMASI
+
+Geçici PG18 kümesi + Supabase taklidi + `000_baseline` + `029` (canlının
+bugünkü hâli), sonra `030` canlıdaki komutun aynısıyla uygulandı.
+
+| Ölçüm | Beklenen | Sonuç |
+|---|---|---|
+| **Naif alt sorgu** | — | 🔴 **42P17 infinite recursion** |
+| 🔴 **Admin layout üyelik sorgusu** (kilitlenme) | 1 | **1** ✅ |
+| Kurum admini kendi kurumunun yöneticileri | 3 | **3** ✅ |
+| Kurum admini **başka kurumun** satırları | 0 | **0** ✅ |
+| Başka kurumun admini bu kurumu görür mü | 0 | **0** ✅ |
+| Kurum admini yönetici **ekleyebildi** mi | Hayır | **RLS reddetti** ✅ |
+| Kurum admini yönetici **silebildi** mi | 0 | **0** ✅ |
+| Süper admin tüm satırlar (dal 3) | 4 | **4** ✅ |
+| **029 korundu:** süper admin gelen mesaj | 0 | **0** ✅ |
+| `relforcerowsecurity` | false | **false** ✅ |
+| SELECT politikası sayısı | 1 | **1** ✅ |
+
+**Ölçümle çürüyen bir varsayımım:** doğrulama sorgusuna *"`user_has_tenant_access`
+çağıran politika = 16"* yazmıştım; 030'dan sonra **17** oluyor — yeni politika
+da aynı fonksiyonu çağırıyor. Migration'daki not düzeltildi.
+
+## Ekran — `/admin/panel-yoneticileri`
+
+**Sidebar → "Site Yönetimi" → "Panel Yöneticileri"** (14 → 15 öğe).
+
+🔴 **Adı "Yöneticiler" DEĞİL:** panelde zaten **"Yönetim Kurulu"** var
+(sendikanın kurulu, public içerik). Bir sendika sitesinde o iki başlığı yan
+yana koymak teknik olmayan kullanıcı için gerçek bir karışıklık. İkon da
+`Users` değil `KeyRound` (o ikon Yönetim Kurulu'nun).
+
+**Neden Site Ayarları içinde bir bölüm değil:** bu bir **kayıt**, ayar değil.
+Ayarlar sayfası bir **form** ve altında sticky "Kaydet" barı var; salt okunur
+bir listeyi oraya koymak "kaydedince ne oluyor?" sorusunu doğurur. Ayrıca beş
+bölümün arasına gömülen şey şeffaf sayılmaz.
+
+Ekranda:
+- **Salt okunur açıklaması** (liste var, "Ekle" düğmesi yok — kullanıcı
+  düğmeyi aramasın ve ekranın **neden** var olduğu anlaşılsın)
+- Her satır: **e-posta + eklenme tarihi**
+- Süper adminler için **"Platform yöneticisi" rozeti** + tek satır açıklama
+- Hata durumunda **boş liste gösterilmez** (`ListLoadError`)
+
+### "Platform yöneticisi" rozeti — süper admin listesini AÇMIYOR
+
+Rozet yalnızca **o kurumun listesinde zaten görünen** kişi için hesaplanıyor.
+Kurum admini başka süper adminleri, hatta kaç kişi olduğunu göremiyor. Sızan
+tek bilgi: *"verinize erişebilen bu kişi platformdan"* — şeffaflığın istediği
+şey tam olarak bu. `super_admins` politikası **değişmedi** (RLS açık, policy
+yok; yalnız service role okur).
+
+Düz satır (rozetsiz) seçeneği elendi: kurum admini tanımadığı bir e-posta
+görür ve **ne olduğunu bilemez**. Şeffaflık "bilgi göstermek" değil,
+**anlaşılır** bilgi göstermektir.
+
+## API — `/api/panel-yoneticileri`
+
+E-postalar `auth.users`'ta ve o şema PostgREST'e **açılmamış** → tarayıcı
+okuyamaz → API şart (service role).
+
+🟢 **Yetkilendirme RLS'e bırakıldı** — elle üyelik kontrolü **yok**. Liste
+çağıranın **kendi oturumuyla** okunuyor; 030'daki politika kurum sınırını
+zaten uyguluyor, üye olmayan **0 satır** alır → **403**. Böylece bir sorgu
+eksiliyor ve asıl sınır elle yazılmış bir `if` değil **RLS** oluyor (P1 dersi).
+
+Service role **yalnız** iki şey için: e-postalar (`getUserEmailsByIds`, mevcut
+yardımcı) ve rozet (`super_admins`).
+
+**Fail-closed iki yerde:** e-posta ya da rozet okunamazsa liste **eksik
+gösterilmez**, hata döner. Rozetsiz bir platform yöneticisi, kurum admininin
+gözünde sıradan bir yönetici gibi durur — şeffaflık ekranının tam tersi.
+
+**Veri minimizasyonu (KVKK md. 4):** cevapta **yalnız** e-posta, eklenme
+tarihi ve platform bayrağı var. `user_id`, rol, son giriş **döndürülmez**.
+
+## Dokunulan dosyalar
+
+| Dosya | Ne |
+|---|---|
+| `supabase/migrations/030_tenant_users_ayni_kurum_gorunur.sql` | **YENİ** — politika |
+| `src/app/api/panel-yoneticileri/route.ts` | **YENİ** — liste API'si |
+| `src/app/admin/(authenticated)/panel-yoneticileri/page.tsx` | **YENİ** — salt okunur ekran |
+| `src/components/admin/Sidebar.tsx` | "Site Yönetimi" grubuna yeni madde (`KeyRound`) |
+| `src/lib/help-content.ts` | `panel-yoneticileri` yardım konusu |
+| `KURULUM.md` | Adım 3: 030 (**dört dosya**) + özyineleme uyarısı |
+| `scripts/test-panel-yoneticileri.mjs` · `package.json` | **YENİ** test (69 kontrol) |
+
+---
+
+# 📋 BACKLOG — süper admin hesabı kurumsal adrese taşınsın (19 Eylül 2026)
+
+Süper admin hesabı bugün **kişisel bir Gmail** adresi
+(`suleymankaraman222@gmail.com`). P2'nin "Platform yöneticisi" rozetiyle
+birlikte bu adres, süper adminin girdiği **her müşteri kurumun panelinde
+kalıcı olarak görünür** hâle geldi — önem kazandı.
+
+Kurumsal/rol adresine taşınmalı (`destek@buyukdirilis.org.tr` gibi):
+
+1. **Profesyonellik:** müşteri panelinde kişisel Gmail adresi görmek tek
+   kişilik bir operasyon izlenimi veriyor.
+2. **KVKK:** rol adresi kişisel veri olmaktan çıkar; kişi değişirse müşteri
+   panellerindeki kayıt eskimez.
+
+⏰ **Mail hesabı işiyle BİRLİKTE ele alınacak** (abi
+`iletisim@kurmayteknoloji.com` alacak — kullanıcı kararı, 19 Eylül). İkisi
+aynı turda yapılmalı; ayrı ayrı yapmak iki kez DNS/SMTP işi demek.
+
+---
+
 # 🔐 SÜPER ADMİN KURUM ERİŞİMİ — kaldırıldı (P1, 19 Eylül 2026)
 
 **Durum:** ✅ Kod hazır — tsc + build + lint + **17 Node test script'i** geçti
@@ -227,7 +435,10 @@ tablonun üstünde tam metin:
 | `KURULUM.md` | Adım 3: 029 listede + psql komutunda (**üç dosya**) |
 | `scripts/test-super-admin-kurum-erisimi.mjs` · `package.json` | **YENİ** test (70 kontrol) |
 
-## ⏰ P2 — ŞEFFAFLIK (ayrı tur, bekliyor)
+## ✅ P2 — ŞEFFAFLIK: YAPILDI (aynı gün)
+
+Aşağıdaki plan **uygulandı** — bkz. "👁️ PANEL YÖNETİCİLERİ" (migration 030 +
+`/admin/panel-yoneticileri` ekranı). Plan olduğu gibi duruyor, tarihsel kayıt:
 
 Bugün kurum admini, kurumuna eklenmiş **diğer** yöneticileri **göremiyor**:
 `tenant_users_self_or_super_select` yalnız kendi satırını gösteriyor

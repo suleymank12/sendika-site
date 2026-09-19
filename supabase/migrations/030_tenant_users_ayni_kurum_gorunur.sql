@@ -1,0 +1,184 @@
+-- ============================================================================
+-- Migration 030: kurum admini AYNI KURUMUN yoneticilerini gorebilir (P2)
+-- ============================================================================
+--
+-- NEDEN (P2 — seffaflik, 19 Eylul 2026):
+--   029 ile super admin'in kurum verisine otomatik erisimi kaldirildi. Artik
+--   super admin bir kurumda is yapacaksa ONCE kendini o kurumun
+--   tenant_users listesine ekliyor — erisim bir DB satirina baglaniyor,
+--   created_at damgasi dusuyor. Yani IZ artik DB'de VAR.
+--
+--   Ama MUSTERI o izi GOREMIYORDU: bugunku politika herkese yalnizca KENDI
+--   satirini gosteriyor. Kurum admini kendi paneline baska kimin
+--   erisebildigini soramiyordu.
+--
+--   KVKK: musteri = veri sorumlusu; md. 12 ona verisinin guvenligini saglama
+--   yukumlulugu veriyor. "Verime kim erisebiliyor?" sorusunu cevaplayamayan
+--   bir sorumlu bu yukumlulugu yerine getiremez. Bu politika o sorunun
+--   cevabini mumkun kiliyor (ekran: /admin/panel-yoneticileri).
+--
+-- ============================================================================
+-- 🔴 OZYINELEME — YEREL GERCEK PostgreSQL'DE OLCULDU (19 Eylul 2026)
+-- ============================================================================
+--   "Ayni kurumun uyeleri" kosulunun DUZ yazimi SONSUZ OZYINELEME veriyor:
+--
+--     USING (tenant_id IN (
+--       SELECT tu.tenant_id FROM public.tenant_users tu WHERE tu.user_id = auth.uid()
+--     ))
+--
+--     -> HATA 42P17: infinite recursion detected in policy for relation
+--        "tenant_users"
+--
+--   Mekanizma: tenant_users'a gelen SELECT politikayi tetikler -> politika
+--   tenant_users'a SELECT atar -> politika yine tetiklenir.
+--
+--   ⚠️ Bu yazim canliya ciksaydi `admin/(authenticated)/layout.tsx`'teki
+--   UYELIK SORGUSU da tenant_users okudugu icin HER KURUMUN HER ADMINI
+--   panele giremezdi.
+--
+--   COZUM: public.user_has_tenant_access — SECURITY DEFINER, sahibi
+--   `postgres` (tablonun sahibi) ve tenant_users'ta relforcerowsecurity
+--   FALSE oldugu icin fonksiyonun ICINDEKI SELECT politikayi TETIKLEMEZ
+--   (sahip RLS'ten muaf). Bugun 16 icerik tablosunun politikasi da ayni
+--   fonksiyonu boyle cagiriyor. Olculdu: ozyineleme YOK, kurum izolasyonu
+--   korunuyor, uyelik sorgusu calisiyor.
+--
+--   🔴 BU YUZDEN: public.tenant_users'a ASLA `FORCE ROW LEVEL SECURITY`
+--   ACILMAMALI. Acilirsa sahiplik muafiyeti kalkar, bu politika
+--   ozyinelemeye duser ve TUM KURUM ADMINLERI KILITLENIR.
+--   (Kontrol: SELECT relforcerowsecurity FROM pg_class
+--             WHERE oid='public.tenant_users'::regclass;  -> false olmali)
+--
+-- ============================================================================
+-- Neden yeni bir fonksiyon acilmadi
+-- ============================================================================
+--   `is_tenant_member(uuid)` diye ikinci bir fonksiyon degerlendirildi ve
+--   ELENDI: govdesi 029 sonrasi user_has_tenant_access ile BIREBIR ayni
+--   olurdu, yani klasik drift kaynagi. 029 fonksiyonun anlamini zaten
+--   netlestirdi ("Kullanici bu kurumun UYESI mi? YALNIZ tenant_users").
+--
+-- Neden is_super_admin dali POLITIKADA acik yaziliyor
+-- ============================================================================
+--   029'un dersi: yetki fonksiyonun icine GIZLENMESIN, politikada GORUNSUN.
+--   user_has_tenant_access artik super admin'i kapsamiyor; super admin'in
+--   tenant_users'i okuyabilmesi ayri ve ACIK bir karardir. (Zaten
+--   INSERT/UPDATE/DELETE politikalari da dogrudan is_super_admin kullaniyor;
+--   yalniz SELECT'i kaldirmak tutarsiz olurdu. Satir PII tasimiyor:
+--   id/tenant_id/user_id/role/created_at.)
+--
+-- ELLE APPLY: Supabase SQL Editor ya da psql (NOTE.md "elle apply" modeli).
+--   ⚠️ APPLY ONCESI KONTROL — dosya sonundaki (0).
+--   🔴 APPLY SONRASI ILK IS: bir KURUM ADMININ panele girebildigini dogrula
+--      (kilitlenme kontrolu). Dosya sonundaki (1f).
+-- ============================================================================
+
+BEGIN;
+
+-- ----------------------------------------------------------------------------
+-- tenant_users SELECT — ayni kurumun uyeleri gorunur
+-- ----------------------------------------------------------------------------
+-- DROP + CREATE (ALTER POLICY degil): politikanin ADI da anlamini tasiyor,
+-- `..._self_or_super_select` artik yanlis olurdu.
+--
+-- 🔴 BEGIN/COMMIT SART: DROP ile CREATE arasinda politikasiz bir an kalirsa
+-- (RLS acik + politika yok = HIC KIMSE okuyamaz) o araliktaki her istek
+-- kilitlenirdi. Tek islemde atomik.
+DROP POLICY IF EXISTS tenant_users_self_or_super_select ON public.tenant_users;
+
+CREATE POLICY tenant_users_same_tenant_select ON public.tenant_users
+  FOR SELECT
+  TO authenticated
+  USING (
+    -- (1) Kendi satirim. Teknik olarak (2)'nin icinde kalir; BILEREK duruyor:
+    --     en ucuz kontrol (fonksiyon cagrisi yok) ve "kendimi her halukarda
+    --     gorurum" garantisi fonksiyondan BAGIMSIZ olsun. Admin layout'un
+    --     uyelik sorgusu ve davet-kabul akisi bu dalla calisir.
+    user_id = auth.uid()
+    -- (2) Ayni kurumun uyesiyim -> P2'nin kendisi.
+    OR public.user_has_tenant_access(tenant_id)
+    -- (3) Platform yonetimi. Super admin panelinin okumalari SERVICE ROLE
+    --     uzerinden gittigi icin bu dal pratikte kullanilmiyor; tutarlilik
+    --     icin duruyor (bkz. yukarida).
+    OR public.is_super_admin(auth.uid())
+  );
+
+COMMIT;
+
+-- ============================================================================
+-- (0) APPLY ONCESI — DRIFT KONTROLU
+-- ============================================================================
+--     SELECT policyname, cmd, qual
+--     FROM pg_policies
+--     WHERE schemaname = 'public' AND tablename = 'tenant_users'
+--     ORDER BY policyname;
+--
+-- BEKLENEN (apply ONCESI): 4 satir —
+--   tenant_users_self_or_super_select (SELECT)
+--   tenant_users_super_admin_delete / _insert / _update
+--   ...ve SELECT politikasinin qual'i `(user_id = auth.uid()) OR is_super_admin(...)`
+--
+--   Baska bir sey goruyorsaniz canli repo'dan AYRISMIS demektir -> DURUN.
+--
+-- (0b) FORCE RLS kapali mi? (ozyineleme onkosulu — false OLMALI)
+--     SELECT relrowsecurity, relforcerowsecurity
+--     FROM pg_class WHERE oid = 'public.tenant_users'::regclass;
+--     -> beklenen: t | f
+--
+-- (0c) Fonksiyon 029 sonrasi halinde mi? (is_super_admin GECMEMELI)
+--     SELECT pg_get_functiondef('public.user_has_tenant_access(uuid)'::regprocedure);
+--
+-- ============================================================================
+-- (1) APPLY SONRASI DOGRULAMA
+-- ============================================================================
+-- (a) Yeni politika yerinde mi? (eski ad GITMIS olmali)
+--     SELECT policyname, cmd FROM pg_policies
+--     WHERE schemaname='public' AND tablename='tenant_users' ORDER BY policyname;
+--     -> tenant_users_same_tenant_select + 3 super admin politikasi
+--
+-- (b) SELECT politikasi TEK mi? (eski politika kalirsa yetki birlesir)
+--     SELECT count(*) FROM pg_policies
+--     WHERE schemaname='public' AND tablename='tenant_users' AND cmd='SELECT';
+--     -> 1
+--
+-- (c) Uc dal da politikada mi?
+--     SELECT qual FROM pg_policies
+--     WHERE schemaname='public' AND tablename='tenant_users' AND cmd='SELECT';
+--     -> user_has_tenant_access, is_super_admin ve auth.uid() gecmeli
+--
+-- (d) FORCE hala kapali mi? (apply bunu degistirmemeli)
+--     SELECT relforcerowsecurity FROM pg_class
+--     WHERE oid='public.tenant_users'::regclass;   -> false
+--
+-- (e) Diger 16 icerik tablosunun politikalari DEGISMEDI mi?
+--     SELECT tablename FROM pg_policies
+--     WHERE schemaname='public' AND qual LIKE '%user_has_tenant_access%'
+--     ORDER BY tablename;
+--     -> 17 SATIR: 16 icerik tablosu + tenant_users'in KENDISI.
+--
+--     ⚠️ 16 DEGIL 17 (yerelde olculdu): bu migration'dan sonra
+--     tenant_users'in kendi SELECT politikasi da ayni fonksiyonu cagiriyor.
+--     Icerik tablolari listesi degismemeli; degistiyse bu migration
+--     dokunmamasi gereken bir yere dokunmus demektir.
+--
+-- (f) 🔴 KILITLENME KONTROLU — EN ONEMLI ADIM, tarayicida:
+--     - Bir KURUM ADMINI kendi paneline girebiliyor mu?  (giremiyorsa DERHAL
+--       rollback)
+--     - Panel Yoneticileri ekrani listeyi gosteriyor mu?
+--     - Baska kurumun admini o kurumu GORMUYOR mu?
+--
+-- ============================================================================
+-- ROLLBACK
+-- ============================================================================
+--     BEGIN;
+--     DROP POLICY IF EXISTS tenant_users_same_tenant_select ON public.tenant_users;
+--     CREATE POLICY tenant_users_self_or_super_select ON public.tenant_users
+--       FOR SELECT TO authenticated
+--       USING (((user_id = auth.uid()) OR public.is_super_admin(auth.uid())));
+--     COMMIT;
+--
+-- Rollback sonrasi Panel Yoneticileri ekrani herkese YALNIZ kendi satirini
+-- gosterir (API 1 satir doner) — ekran kirilmaz, yalnizca eksik gosterir.
+--
+-- ============================================================================
+-- Migration 030 sonu
+-- ============================================================================

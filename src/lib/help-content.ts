@@ -507,6 +507,32 @@ export const helpContent: Record<string, HelpTopic> = {
     ],
   },
 
+  "panel-yoneticileri": {
+    title: "Panel Yöneticileri",
+    intro:
+      "Bu panele girebilen kişilerin listesi. Sitenizin verisine kimlerin erişebildiğini buradan görürsünüz.",
+    sections: [
+      {
+        id: "ne-var",
+        title: "Sayfada ne var?",
+        body: "Panele erişimi olan her kişi için e-posta adresi ve listeye eklendiği tarih. Liste salt okunurdur — buradan ekleme veya çıkarma yapılmaz.",
+      },
+      {
+        id: "platform",
+        title: '"Platform yöneticisi" ne demek?',
+        body: "Sitenizi kuran ve teknik destek veren ekipten biri. Bir sorunu çözmek için panele girmesi gerektiğinde kendini bu listeye ekler, işi bitince çıkarır — bu yüzden listede görünür. Böylece verinize kimin, ne zaman eriştiği sizin için de takip edilebilir olur.",
+      },
+      {
+        id: "degisiklik",
+        title: "Yönetici eklemek / çıkarmak",
+        body: "Bu işlemler platform ekibi tarafından yapılır. Yeni bir yöneticiye ihtiyacınız varsa ya da listede tanımadığınız biri varsa platform ekibiyle iletişime geçin.",
+        warnings: [
+          "Listede beklemediğiniz bir e-posta görürseniz mutlaka sorun — bu ekran tam olarak bunun için var.",
+        ],
+      },
+    ],
+  },
+
   ayarlar: {
     title: "Site Ayarları",
     intro: "Logo, favicon, sendika adı, iletişim, sosyal medya, renk gibi genel ayarları yönetirsin. Değişiklikler tüm sitede aynı anda yansır.",

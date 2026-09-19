@@ -14,6 +14,7 @@ import {
   Star,
   LayoutGrid,
   ListTree,
+  KeyRound,
   Users,
   Building2,
   Settings,
@@ -85,6 +86,11 @@ const menuGroups: MenuGroup[] = [
     items: [
       { label: "Site Menüsü", href: "/admin/menu", icon: ListTree },
       { label: "Site Ayarları", href: "/admin/ayarlar", icon: Settings },
+      // Salt okunur KAYIT (ayar degil) — bu yuzden Site Ayarlari icinde bir
+      // bolum degil, kendi ekrani. Adi "Yoneticiler" DEGIL: panelde zaten
+      // "Yonetim Kurulu" var (sendikanin kurulu, public icerik) ve ikisi yan
+      // yana karisir (P2, 19 Eylul 2026).
+      { label: "Panel Yöneticileri", href: "/admin/panel-yoneticileri", icon: KeyRound },
     ],
   },
 ];

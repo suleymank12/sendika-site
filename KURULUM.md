@@ -76,7 +76,7 @@ postgresql://postgres.<ref>:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/pos
 2. `supabase/migrations/001_seed_default.sql` — sitenin ilk açılışta patlamaması
    için gereken minimum veri (default tenant + 10 ayar + 5 menü öğesi).
 3. **`027_*.sql` ve sonrası** — baseline dondurulduktan sonra yazılan
-   migration'lar, **numara sırasıyla**. Şu an **üç dosya**:
+   migration'lar, **numara sırasıyla**. Şu an **dört dosya**:
    - `027_headlines_kaynak_tekil.sql` — aynı haber iki kez manşet olamaz
    - `028_liste_indeksleri.sql` — haber/duyuru liste index'leri (`tenant_id`
      lider) + `homepage_section_items(section_id)` FK index'i
@@ -87,6 +87,12 @@ postgresql://postgres.<ref>:<sifre>@aws-0-eu-west-1.pooler.supabase.com:5432/pos
      listesine ekler, işi bitince çıkarır — erişim böylece iz bırakır.
      ⚠️ **Yeni kurulumda atlanırsa süper admin her müşterinin verisine
      kayıtsız erişir.** Gerekçe: NOTE.md → "SÜPER ADMİN KURUM ERİŞİMİ".
+   - `030_tenant_users_ayni_kurum_gorunur.sql` — **şeffaflık**: kurum admini
+     aynı kurumun diğer yöneticilerini görebilir (panelde "Panel
+     Yöneticileri" ekranı). 029'un bıraktığı izi müşteriye görünür kılar.
+     🔴 Bu politika `user_has_tenant_access` (SECURITY DEFINER) üzerinden
+     yazıldı; satır içi alt sorgu **sonsuz özyineleme** verir ve tüm kurum
+     adminlerini kilitler — ayrıntı migration başlığında.
 
    Bu adım atlanırsa yeni sitede o düzeltmeler olmaz. Baseline yeniden
    üretilince bu dosyalar baseline'a karışır ve liste boşalır
@@ -102,6 +108,7 @@ psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/001
 psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/027_headlines_kaynak_tekil.sql
 psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/028_liste_indeksleri.sql
 psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/029_super_admin_kurum_erisimi_kaldir.sql
+psql "$PGURI" -v ON_ERROR_STOP=1 --single-transaction -f supabase/migrations/030_tenant_users_ayni_kurum_gorunur.sql
 ```
 
 `--single-transaction` + `ON_ERROR_STOP=1`: hata olursa **hiçbir şey kalmaz**,

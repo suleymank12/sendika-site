@@ -273,7 +273,10 @@ header("(f) KURULUM.md Adim 3 — 029 listede");
   const k = read("KURULUM.md");
   okTrue("kurulum", "029 dosya adi listede", k.includes("029_super_admin_kurum_erisimi_kaldir.sql"), "KURULUM.md");
   okTrue("kurulum", "psql komutu var", k.includes("-f supabase/migrations/029_super_admin_kurum_erisimi_kaldir.sql"), "KURULUM.md");
-  okTrue("kurulum", "sayi guncellendi (uc dosya)", k.includes("**üç dosya**"), "KURULUM.md");
+  // Dosya SAYISI burada sinanmiyor: her yeni migration'da bu testi de
+  // kirardi (030 eklenince birebir oyle oldu). Sayi kontrolu, KURULUM
+  // listesinin sahibi olan EN YENI testte ve dosyalardan TURETILEREK
+  // yapiliyor — bkz. scripts/test-panel-yoneticileri.mjs.
   okTrue("kurulum", "atlanirsa ne olur yazili", k.includes("kayıtsız erişir"), "KURULUM.md");
 
   // Sira: 029, 028'den SONRA calistirilmali
