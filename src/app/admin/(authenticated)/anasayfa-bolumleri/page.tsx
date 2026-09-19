@@ -68,6 +68,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { verifyWrite } from "@/lib/write-guard";
 
 interface SectionFormData {
   id?: string;
@@ -288,11 +289,11 @@ export default function AdminHomepageSectionsPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("homepage_sections")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", form.id));
+        .eq("id", form.id)));
     } else {
       payload.tenant_id = tenant.id;
       ({ error } = await supabase.from("homepage_sections").insert(payload));
@@ -313,11 +314,11 @@ export default function AdminHomepageSectionsPage() {
     if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("homepage_sections")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -331,11 +332,11 @@ export default function AdminHomepageSectionsPage() {
   const handleToggleActive = async (section: HomepageSection) => {
     if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("homepage_sections")
       .update({ is_active: !section.is_active })
       .eq("tenant_id", tenant.id)
-      .eq("id", section.id);
+      .eq("id", section.id));
     if (error) {
       toast.error("Güncelleme başarısız oldu.");
       return;
@@ -368,11 +369,11 @@ export default function AdminHomepageSectionsPage() {
     const supabase = createClient();
     const results = await Promise.all(
       reordered.map((s, idx) =>
-        supabase
+        verifyWrite(supabase
           .from("homepage_sections")
           .update({ order: idx })
           .eq("tenant_id", tenant.id)
-          .eq("id", s.id)
+          .eq("id", s.id))
       )
     );
     // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.

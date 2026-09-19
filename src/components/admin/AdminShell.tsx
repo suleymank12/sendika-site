@@ -1,6 +1,7 @@
 "use client";
 
 import Sidebar from "@/components/admin/Sidebar";
+import MembershipGuard from "@/components/admin/MembershipGuard";
 import ToastProvider from "@/components/ui/Toast";
 import { SidebarProvider, useSidebar } from "@/hooks/useAdminSidebar";
 import { DirtyFormProvider } from "@/hooks/useDirtyForm";
@@ -15,7 +16,11 @@ function AdminShellInner({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen bg-bg-light">
       <Sidebar isOpen={isOpen} onClose={close} />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">
+          {/* Yetkisi kaldirilmis adminin acik sekmesini kapatir (gezinme +
+              pencere odagi). Gerekce: components/admin/MembershipGuard. */}
+          <MembershipGuard>{children}</MembershipGuard>
+        </main>
       </div>
       <ToastProvider />
     </div>

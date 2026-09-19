@@ -23,6 +23,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/utils";
 import { Announcement } from "@/types";
 import toast from "react-hot-toast";
+import { verifyWrite } from "@/lib/write-guard";
 
 /**
  * Liste kolonlari (b1) — `select("*")` DEGIL. `cover_image` ekranda yok ama
@@ -95,11 +96,11 @@ function AnnouncementsListContent() {
     const supabase = createClient();
 
     // 2) Duyuruyu sil
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("announcements")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
 
     if (error) {
       toast.error("Silme başarısız oldu.");

@@ -41,6 +41,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { verifyWrite } from "@/lib/write-guard";
 
 interface AlbumFormData {
   id?: string;
@@ -196,11 +197,11 @@ export default function AdminGalleryPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("gallery_albums")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", form.id));
+        .eq("id", form.id)));
     } else {
       payload.tenant_id = tenant.id;
       payload.order = albums.length;
@@ -242,11 +243,11 @@ export default function AdminGalleryPage() {
     imagePaths.push(storagePathFromUrl(deleteItem.cover_image));
 
     // 2) Album'u sil (cascade gallery_images satirlarini gotur)
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("gallery_albums")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -273,11 +274,11 @@ export default function AdminGalleryPage() {
     const supabase = createClient();
     const results = await Promise.all(
       reordered.map((a, idx) =>
-        supabase
+        verifyWrite(supabase
           .from("gallery_albums")
           .update({ order: idx })
           .eq("tenant_id", tenant.id)
-          .eq("id", a.id)
+          .eq("id", a.id))
       )
     );
     // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.

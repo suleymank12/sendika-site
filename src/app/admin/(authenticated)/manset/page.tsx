@@ -49,6 +49,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import toast from "react-hot-toast";
+import { verifyWrite } from "@/lib/write-guard";
 
 type SourceType = "custom" | "news" | "announcement";
 
@@ -355,11 +356,11 @@ export default function AdminHeadlinePage() {
 
     let error;
     if (editingId) {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("headlines")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", editingId));
+        .eq("id", editingId)));
     } else {
       payload.tenant_id = tenant.id;
       ({ error } = await supabase.from("headlines").insert(payload));
@@ -415,11 +416,11 @@ export default function AdminHeadlinePage() {
     );
 
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("headlines")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteId);
+      .eq("id", deleteId));
     if (error) {
       toast.error("Silme başarısız oldu.");
       setDeleting(false);
@@ -446,11 +447,11 @@ export default function AdminHeadlinePage() {
   const toggleActive = async (h: Headline) => {
     if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("headlines")
       .update({ is_active: !h.is_active })
       .eq("tenant_id", tenant.id)
-      .eq("id", h.id);
+      .eq("id", h.id));
     if (error) {
       toast.error("Güncelleme başarısız oldu.");
     } else {
@@ -477,11 +478,11 @@ export default function AdminHeadlinePage() {
     // kismi basarisizlikta sunucu durumuna geri donulur (fetchHeadlines).
     const supabase = createClient();
     const updates = reordered.map((h, i) =>
-      supabase
+      verifyWrite(supabase
         .from("headlines")
         .update({ order: i })
         .eq("tenant_id", tenant.id)
-        .eq("id", h.id)
+        .eq("id", h.id))
     );
     const results = await Promise.all(updates);
     if (results.some((r) => r.error)) {

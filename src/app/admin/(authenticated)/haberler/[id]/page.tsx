@@ -25,6 +25,7 @@ import { MANSET_LIMIT } from "@/lib/constants";
 import { HelpCircle } from "lucide-react";
 import { NewsCategory } from "@/types";
 import toast from "react-hot-toast";
+import { verifyWrite } from "@/lib/write-guard";
 
 export default function AdminNewsEditorPage() {
   const params = useParams();
@@ -241,11 +242,11 @@ export default function AdminNewsEditorPage() {
       error = res.error;
       if (res.data) newsId = res.data.id;
     } else {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("news")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", params.id));
+        .eq("id", params.id)));
     }
 
     if (error) {

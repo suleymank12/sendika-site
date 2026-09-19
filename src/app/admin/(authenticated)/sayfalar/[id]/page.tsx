@@ -21,6 +21,7 @@ import Loading from "@/components/ui/Loading";
 import { createSlug } from "@/lib/utils";
 import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 import toast from "react-hot-toast";
+import { verifyWrite } from "@/lib/write-guard";
 
 export default function AdminPageEditorPage() {
   const params = useParams();
@@ -151,11 +152,11 @@ export default function AdminPageEditorPage() {
       error = res.error;
       if (res.data) pageId = res.data.id;
     } else {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("pages")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", params.id));
+        .eq("id", params.id)));
     }
 
     if (error) {

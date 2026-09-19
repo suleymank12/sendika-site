@@ -41,6 +41,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { verifyWrite } from "@/lib/write-guard";
 
 interface MemberFormData {
   id?: string;
@@ -217,11 +218,11 @@ export default function AdminBoardMembersPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("board_members")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", form.id));
+        .eq("id", form.id)));
     } else {
       payload.tenant_id = tenant.id;
       payload.order = members.length;
@@ -255,11 +256,11 @@ export default function AdminBoardMembersPage() {
     const imagePath = storagePathFromUrl(deleteItem.photo);
 
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("board_members")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -275,11 +276,11 @@ export default function AdminBoardMembersPage() {
   const handleToggle = async (item: BoardMember) => {
     if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("board_members")
       .update({ is_active: !item.is_active })
       .eq("tenant_id", tenant.id)
-      .eq("id", item.id);
+      .eq("id", item.id));
     if (error) {
       toast.error("Güncelleme başarısız oldu.");
     } else {
@@ -302,11 +303,11 @@ export default function AdminBoardMembersPage() {
     const supabase = createClient();
     const results = await Promise.all(
       reordered.map((item, idx) =>
-        supabase
+        verifyWrite(supabase
           .from("board_members")
           .update({ order: idx })
           .eq("tenant_id", tenant.id)
-          .eq("id", item.id)
+          .eq("id", item.id))
       )
     );
     // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.

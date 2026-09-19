@@ -42,6 +42,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { verifyWrite } from "@/lib/write-guard";
 
 interface BranchFormData {
   id?: string;
@@ -320,11 +321,11 @@ export default function AdminBranchesPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("branches")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", form.id));
+        .eq("id", form.id)));
     } else {
       payload.tenant_id = tenant.id;
       payload.order = branches.length;
@@ -363,11 +364,11 @@ export default function AdminBranchesPage() {
     const imagePath = storagePathFromUrl(deleteItem.manager_photo);
 
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("branches")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -383,11 +384,11 @@ export default function AdminBranchesPage() {
   const handleToggle = async (item: Branch) => {
     if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("branches")
       .update({ is_active: !item.is_active })
       .eq("tenant_id", tenant.id)
-      .eq("id", item.id);
+      .eq("id", item.id));
     if (error) {
       toast.error("Güncelleme başarısız oldu.");
     } else {
@@ -411,11 +412,11 @@ export default function AdminBranchesPage() {
     const supabase = createClient();
     const results = await Promise.all(
       reordered.map((i, idx) =>
-        supabase
+        verifyWrite(supabase
           .from("branches")
           .update({ order: idx })
           .eq("tenant_id", tenant.id)
-          .eq("id", i.id)
+          .eq("id", i.id))
       )
     );
     // Manset deseni (Tur 3 b1): sonuc kontrolsuz "kaydedildi" deme;

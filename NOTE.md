@@ -58,6 +58,190 @@ yerine geçmez.
 
 ---
 
+# 🚪 YETKİ KALDIRILDIKTAN SONRA AÇIK OTURUM (19 Eylül 2026)
+
+**Durum:** ✅ Kod hazır — tsc + build + lint + **19 Node test script'i**
+geçti (`npm run test:yetki-kaldirma` 103 kontrol) + **yerel gerçek
+PostgreSQL** doğrulaması. Migration **YOK**, şema **dokunulmadı**.
+
+## Bulgu
+
+Süper admin panelinden bir kullanıcı `tenant_users`'tan çıkarıldı; o
+kullanıcının **açık sekmesinde panel çalışmaya devam etti** — sol menü
+tıklanabiliyor, sayfalar açılıyor, kullanıcı atılmıyor.
+
+## 🟢 BU BİR ERİŞİM AÇIĞI DEĞİL — ölçüldü
+
+İleride aynı soru sorulduğunda cevap hazır olsun diye ölçümüyle birlikte:
+
+Yerel gerçek PostgreSQL (baseline + 029 + 030). Aynı kullanıcı, aynı
+`auth.uid()`; tek fark `tenant_users` satırının silinmiş olması. **Çıkarılan
+admin, ANONİM ZİYARETÇİYLE BİREBİR AYNI şeyi görüyor:**
+
+| Tablo | Tohum | Çıkarılan admin | Anonim | Fark |
+|---|---|---|---|---|
+| `news` · `announcements` · `pages` | 2 | **1** (yalnız yayında) | 1 | yok |
+| `menu_items` | 2 | **1** (yalnız aktif) | 1 | yok |
+| `site_settings` | 2 | **2** | 2 | yok |
+| `board_members` · `branches` · `homepage_sections` | 2 / 2 / 1 | **0** | 0 | yok |
+| 🔴 `contact_messages` | 1 | **0** | 0 | yok |
+| `tenant_users` | — | **0** | 0 | yok |
+
+**On tablonun onunda da fark yok.** Yazma tarafı: haber ekle → `42501`,
+site ayarı → `42501`, storage yükleme → `42501`, güncelle/sil → **0 satır**.
+
+→ Kapatılan şey **veri erişimi değil, AÇIK KALAN EKRAN**. Ama
+*"işten çıkarılan kişinin paneli hâlâ çalışıyor"* görüntüsü müşteri için
+kabul edilemez; teknik olarak zararsız olsa bile bu bir **güven** sorunu.
+
+### `site_settings` neden `USING (true)` ve neden sızıntı değil
+
+`000_baseline.sql` → `Public: site_settings select ... USING (true)`: tablo
+**anonim dahil herkese açık**. İçindekiler zaten public sitede basılan
+değerler — site başlığı, açıklama, logo, favicon, iletişim bilgileri, navbar
+rengi, footer metni, sosyal medya adresleri. Yani ziyaretçi bunları **zaten
+sayfanın kaynağında görüyor**; RLS'in gizlemesi anlamsız olurdu.
+
+⚠️ Sonucu: Site Ayarları ekranı, yetkisi kalkmış kullanıcıda da **dolu
+görünür**. Panel "çalışıyor" gibi durmasının bir sebebi de bu. Buraya
+**gizli kalması gereken bir değer yazılmamalı** (API anahtarı, SMTP şifresi
+vb.) — o tür bir alan gerekirse ayrı ve politikalı bir tabloya gider.
+
+## 🔑 JWT'nin YAPISAL SINIRI (tekrar tartışılmasın)
+
+- Access token **durumsuzdur**: verildikten sonra sunucu onu **geri
+  çağıramaz**, `exp`'e kadar geçerlidir (Supabase varsayılanı 1 saat).
+- "Oturumu iptal et" **yalnız refresh token'ı** iptal eder; eldeki access
+  token yaşamaya devam eder.
+- 🔴 `auth.admin.signOut(jwt, scope)` **kullanıcının JWT'sini** ister,
+  kullanıcı id'sini DEĞİL (ölçüldü: `@supabase/auth-js` 2.101.1 tip
+  tanımı). Süper admin panelinde o JWT **elimizde yok** → bu API
+  çağrılamaz. Geriye `auth.sessions` satırlarını service role ile silmek
+  kalır: Supabase'in **yönettiği şema**, belgelenmemiş, sürüm değişiminde
+  kırılabilir — ve access token penceresini yine kapatmaz. Üstelik kişi
+  **başka bir kurumun da admini** olabilir; onu da atardı.
+- **Sektör kalıbı:** veri katmanı reddeder (bizde **RLS** — ölçüldü,
+  çalışıyor), arayüz **ilk fırsatta yakalar** (gezinme / odak).
+  Anında iptal isteyen sistemler durumlu oturum ya da iptal listesi tutar;
+  ikisi de **her isteğe bir okuma** ekler — bu projede middleware'de üyelik
+  kontrolü tam bu yüzden reddedilmişti.
+
+## Düzeltme — iki ayrı kusur
+
+### (1) Ekran kapanmıyordu → `MembershipGuard`
+
+Üyelik kontrolü `(authenticated)/layout.tsx`'te, yani bir **sunucu**
+bileşeninde; panelin **20 sayfasının hepsi CLIENT**. Next App Router
+istemci tarafı gezinmede yalnızca değişen segmenti çizip paylaşılan
+layout'u router cache'inde tuttuğu için o kontrol **hiç çalışmıyordu**.
+Tam yenilemede çalışıyor (ölçüldü) — sorun **yalnız client-side nav'da**.
+
+`components/admin/MembershipGuard.tsx`, `AdminShell` içinde:
+
+- **her gezinmede** (`usePathname` bağımlılığı)
+- **pencere odağa gelince / sekme görünür olunca** ← asıl senaryo: çıkarılan
+  kişinin sekmesi genelde arka planda durur
+- ⚠️ **POLL YOK** — projenin çizgisi (Sidebar sayacı da olay tabanlı).
+  Boştaki sekmenin maliyeti **sıfır**; gezinme başına tek, indeksli,
+  tek satırlık sorgu.
+- `getSession()` (yerel okuma) kullanılıyor, `getUser()` (ağ turu) değil.
+- 🔴 **Yetkide fail-closed, taşımada fail-open:** yalnız **kesin** cevapta
+  (sorgu başarılı + 0 satır) çıkış yapılır. Ağ hatasında **hiçbir şey
+  yapılmaz** — aksi hâlde bir bağlantı titremesi çalışan adminleri atardı.
+
+### (2) Silme YALAN söylüyordu → `verifyWrite`
+
+🔴 PostgreSQL'de RLS bir **INSERT**'i reddederken hata fırlatır; **UPDATE ve
+DELETE**'i reddederken **fırlatmaz** — sadece hiçbir satırı eşleştirmez.
+supabase-js `.select()` olmadan `error: null` döner:
+
+```ts
+const { error } = await supabase.from("news").delete().eq("id", x);
+if (error) { ... }                  // error null
+toast.success("Haber silindi.");    // YALAN — hiçbir şey silinmedi
+```
+
+Ölçülen yaygınlık (düzeltmeden önce): **22 `.delete()` çağrısı, 0 tanesi**
+etkilenen satırı doğruluyordu.
+
+⚠️ **Bu, "yetkisi kaldırılmış admin" senaryosuna ÖZEL DEĞİL** — ileride
+herhangi bir politika hatası da aynı yalanı üretir. Bu yüzden ayrı bir
+doğruluk hatası olarak, senaryodan bağımsız düzeltildi.
+
+`lib/write-guard.ts` → `verifyWrite(query)`: sorguya `.select("id")`
+zincirler, **0 satırı sentetik hataya** (`RLS_NO_ROWS`) çevirir, **gerçek
+hatayı aynen geçirir** (çağıranlardaki `error.code === "23505"` kontrolleri
+bozulmasın). Böylece **45 çağrı noktasında `if (error)` gövdeleri olduğu
+gibi kaldı** — en az riskli dönüşüm.
+
+## Kapsam — 45 sarıldı, 13 bilinçli sarılmadı
+
+| | Sayı |
+|---|---|
+| Toplam yazma (`.delete()` + `.update(`) | **58** (21 + 37) |
+| ✅ Sarılan | **45** (14 birincil silme + 31 güncelleme) |
+| ⬜ Bilinçli sarılmayan | **13** |
+
+**Ölçüt:** kullanıcıya **başarı ya da hata mesajı gösterilen** her
+UPDATE/DELETE sarılır.
+
+🔴 **Sarılmayanlar — çünkü 0 satır DOĞRU sonuç olabilir:**
+
+| Ne | Neden |
+|---|---|
+| Temizlik silmeleri (haber/duyuru silinince `headlines`, `content_media`) | İçerik zaten manşette **değilse** 0 satır **beklenen** sonuçtur; doğrulamak **sahte hata** üretirdi |
+| Kaydetme akışı içindeki galeri sırası / manşet senkronu | Birincil kaydetme zaten doğrulanıyor; başarısızsa oraya hiç gelinmiyor |
+| `gelen-mesajlar` → `okundu: true` | Arka plan; kullanıcıya başarı mesajı gösterilmiyor, yalan da söylenmiyor |
+| `INSERT` / `UPSERT` (ayarlar, Özet) | RLS bunları **zaten hata ile** reddediyor (ölçüldü: `42501`) |
+
+⚠️ `test:yetki-kaldirma` **dosya başına** sarılı/delete/update sayılarını
+kilitliyor. **Yeni bir UPDATE/DELETE eklenirse test KIRILIR** ve ekleyen
+kişi yazmayı sınıflandırmak zorunda kalır — istenen davranış bu.
+
+## ✅ YEREL GERÇEK PostgreSQL DOĞRULAMASI
+
+`verifyWrite`'ın dayandığı varsayım ölçüldü (`RETURNING id` = PostgREST'in
+`.select()` karşılığı):
+
+| Durum | İşlem | Dönen satır | Hata | `verifyWrite` |
+|---|---|---|---|---|
+| Yetki var | UPDATE / DELETE / sıralama | **1** | — | başarılı ✅ |
+| 🔴 Yetki yok | UPDATE (yayında haber) | **0** | **yok** | `RLS_BLOCKED` ✅ |
+| 🔴 Yetki yok | UPDATE (taslak) | **0** | **yok** | `RLS_BLOCKED` ✅ |
+| 🔴 Yetki yok | DELETE | **0** | **yok** | `RLS_BLOCKED` ✅ |
+| 🔴 Yetki yok | UPDATE sıralama | **0** | **yok** | `RLS_BLOCKED` ✅ |
+| 🔴 Yetki yok | **INSERT** | — | **42501** | sarılmadı (doğru) ✅ |
+| Kanıt | "silinen" haberler | **2 satır duruyor** | | |
+
+## Elenen seçenekler (tekrar tartışılmasın)
+
+| Seçenek | Neden elendi |
+|---|---|
+| **Periyodik poll** (60 sn) | Projenin "poll yok" çizgisi; boştaki sekme için sürekli sorgu, gezinme+odak kontrolünden fazla bir şey kazandırmıyor |
+| **Oturum iptali** | `signOut` kullanıcı JWT'si istiyor (elimizde yok); `auth.sessions`'a yazmak belgelenmemiş; access token penceresini kapatmıyor; başka kurumdaki oturumu da düşürürdü |
+| **Realtime** | CSP'de `wss://` **bilerek yok** (`middleware.ts`); kalıcı WebSocket + CSP gevşetmesi orantısız. Ayrıca satır silindikten sonra DELETE olayının RLS altında kişiye ulaşacağı garanti değil |
+
+## Kapanan pencere
+
+| Durum | Önce | Sonra |
+|---|---|---|
+| Sekme arka plandan öne geliyor | Süresiz | **Anında** |
+| Menüye tıklıyor | Süresiz | **İlk tıklamada** |
+| Tek sayfada oturuyor | 30 dk (idle) | 30 dk — **ama yapabileceği bir şey yok** |
+| Silmeye çalışıyor | "Haber silindi." (yalan) | **"Silme başarısız oldu."** |
+
+## Dokunulan dosyalar
+
+| Dosya | Ne |
+|---|---|
+| `src/lib/write-guard.ts` | **YENİ** — `verifyWrite`, `RLS_BLOCKED` |
+| `src/components/admin/MembershipGuard.tsx` | **YENİ** — gezinme + odak kontrolü |
+| `src/components/admin/AdminShell.tsx` | Guard bağlandı |
+| `(authenticated)` altında **17 sayfa** | 45 yazma `verifyWrite` ile sarıldı |
+| `scripts/test-yetki-kaldirma.mjs` · `package.json` | **YENİ** test (103 kontrol) |
+
+---
+
 # 👁️ PANEL YÖNETİCİLERİ — şeffaflık (P2, 19 Eylül 2026)
 
 **Durum:** ✅ Kod hazır — tsc + build + lint + **18 Node test script'i** geçti

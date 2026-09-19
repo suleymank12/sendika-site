@@ -23,6 +23,7 @@ import EmptyState from "@/components/ui/EmptyState";
 import { formatDate } from "@/lib/utils";
 import { News } from "@/types";
 import toast from "react-hot-toast";
+import { verifyWrite } from "@/lib/write-guard";
 
 /**
  * Liste ekraninin cektigi kolonlar (b1). `select("*")` DEGIL.
@@ -101,11 +102,11 @@ function NewsListContent() {
     const supabase = createClient();
 
     // 2) Haberi sil
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("news")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
 
     if (error) {
       toast.error("Silme başarısız oldu.");

@@ -41,6 +41,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn, normalizeExternalUrl } from "@/lib/utils";
+import { verifyWrite } from "@/lib/write-guard";
 
 interface SliderFormData {
   id?: string;
@@ -198,11 +199,11 @@ export default function AdminSliderPage() {
   const handleToggle = async (item: Slider) => {
     if (!tenant) return;
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("sliders")
       .update({ is_active: !item.is_active })
       .eq("tenant_id", tenant.id)
-      .eq("id", item.id);
+      .eq("id", item.id));
     if (error) {
       toast.error("Güncelleme başarısız oldu.");
     } else {
@@ -234,11 +235,11 @@ export default function AdminSliderPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("sliders")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", form.id));
+        .eq("id", form.id)));
     } else {
       payload.tenant_id = tenant.id;
       payload.order = sliders.length;
@@ -268,11 +269,11 @@ export default function AdminSliderPage() {
     const imagePath = storagePathFromUrl(deleteItem.image_url);
 
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("sliders")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -297,11 +298,11 @@ export default function AdminSliderPage() {
     const supabase = createClient();
     const results = await Promise.all(
       reordered.map((item, idx) =>
-        supabase
+        verifyWrite(supabase
           .from("sliders")
           .update({ order: idx })
           .eq("tenant_id", tenant.id)
-          .eq("id", item.id)
+          .eq("id", item.id))
       )
     );
     // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.

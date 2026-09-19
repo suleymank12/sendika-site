@@ -45,6 +45,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { verifyWrite } from "@/lib/write-guard";
 
 function SortableImage({
   image,
@@ -190,7 +191,7 @@ export default function AdminGalleryDetailPage() {
     }
     setSaving(true);
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("gallery_albums")
       .update({
         title: title.trim(),
@@ -198,7 +199,7 @@ export default function AdminGalleryDetailPage() {
         is_published: isPublished,
       })
       .eq("tenant_id", tenant.id)
-      .eq("id", albumId);
+      .eq("id", albumId));
 
     if (error) {
       toast.error("Güncelleme başarısız oldu.");
@@ -222,11 +223,11 @@ export default function AdminGalleryDetailPage() {
     setCaptionSaving(true);
     const supabase = createClient();
     const newCaption = captionText.trim() || null;
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("gallery_images")
       .update({ caption: newCaption })
       .eq("tenant_id", tenant.id)
-      .eq("id", captionImage.id);
+      .eq("id", captionImage.id));
 
     if (error) {
       toast.error("Açıklama kaydedilemedi.");
@@ -318,11 +319,11 @@ export default function AdminGalleryDetailPage() {
     const imagePath = storagePathFromUrl(deleteImage.image_url);
 
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("gallery_images")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteImage.id);
+      .eq("id", deleteImage.id));
     if (error) {
       toast.error("Silme başarısız oldu.");
     } else {
@@ -347,11 +348,11 @@ export default function AdminGalleryDetailPage() {
     const supabase = createClient();
     const results = await Promise.all(
       reordered.map((img, idx) =>
-        supabase
+        verifyWrite(supabase
           .from("gallery_images")
           .update({ order: idx })
           .eq("tenant_id", tenant.id)
-          .eq("id", img.id)
+          .eq("id", img.id))
       )
     );
     // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.

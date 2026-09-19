@@ -15,6 +15,7 @@ import Pagination from "@/components/ui/Pagination";
 import { Inbox, Mail, Trash2 } from "lucide-react";
 import { formatDateTime, truncateText, cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+import { verifyWrite } from "@/lib/write-guard";
 
 interface ContactMessage {
   id: string;
@@ -135,11 +136,11 @@ function GelenMesajlarContent() {
     if (!deleteItem || !tenant) return;
     setDeleting(true);
     const supabase = createClient();
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("contact_messages")
       .delete()
       .eq("tenant_id", tenant.id)
-      .eq("id", deleteItem.id);
+      .eq("id", deleteItem.id));
     if (error) {
       toast.error("Silme başarısız oldu.");
       setDeleting(false);

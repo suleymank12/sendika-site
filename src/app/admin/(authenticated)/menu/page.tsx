@@ -36,6 +36,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { verifyWrite } from "@/lib/write-guard";
 
 interface MenuFormData {
   id?: string;
@@ -325,11 +326,11 @@ export default function AdminMenuPage() {
 
     let error;
     if (form.id) {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("menu_items")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", form.id));
+        .eq("id", form.id)));
     } else {
       const siblingCount = items.filter(
         (i) => (i.parent_id || null) === (form.parent_id || null)
@@ -415,12 +416,16 @@ export default function AdminMenuPage() {
       payload.tenant_id = tenant.id;
     }
 
+    // UPDATE dogrulanir (RLS sessizce 0 satir donebilir), INSERT dogrulanmaz
+    // (RLS onu zaten hata ile reddediyor). Gerekce: lib/write-guard.
     const { error: menuError } = form.id
-      ? await supabase
-          .from("menu_items")
-          .update(payload)
-          .eq("tenant_id", tenant.id)
-          .eq("id", form.id)
+      ? await verifyWrite(
+          supabase
+            .from("menu_items")
+            .update(payload)
+            .eq("tenant_id", tenant.id)
+            .eq("id", form.id)
+        )
       : await supabase.from("menu_items").insert(payload);
 
     if (menuError) {
@@ -441,11 +446,11 @@ export default function AdminMenuPage() {
     const supabase = createClient();
 
     const descendantIds = Array.from(collectDescendantIds(items, deleteItem.id));
-    const { error } = await supabase
+    const { error } = await verifyWrite(supabase
       .from("menu_items")
       .delete()
       .eq("tenant_id", tenant.id)
-      .in("id", descendantIds);
+      .in("id", descendantIds));
 
     if (error) {
       toast.error("Silme başarısız oldu.");
@@ -484,11 +489,11 @@ export default function AdminMenuPage() {
 
     const supabase = createClient();
     const updates = reordered.map((item, idx) =>
-      supabase
+      verifyWrite(supabase
         .from("menu_items")
         .update({ order: idx })
         .eq("tenant_id", tenant.id)
-        .eq("id", item.id)
+        .eq("id", item.id))
     );
     const results = await Promise.all(updates);
     // Manset deseni (Tur 3 b1): hatada sunucudaki gercek sirayi geri cek.

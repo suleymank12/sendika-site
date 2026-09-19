@@ -22,6 +22,7 @@ import { createSlug } from "@/lib/utils";
 import { MANSET_LIMIT } from "@/lib/constants";
 import { HelpCircle } from "lucide-react";
 import toast from "react-hot-toast";
+import { verifyWrite } from "@/lib/write-guard";
 
 export default function AdminAnnouncementEditorPage() {
   const params = useParams();
@@ -210,11 +211,11 @@ export default function AdminAnnouncementEditorPage() {
       error = res.error;
       if (res.data) annId = res.data.id;
     } else {
-      ({ error } = await supabase
+      ({ error } = await verifyWrite(supabase
         .from("announcements")
         .update(payload)
         .eq("tenant_id", tenant.id)
-        .eq("id", params.id));
+        .eq("id", params.id)));
     }
 
     if (error) {
