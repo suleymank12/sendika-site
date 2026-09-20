@@ -1,5 +1,6 @@
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
+import { pickOgImage } from "@/lib/og-image";
 import type { Metadata } from "next";
 
 /**
@@ -26,9 +27,16 @@ interface PublicMetadataInput {
   /** Meta description. Verilmezse: title varsa "title — siteName", yoksa site aciklamasi. */
   description?: string;
   /**
-   * og:image (Storage'dan absolute URL). width/height BILEREK verilmiyor:
-   * DB'de boyut yok, upload siniri (1200x675) gercek boyutu garanti etmez;
-   * yanlis beyan hic vermemekten kotu. alt olarak sayfa basligi kullanilir.
+   * Icerigin KENDI kapak gorseli (Storage adresi). Verilmezse ya da
+   * kullanilamazsa kurumun logosuna dusulur (bkz. asagidaki zincir).
+   *
+   * Adres `lib/og-image.ts`'ten gecer: Storage adresleri Next'in gorsel
+   * ucuna alinir (2.7 MB -> ~150 KB, webp -> jpeg; olculdu), sentinel ve
+   * goreli degerler elenir.
+   *
+   * width/height BILEREK verilmiyor: gorsel ucu kirpmadigi icin yukseklik
+   * icerigin oranina gore degisiyor ve DB'de boyut yok; yanlis beyan hic
+   * vermemekten kotu. alt olarak sayfa basligi kullanilir.
    */
   image?: string | null;
   /** Haber/duyuru detayi: og:type article + tarih alanlari (ISO string). */
@@ -53,13 +61,21 @@ export async function buildPublicMetadata(
       ? `${input.title} — ${siteName}`
       : map.site_description || `${siteName} Kurumsal Web Sitesi`);
 
+  // 🔴 PAYLASIM GORSELI ZINCIRI — hepsi BU kurumun verisinden.
+  //    1. icerigin kendi kapagi  2. kurumun logosu  3. hicbiri -> etiket yok
+  //    Platform geneli sabit bir varsayilan YOK (beyaz etiket: musterinin
+  //    linkinde baska bir kurumun markasi cikamaz). Logo degeri sentinel
+  //    ("/placeholder-logo.png") ya da goreli ise elenir — o dosya repoda
+  //    YOK, yazilsa 404 onizleme uretirdi (bkz. lib/og-image.ts).
+  const ogImage = pickOgImage(input.image, map.logo_url);
+
   const shared = {
     locale: "tr_TR",
     siteName,
     url: input.path,
     title: ogTitle,
     description,
-    ...(input.image && { images: [{ url: input.image, alt: ogTitle }] }),
+    ...(ogImage && { images: [{ url: ogImage, alt: ogTitle }] }),
   };
 
   const openGraph: NonNullable<Metadata["openGraph"]> = input.article

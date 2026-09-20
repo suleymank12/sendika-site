@@ -1632,21 +1632,80 @@ içinde `scrollIntoView` çağrılıyor. Ayarlar sayfasına yeni bölüm eklenir
 
 Teşhis sırasında bulundu, **bu turda UYGULANMADI** — ayrı ele alınacak.
 
-## a) `public/` klasörü repoda YOK → og:image 404
+## a) ✅ KAPATILDI — paylaşım görseli (og:image) — 20 Eylül 2026
 
-`sendika-site/public/` dizini **hiç yok**; dolayısıyla `/placeholder-logo.png`
-ve `/favicon.ico` fiziksel olarak da yok.
+**Bu maddenin teşhisi YANLIŞTI, ölçümle düzeltildi.** Kayıt "her sayfa 404
+görsel referansı taşıyor" diyordu; ölçüm gösterdi ki `DEFAULT_META.OG_IMAGE`
+**hiçbir yerde kullanılmıyordu** (`grep -rn DEFAULT_META src/` → yalnız
+tanımın kendisi). Yani canlıda öyle bir etiket hiç yazılmadı, 404 yoktu.
 
-- **Logo tarafında sorun değil:** `Navbar.tsx` bu yolu "gerçek logo yok"
-  **sentinel'i** sayıp harf avatarına düşüyor — dosya hiç istenmiyor.
-- 🔴 **Sorun `DEFAULT_META.OG_IMAGE`:** aynı yolu **og:image** olarak veriyor.
-  Sosyal medyada paylaşılan her sayfa **404 görsel** referansı taşıyor.
-- **Seçenekler:** (1) gerçek bir `public/og-default.png` ekle ve
-  `OG_IMAGE`'ı ona bağla, (2) logo yoksa `og:image`'ı hiç yazma,
-  (3) tenant'ın yüklediği logoyu og:image yap (logosu olan kurumlarda en
-  iyisi; olmayanlarda yine (1) ya da (2)).
-- `favicon.ico` yokluğu ayrı ve daha küçük: tarayıcı varsayılan ikon
-  gösteriyor, sayfa hatası yok.
+**Gerçek durum** (yerel dev sunucuda render edilen HTML'den okundu):
+
+| Sayfa | og:image |
+|---|---|
+| haber / duyuru / albüm / manşet / yönetim detayı | **VAR** — ham Storage adresi |
+| kapağı olmayan haber | **YOK** |
+| anasayfa + tüm genel sayfalar | **YOK** → çıplak link |
+
+Yani sorun 404 değil, (1) genel sayfalarda görselin **hiç olmaması**,
+(2) olanların **ham** gelmesi: canlı kapaklar 71 KB – **2709 KB**, ölçüler
+`3648x5472`'ye kadar (dikey!), bazıları **webp** (WhatsApp çizdirmiyor).
+
+### Çözüm — `lib/og-image.ts` + `lib/seo.ts` zinciri
+
+**Zincir:** içeriğin kendi kapağı → **KURUMUN** logosu → hiçbiri (etiket
+yazılmaz). Platform geneli sabit varsayılan görsel **bilerek yok**: beyaz
+etiket üründe müşterinin linkinde başka bir kurumun markası çıkamaz.
+
+**Adres `/_next/image`'den geçiyor** (varsayım değil, ölçüm):
+
+```
+robot taklidi (facebookexternalhit · WhatsApp · Twitterbot · TelegramBot,
+Accept başlığında webp YOK):
+  4 robotun 4'ü de HTTP 200 · 2709 KB -> 157 KB · webp -> JPEG
+  band 8-161 KB · ilk istek <= 0,8 sn, sonrası önbellekten
+  w=1201 -> 400 (deviceSizes listesi)  ·  yabancı kaynak -> 400 (açık proxy değil)
+Supabase'in kendi görsel dönüşüm ucu -> 403 (Pro özelliği; FREE'deyiz)
+```
+
+🔴 **Sentinel tuzağı:** Kurmay'ın `site_settings.logo_url` değeri tam olarak
+`/placeholder-logo.png` (yani "logo YOK" sentinel'i). Elenmeseydi og:image
+`https://kurmayteknoloji.com/placeholder-logo.png` olur ve **404** verirdi —
+bu maddenin korktuğu şeyi gerçekten üretirdik. `buildOgImageUrl` sentinel'i,
+göreli adresleri ve boş değerleri eliyor.
+
+🔴 **Çok kiracılı doğrulama (üretim modunda ölçüldü):**
+
+```
+default kurum  -> http://lvh.me:3000/_next/image?...
+Kurmay         -> https://kurmayteknoloji.com/_next/image?...   <- KENDİ domaini
+Kurmay anasayfa (logosu sentinel) -> og:image etiketi HİÇ YOK
+```
+
+⚠️ **Geliştirmede adres `localhost` görünür, panik yapma:** Next dev'de
+sosyal görselleri **her zaman** `http://localhost:3000`'e çözüyor
+(`next/dist/lib/metadata/resolvers/resolve-url.js` →
+`getSocialImageFallbackMetadataBase`, `NODE_ENV === "development"` dalı).
+Üretimde `metadataBase` kullanılır (yukarıdaki ölçüm).
+
+`twitter:image` ayrıca yazılmıyor — Next onu og:image'den **kendisi**
+türetiyor (ölçüldü); root layout'taki `twitter: { card: "summary_large_image" }`
+yerinde duruyor.
+
+**Kaldırıldı:** `DEFAULT_META` (ölü sabitti ve sentinel'i "varsayılan
+paylaşım görseli" gibi gösterip kuruma özel olması gereken değeri platform
+geneli sabit yapmaya davet ediyordu).
+
+**Test:** `npm run test:og-image` — **57 kontrol**; 10 mutasyonun 10'u da
+testi kırıyor (biri ilk turda kırmamıştı, test o yüzden genişletildi).
+
+**Kalan (ayrı iş):** yüklenen kapaklar hâlâ ham ve devasa; paylaşım artık
+küçültülmüş adresi kullanıyor ama **sayfa içi** trafik de aynı ham
+dosyalardan besleniyor. Yükleme tarafında (ImageUploader) boyut sınırı
+konusu bu maddenin dışında.
+
+`favicon.ico` yokluğu ayrı ve daha küçük: tarayıcı varsayılan ikon
+gösteriyor, sayfa hatası yok.
 
 ## b) Ziyaretçiye ADMİN dili gösteriliyor
 

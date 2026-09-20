@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { getCurrentTenantOrNull } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
 import { buildTenantPublicUrl } from "@/lib/tenant-url";
+import { pickOgImage } from "@/lib/og-image";
 import { isSuperAdminHost } from "@/lib/tenant-hostname";
 import HydrationFlag from "@/components/HydrationFlag";
 import "./globals.css";
@@ -76,6 +77,16 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       locale: "tr_TR",
       siteName: title,
+      // Paylasim gorseli AGI: bu blok yalniz `openGraph` TANIMLAMAYAN
+      // sayfalara miras kalir (Next'in metadata merge'u shallow —
+      // lib/seo.ts basligi). Public sayfalarin hepsi buildPublicMetadata'dan
+      // geciyor ve zinciri kendi kuruyor; buradaki satir, yarin o
+      // yardimciyi kullanmayi unutan bir sayfanin da kurumun KENDI
+      // logosuyla paylasilmasini saglar. Sentinel/goreli deger elenir.
+      ...(() => {
+        const logo = pickOgImage(map.logo_url);
+        return logo ? { images: [{ url: logo, alt: title }] } : {};
+      })(),
     },
     // Sayfa bazinda twitter tanimi yok — bu default tum public sayfalara
     // miras kalir; twitter:image/title og taglerinden okunur.

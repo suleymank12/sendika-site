@@ -25,6 +25,7 @@
     "test:idle": "node scripts/test-idle-timeout.mjs",
     "test:admin-list": "node scripts/test-admin-list.mjs",
     "test:auth-link": "node scripts/test-auth-link.mjs",
+    "test:og-image": "node scripts/test-og-image.mjs",
     "test:admin-access": "node scripts/test-admin-access.mjs",
     "test:cerez": "node scripts/test-cerez-dayanikliligi.mjs",
     "test:tenant-cache": "node scripts/test-tenant-cache.mjs",

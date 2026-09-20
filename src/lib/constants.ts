@@ -49,12 +49,19 @@ export const MAX_UPLOAD_MB = {
  */
 export const PLACEHOLDER_LOGO_URL = "/placeholder-logo.png";
 
-// Varsayilan meta tag degerleri
-export const DEFAULT_META = {
-  TITLE: "Sendika Adı",
-  DESCRIPTION: "Sendika Adı Kurumsal Web Sitesi",
-  OG_IMAGE: PLACEHOLDER_LOGO_URL,
-} as const;
+/*
+ * `DEFAULT_META` KALDIRILDI (20 Eylul 2026).
+ *
+ * Icinde `OG_IMAGE: PLACEHOLDER_LOGO_URL` vardi ve NOTE.md'de "her sayfa
+ * 404 gorsel referansi tasiyor" diye kayitliydi. Olcum bunu curuttu:
+ * sabit HICBIR yerde kullanilmiyordu (`grep -rn DEFAULT_META src/` -> tek
+ * satir, tanimin kendisi), yani canlida boyle bir etiket hic yazilmadi.
+ *
+ * Yine de silindi: sentinel'i "varsayilan paylasim gorseli" gibi gosteren
+ * bu sabit, kuruma ozel olmasi gereken bir degeri platform geneli sabit
+ * yapmaya davet ediyordu. Dogru kaynak artik `lib/og-image.ts` +
+ * `lib/seo.ts` zinciri (icerigin kapagi -> KURUMUN logosu -> hicbiri).
+ */
 
 /**
  * Super admin panelinin KENDI alt alani (19 Eylul 2026).
