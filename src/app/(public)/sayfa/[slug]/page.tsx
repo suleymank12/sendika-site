@@ -34,6 +34,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     path: isKurumsalSlug ? `/kurumsal/${params.slug}` : `/sayfa/${params.slug}`,
     title: data.title,
     description: extractTextFromHtml(data.content) || undefined,
+    // 🔴 21 Eylul 2026'ya kadar EKSIKTI: `pages.cover_image` kolonu var,
+    // panelde yukleniyor (MediaSection, folder="pages") ve sayfada
+    // gosteriliyor — ama paylasim zincirine HIC girmiyordu, yani bu sayfalar
+    // kapagi olsa bile kurumun logosuna dusuyordu. Haber/duyuru/album/manset/
+    // yonetim gecirirken yalniz sayfa gecirmiyordu (teshis raporu, madde 9/1).
+    image: data.cover_image,
   });
 }
 

@@ -366,13 +366,21 @@ export default function AdminSettingsPage() {
               </p>
             </FormField>
             <FormField label="Logo">
+              {/* 🔴 Logo, `pickOgImage` zincirinin İKİNCİ halkası (lib/seo.ts):
+                  kapağı olmayan HER sayfa — anasayfa dahil — logoyla paylaşılır.
+                  Panelde bu bugüne kadar hiç söylenmiyordu ve ölçümde default
+                  kurumun logosu 600×840 DİKEY çıktı (1,91:1 çerçevede %63 alan
+                  kaybı, üstelik kırpılan şey genelde kurumun adı oluyor). */}
               <ImageUploader
                 value={settings.logo_url}
                 onChange={(url) => update("logo_url", url)}
                 folder="branding"
+                sharePreview
+                sharePreviewNote="Logonuz, kapağı olmayan sayfaların (anasayfa dahil) paylaşım görseli olarak da kullanılır."
               />
               <p className="text-xs text-text-muted mt-1">
                 Önerilen: PNG formatı, şeffaf arka plan, en az 200 piksel yükseklik.
+                Yatay bir logo paylaşımlarda daha iyi görünür.
               </p>
             </FormField>
             <FormField label="Favicon (Tarayıcı Sekmesi İkonu)">

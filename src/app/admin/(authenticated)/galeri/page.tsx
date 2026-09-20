@@ -359,7 +359,14 @@ export default function AdminGalleryPage() {
             required
           />
           <FormField label="Kapak Görseli">
-            <ImageUploader value={form.cover_image} onChange={(url) => setForm({ ...form, cover_image: url })} folder="gallery" maxWidth={1200} maxHeight={675} />
+            {/* 🔴 maxHeight BİLEREK VERİLMİYOR (21 Eylül 2026) — MediaSection
+                kapağı ve manşetle aynı karar: "kutuya sığdır" dikey bir
+                kaynağın genişliğini eritip 600×315 eşiğinin altına düşürüyordu.
+                Genişlik cap'i (1200) yeterli; yükseklik serbest. */}
+            <ImageUploader value={form.cover_image} onChange={(url) => setForm({ ...form, cover_image: url })} folder="gallery" maxWidth={1200} sharePreview />
+            <p className="text-xs text-text-muted mt-1.5">
+              Albüm paylaşıldığında önizleme görseli olarak kullanılır. Önerilen: 1200×630 piksel (yatay).
+            </p>
           </FormField>
           <Select
             label="Durum"

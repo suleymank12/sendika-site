@@ -417,16 +417,25 @@ export default function AdminBoardMembersPage() {
               <section className="space-y-3">
                 <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Fotoğraf</p>
                 <FormField label="Üye Fotoğrafı">
+                  {/* Portre oran BİLEREK KORUNDU — bir insan fotoğrafı dikey
+                      olmalı. Ölçü 400×500'den 600×750'ye çıkarıldı (21 Eylül
+                      2026): AYNI oran, ama Facebook'un belgelediği 600×315
+                      eşiğini geçiyor. Bu fotoğraf `yonetim-kurulu/[slug]`
+                      sayfasının og:image'ı; 400 piksel genişlikte paylaşımda
+                      küçücük bir önizleme veriyordu.
+                      Paylaşım önizlemesi burada BİLEREK KAPALI: dikeylik kabul
+                      edilmiş bir karar, her fotoğrafta "çok dikey" uyarısı
+                      çıkarmak uyarı körlüğü üretirdi. */}
                   <ImageUploader
                     value={form.photo}
                     onChange={(url) => setForm({ ...form, photo: url })}
                     folder="board-members"
-                    maxWidth={400}
-                    maxHeight={500}
+                    maxWidth={600}
+                    maxHeight={750}
                   />
                 </FormField>
                 <p className="text-xs text-text-muted">
-                  Önerilen: portre (dikey) oran, 400 × 500 piksel.
+                  Önerilen: portre (dikey) oran, 600 × 750 piksel.
                 </p>
               </section>
 

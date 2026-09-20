@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import SafeImage from "@/components/SafeImage";
+import SharePreview from "@/components/admin/SharePreview";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
@@ -21,6 +22,19 @@ interface ImageUploaderProps {
   maxHeight?: number;
   /** false: WebP'ye cevirme, formati koru (logo/favicon keskinligi icin). Default true. */
   toWebp?: boolean;
+  /**
+   * Bu gorsel sosyal medya paylasimlarinda onizleme gorseli olarak
+   * kullaniliyorsa true: altina olcu + 1,91:1 paylasim onizlemesi + uyari
+   * cikar (components/admin/SharePreview.tsx).
+   *
+   * Bugun true verilen yerler (lib/og-image.ts zincirini besleyenler):
+   * haber/duyuru/sayfa kapagi, manset gorseli, galeri albumu kapagi,
+   * kurum logosu. Slider / anasayfa bolumu / favicon / sube yoneticisi
+   * fotografi paylasimda KULLANILMIYOR — onlarda bilerek kapali.
+   */
+  sharePreview?: boolean;
+  /** SharePreview'in altina eklenen ek cumle (logo kutusu icin). */
+  sharePreviewNote?: string;
 }
 
 export default function ImageUploader({
@@ -31,6 +45,8 @@ export default function ImageUploader({
   maxWidth,
   maxHeight,
   toWebp = true,
+  sharePreview = false,
+  sharePreviewNote,
 }: ImageUploaderProps) {
   const { tenant } = useTenant();
   const [uploading, setUploading] = useState(false);
@@ -102,26 +118,36 @@ export default function ImageUploader({
 
   if (value) {
     return (
-      <div className="relative group rounded-lg overflow-hidden border border-border h-48">
-        <SafeImage
-          src={value}
-          alt="Yüklenen görsel"
-          fill
-          sizes="(max-width: 768px) 100vw, 50vw"
-          className="object-cover"
-          fallback={
-            <div className="h-full w-full bg-bg-light flex items-center justify-center text-text-muted text-xs">
-              Görsel önizlenemiyor
-            </div>
-          }
-        />
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <X className="h-4 w-4" />
-        </button>
+      <div>
+        {/* 🔴 object-contain, object-cover DEGIL (21 Eylul 2026).
+            Eskiden bu kutu `object-cover` idi: 3648x5472 dikey bir fotograf
+            burada duzgun, genis, yatay bir SERIT gibi gorunuyordu — yani
+            onizleme gorselin gercek seklini GIZLIYORDU ve admin neyin
+            kesilecegini goremiyordu (teshis raporu, madde 9/4). Artik bu kutu
+            gorselin GERCEK halini gosterir; kirpilmis hali ayri ve etiketli
+            olarak SharePreview'da. Ikisi ayni seyi iddia etmiyor. */}
+        <div className="relative group rounded-lg overflow-hidden border border-border h-48 bg-bg-light">
+          <SafeImage
+            src={value}
+            alt="Yüklenen görsel"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-contain"
+            fallback={
+              <div className="h-full w-full bg-bg-light flex items-center justify-center text-text-muted text-xs">
+                Görsel önizlenemiyor
+              </div>
+            }
+          />
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="absolute top-2 right-2 rounded-full bg-black/60 p-1.5 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        {sharePreview && <SharePreview src={value} not={sharePreviewNote} />}
       </div>
     );
   }

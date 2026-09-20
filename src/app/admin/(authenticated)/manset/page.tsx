@@ -682,17 +682,35 @@ export default function AdminHeadlinePage() {
               <section className="space-y-3">
                 <p className="text-xs uppercase tracking-wider text-text-muted font-semibold">Manşet Görseli</p>
                 <FormField label="Kapak Görseli">
+                  {/* 🔴 maxHeight BİLEREK VERİLMİYOR (21 Eylül 2026).
+                      Eskiden 1400×600 "kutuya sığdır" idi ve DİKEY bir kaynağın
+                      genişliğini eritiyordu: 3648×5472 bir fotoğraf 400×600'e
+                      düşüyor, yani Facebook'un belgelediği 600×315 eşiğinin
+                      ALTINA iniyordu. Genişlik cap'i (1400) yeterli; yükseklik
+                      serbest. MediaSection kapağıyla aynı karar. */}
                   <ImageUploader
                     value={form.image_url}
                     onChange={(url) => setForm((p) => ({ ...p, image_url: url }))}
                     folder="headlines"
                     maxWidth={1400}
-                    maxHeight={600}
+                    sharePreview
                   />
                 </FormField>
                 {form.source_type === "custom" ? (
+                  /* 🔴 Öneri 1400×600'den 1200×630'a çekildi (21 Eylül 2026).
+                     Gerekçe ÖLÇÜLDÜ (Playwright, canlı dev sunucu): manşet
+                     şeridinin sitedeki çerçevesi TEK BİR ORAN DEĞİL —
+                     390px ekranda 350×350 (1,00), 1249'da 645×450 (1,43),
+                     1440'ta 816×450 (1,81), 1920'de 987×450 (2,19). Yani
+                     1400×600'ün (2,33) karşılık geldiği bir çerçeve YOK;
+                     ölçülen bandın da dışında. Paylaşım çerçevesi ise SABİT
+                     (1,91:1). 1200×630 hem paylaşımda tam oturuyor hem de
+                     ölçülen site bandının (1,00–2,19) ortasına düşüyor.
+                     Genişlik cap'i 1400'de kaldı: daha büyük yüklemeler
+                     küçültülmüyor, ekstra piksel korunuyor. */
                   <p className="text-xs text-text-muted">
-                    Önerilen boyut: 1400 × 600 piksel.
+                    Önerilen: 1200×630 piksel (yatay). Daha büyük yatay görseller de
+                    olur — en fazla 1400 piksel genişliğe küçültülür.
                   </p>
                 ) : (
                   // Kaynakli mansette gorsel HABERIN/DUYURUNUN dosyasidir —

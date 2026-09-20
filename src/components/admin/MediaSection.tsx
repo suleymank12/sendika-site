@@ -54,7 +54,6 @@ interface MediaSectionProps {
   youtubeUrl: string;
   onYoutubeChange: (url: string) => void;
   coverMaxWidth?: number;
-  coverMaxHeight?: number;
   contentType?: string;
   contentId?: string | null;
   galleryImages?: string[];
@@ -123,7 +122,6 @@ export default function MediaSection({
   youtubeUrl,
   onYoutubeChange,
   coverMaxWidth = 1200,
-  coverMaxHeight = 675,
   contentType,
   galleryImages,
   onGalleryChange,
@@ -227,15 +225,24 @@ export default function MediaSection({
           <h4 className="text-sm font-semibold text-text-dark">Kapak Görseli</h4>
           <p className="text-xs text-text-muted mt-0.5">
             Liste sayfalarında ve sosyal medya paylaşımlarında görünür. Zorunlu değil.
+            Önerilen: 1200×630 piksel (yatay).
           </p>
         </div>
         <div className="max-w-lg">
+          {/* 🔴 maxHeight BILEREK VERILMIYOR (21 Eylul 2026 — teshis raporu, Adim 0).
+              Eskiden 1200x675 "kutuya sigdir" idi ve DIKEY bir kaynagin
+              genisligini eritiyordu: canli olcumde 311x675 cikan kapak tam
+              olarak buydu — Facebook'un belgeledigi 600x315 esiginin ALTINDA,
+              yani paylasimda kucucuk onizleme. Genislik cap'i yeterli;
+              yukseklik serbest (RichTextEditor ayni deseni kullaniyor:
+              "Genislik cap'i; yukseklik serbest"). Ayni dikey kaynak artik
+              1200x1600 olur: kirpilir ama BUYUK onizleme verir. */}
           <ImageUploader
             value={coverImage}
             onChange={onCoverImageChange}
             folder={folder}
             maxWidth={coverMaxWidth}
-            maxHeight={coverMaxHeight}
+            sharePreview
           />
         </div>
       </div>

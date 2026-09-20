@@ -418,7 +418,12 @@ export default function AdminGalleryDetailPage() {
                 <option value="false">Taslak</option>
               </Select>
               <FormField label="Kapak Görseli">
-                <ImageUploader value={coverImage} onChange={setCoverImage} folder="gallery" maxWidth={1200} maxHeight={675} />
+                {/* 🔴 maxHeight BİLEREK VERİLMİYOR (21 Eylül 2026) — galeri
+                    liste sayfasındaki ikiz kutuyla aynı karar; gerekçe orada. */}
+                <ImageUploader value={coverImage} onChange={setCoverImage} folder="gallery" maxWidth={1200} sharePreview />
+                <p className="text-xs text-text-muted mt-1.5">
+                  Albüm paylaşıldığında önizleme görseli olarak kullanılır. Önerilen: 1200×630 piksel (yatay).
+                </p>
               </FormField>
             </div>
           </section>
