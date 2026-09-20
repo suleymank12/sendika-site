@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
 import { SUPER_ADMIN_HOME_PATH, SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
+import { AUTH_RETURN_PATH, parseAuthLink } from "@/lib/super-admin/admin-invite";
 import {
   isAuthCookieName,
   isTransportAuthError,
@@ -178,6 +179,45 @@ export async function middleware(request: NextRequest) {
   let tenantSlug = "default";
   if (match.type === "subdomain") {
     tenantSlug = match.slug;
+  }
+
+  // ==========================================================================
+  // KURAL (c) — APEX YAKALAYICI: kökteki mail jetonu kabul sayfasına
+  // ==========================================================================
+  // (20 Eylül 2026, P3) Mail şablonları jetonu `{{ .RedirectTo }}` adresine
+  // ekliyor. `.RedirectTo` GoTrue'nun DOĞRULADIĞI adrestir: müşterinin
+  // domaini Redirect URLs listesinde yoksa GoTrue onu sessizce **Site URL'e**
+  // (apex kökü) çevirir. Ölçüldü (20 Eylül, service_role, mail gitmeden):
+  //
+  //   generate_link recovery + izin listesinde OLMAYAN dönüş adresi
+  //     → RedirectTo = "https://<apex>"      (kök, yolsuz)
+  //     → şablon linki  "https://<apex>?token_hash=…&type=recovery"
+  //
+  // Yani kurulum adımı (KURULUM 6.1) unutulduğunda kişi şifre formu yerine
+  // platformun ANA SAYFASINA düşüyor. Bu satırlar arızayı "hiç çalışmıyor"dan
+  // "çalışıyor ama önce apex'e uğruyor" seviyesine indiriyor: jeton tek
+  // kullanımlık ve sorgu korunarak taşındığı için yeni bir risk açılmıyor.
+  //
+  // ⚠️ DAVET bu ağa TAKILMAZ ve takılamaz: davetin dönüş adresi `?tenant=`
+  // taşıdığı için şablon birleştiricisi `&` (AUTH_LINK_JOINER) — geri düşüşte
+  // link "https://<apex>&token_hash=…" olur, bu da geçerli bir adres değil,
+  // tarayıcı `<apex>&token_hash=…` diye bir HOST arar ve DNS'te bulamaz;
+  // istek sunucuya hiç gelmez (ölçüldü). Davetin tek güvencesi
+  // `NEXT_PUBLIC_SITE_URL`'in Site URL ile aynı host olması (KURULUM Adım 8).
+  //
+  // 🔴 KURAL (a)/(b)'DEN SONRA, o bloğun DIŞINDA duruyor: host kuralları
+  // bloğu `test-super-admin-host.mjs` tarafından "tek redirect" diye mühürlü
+  // (panel adresi hiçbir host'tan yayılmasın). Bu yönlendirmenin panelle
+  // ilgisi yok; süper admin host'u ise bu satıra hiç ulaşmaz (kökü zaten
+  // yukarıda panele gidiyor, gerisi 404).
+  //
+  // Fail-closed BOZULMAZ: yönlendirme yalnız yolu değiştirir. Çözülemeyen bir
+  // custom domain'de yeni istek `/admin/…` olarak gelir ve aşağıdaki
+  // fail-closed kuralı onu `tenant-bulunamadi`ya alır.
+  if (pathname === "/" && parseAuthLink(request.nextUrl.search, "").route === "token_hash") {
+    const url = request.nextUrl.clone();
+    url.pathname = AUTH_RETURN_PATH;
+    return NextResponse.redirect(url);
   }
 
   // x-tenant-slug request header'ına HENÜZ yazılmıyor: custom_domain DB

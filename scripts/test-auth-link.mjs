@@ -39,9 +39,27 @@
  *   (h) Donus yolu sabiti uc dosyada AYNI (admin-invite / setup-checklist
  *       / setup-probes)
  *   (i) Gecis donemi — eski `?code` ve davet `#access_token` dallari
- *       kabul sayfasinda DURUYOR (P3'e kadar silinmeyecek)
+ *       kabul sayfasinda DURUYOR (P3'te de silinmedi)
  *   (j) Super admin panel host'u — kok yol yonlendirmesi (20 Eylul 2026);
  *       yalniz `/`, digerleri 404 kalir
+ *   (l) 🔴 P3 / DAVET token_hash'e tasindi — kabul sayfasinin davet dali:
+ *       kurum parametresi korunur, gecersiz davet ekranindaki butonlar
+ *       kurumun KENDI adresini gosterir (apex tuzagi geri gelmesin)
+ *   (m) P3 / APEX YAKALAYICI — kokteki jeton kabul sayfasina tasinir;
+ *       sorgu SILINMEZ; fail-closed ve panel host kurallari bozulmaz
+ *   (n) P3 / `Referrer-Policy: no-referrer` — yalniz kabul sayfasi
+ *
+ * ## P3 CANLI OLCUMLERI (20 Eylul 2026, service_role, mail GITMEDI)
+ *
+ *   generate_link type=invite, izin listesindeki donus adresiyle:
+ *     RedirectTo   = gonderilen adresin BIREBIR AYNISI (`?tenant=` korundu)
+ *     hashed_token = 56 karakter hex, `pkce_` oneki YOK
+ *   POST /verify {token_hash, type:"invite"} → 200, oturum GELDI
+ *   ayni jeton ikinci kez → 403 otp_expired; yeni generate_link eskisini oldurur
+ *   izin listesinde OLMAYAN donus adresiyle:
+ *     recovery → RedirectTo = Site URL koku → link "<apex>?token_hash=…"  (yakalanir)
+ *     invite   → RedirectTo = Site URL koku → link "<apex>&token_hash=…"  (BOZUK HOST)
+ *   Olcum kullanicisi (`+p3davet`) olcumden sonra SILINDI.
  *
  * ⚠️ KAPSAM SINIRI (bilincli): repoda React/HTTP kosucusu YOK. Kabul
  *   sayfasinin calisan davranisi burada calistirilmaz; (e) ve (i)
@@ -562,6 +580,197 @@ header("(k) DAVRANIS — istek govdesinde code_challenge var mi? (ag'a CIKILMAZ)
     if (oncekiKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = oncekiKey;
   }
+}
+
+// ---------------------------------------------------------------------------
+header("(l) 🔴 P3 — DAVET token_hash dali (kabul sayfasi)");
+// ---------------------------------------------------------------------------
+{
+  const sayfa = read(KABUL_SAYFASI);
+
+  // Davet de artik bu daldan geliyor: mod LINKTEN okunuyor, tahmin edilmiyor.
+  okTrue("p3-davet", "mod linkten okunuyor", sayfa.includes("setMode(link.mode);"), "token_hash dali");
+  okTrue(
+    "p3-davet",
+    "davet gelirse recovery bayragi temizleniyor",
+    sayfa.includes('if (link.mode === "recovery") {') &&
+      sayfa.includes("sessionStorage.removeItem(RECOVERY_FLAG_KEY)"),
+    "mod kaliciligi"
+  );
+
+  // Kurum parametresi: linkten okunur, depoya yazilir, replaceState onu SILMEZ.
+  okTrue(
+    "p3-davet",
+    "kurum linkten okunuyor",
+    sayfa.includes("const linkTenant = parseInviteTenantId("),
+    "tenant"
+  );
+  okTrue(
+    "p3-davet",
+    "kurum depoya yaziliyor (yenilemeye dayanikli)",
+    sayfa.includes("sessionStorage.setItem(INVITE_TENANT_KEY, linkTenant)"),
+    "tenant"
+  );
+  okTrue(
+    "p3-davet",
+    "kurumsuz TAZE davette eski deger siliniyor",
+    sayfa.includes('} else if (link.mode === "invite") {') &&
+      sayfa.includes("sessionStorage.removeItem(INVITE_TENANT_KEY)"),
+    "tenant"
+  );
+  okTrue("p3-davet", "kurum state'e yaziliyor", sayfa.includes("setInviteTenantId(linkTenant);"), "tenant");
+
+  // 🔴 ASIL P3 REGRESYONU: kullanilmis DAVET linki artik `#error=` dalindan
+  //    DEGIL, verifyOtp hatasindan geliyor. O ekrandaki iki buton kurumun
+  //    KENDI adresini gostermezse kisi apex'te giris yapar ve "Yetkisiz
+  //    Erisim" gorur (19 Eylul'de kapatilan ariza).
+  okTrue(
+    "p3-davet",
+    "kurum baglantilari ortak fonksiyonda",
+    sayfa.includes("const loadTenantLinks = (tenantId: string) => {"),
+    "ortaklastirma"
+  );
+  ok(
+    "p3-davet",
+    "🔴 loadTenantLinks UC yerden cagriliyor (hata + verifyOtp hatasi + ag hatasi)",
+    (sayfa.match(/loadTenantLinks\(/g) || []).length,
+    3, // tanim `= (tenantId…` seklinde, sayilmaz: bunlarin ucu de CAGRI
+    "cagri sayisi"
+  );
+  okTrue(
+    "p3-davet",
+    "verifyOtp hatasinda davet icin cagriliyor",
+    sayfa.includes('if (link.mode === "invite" && linkTenant) {'),
+    "hata yolu"
+  );
+  okTrue(
+    "p3-davet",
+    "cagri verifyOtp hatasindan SONRA (once linkError yazilir)",
+    comesBefore(sayfa, 'setLinkError({ code: error?.code ?? null, flow: "token_hash" })', "loadTenantLinks(linkTenant)"),
+    "sira"
+  );
+  okTrue(
+    "p3-davet",
+    "eski hata dali da ayni fonksiyonu kullaniyor",
+    sayfa.includes("loadTenantLinks(errTenant);"),
+    "ortaklastirma"
+  );
+
+  // Davet dali SILINMEDI (P3'te temizlik yok — ucusta eski linkler olabilir).
+  okTrue("p3-davet", "#access_token dali DURUYOR", sayfa.includes("supabase.auth.setSession({"), "gecis");
+  okTrue("p3-davet", "?code dali DURUYOR", sayfa.includes("supabase.auth.getSession()"), "gecis");
+}
+
+// ---------------------------------------------------------------------------
+header("(m) P3 — APEX YAKALAYICI (middleware)");
+// ---------------------------------------------------------------------------
+{
+  const mw = read("src/middleware.ts");
+  const code = stripComments(mw);
+  const KOSUL = 'if (pathname === "/" && parseAuthLink(request.nextUrl.search, "").route === "token_hash") {';
+
+  okTrue("apex", "kural var", code.includes(KOSUL), "middleware");
+  okTrue(
+    "apex",
+    "ayristirici ORTAK (kabul sayfasiyla ayni fonksiyon)",
+    code.includes('parseAuthLink } from "@/lib/super-admin/admin-invite"') ||
+      code.includes("parseAuthLink,"),
+    "import"
+  );
+
+  const blok = code.slice(code.indexOf(KOSUL), code.indexOf("const requestHeaders"));
+  okTrue("apex", "hedef yol sabitten", blok.includes("url.pathname = AUTH_RETURN_PATH;"), "hedef");
+  okTrue("apex", "yonlendirme yapiliyor", blok.includes("return NextResponse.redirect(url);"), "hedef");
+  // 🔴 Bu satir sozlesmenin kalbi: sorgu silinirse jeton da gider. Ayni
+  //    dosyada `url.search = ""` yapan BASKA kurallar var — kopyalanmasin.
+  okTrue("apex", "🔴 sorgu SILINMIYOR (url.search'e dokunulmuyor)", !blok.includes("url.search"), "sorgu korunur");
+
+  // Sira: panel kurallarindan SONRA (panel host'u bu satiri hic gormez),
+  //       auth/CSP kurulumundan ONCE (bosa is yok),
+  //       fail-closed'dan ONCE ama onu ETKISIZLESTIRMEDEN (yalniz yol degisir).
+  okTrue(
+    "apex",
+    "panel 404 kuralindan SONRA",
+    comesBefore(code, 'if (superAdminHost && !pathname.startsWith("/super-admin"))', KOSUL),
+    "sira"
+  );
+  okTrue("apex", "createServerClient'tan ONCE", comesBefore(code, KOSUL, "createServerClient("), "sira");
+  okTrue("apex", "auth.getUser()'dan ONCE", comesBefore(code, KOSUL, "auth.getUser()"), "sira");
+  okTrue(
+    "apex",
+    "fail-closed kurali YERINDE (cozulemeyen host /admin'e dusurulmez)",
+    code.includes("tenantResolveFailed &&") && comesBefore(code, KOSUL, "tenantResolveFailed &&"),
+    "fail-closed"
+  );
+
+  // ---- GoTrue geri dusus davranisi (20 Eylul canli olcumu) ----
+  // Izin listesinde olmayan donus adresi → RedirectTo = Site URL KOKU.
+  // Sablon jetonu o koke ekler. Iki akisin sonucu AYNI DEGIL:
+  const siteUrl = "https://platform.ornek";
+
+  const kurtarmaLinki = buildTemplateAuthLink(siteUrl, "recovery", "HASH");
+  const k = new URL(kurtarmaLinki);
+  ok("apex", "sifirlama geri dusus: link koke duser", k.pathname, "/", kurtarmaLinki);
+  ok("apex", "sifirlama geri dusus: host temiz", k.host, "platform.ornek", kurtarmaLinki);
+  ok(
+    "apex",
+    "🔴 sifirlama geri dusus YAKALANIR",
+    parseAuthLink(k.search, "").route,
+    "token_hash",
+    kurtarmaLinki
+  );
+
+  const davetLinki = buildTemplateAuthLink(siteUrl, "invite", "HASH");
+  const d = new URL(davetLinki);
+  okTrue(
+    "apex",
+    "🔴 davet geri dusus YAKALANAMAZ — host kirleniyor (DNS'te yok)",
+    d.host !== "platform.ornek" && d.host.includes("token_hash"),
+    davetLinki
+  );
+  ok(
+    "apex",
+    "davet geri dususunde jeton okunamaz",
+    parseAuthLink(d.search, "").route,
+    "none",
+    davetLinki
+  );
+}
+
+// ---------------------------------------------------------------------------
+header("(n) P3 — Referrer-Policy: no-referrer (yalniz kabul sayfasi)");
+// ---------------------------------------------------------------------------
+{
+  const cfg = read("next.config.mjs");
+
+  okTrue(
+    "referrer",
+    "genel kural DEGISMEDI",
+    cfg.includes('{ key: "Referrer-Policy", value: "strict-origin-when-cross-origin" }'),
+    "next.config.mjs"
+  );
+  okTrue(
+    "referrer",
+    "kabul sayfasi icin ayri kural",
+    cfg.includes('source: "/admin/davet-kabul"') &&
+      cfg.includes('headers: [{ key: "Referrer-Policy", value: "no-referrer" }]'),
+    "next.config.mjs"
+  );
+  // 🔴 SIRA: Next eslesen header'lari sirayla uygular, ayni anahtarda SONUNCU
+  //    kazanir (olculdu: dev sunucusu + curl → yalniz `no-referrer` dondu).
+  //    Blok yukari tasinirsa genel kural onu ezer ve jeton Referer'a sizar.
+  okTrue(
+    "referrer",
+    "🔴 ozel kural genel kuraldan SONRA",
+    comesBefore(cfg, 'source: "/:path*"', 'source: "/admin/davet-kabul"'),
+    "sira"
+  );
+  okTrue(
+    "referrer",
+    "yol sabiti kabul sayfasiyla ayni",
+    cfg.includes(`source: "${AUTH_RETURN_PATH}"`),
+    AUTH_RETURN_PATH
+  );
 }
 
 // ---------------------------------------------------------------------------

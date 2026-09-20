@@ -79,6 +79,48 @@ export default function DavetKabulPage() {
   const verifyStartedRef = useRef(false);
 
   useEffect(() => {
+    /**
+     * "Geçersiz" ekranındaki "Şifremi Unuttum" / "Giriş Sayfasına Git"
+     * bağlantılarını kurumun KENDİ adresine çevirir.
+     *
+     * NEDEN: bu sayfa apex'te (SITE_URL) açılır; apex'te giriş yapan kurum
+     * admini "Yetkisiz Erişim"e düşer (apex = default kurum). `tenants`
+     * anon'a açık (tenants_public_select); okunamazsa göreli bağlantılar
+     * kalır.
+     *
+     * İKİ YERDEN ÇAĞRILIR (20 Eylül 2026, P3):
+     *  - Supabase linki reddettiyse (`#error=`) — davet ESKİ biçimdeyken
+     *    ({{ .ConfirmationURL }}) hata böyle gelirdi;
+     *  - `verifyOtp` reddettiyse — davet token_hash'e taşındıktan sonra
+     *    kullanılmış/süresi dolmuş davet linki ARTIK bu yoldan geliyor.
+     *    Fonksiyon ortaklaştırılmasaydı yeni yolda butonlar apex'e
+     *    gidecekti: 19 Eylül'de kapatılan arızanın sessiz geri dönüşü.
+     */
+    const loadTenantLinks = (tenantId: string) => {
+      // Sorgu sürerken butonlar tıklanamaz: göreli yol apex'tir ve hızlı
+      // tıklayan kurum admini oraya gidip "Yetkisiz Erişim"e düşerdi. Göreli
+      // yola YALNIZCA sorgu başarısız olursa (hata / satır yok / 5 sn yanıt
+      // yok) düşülür; geç gelen yanıt doğru adresi yine yazar.
+      setTenantLinksPending(true);
+      const fallback = window.setTimeout(() => setTenantLinksPending(false), 5000);
+      const done = () => {
+        window.clearTimeout(fallback);
+        setTenantLinksPending(false);
+      };
+      createClient()
+        .from("tenants")
+        .select("slug, custom_domain")
+        .eq("id", tenantId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data?.slug) {
+            const base = buildTenantAdminUrl(data.slug, data.custom_domain);
+            setTenantLinks({ login: `${base}/giris`, forgot: `${base}/sifremi-unuttum` });
+          }
+          done();
+        }, done);
+    };
+
     // 1) Hash'ten parametreleri ÖNCE oku (Supabase temizlemeden önce)
     //    Implicit akis: DAVET linkleri boyle gelir (#access_token&type=invite),
     //    cunku davet server-side inviteUserByEmail ile baslar (PKCE verifier yok).
@@ -124,28 +166,7 @@ export default function DavetKabulPage() {
         new URLSearchParams(window.location.search).get(INVITE_TENANT_PARAM)
       );
       if (errMode === "invite" && errTenant) {
-        // Sorgu surerken butonlar tiklanamaz: goreli yol apex'tir ve hizli
-        // tiklayan kurum admini oraya gidip "Yetkisiz Erisim"e duserdi. Goreli
-        // yola YALNIZCA sorgu basarisiz olursa (hata / satir yok / 5 sn yanit
-        // yok) dusulur; gec gelen yanit dogru adresi yine yazar.
-        setTenantLinksPending(true);
-        const fallback = window.setTimeout(() => setTenantLinksPending(false), 5000);
-        const done = () => {
-          window.clearTimeout(fallback);
-          setTenantLinksPending(false);
-        };
-        createClient()
-          .from("tenants")
-          .select("slug, custom_domain")
-          .eq("id", errTenant)
-          .maybeSingle()
-          .then(({ data }) => {
-            if (data?.slug) {
-              const base = buildTenantAdminUrl(data.slug, data.custom_domain);
-              setTenantLinks({ login: `${base}/giris`, forgot: `${base}/sifremi-unuttum` });
-            }
-            done();
-          }, done);
+        loadTenantLinks(errTenant);
       }
 
       setStatus("invalid");
@@ -161,8 +182,15 @@ export default function DavetKabulPage() {
     //    kurumsal proxy) jetonu YAKMAZ, çünkü tüketim GET ile değil bu
     //    POST ile oluyor.
     //
-    //    ⚠️ Bugün bu dala YALNIZCA şablon P2'de değiştirildikten sonra
-    //    gerçek link düşer; kod önce gelsin diye şimdiden burada.
+    //    ⚠️ 20 Eylül 2026 / P3: sıfırlama (P2) ve DAVET (P3) şablonlarının
+    //    ikisi de bu biçime taşındı — `type` linkte açıkça yazılı, mod artık
+    //    tahmin edilmiyor. Davet için ölçüldü (service_role, mail gitmeden):
+    //      generate_link type=invite → hashed_token 56 hex, `pkce_` öneki YOK
+    //      POST /verify {token_hash, type:"invite"} → 200, oturum GELDİ
+    //      aynı jeton ikinci kez → 403 otp_expired (tek kullanımlık)
+    //      ayrıca: bir sonraki generate_link öncekini ÖLDÜRÜR (jeton yenilenir)
+    //    `{{ .RedirectTo }}` davet için `?tenant=<uuid>`'yi BİREBİR koruyor —
+    //    bu yüzden şablonda birleştirici `&` (bkz. AUTH_LINK_JOINER).
     const link = parseAuthLink(window.location.search, window.location.hash);
     if (link.route === "token_hash") {
       // 🔴 ÖNLEM 1 — TEK ÇAĞRI KİLİDİ. `reactStrictMode` açık (Next 14
@@ -193,13 +221,30 @@ export default function DavetKabulPage() {
         // sessionStorage kapali olabilir — state zaten set edildi
       }
 
-      // Davet de bu yola taşındığında (P3) kurum parametresi gerekecek;
-      // bugün sıfırlama linki taşımıyor, okumak bedava.
-      setInviteTenantId(
-        parseInviteTenantId(
-          new URLSearchParams(window.location.search).get(INVITE_TENANT_PARAM)
-        )
+      // Davet linkinin kurumu (?tenant=<uuid>). P3'te davet de bu yola
+      // taşındı: link `...davet-kabul?tenant=<uuid>&token_hash=…&type=invite`
+      // biçiminde geliyor (birleştirici `&` — bkz. AUTH_LINK_JOINER).
+      //
+      // replaceState (aşağıda) yalnız `token_hash` + `type`'ı siler, `?tenant=`
+      // URL'de KALIR; yine de depoya yazılıyor ki replaceState engellenirse
+      // ya da adres elle kısaltılırsa kurum kaybolmasın. Taze bir DAVET
+      // linki kurum taşımıyorsa depodaki eski değer SİLİNİR — aynı sekmede
+      // önceki bir davetten kalan kurum bu daveti yanlış yere yollamasın.
+      // (Sıfırlama linki kurum taşımaz ve bu değeri kullanmaz; orada depoya
+      // dokunulmuyor.)
+      const linkTenant = parseInviteTenantId(
+        new URLSearchParams(window.location.search).get(INVITE_TENANT_PARAM)
       );
+      try {
+        if (linkTenant) {
+          sessionStorage.setItem(INVITE_TENANT_KEY, linkTenant);
+        } else if (link.mode === "invite") {
+          sessionStorage.removeItem(INVITE_TENANT_KEY);
+        }
+      } catch {
+        // sessionStorage kapali olabilir — state zaten set ediliyor
+      }
+      setInviteTenantId(linkTenant);
 
       // 🔴 ÖNLEM 2 — JETONU URL'DEN SİL, doğrulamadan ÖNCE.
       //    İki işi var: (a) sayfa yenilenirse aynı tek-kullanımlık jetonla
@@ -229,6 +274,13 @@ export default function DavetKabulPage() {
           if (error || !data.session) {
             console.error("[DavetKabul] verifyOtp hatası:", error);
             setLinkError({ code: error?.code ?? null, flow: "token_hash" });
+            // Kullanılmış / süresi dolmuş DAVET linki artık bu yoldan geliyor
+            // (P3 öncesi `#error=` dalından gelirdi). "Geçersiz" ekranındaki
+            // iki buton kurumun kendi adresini göstermeli — yoksa kişi apex'te
+            // giriş yapıp "Yetkisiz Erişim" görür.
+            if (link.mode === "invite" && linkTenant) {
+              loadTenantLinks(linkTenant);
+            }
             setStatus("invalid");
             return;
           }
@@ -238,6 +290,9 @@ export default function DavetKabulPage() {
           // Ağ/beklenmeyen hata — auth hatası değil, kod da gelmez.
           console.error("[DavetKabul] verifyOtp beklenmeyen hata:", err);
           setLinkError({ code: null, flow: "token_hash" });
+          if (link.mode === "invite" && linkTenant) {
+            loadTenantLinks(linkTenant);
+          }
           setStatus("invalid");
         }
       };

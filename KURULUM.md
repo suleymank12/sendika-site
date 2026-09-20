@@ -258,8 +258,18 @@ Desendeki `*`, `.` ve `/` karakterlerini geçemez: subdomain adına ve
 
 Bugünkü akışta davetler `NEXT_PUBLIC_SITE_URL`'e (Adım 8) döner. Bu değer Site
 URL ile birebir aynıysa (şema + host) apex satırındaki `*` hiç devreye girmez;
-farklı yazılırsa (ör. `www.` ile) davetleri o `*` kurtarır — koymak bedava,
-koymamak o hatayı sessiz yapar.
+farklı yazılırsa (ör. `www.` ile) davetleri o `*` kurtarır — koymak bedava.
+
+🔴 **20 Eylül 2026 — koymamanın bedeli arttı.** Davet şablonu artık jetonu
+dönüş adresine kendi ekliyor (`{{ .RedirectTo }}&token_hash=…`). Dönüş adresi
+kabul edilmezse GoTrue onu **Site URL köküne** çevirir ve link
+`https://<apex>&token_hash=…` olur — bu geçerli bir adres **değildir**:
+tarayıcı `<apex>&token_hash=…` diye bir **host** arar ve DNS'te bulamaz
+(20 Eylül'de ölçüldü). Yani davet "açılmıyor" bile demez, **site
+bulunamadı** der. Sıfırlamada aynı durum apex ana sayfasına düşmekle kalır
+(ve middleware'deki apex yakalayıcı onu kabul sayfasına taşır) — davette
+yakalanacak bir istek yoktur. `NEXT_PUBLIC_SITE_URL` (Adım 8) Site URL ile
+**aynı host** olmalı.
 
 Şifre sıfırlama linkleri kurumun **kendi adresine** döner. ⚠️ **20 Eylül 2026
 düzeltmesi:** burada eskiden "query taşımaz" yazıyordu — **artık yanlış**.
@@ -354,8 +364,14 @@ Eylül 2026'da canlı bug tam olarak buradan kaçtı: aynı pencerede test edili
 çalışıyordu, gerçek kullanıcı başka pencerede açınca "geçersiz" diyordu
 (NOTE.md → "ŞİFRE SIFIRLAMA PKCE'DEN ÇIKARILDI").
 
-Ek kontrol (davet şablonuna dokunulduysa): tek gerçek davet gönderip linkin
-**farklı bir tarayıcıda** açıldığını görün.
+🔴 **Davet şablonuna dokunulduysa ZORUNLU 3. test** (20 Eylül 2026'dan beri
+davet de `token_hash` taşıyor): süper admin → kurum → "+ Admin Ekle" ile
+**taze** bir adrese tek gerçek davet gönderin, maildeki linke **farklı bir
+tarayıcıda** tıklayın. Beklenen: "Şifrenizi Belirleyin" formu (adres
+çubuğunda `?tenant=<uuid>` kalır, jeton kaybolur). Sonra **aynı linke tekrar**
+tıklayın: "Davet Linki Geçersiz" ekranı çıkmalı ve oradaki iki buton
+**kurumun kendi adresini** göstermeli — apex'i gösteriyorsa kurum admini
+"Yetkisiz Erişim"e düşer, şablon/kod geri alınmalı.
 
 Linkin biçimi bozulduysa belirti şudur: sayfa "Davet/Sıfırlama Linki
 Geçersiz" der ya da kişi ana sayfaya düşer. Şablondaki birleştirme karakteri

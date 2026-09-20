@@ -352,22 +352,134 @@ kurumsal proxy) jetonu yakamaz — tüketim GET ile değil sayfanın POST'uyla o
 <p><a href="{{ .ConfirmationURL }}">Yeni Şifre Belirle</a></p>
 ```
 
-## ⏰ P3 — sonraki turlar
+## ✅ P3 — DAVET DE token_hash'E TAŞINDI + SERTLEŞTİRME (20 Eylül 2026)
 
-1. **Daveti de `token_hash`'e taşı** — şablon `&` ile (yukarıdaki sözleşme).
-   Kazanç: davet linkinde artık URL fragment'ında **canlı oturum JWT'si**
-   taşınmaz. Risk: davet müşteri kurulumunun tek yolu → ayrı commit, tek
-   gerçek davetle test.
-2. **Apex yakalayıcı** (`middleware.ts`): müşteri domaini Redirect URLs'e
-   eklenmemişse GoTrue dönüş adresini Site URL köküne çevirir; kökte
-   `?token_hash=&type=` görülürse `/admin/davet-kabul`e yönlendir. Arıza
-   "hiç çalışmıyor"dan "yanlış host'ta çalışıyor"a düşer.
-3. **`Referrer-Policy: no-referrer`** — yalnız `/admin/davet-kabul` için;
-   jeton aynı-origin Referer başlığıyla sunucu log'una düşmesin.
-4. **Eski dalların temizliği** — `?code` dalı + `RECOVERY_FLAG_KEY`; davet de
-   taşındıysa `#access_token` dalı + `INVITE_TENANT_KEY`. ⚠️ Davet
-   taşınmadan `#access_token` dalını SİLME.
-5. Nginx access log'unda query temizliği (sunucu tarafı, ölçülmedi).
+Kod hazır: tsc + lint + build temiz, **22 Node test script'i / 1658 kontrol /
+0 başarısız**, `test:auth-link` 77 → **108**. Migration YOK, Supabase
+ayarlarına dokunulmadı. Eski dallar (`?code`, `#access_token`) **duruyor** —
+bu turda temizlik yapılmadı.
+
+### Canlı ölçüm — davet zinciri (service_role, mail GİTMEDİ)
+
+Test adresi (`…+p3davet@…`) ölçümden sonra **silindi**; canlı kullanıcı sayısı
+ölçüm öncesiyle aynı (3).
+
+```
+generate_link type=invite + izin listesindeki dönüş adresi
+  RedirectTo   = gönderilen adresin BİREBİR AYNISI  (?tenant= korundu)
+  hashed_token = 56 karakter hex, `pkce_` öneki YOK (sunucu çağrısı=implicit)
+POST /verify {token_hash, type:"invite"}  → 200, access+refresh token GELDİ
+                                             email_confirmed_at + last_sign_in_at yazıldı
+aynı jetonla ikinci deneme                 → 403 otp_expired (tek kullanımlık)
+yeni generate_link                         → ÖNCEKİ jetonu öldürüyor
+```
+
+Gerçek tarayıcıda (dev, StrictMode AÇIK), gerçek jetonla:
+
+| Senaryo | Sonuç |
+|---|---|
+| `?tenant=<uuid>&token_hash=…&type=invite` | **"Şifrenizi Belirleyin"**, oturum çerezi yazıldı, URL `?tenant=`e indi |
+| Konsol | **0 hata** — StrictMode'a rağmen `verifyOtp` **tek kez** çağrıldı |
+| Aynı (kullanılmış) linke tekrar | "Davet Linki Geçersiz" + `otp_expired` + butonlar **kurumun kendi adresi** |
+| Apex kökü `?token_hash=…&type=recovery` | 307 → `/admin/davet-kabul` → **"Yeni Şifre Belirleyin"** |
+
+### 🔴 Ölçülen tuzak — davetin geri düşüşü "bozuk host" üretiyor
+
+İzin listesinde OLMAYAN dönüş adresiyle GoTrue `RedirectTo`'yu **Site URL
+köküne** çeviriyor (yolsuz, querysiz). İki akışın sonucu **aynı değil**:
+
+| Akış | Şablon linki | Sonuç |
+|---|---|---|
+| Sıfırlama (`?`) | `https://<apex>?token_hash=…&type=recovery` | Geçerli adres → **apex yakalayıcı kurtarır** |
+| Davet (`&`) | `https://<apex>&token_hash=…&type=invite` | `<apex>&token_hash=…` bir **HOST** sayılır → **DNS hatası**, istek sunucuya hiç gelmez |
+
+Yani davetin tek güvencesi `NEXT_PUBLIC_SITE_URL`'in Site URL ile **aynı host**
+olması (KURULUM Adım 8). Tanımsızsa davet bugün de kırık (kişi ana sayfaya
+düşüyor), yeni şablonla **görünür biçimde** kırık olacak. Yakalayıcı bu
+durumu düzeltemez — düzeltemeyeceği testte de yazılı (`(m)` grubu).
+
+### Kodda ne değişti
+
+| Dosya | Değişiklik |
+|---|---|
+| `src/app/admin/davet-kabul/page.tsx` | `loadTenantLinks` **ortaklaştırıldı**; token_hash dalı kurumu depoya yazıyor; `verifyOtp` hatasında davet için kurum bağlantıları yükleniyor |
+| `src/middleware.ts` | **Apex yakalayıcı**: kök yol + `token_hash` + `type` → `/admin/davet-kabul` (307, **sorgu korunur**) |
+| `next.config.mjs` | `/admin/davet-kabul` için **`Referrer-Policy: no-referrer`** |
+| `scripts/test-auth-link.mjs` | `(l)(m)(n)` grupları — +31 kontrol |
+
+🔴 **Neden `loadTenantLinks` ortaklaştırıldı:** kullanılmış davet linki artık
+`#error=` dalından DEĞİL, `verifyOtp` hatasından geliyor. Ortaklaştırılmasaydı
+"Davet Linki Geçersiz" ekranındaki iki buton **göreli** kalırdı (apex) ve kurum
+admini apex'te giriş yapıp "Yetkisiz Erişim" görürdü — 19 Eylül'de kapatılan
+arızanın sessiz geri dönüşü.
+
+**Apex yakalayıcının yeri bilinçli:** host kuralları (a)/(b) bloğunun
+**dışında**, `let tenantSlug`'dan sonra. O blok `test-super-admin-host.mjs`
+tarafından "tek redirect" diye mühürlü (panel adresi hiçbir host'tan
+yayılmasın); bu yönlendirmenin panelle ilgisi yok. Ölçüldü: panel host'unda
+kök hâlâ `/super-admin`e, `/haberler` hâlâ 404; çözülemeyen custom domain'de
+yakalayıcı çalışsa bile bir sonraki istek fail-closed ile
+`tenant-bulunamadi`ya düşüyor.
+
+**`Referrer-Policy` sırası:** özel blok genel bloktan SONRA olmalı — Next
+eşleşen header'ları sırayla uygular, aynı anahtarda SONUNCU kazanır (ölçüldü:
+dev + curl → yalnız `no-referrer`, tek satır). Test bu sırayı da mühürlüyor.
+
+### Mutasyon testi (20 Eylül, P3)
+
+Her koruma tek tek bozuldu, dosyalar SHA-256 ile geri yüklendi:
+
+| Mutasyon | kalan kontrol |
+|---|---|
+| M1 apex yakalayıcı silindi | **7** |
+| M2 yakalayıcı sorguyu siliyor (`url.search = ""`) | **1** |
+| M3 yakalayıcı yanlış hedefe gidiyor | **1** |
+| M4 `no-referrer` kuralı silindi | **3** |
+| M5 `no-referrer` genel kuraldan ÖNCEYE alındı | **1** |
+| M6 geçersiz davet ekranında kurum bağlantısı silindi | **1** |
+| M7 kurum depoya yazılmıyor | **1** |
+| M8 `AUTH_LINK_JOINER.invite` `"&"` → `"?"` | **5** |
+| M9 StrictMode kilidi silindi | **2** |
+| M10 `replaceState` silindi | **2** |
+| geri yükleme sonrası | **0** (108 geçti) |
+
+## ⏰ P3 — SENİN YAPACAĞIN (Supabase paneli)
+
+`Authentication` → `Emails` → `Templates` → **Invite User** → Message body:
+
+```html
+<h2>Merhaba,</h2>
+<p>Sendika yönetim paneline davet edildiniz. Aşağıdaki bağlantıya
+tıklayarak şifrenizi belirleyebilir ve panele erişebilirsiniz.</p>
+
+<p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=invite">Şifre Belirle ve Panele Giriş Yap</a></p>
+
+<p>Bu bağlantı 1 saat geçerlidir. Eğer siz değilseniz bu maili
+görmezden gelebilirsiniz.</p>
+
+<p>İyi çalışmalar.</p>
+```
+
+🔴 **`?` değil `&`** — davetin dönüş adresi `?tenant=<uuid>` taşıyor
+(AUTH_LINK_JOINER). Subject ve "Link URL" kutusu **değişmiyor**.
+
+**Geri dönüş (30 saniye, deploy yok):** yalnız o satırı eskisiyle değiştir —
+
+```html
+<p><a href="{{ .ConfirmationURL }}">Şifre Belirle ve Panele Giriş Yap</a></p>
+```
+
+Kazanç: davet linkinde artık URL fragment'ında **canlı oturum JWT'si**
+taşınmaz (`#access_token=…&refresh_token=…` biterdi); linki otomatik açan mail
+tarayıcıları (Outlook Safe Links, kurumsal proxy) jetonu **yakamaz**.
+
+## ⏰ P3 — KALAN (sonraki turlar)
+
+1. **Eski dalların temizliği** — `?code` dalı + `RECOVERY_FLAG_KEY`;
+   `#access_token` dalı + `INVITE_TENANT_KEY`. ⚠️ Yeni davet şablonu canlıda
+   birkaç gün sorunsuz çalışmadan **YAPMA**: `#access_token` dalı silinirse
+   uçuştaki eski davet linkleri ölür.
+2. Nginx access log'unda query temizliği (sunucu tarafı, ölçülmedi).
 
 ## Bilinmeyenler (uydurulmadı)
 
@@ -6733,13 +6845,20 @@ Sendika yönetim paneline davet edildiniz
 <p>Sendika yönetim paneline davet edildiniz. Aşağıdaki bağlantıya
 tıklayarak şifrenizi belirleyebilir ve panele erişebilirsiniz.</p>
 
-<p><a href="{{ .ConfirmationURL }}">Şifre Belirle ve Panele Giriş Yap</a></p>
+<p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=invite">Şifre Belirle ve Panele Giriş Yap</a></p>
 
 <p>Bu bağlantı 1 saat geçerlidir. Eğer siz değilseniz bu maili
 görmezden gelebilirsiniz.</p>
 
 <p>İyi çalışmalar.</p>
 ```
+
+> 🔴 **20 Eylül 2026 (P3):** bağlantı satırı `{{ .ConfirmationURL }}`'den
+> yukarıdaki biçime taşındı. **Birleştirici `&`** — davetin dönüş adresi
+> `?tenant=<uuid>` taşıyor; `?` yazılırsa `token_hash` **sessizce kaybolur**
+> (bkz. `AUTH_LINK_JOINER`, `scripts/test-auth-link.mjs`).
+> **Geri dönüş:** `<p><a href="{{ .ConfirmationURL }}">Şifre Belirle ve
+> Panele Giriş Yap</a></p>` — panelden yapıştır, deploy gerekmez.
 
 > **11 Eylül 2026:** metin eskiden "24 saat" diyordu — yanlıştı; canlı şablon
 > "1 saat" olarak düzeltildi. Süreyi **Email OTP Expiration** (Authentication
@@ -6768,11 +6887,16 @@ prod: `${NEXT_PUBLIC_SITE_URL}/admin/davet-kabul`).
 <p>Hesabınız için şifre sıfırlama talebinde bulunuldu. Aşağıdaki
 bağlantıya tıklayarak yeni şifrenizi belirleyebilirsiniz.</p>
 
-<p><a href="{{ .ConfirmationURL }}">Yeni Şifre Belirle</a></p>
+<p><a href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=recovery">Yeni Şifre Belirle</a></p>
 
 <p>Eğer bu talebi siz yapmadıysanız bu maili görmezden gelebilirsiniz.
 Bağlantı 1 saat geçerlidir.</p>
 ```
+
+> 🔴 **20 Eylül 2026 (P2, canlıda):** bağlantı satırı `{{ .ConfirmationURL }}`
+> değil. **Birleştirici `?`** — sıfırlamanın dönüş adresi query TAŞIMAZ
+> (davetinki taşır, o yüzden orada `&`). **Geri dönüş:**
+> `<p><a href="{{ .ConfirmationURL }}">Yeni Şifre Belirle</a></p>`.
 
 > "1 saat" **Email OTP Expiration** (= 3600 sn) ile uyumlu (11 Eylül 2026'da
 > doğrulandı). Bu ayar davetle **ORTAKTIR** — değişirse Invite User şablonu da

@@ -45,6 +45,31 @@ const nextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      // 🔴 JETON REFERER'A SIZMASIN — yalniz kabul sayfasi (20 Eylul 2026, P3)
+      //
+      // Mail linkleri artik jetonu SORGUDA tasiyor
+      // (`?token_hash=…&type=…`). Genel kural
+      // `strict-origin-when-cross-origin`: DIS isteklere yalniz origin
+      // gider (sorgu gitmez, olculdu), ama AYNI origin'e yapilan her
+      // istekte TAM URL Referer olarak gider — sayfanin kendi
+      // JS/CSS/font/XHR istekleri dahil. Nginx'in varsayilan `combined`
+      // formati `$http_referer`'i loglar; yani jeton sunucu log'una duser.
+      //
+      // `no-referrer` bu sinifi tamamen kapatir: sayfa hicbir istekte
+      // Referer gondermez. Bedeli yok — bu sayfada analitik, dis kaynak
+      // ya da referer'a bakan bir akis YOK.
+      //
+      // Ikinci savunma sayfanin kendisinde: `history.replaceState` jetonu
+      // dogrulamadan ONCE adres cubugundan siliyor. Header once yazilir
+      // (ilk yuklemenin alt istekleri icin), replaceState sonrasini kapatir.
+      //
+      // NOT: bu blok `/:path*` blogundan SONRA gelmeli — Next eslesen
+      // header'lari sirayla uygular ve ayni anahtarda SONUNCU kazanir
+      // (olculdu: `npm run dev` + curl, yalniz `no-referrer` dondu).
+      {
+        source: "/admin/davet-kabul",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
+      },
     ];
   },
 };
