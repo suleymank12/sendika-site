@@ -4066,6 +4066,18 @@ Kurmay için beklenen panel görüntüsü — **"1 eksik"**:
   Komutlar: dosyaya yapıştır → `ln -s` → `grep -Rn "<d>"
   /etc/nginx/sites-enabled/` ile eski blokları bul, sil → `nginx -t &&
   systemctl reload nginx` (hepsi bitince tek seferde — arada site kesilmez).
+  **21 Eylül 2026 güncellemesi:** apex bloğunda artık HİÇ `proxy_pass` yok —
+  üç parça include ediliyor (`sendika-statik.conf` diskten `/_next/static/`,
+  `sendika-gorsel-ucu.conf`, `sendika-uygulama.conf`); ve **HSTS**
+  `add_header Strict-Transport-Security "max-age=31536000" always;` YALNIZ
+  apex'in 443 bloğunda (canlıda `kurmayteknoloji.com`'da YOKTU; şablon hiç
+  üretmiyordu). 🔴 `includeSubDomains` BİLEREK yok: müşterinin diğer alt alan
+  adları (posta, eski HTTP servisleri) bizim değil, tek ziyaret onları bir
+  yıl HTTPS'e kilitlerdi. Statik parça kendi `add_header`'ını tanımladığı
+  için statik yanıtlar HSTS'i MİRAS ALMAZ (yerel nginx 1.18'de ölçüldü) —
+  zayıflık değil (politika HTML yanıtıyla kuruluyor); parçaya EKLENMEZ:
+  paylaşılan parçadaki sabit değer apex'in kendi (ör. `includeSubDomains`li)
+  politikasını her statik istekte ezerdi.
 - **Domain değişince:** eski satırlar (SİLİN) + yeni satırlar (EKLEYİN) +
   sunucu temizliği.
 

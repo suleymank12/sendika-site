@@ -37,6 +37,7 @@ import {
   NGINX_APP_SNIPPET,
   NGINX_IMAGE_SNIPPET,
   NGINX_STATIC_SNIPPET,
+  HSTS_DEGERI,
   SETUP_CHECK_API_PATH,
   TENANT_ERROR_PATH,
   buildCertbotText,
@@ -289,6 +290,18 @@ header("(a) Hazir metinler");
   const statikParca = readFileSync(new URL(`../deploy/nginx/${NGINX_STATIC_SNIPPET}`, import.meta.url), "utf8");
   okTrue("nginx", "(1) immutable onbellek statik parcada (bloktan tasindi)", statikParca.includes('add_header Cache-Control "public, max-age=31536000, immutable";'), NGINX_STATIC_SNIPPET);
   okTrue("nginx", "(1) sertifika yolu apex adina", apex.includes("ssl_certificate     /etc/letsencrypt/live/kurmayteknoloji.com/fullchain.pem;"), "apex");
+  // HSTS (21 Eylul 2026): canlida kurmayteknoloji.com dosyasinda YOKTU —
+  // sablon hic uretmiyordu. TAM BIR KEZ, `always` ile (3xx/4xx'te de), YALNIZ
+  // TLS dinleyen apex blogunda: 80'de HSTS anlamsiz (tarayici HTTP yanitindaki
+  // HSTS'i yok sayar), www blogu yalniz 301.
+  ok("nginx", "🔴 HSTS dosyada TAM BIR KEZ", conf.split("Strict-Transport-Security").length - 1, 1, "conf");
+  okTrue("nginx", "🔴 HSTS apex (443 ssl) blogunda, 'always' ile", apex.includes("listen 443 ssl;") && apex.includes(`add_header Strict-Transport-Security "${HSTS_DEGERI}" always;`), "apex");
+  okTrue("nginx", "HSTS 80 (http) blogunda YOK", !http.includes("Strict-Transport-Security"), "http");
+  okTrue("nginx", "HSTS en az bir yil", Number((HSTS_DEGERI.match(/max-age=(\d+)/) || [])[1]) >= 31536000, HSTS_DEGERI);
+  // includeSubDomains BILEREK yok: musterinin diger alt alan adlari bizim
+  // denetimimizde degil; tek ziyaret onlari bir yil HTTPS'e kilitlerdi.
+  const hstsSatiri = (conf.match(/add_header Strict-Transport-Security "([^"]*)"/) || [])[1] ?? "";
+  okTrue("nginx", "HSTS'te includeSubDomains / preload YOK (musteri alt alan adlari)", hstsSatiri === HSTS_DEGERI && !/includeSubDomains|preload/i.test(hstsSatiri), hstsSatiri);
   ok("nginx", "(2) www blogu server_name YALNIZ www", serverNames(www), [WWW], "www");
   okTrue("nginx", "(2) www → apex 301 ($request_uri korunur)", www.includes("return 301 https://kurmayteknoloji.com$request_uri;"), "www");
   okTrue("nginx", "(2) www blogu da ayni sertifikayla 443", www.includes("listen 443 ssl;") && www.includes("/etc/letsencrypt/live/kurmayteknoloji.com/privkey.pem;"), "www");

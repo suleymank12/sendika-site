@@ -58,6 +58,22 @@ export const NGINX_RATE_ZONE_CONF = "conf.d/sendika-gorsel-sinir.conf";
 export const NGINX_STATIC_SNIPPET = "snippets/sendika-statik.conf";
 
 /**
+ * Müşteri domain'inin HSTS değeri (21 Eylül 2026). Canlıda ölçüldü:
+ * `sites-available/sendika`'da HSTS vardı, `kurmayteknoloji.com`'da YOKTU —
+ * şablon hiç üretmiyordu.
+ *
+ * 🔴 `includeSubDomains` BİLEREK YOK: müşterinin alan adı MÜŞTERİNİN. Bizim
+ * sertifikamız yalnız apex + www'yu kapsıyor; `posta.<domain>`, eski bir
+ * HTTP servisi, modem/kamera arayüzü gibi alt alan adlarını ne görüyor ne
+ * yönetiyoruz. `includeSubDomains`'li tek bir ziyaret, o tarayıcıda bu
+ * adların HEPSİNİ bir yıl HTTPS'e zorlar — HTTPS'i olmayanlar açılmaz ve
+ * tarayıcı "yine de devam et" seçeneği sunmaz. Kendi apex'imizde
+ * (buyukdirilis.org.tr, joker sertifika, alt alan adları bizim) durum farklı.
+ * `preload` da yok: geri alınması aylar süren bir liste.
+ */
+export const HSTS_DEGERI = "max-age=31536000";
+
+/**
  * Şifre sıfırlama (ve davet) dönüş sayfası — Supabase Redirect URLs
  * satırları bu yolla biter. setup-probes.ts'teki SUPABASE_RETURN_PATH ile
  * AYNI olmalı (import'suz modüller; test ikisini karşılaştırır).
@@ -399,6 +415,11 @@ export function buildNginxConfig(domain: string): string {
     ...ssl,
     "",
     "    client_max_body_size 450M;",
+    "",
+    "    # HSTS: yalnız bu TLS bloğunda (80'de anlamsız). includeSubDomains YOK:",
+    "    # alan adının diğer alt alan adları (posta, eski HTTP servisleri)",
+    "    # müşterinin — tek ziyaret onları bir yıl HTTPS'e kilitlerdi.",
+    `    add_header Strict-Transport-Security "${HSTS_DEGERI}" always;`,
     "",
     "    # /_next/static/: diskten; olmayan dosya uygulamaya ulaşmaz",
     `    include ${NGINX_STATIC_SNIPPET};`,

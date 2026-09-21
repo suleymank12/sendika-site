@@ -346,6 +346,7 @@ header("(g) nginx parcalari — deploy/nginx");
   okTrue("nginx", "proxy_pass = APP_UPSTREAM", app.includes(`proxy_pass ${APP_UPSTREAM};`), "app");
   for (const baslik of [
     "x-tenant-slug",
+    "x-tenant-proof", // K7-B: kurum kaniti — istemci gonderemesin (derinlemesine savunma)
     "x-nonce",
     "Content-Security-Policy",
     "Content-Security-Policy-Report-Only",
