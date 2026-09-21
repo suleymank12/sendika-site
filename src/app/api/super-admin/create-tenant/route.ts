@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { tenantTag } from "@/lib/tenant-cache";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 import {
   ADMIN_INVITE_MESSAGES,
@@ -131,6 +133,16 @@ export async function POST(req: NextRequest) {
   }
 
   const tenantId = tenant.id as string;
+
+  // 5.5) 🔴 CACHE GECERSIZLESTIRME (b3) — BURADA, kurum olusur olusmaz.
+  //      `getTenant` NEGATIF sonucu da cache'liyor (olculdu, 22 Eylul 2026:
+  //      fetch-cache girdisi body "null", etiket tenant:<slug>, 60 sn). Bu
+  //      adrese kurum olusmadan once bir istek geldiyse, bu satir OLMADAN
+  //      yeni kurum TTL boyunca "bilinmeyen" gorunur (notr 404). Asagida
+  //      birden fazla `return` yolu var (kismi basari dahil); etiketi en
+  //      sona koymak bazi yollarda atlanmasina yol acardi.
+  const tag = tenantTag(tenant.slug);
+  if (tag) revalidateTag(tag);
 
   // 6) Varsayılan site_settings
   const defaultSettings: Array<{ key: string; value: string }> = [
