@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
+import { imzala } from "@/lib/tenant-proof";
 import { SUPER_ADMIN_HOME_PATH, SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
 import { AUTH_RETURN_PATH, parseAuthLink } from "@/lib/super-admin/admin-invite";
 import {
@@ -363,6 +364,23 @@ export async function middleware(request: NextRequest) {
   // güncel header'larla YENİDEN kur (setAll henüz tetiklenmemiş olabilir —
   // bu rebuild olmadan no-cookie-refresh durumunda slug forward edilmezdi).
   requestHeaders.set("x-tenant-slug", tenantSlug);
+  // 🔴 KURUM KANITI (K7-B, 21 Eylül 2026) — slug'la AYNI noktada, AYNI
+  // `requestHeaders` nesnesine. setAll (çerez yenilenince) response'u bu
+  // nesneyle yeniden kurduğu için kanıt o yolda da taşınır.
+  //
+  // Host = slug'ın çözüldüğü `hostname` (satır ~104, ham Host başlığı);
+  // render `headers().get("host")` ile doğruluyor — ikisinin birebir aynı
+  // olduğu ölçüldü (raporlar/2026-09-21-2250-k7-b-uygulama.md).
+  //
+  // YALNIZ İSTEK başlığı: `supabaseResponse.headers.set("x-tenant-proof", …)`
+  // ASLA — Next 14 yanıt başlıklarını istemciye de gönderiyor (ölçüldü).
+  // Sır yoksa imzala reddeder: istemciden gelmiş olabilecek kanıt SİLİNİR,
+  // render nötre düşer (fail-closed; log satırı lib/tenant-proof.ts'te).
+  try {
+    requestHeaders.set("x-tenant-proof", await imzala(hostname, tenantSlug));
+  } catch {
+    requestHeaders.delete("x-tenant-proof");
+  }
   supabaseResponse = NextResponse.next({
     request: { headers: requestHeaders },
   });

@@ -156,6 +156,13 @@ header("(c) next.config — gercekten yuklenir");
 // ---------------------------------------------------------------------------
 let config = null;
 {
+  // K7-B (21 Eylul 2026): next.config.mjs TENANT_HEADER_SECRET yoksa build'i
+  // durduruyor. Bu test .env.local OKUMAZ — bu blok boyunca TEST degeri verilir,
+  // blok sonunda geri alinir. Boylece asagidaki "Supabase env yok → HATA"
+  // kontrolleri sir kapisina degil, sinadiklari kapiya takilir. (Sir kapisinin
+  // kendisi test:tenant-proof'ta sinaniyor.)
+  const oncekiSir = process.env.TENANT_HEADER_SECRET;
+  process.env.TENANT_HEADER_SECRET = "gorsel-zinciri-test-degeri-".padEnd(40, "x");
   config = (await import(`../next.config.mjs?v=${Date.now()}`)).default;
   const desenler = config.images?.remotePatterns;
   ok("config", "tek desen", Array.isArray(desenler) && desenler.length, 1, JSON.stringify(desenler));
@@ -192,6 +199,8 @@ let config = null;
   }
   okTrue("config", "env bozuksa da HATA", !!hata, String(hata));
   process.env.NEXT_PUBLIC_SUPABASE_URL = onceki;
+  if (oncekiSir === undefined) delete process.env.TENANT_HEADER_SECRET;
+  else process.env.TENANT_HEADER_SECRET = oncekiSir;
 }
 
 // ---------------------------------------------------------------------------

@@ -88,6 +88,9 @@ const ESZAMANLI = 4;
 const BILINMEYEN_SUB = "yok-boyle-kurum";
 const BILINMEYEN_CUSTOM = "bilinmeyen-alan.example";
 const SAHTE_IZ = "zzSAHTEizolasyon";
+// Sahte kurum kaniti (K7-B): BICIMI gecerli (64 kucuk harf hex) ama HMAC'i
+// tutmayan bir deger — "bicim kontrolu yeter" sanan bir gerilemeyi yakalar.
+const SAHTE_KANIT = "5a".repeat(32);
 
 // .env.local → process.env (varsa; ortamdaki deger ONCELIKLI)
 const envYol = new URL(".env.local", REPO);
@@ -406,6 +409,9 @@ const [rscR, prefR, sahteR] = await Promise.all([
   havuz(hucreler.map((h) => () => istek(h.host, h.yol, { RSC: "1", "Next-Router-Prefetch": "1", Accept: "text/x-component" })), ESZAMANLI),
   havuz(hucreler.map((h, i) => () => istek(h.host, h.yol, {
     "x-tenant-slug": sahteSlug(i),
+    // K7-B: middleware kaniti da EZMELI; ezmezse sahte slug + sahte kanit
+    // render'a ulasir ve (bu cift dogrulanmadigi icin) hucre notre duser.
+    "x-tenant-proof": SAHTE_KANIT,
     "Content-Security-Policy": `script-src 'nonce-${SAHTE_IZ}"x'`,
     "x-nonce": SAHTE_IZ,
   })), ESZAMANLI),
@@ -460,12 +466,12 @@ const sinirIcerideR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_I
 const sinirDisaridaR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_DISARIDA.map(([ad, yol]) => async () => ({ he, ad, r: await istek(host, yol) }))), ESZAMANLI);
 // Matcher DISINDAKI 404'ler sahte baslikla (21 Eylul 2026, K6 turu): orada
 // middleware calismadigi icin gelen `x-tenant-slug`'i ezen kimse yok. Bu
-// istekler UYGULAMA katmanini olcer (K7) — matris nginx'ten gecmez. K7-A'dan
-// sonra canlida nginx /_next/static/'i diskten servis ediyor, olmayan dosya
-// uygulamaya ulasmiyor; uygulama katmani (B) turunda kapatilacak.
+// istekler UYGULAMA katmanini olcer — matris nginx'ten gecmez. K7 KAPANDI:
+// render slug'i yalniz middleware'in HMAC kaniti (x-tenant-proof) dogrulanirsa
+// okuyor; istek sahte slug + BICIMI gecerli sahte kanit tasiyor.
 const SAHTE_SINIR = ["/api/yok-boyle-uc", "/_next/static/yok.js"];
 const sinirSahteSlug = (he) => (BEKLENEN[he] === "B" ? A.slug : B.slug);
-const sinirSahteR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SAHTE_SINIR.map((ad) => async () => ({ he, ad, r: await istek(host, ad, { "x-tenant-slug": sinirSahteSlug(he) }) }))), ESZAMANLI);
+const sinirSahteR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SAHTE_SINIR.map((ad) => async () => ({ he, ad, r: await istek(host, ad, { "x-tenant-slug": sinirSahteSlug(he), "x-tenant-proof": SAHTE_KANIT }) }))), ESZAMANLI);
 
 // ---------------------------------------------------------------------------
 // (7) /api catch-all — gercek route'lar ONCE, olmayan yol JSON 404
@@ -649,6 +655,19 @@ for (const h of hucreler) {
   iddia("3", `${b}|etkisiz`, s.farkliAlanlar.length === 0, `farkli: ${s.farkliAlanlar.join(",")}`);
   iddia("3", `${b}|nonce-yansimaz`, !s.yansima);
 }
+// K7-B: kurum kaniti YALNIZ istek basligi. Next 14 middleware'in yanita
+// yazdigi her basligi istemciye de gonderiyor (resolve-routes.js 401-403,
+// olculdu) — kanit bir gun yanita yazilirsa HMAC istemciye gider. Bu kosuda
+// alinan BUTUN yanitlar (html, rsc, prefetch, sahte, gorsel, sinir, api):
+// ne x-tenant-proof ne de Next'in ic tasiyicisi x-middleware-request-* olabilir.
+{
+  const tumYanitlar = [
+    rscKok, kaynakSayfa, ...htmlR, ...rscR, ...prefR, ...sahteR, ...gorselR,
+    ...sinirIcerideR.map((x) => x.r), ...sinirDisaridaR.map((x) => x.r), ...sinirSahteR.map((x) => x.r), ...apiR.map((x) => x.r),
+  ];
+  const sizan = tumYanitlar.flatMap((r) => Object.keys(r.basliklar).filter((k) => k === "x-tenant-proof" || k.startsWith("x-middleware-request-")));
+  iddia("3", "yanit|ic-baslik-sizmaz (x-tenant-proof, x-middleware-request-*)", sizan.length === 0, `${tumYanitlar.length} yanit, sizan: ${[...new Set(sizan)].join(", ")}`);
+}
 
 // --- (4) CSP uctan uca — HER html yaniti
 for (const h of hucreler) {
@@ -700,7 +719,7 @@ for (const [he] of SINIR_HOSTLARI) {
     const k = notrBas(sinirDisaridaR.find((x) => x.he === he && x.ad === "/_next/static/yok.js")?.r.govde || "");
     iddia("6", `sinir|${he}|/_next/static/yok.js|notr-bas`, Object.values(k).every(Boolean), JSON.stringify(k));
   }
-  // Sahte baslik matcher disinda da etkisiz olmali (K7: /_next/static/ acik)
+  // Sahte baslik matcher disinda da etkisiz olmali (K7: kanit dogrulamasi)
   for (const ad of SAHTE_SINIR) {
     const s = gozlem[`sinir-sahte|${he}|${ad}`], d = gozlem[`sinir|${he}|${ad}`];
     const farkli = ["durum", "tur", "kurumBaslik", "kurumOg", "hata"].filter((a) => JSON.stringify(s[a]) !== JSON.stringify(d[a]));
@@ -745,23 +764,18 @@ if (yerelSunucu && yerelBuild) iddia("0", "ortam|sunucu = yerel .next/BUILD_ID (
 // NOTRE (get-tenant.ts `resolveCurrentTenant` → "no-header"). Gecis: tahmin
 // edilen 2 iddia kirmiziya dondu, temel cizgi farki YALNIZ 5 sinir hucresinde
 // (16 alan) + 23 yeni hucre — raporlar/2026-09-21-2050-k6-kimlik-sizintisi.md
-const BILINEN_KUSURLAR = new Map([
-  // K7 — K1'in dar kalintisi (21 Eylul 2026, K6 turunda olculdu): matcher
-  //      disindaki HTML 404'te (K6'dan sonra yalniz /_next/static/<olmayan>)
-  //      gelen `x-tenant-slug`'i ezen middleware yok → sahte baslik o kurumun
-  //      kimligini gosterir. Bu iddialar UYGULAMA katmanini olcer.
-  //      K7-A (21 Eylul 2026): nginx /_next/static/'i diskten servis ediyor,
-  //      olmayan dosya uygulamaya ulasmiyor; ancak uygulama katmani hala
-  //      istemcinin gonderdigi x-tenant-slug'a guveniyor — (B) turunda
-  //      kapatilacak (raporlar/2026-09-21-2208-k7-teshis.md). Onceki "canlida
-  //      nginx siliyor" kaydi YANLISTI: static location sendika-uygulama.conf'u
-  //      include etmiyordu.
-  ["sinir-sahte|apex|/_next/static/yok.js|etkisiz", "K7"],
-  ["sinir-sahte|B-custom|/_next/static/yok.js|etkisiz", "K7"],
-]);
-const KUSUR_ACIKLAMA = {
-  K7: "matcher disindaki HTML 404'te (/_next/static/<olmayan>) sahte x-tenant-slug kabul ediliyor — nginx artik diskten servis ediyor (K7-A), uygulama katmani (B) turunda kapatilacak",
-};
+//
+// K7 KAPANDI (21 Eylul 2026): matcher disindaki HTML 404'te istemcinin
+// gonderdigi `x-tenant-slug` kabul ediliyordu (K1'in dar kalintisi). Iki
+// katman: (A) nginx /_next/static/'i diskten servis ediyor, olmayan dosya
+// uygulamaya ulasmiyor (deploy/nginx/snippets/sendika-statik.conf, canlida);
+// (B) middleware HMAC kaniti (x-tenant-proof) yaziyor, render slug'i yalniz
+// kanit dogrulanirsa okuyor (src/lib/tenant-proof.ts). Onceki "canlida nginx
+// siliyor" kaydi YANLISTI (static location basliklari temizlemiyordu).
+// Gecis: kilitli tahmin scripts/izolasyon-temel/tahmin-k7b.json —
+// raporlar/2026-09-21-2250-k7-b-uygulama.md
+const BILINEN_KUSURLAR = new Map([]);
+const KUSUR_ACIKLAMA = {};
 
 // ---------------------------------------------------------------------------
 // Temel cizgi

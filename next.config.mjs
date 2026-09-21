@@ -58,8 +58,46 @@ function ownStorageHostname() {
   return host;
 }
 
+/**
+ * Kurum basligi kanitinin sirri (21 Eylul 2026, K7-B). Middleware
+ * `x-tenant-slug`'in yanina HMAC kaniti yaziyor (src/lib/tenant-proof.ts);
+ * render slug'i yalniz kanit dogrulanirsa okuyor.
+ *
+ * Sir yoksa uygulama FAIL-CLOSED calisir: her istek notr 404'e duser —
+ * sessizce acik kalmaz ama site de coker. Bu yuzden build BURADA durur:
+ * sir .env'e eklenmeden canliya build cikmasin. (Next build'de yukledigi
+ * `.env*` dosyalarini standalone'a kopyaliyor; sir yalniz build kabuguna
+ * verilirse canliya ULASMAZ — dosyada olmali.)
+ *
+ * Alt sinir tenant-proof.ts `TENANT_SECRET_MIN_LENGTH` ile AYNI (bu dosya TS
+ * import edemiyor; esitligi test:tenant-proof sinar). Hata mesaji sirri
+ * YAZMAZ. `NEXT_PUBLIC_` onekiyle tanim ASLA: istemci paketine gomulur.
+ */
+const TENANT_SECRET_MIN_LENGTH = 32;
+
+function requireTenantHeaderSecret() {
+  if (process.env.NEXT_PUBLIC_TENANT_HEADER_SECRET !== undefined) {
+    throw new Error(
+      "next.config.mjs: NEXT_PUBLIC_TENANT_HEADER_SECRET tanimli — bu sir istemci paketine gomulurdu. " +
+        "Satiri silin; yalniz TENANT_HEADER_SECRET kullanilir."
+    );
+  }
+  const uzunluk = String(process.env.TENANT_HEADER_SECRET || "").length;
+  if (uzunluk < TENANT_SECRET_MIN_LENGTH) {
+    throw new Error(
+      `next.config.mjs: TENANT_HEADER_SECRET ${uzunluk === 0 ? "tanimli degil" : `${TENANT_SECRET_MIN_LENGTH} karakterden kisa (${uzunluk})`} — ` +
+        "kurum basligi kaniti uretilemez, site her istekte notr 404'e duserdi. " +
+        "Build ortaminin .env dosyasina ekleyin (uretim degeri: `openssl rand -hex 32`)."
+    );
+  }
+}
+requireTenantHeaderSecret();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // `X-Powered-By: Next.js` yanit basligi kapali (21 Eylul 2026, K7 teshisi
+  // §2'de olculdu): cercevenin adini her yanitta ilan etmeye gerek yok.
+  poweredByHeader: false,
   // VPS deploy'u icin kendi kendine yeten cikti (.next/standalone):
   // 369 MB node_modules yerine ~O(50 MB) server.js + trace edilmis moduller.
   // DIKKAT: standalone'a .next/static ve public/ OTOMATIK KOPYALANMAZ —

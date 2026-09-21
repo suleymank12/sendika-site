@@ -30,6 +30,7 @@
     "test:admin-access": "node scripts/test-admin-access.mjs",
     "test:cerez": "node scripts/test-cerez-dayanikliligi.mjs",
     "test:tenant-cache": "node scripts/test-tenant-cache.mjs",
+    "test:tenant-proof": "node scripts/test-tenant-proof.mjs",
     "test:backup-db": "bash scripts/test-backup-db.sh",
     "test:nobetci": "bash scripts/test-nobetci.sh",
     "test:healthchecks": "node scripts/test-healthchecks.mjs",

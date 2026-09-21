@@ -1,7 +1,7 @@
 {
   "surum": "14.2.35",
-  "kaydedildi": "2026-09-21T17:56:21.112Z",
-  "buildId": "A5I03nTmPOGiwROgjroyS",
+  "kaydedildi": "2026-09-21T19:53:29.871Z",
+  "buildId": "L0Hr7LU4x78JhaoxonKX8",
   "kurumlar": {
     "A": "default",
     "B": "kurmay-teknoloji"
@@ -16,9 +16,7 @@
     "A.manset": "var",
     "B.manset": "var"
   },
-  "bilinenKusurlar": {
-    "K7": 2
-  },
+  "bilinenKusurlar": {},
   "gozlem": {
     "api|/api/contact/fazla|apex": {
       "durum": 404,
@@ -4083,8 +4081,8 @@
       "durum": 404,
       "tur": "html",
       "middleware": false,
-      "kurumBaslik": "A",
-      "kurumOg": "A"
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null
     },
     "sinir-sahte|B-custom|/api/yok-boyle-uc": {
       "durum": 404,
@@ -4096,8 +4094,8 @@
       "durum": 404,
       "tur": "html",
       "middleware": false,
-      "kurumBaslik": "B",
-      "kurumOg": "B"
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null
     },
     "sinir-sahte|apex|/api/yok-boyle-uc": {
       "durum": 404,

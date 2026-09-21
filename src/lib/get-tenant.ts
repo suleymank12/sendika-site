@@ -3,13 +3,15 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTenant } from "./tenant";
 import type { Tenant } from "./tenant";
+import { dogrula } from "./tenant-proof";
 
 /**
  * Bu istegin kurumu — UC durum, ikisi birbirine KARISTIRILMAZ (K6, 21 Eylul 2026):
  *
  *   found        middleware slug yazdi, kurum var
  *   unknown-slug middleware slug yazdi, kurum YOK (bilinmeyen subdomain)
- *   no-header    `x-tenant-slug` HIC YOK → bu istek middleware'den GECMEDI
+ *   no-header    `x-tenant-slug` HIC YOK ya da kaniti (x-tenant-proof)
+ *                DOGRULANMIYOR → bu istek middleware'den GECMEDI
  *
  * 🔴 NEDEN `no-header` AYRI: matcher `/api/`, `/_next/static/` ... yollarini
  * bilerek disarida tutuyor. Oralarda OLMAYAN bir yol istenince Next kendi
@@ -30,13 +32,26 @@ import type { Tenant } from "./tenant";
  * `x-tenant-slug`'i middleware HER calistiginda yazar (apex/custom domain icin
  * acikca "default") — yani apex'in default'u buradan degil middleware'den gelir.
  *
- * ⚠️ SINIR (K7, acik): baslik VAR ama middleware calismadiysa — yani istemci
- * basligi KENDISI gonderdiyse — bu fonksiyon onu middleware'inkinden AYIRAMAZ.
- * K7-A (21 Eylul 2026): nginx /_next/static/'i diskten servis ediyor, olmayan
- * dosya uygulamaya ulasmiyor; ancak uygulama katmani hala istemcinin
- * gonderdigi x-tenant-slug'a guveniyor — (B) turunda kapatilacak
- * (raporlar/2026-09-21-2208-k7-teshis.md). Onceki "canlida nginx siliyor"
- * kaydi yanlisti: static location baslik temizleyen parcayi include etmiyordu.
+ * ✅ K7 KAPANDI (21 Eylul 2026): baslik VAR ama middleware calismadiysa —
+ * yani istemci basligi KENDISI gonderdiyse — eskiden ayirt edilemiyordu.
+ * Artik iki katman:
+ *   (A) nginx /_next/static/'i diskten servis ediyor; olmayan dosya
+ *       uygulamaya hic ulasmiyor (deploy/nginx/snippets/sendika-statik.conf).
+ *   (B) middleware slug'in yanina `x-tenant-proof` (HMAC, lib/tenant-proof.ts)
+ *       yaziyor; slug YALNIZ kanit bu host + slug icin DOGRULANIRSA okunuyor.
+ *       Kanit yok / bos / yanlis → `no-header` (notr). "Kanit var mi"ya
+ *       bakmak YETMEZ — degeri dogrulaniyor.
+ * Onceki "canlida nginx siliyor" kaydi yanlisti: static location baslik
+ * temizleyen parcayi include etmiyordu (raporlar/2026-09-21-2208-k7-teshis.md).
+ *
+ * `host` BURADA `headers().get("host")`: middleware'in slug'i cozdugu ham Host
+ * basligiyla birebir ayni oldugu olculdu (x-forwarded-host dahil;
+ * raporlar/2026-09-21-2250-k7-b-uygulama.md). Farkli olsaydi HMAC hic tutmaz,
+ * sitenin tamami notr 404 olurdu. Host yoksa → `no-header`.
+ *
+ * 🔴 React `cache()` icinde (istek basina bir dogrulama); `unstable_cache`'e
+ * ASLA girmez — orada `headers()` Next 14'te hata verir ve sonuc istekler
+ * arasi paylasilirdi.
  */
 export type TenantResolution =
   | { kind: "found"; tenant: Tenant }
@@ -44,8 +59,11 @@ export type TenantResolution =
   | { kind: "no-header" };
 
 export const resolveCurrentTenant = cache(async (): Promise<TenantResolution> => {
-  const slug = headers().get("x-tenant-slug");
-  if (!slug) return { kind: "no-header" };
+  const h = headers();
+  const slug = h.get("x-tenant-slug");
+  const host = h.get("host");
+  if (!slug || !host) return { kind: "no-header" };
+  if (!(await dogrula(host, slug, h.get("x-tenant-proof")))) return { kind: "no-header" };
   const tenant = await getTenant(slug);
   return tenant ? { kind: "found", tenant } : { kind: "unknown-slug" };
 });

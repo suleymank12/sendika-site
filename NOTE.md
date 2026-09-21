@@ -6062,9 +6062,18 @@ sınır bütün ziyaretçilere BİRLİKTE uygulanır).
 5. Sıra: önce izolasyon HTTP matrisi (Faz 2) → 14.2.35'te temel çizgi →
    her fazdan sonra aynı matris + fark.
 
-## Matcher dışı yollar (ölçüldü — ✅ K1–K4 ve K6 21 Eylül 2026'da KAPANDI, K7 açık)
+## Matcher dışı yollar (ölçüldü — ✅ K1–K4, K6 ve K7 21 Eylül 2026'da KAPANDI)
 
-> **Güncel durum (21 Eylül 2026, K6 turu):** matcher dışında kalan iki
+> **Güncel durum (21 Eylül 2026, K7-B turu):** ✅ **K7 KAPANDI** — iki
+> katman: (A) nginx `/_next/static/`'i diskten servis ediyor, olmayan dosya
+> uygulamaya ulaşmıyor (canlıda doğrulandı); (B) middleware `x-tenant-slug`'ın
+> yanına **HMAC kanıtı** `x-tenant-proof` yazıyor (`src/lib/tenant-proof.ts`,
+> `HMAC-SHA256(TENANT_HEADER_SECRET, host + "\n" + slug)`, YALNIZ istek
+> başlığı), render slug'ı yalnız kanıt DEĞERİYLE doğrulanırsa okuyor; aksi
+> hâlde nötr (`no-header`). Ayrıntı: "🔑 K7-B — kurum başlığı kanıtı" (Faz 2
+> bölümünün altında).
+>
+> **Önceki durum (21 Eylül 2026, K6 turu):** matcher dışında kalan iki
 > önekte artık kimlik yok. `/api/<olmayan>` → catch-all JSON 404
 > (`app/api/[...yol]/route.ts`, HTML hiç render edilmez);
 > `/_next/static/<olmayan>` → nötr 404 ("Sayfa Bulunamadı", hiçbir kurumun
@@ -6140,8 +6149,10 @@ kalması gerekenler — `/api/…`, `/_next/static/…`, `/_next/image`,
 `/favicon.ico` — middleware'siz mi) + **(7) `/api` catch-all** (diskteki her
 gerçek route dosyası catch-all'dan ÖNCE eşleşiyor mu; catch-all'ın 404'ü
 süper admin uçlarının müşteri domainindeki 404'üyle ayırt edilemez mi) +
-matcher dışı 404'lerde sahte başlık = **515 gözlem, 1731 kural** (21 Eylül
-2026, K6 turundan sonra; K4+K5 sonrası 492 / 1702, ilk hâl 456 / 1603). A = `default`, B =
+matcher dışı 404'lerde sahte başlık = **515 gözlem, 1734 kural** (21 Eylül
+2026, K7-B turundan sonra: sahte istekler sahte `x-tenant-proof` da taşıyor
++ "hiçbir yanıtta `x-tenant-proof` / `x-middleware-request-*` yok" kuralı;
+K6 sonrası 515 / 1731, K4+K5 sonrası 492 / 1702, ilk hâl 456 / 1603). A = `default`, B =
 custom domain'li ilk aktif kurum. Veri canlı Supabase'den anon anahtarla
 OKUNUR.
 
@@ -6176,7 +6187,9 @@ hiç üretilmezse) koşu kırmızı olur ("listeden çıkar").
 | K4 | matcher dışı yolda B host'u, sahte başlık OLMADAN, A'nın kimliğini gösteriyor | ✅ KAPANDI (`kurmayteknoloji.com/apix` → Kurmay) |
 | K5 | uygulama `q=50`'yi kabul ediyor | ✅ KAPANDI (`images.qualities: [75]`) |
 | K6 | `/api/` ve `/_next/static/` altında OLMAYAN yol middleware dışında HTML 404 render ediyor → B host'unda A'nın kimliği | ✅ KAPANDI 21 Eylül (catch-all JSON 404 + başlıksız istekte nötr kurum) |
-| **K7** | matcher dışındaki HTML 404'te (K6'dan sonra yalnız `/_next/static/<olmayan>`) istemcinin gönderdiği `x-tenant-slug` kabul ediliyor → o kurumun adı/og'si. K1'in dar kalıntısı. **K7-A:** nginx `/_next/static/`'i diskten servis ediyor, olmayan dosya uygulamaya ulaşmıyor; ancak uygulama katmanı hâlâ istemcinin gönderdiği `x-tenant-slug`'a güveniyor — (B) turunda kapatılacak. (Önceki "canlıda nginx siliyor" kaydı yanlıştı: static location başlık temizleyen parçayı include etmiyordu.) | 🔴 **AÇIK** — (A) nginx yarısı 21 Eylül (`raporlar/2026-09-21-2245-k7-a-uygulama.md`); (B) uygulama kanıt başlığı bekliyor (`raporlar/2026-09-21-2208-k7-teshis.md`) |
+| K7 | matcher dışındaki HTML 404'te (K6'dan sonra yalnız `/_next/static/<olmayan>`) istemcinin gönderdiği `x-tenant-slug` kabul ediliyordu → o kurumun adı/og'si. K1'in dar kalıntısı. (Önceki "canlıda nginx siliyor" kaydı yanlıştı: static location başlık temizleyen parçayı include etmiyordu.) | ✅ KAPANDI 21 Eylül — (A) nginx `/_next/static/` diskten (`raporlar/2026-09-21-2245-k7-a-uygulama.md`, canlıda doğrulandı) + (B) uygulamada HMAC kanıt doğrulaması (`raporlar/2026-09-21-2250-k7-b-uygulama.md`) |
+
+Bilinen kusur listesi 21 Eylül 2026 itibarıyla **boş**.
 
 Kapanış kanıtı K1–K5 (21 Eylül 2026, `raporlar/2026-09-21-1435-k4-k5-matcher-duzeltmesi.md`): düzeltmeden önce matris 0 fark; sonra
 tahmin edilen 42 iddianın 42'si "düzeldi" diye kırmızıya döndü, temel çizgi
@@ -6211,6 +6224,37 @@ orada başlık VAR, `unknown-slug`): kök başlık "Site Bulunamadı" + noindex,
 gövde + og:site_name + og:image default'un; og:image `metadataBase` olmadığı
 için `localhost` adresine çözülüyor (production'da kırık önizleme).
 Değerlendirme ve seçenekler raporda; karar bekliyor.
+
+## 🔑 K7-B — kurum başlığı kanıtı (21 Eylül 2026)
+
+Rapor: `raporlar/2026-09-21-2250-k7-b-uygulama.md` · teşhis:
+`raporlar/2026-09-21-2208-k7-teshis.md`.
+
+- **Ne:** middleware `x-tenant-slug`'ın yanına `x-tenant-proof =
+  hex(HMAC-SHA256(TENANT_HEADER_SECRET, host.toLowerCase() + "\n" + slug))`
+  yazar (`src/lib/tenant-proof.ts`, YALNIZ Web Crypto — middleware Edge'de).
+  `resolveCurrentTenant` slug'ı yalnız `dogrula(headers().get("host"), slug,
+  kanıt)` true ise okur; kanıt yok/boş/yanlış ya da host yok → `no-header`.
+- 🔴 **Kanıt YALNIZ istek başlığı.** Next 14 middleware'in yanıta yazdığı her
+  başlığı istemciye de gönderiyor (resolve-routes.js 401-403). Yanıttaki
+  `x-tenant-slug` KALDI (panel kurulum yoklaması okuyor). Matris kuralı:
+  "yanit|ic-baslik-sizmaz".
+- **Host eşitliği ölçüldü:** middleware'in imzaladığı `hostname` (ham Host)
+  = render'ın `headers().get("host")` — port'lu, BÜYÜK harfli, sonda noktalı,
+  IPv6, RSC ve FARKLI `X-Forwarded-Host` dahil 8/8 senaryoda birebir (farklı
+  `X-Forwarded-Host` render'ın host'unu değiştirmiyor).
+- **Maliyet:** ~22 µs `imzala`, ~24–27 µs `dogrula` (Edge ve Node, mikro ölçüm).
+- **Sır yoksa FAIL-CLOSED:** build durur (`next.config.mjs`, < 32 karakter ya
+  da `NEXT_PUBLIC_TENANT_HEADER_SECRET` tanımlı → hata); çalışma anında
+  `[tenant-proof] TENANT_HEADER_SECRET yok …` satırı BİR kez loglanır, her
+  istek nötr 404'e düşer (sessizce açık kalmaz).
+- 🔴 **ÜRETİM SIRRI (deploy şartı):** `/opt/build/sendika-site/.env`'de
+  `TENANT_HEADER_SECRET` (üretim: `openssl rand -hex 32`) OLMALI — build onu
+  standalone'a kopyalar, `rsync` canlıya taşır, sunucu açılışta okur. Yalnız
+  build kabuğuna verilen değişken canlıya ULAŞMAZ. Sır değişince build +
+  deploy (`/var/www`'daki `.env` bir sonraki `rsync`'te ezilir).
+- **Mühürler:** `test:tenant-proof` (birim + Edge sandbox'ında imza/doğrulama
+  + build kapısı + kaynak mühürleri); izolasyon matrisi sahte kanıtla.
 
 ## 🔴 Next 14'ün belgelenmemiş ikinci katmanı (mutasyonla bulundu)
 
@@ -6433,6 +6477,10 @@ cd /var/www/sendika-site && node -e "console.log(require('sharp').versions)"   #
 
 - `npm run build` **`NEXT_PUBLIC_SUPABASE_URL` olmadan hatayla durur**
   (görsel ucunun izin listesi ondan türetiliyor — bilerek).
+- 🔴 **21 Eylül 2026 (K7-B):** `npm run build` `/opt/build/sendika-site/.env`'de
+  **`TENANT_HEADER_SECRET`** (≥ 32 karakter, `openssl rand -hex 32`) yoksa
+  hatayla durur. Değer DOSYADA olmalı (build onu standalone'a kopyalar);
+  yalnız kabuk değişkeni canlıya ulaşmaz. Ayrıntı: "🔑 K7-B".
 - `rsync --delete` `.env`'i silmez: Next build'de yüklediği `.env*`
   dosyalarını standalone'a kopyalıyor (`next/dist/build/index.js`
   writeStandaloneDirectory, 21 Eylül'de kaynaktan doğrulandı).

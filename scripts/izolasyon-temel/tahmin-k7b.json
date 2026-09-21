@@ -1,0 +1,40 @@
+{
+  "tur": "K7-B — kurum basligi icin imzali kanit (x-tenant-proof)",
+  "yazildi": "2026-09-21T19:46:00Z",
+  "not": "KODDAN ONCE yazildi. Degistirilmez; sonuc buna karsi programla karsilastirilir. Karsilastirilan temel cizgi: next-14.2.35.json (515 hucre, bilinenKusurlar {K7:2}, commit c6f2552).",
+  "varsayim": [
+    "Matris betigine iki ekleme: (3) ve sinir-sahte isteklerine SAHTE x-tenant-proof; tek yeni kural 'yanit|ic-baslik-sizmaz' (bolum 3).",
+    "K7 BILINEN_KUSURLAR'dan AYNI anda cikar.",
+    "(A) matrise etki etmez (matris nginx'ten gecmez)."
+  ],
+  "degisen_hucre_sayisi": 2,
+  "degisen_alan_sayisi": 4,
+  "farklar": [
+    { "hucre": "sinir-sahte|B-custom|/_next/static/yok.js", "alan": "kurumBaslik", "eski": "A", "yeni": "BULUNAMADI" },
+    { "hucre": "sinir-sahte|B-custom|/_next/static/yok.js", "alan": "kurumOg", "eski": "A", "yeni": null },
+    { "hucre": "sinir-sahte|apex|/_next/static/yok.js", "alan": "kurumBaslik", "eski": "B", "yeni": "BULUNAMADI" },
+    { "hucre": "sinir-sahte|apex|/_next/static/yok.js", "alan": "kurumOg", "eski": "B", "yeni": null }
+  ],
+  "fark_satirlari": [
+    "~ sinir-sahte|B-custom|/_next/static/yok.js.kurumBaslik: \"A\" → \"BULUNAMADI\"",
+    "~ sinir-sahte|B-custom|/_next/static/yok.js.kurumOg: \"A\" → null",
+    "~ sinir-sahte|apex|/_next/static/yok.js.kurumBaslik: \"B\" → \"BULUNAMADI\"",
+    "~ sinir-sahte|apex|/_next/static/yok.js.kurumOg: \"B\" → null"
+  ],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "degismeyecek": [
+    "bolum (3) sahte: 112 hucrenin hepsi farkliAlanlar [] ve yansima false kalir (sahte kanit middleware'ce ezilir)",
+    "sinir-sahte|superadmin|/_next/static/yok.js (PANEL) ve sinir-sahte|*|/api/yok-boyle-uc (JSON 404) degismez",
+    "html/rsc/prefetch hucrelerinin hicbiri degismez (kanit yalniz istek basligi; yanita yazilmaz)"
+  ],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "yeni_kurallar": [
+    { "bolum": "3", "id": "yanit|ic-baslik-sizmaz (x-tenant-proof, x-middleware-request-*)", "sonuc": "PASS" }
+  ],
+  "bolum_sayilari_gecti": { "0": 2, "1": 562, "2": 728, "3": 225, "4": 130, "5": 8, "6": 62, "7": 17 },
+  "beklenen_sonuc_satiri": "SONUC: 1734 gecti, 4 kaldi (bilinen kusur: 0, temel cizgi farki: 4)",
+  "kayit_sonrasi_sonuc_satiri": "SONUC: 1734 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)",
+  "kayit_sonrasi_hucre": 515
+}
