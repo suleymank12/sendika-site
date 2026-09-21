@@ -6057,7 +6057,7 @@ sınır bütün ziyaretçilere BİRLİKTE uygulanır).
 5. Sıra: önce izolasyon HTTP matrisi (Faz 2) → 14.2.35'te temel çizgi →
    her fazdan sonra aynı matris + fark.
 
-## Matcher dışı yollar (ölçüldü, nginx ile kapatıldı)
+## Matcher dışı yollar (ölçüldü — gelen başlıkları nginx kapatıyor, K4 AÇIK)
 
 Matcher `api` ile BAŞLAYAN her yolu dışlıyor (`/apix`, `/apiler`…); orada
 middleware çalışmaz. 14.2.35'te ölçüldü: `/apix` + sahte `x-tenant-slug` →
@@ -6066,6 +6066,136 @@ kırılır). nginx artık `x-tenant-slug`, `x-nonce`, `Content-Security-Policy(-
 `x-middleware-subrequest`, `x-nextjs-data` başlıklarını uygulamaya
 iletmiyor (yerel nginx 1.18.0 + gerçek build ile uçtan uca ölçüldü: etkisiz).
 API rotaları etkilenmiyor (kurumu host'tan kendileri çözüyor).
+
+🔴 **Düzeltme (21 Eylül 2026, Faz 2 matrisi):** "nginx ile kapatıldı" YALNIZ
+gelen başlık sınıfı için doğru. Aynı kök nedenin bir de **başlıksız** yüzü
+var (K4): `kurmayteknoloji.com/apix` (B'nin her host'u) sahte başlık OLMADAN
+**default kurumun (Büyük Diriliş) kimliğini** gösteriyor — başlık,
+açıklama, og:site_name, logo. Middleware çalışmıyor → slug yok →
+`getCurrentTenant()` default'a düşüyor. Haber içeriği sızmıyor. nginx bunu
+KAPATMAZ (sorun gelen başlıkta değil). Kalıcı çözüm matcher'da — bkz.
+"🧪 İZOLASYON HTTP MATRİSİ" → bilinen kusurlar.
+
+---
+
+# 🧪 İZOLASYON HTTP MATRİSİ — FAZ 2 (21 Eylül 2026)
+
+Rapor: `raporlar/2026-09-21-1400-faz2-izolasyon-matrisi.md`
+
+**Neden:** diğer ~2150 kontrol BİZİM fonksiyonlarımızı sınıyor; Next
+yükseltmesi ise NEXT'İN davranışını değiştiriyor (başlık iletimi, önbellek,
+nonce, matcher, görsel ucu). Bu matris uygulamaya DIŞARIDAN, gerçek HTTP ile,
+**production build** üzerinde bakar.
+
+## Komutlar
+
+| Komut | Ne yapar |
+|---|---|
+| `npm run izolasyon:tam` | build + `next start -p 3100` + matris + kapat. **ATLAMAZ.** Yükseltmeden sonra koşulacak komut bu |
+| `npm run izolasyon:temel` | aynısı + temel çizgiyi kaydeder (kural FAIL varsa KAYDETMEZ; var olan dosyayı `--uzerine-yaz` olmadan ezmez) |
+| `npm run test:izolasyon` | zaten ayakta olan PRODUCTION sunucuya karşı (`IZOLASYON_URL`, vars. 3000). Sunucu yoksa / dev sunucusuysa büyük **ATLANDI** bandı + `SONUC: ATLANDI (0 kontrol)`, çıkış 0; `IZOLASYON_ZORUNLU=1` → çıkış 1. Yerel build'den farklı build'e karşı koşuyorsa → FAIL |
+| `npm run test:lint-kurallari` | SafeHtml/SafeImage güvenlik lint kurallarının mutasyonu (ihlali kendisi üretir) |
+
+⚠️ `izolasyon:tam` `.next`'i yeniden yazar — aynı anda `next dev` açıksa önce kapatın.
+
+## Kapsam
+
+7 host (apex · A-sub · B-sub · B-custom · bilinmeyen-sub · bilinmeyen-custom ·
+süper admin) × 16 yol (/, /haberler, A/B haber-duyuru-sayfa-manşet detayları,
+sitemap, robots, /admin, /admin/giris, /admin/haberler, /super-admin,
+/olmayan-sayfa, /apix) × 4 varyant (HTML · RSC · prefetch · sahte başlık)
++ 8 görsel ucu hücresi = **456 gözlem, 1603 kural**. A = `default`, B =
+custom domain'li ilk aktif kurum. Veri canlı Supabase'den anon anahtarla
+OKUNUR.
+
+## Temel çizgi — yükseltmede ne yapılır
+
+- Dosya: `scripts/izolasyon-temel/next-<sürüm>.json` (repoda, git'te).
+- Karşılaştırma hedefi: `IZOLASYON_TEMEL` → kurulu Next sürümünün dosyası →
+  yoksa ondan KÜÇÜK en büyük sürüm (15.5.25'e geçince otomatik 14.2.35).
+- Adımlar: (1) yükselt → (2) `npm run izolasyon:tam` → (3) her FARK satırı
+  incelenir; 🔴 **beklenmeyen her fark kapıdır, geçiş durur** → (4) beklenen
+  farklar (ör. K5 düzelirse `q50` 200→400) kabul edilince
+  `npm run izolasyon:temel` ile YENİ sürümün dosyası; eskisi silinmez, git
+  diff'i inceleme kaydıdır.
+- Kararlılık: kurum adları/slug'lar/host'lar SEMBOL (`A`, `{B.haber}`,
+  `B-custom`); nonce değil TUTARLILIĞI kaydedilir. İki koşu arası 456/456
+  aynı (yeni build'le de).
+
+## Bilinen kusurlar (14.2.35) — katı xfail
+
+Kırmızı yapmaz, HER koşuda listelenir; biri DÜZELİRSE koşu kırmızı olur
+("listeden çıkar"). Ortak kök neden K1–K4: matcher `api` ile BAŞLAYAN her
+yolu dışlıyor (`/apix`, `/apiler`, `/api-...`), orada middleware çalışmıyor.
+
+| Kod | Kusur | Canlıda |
+|---|---|---|
+| K1 | matcher dışı yolda gelen `x-tenant-slug`'a güveniliyor | nginx kapatıyor |
+| K2 | matcher dışı yolun HTML 404'ünde CSP başlığı/nonce yok | açık (404 sayfası, kullanıcı içeriği yok) |
+| K3 | matcher dışı yolda gelen CSP nonce'u HTML'e yansıyor | nginx kapatıyor |
+| K4 | matcher dışı yolda B host'u, sahte başlık OLMADAN, A'nın kimliğini gösteriyor | 🔴 **AÇIK** — nginx kapatmaz |
+| K5 | uygulama `q=50`'yi kabul ediyor (q=75 yalnız nginx'te) | nginx kapatıyor |
+
+Önerilen düzeltmeler (ayrı tur, onayla): K1–K4 → matcher dışlamalarını tam
+yola daralt (`api/` önekli, `_next/static/`, `_next/image` tam eşleşme,
+`favicon.ico` tam eşleşme). K5 → `images.qualities: [75]` (14.2.35
+destekliyor: `image-optimizer.js:502-510`; Next 16 varsayılanıyla aynı).
+
+## 🔴 Next 14'ün belgelenmemiş ikinci katmanı (mutasyonla bulundu)
+
+Next 14.2.35 middleware'in **yanıt** başlıklarını **istek** başlıklarına da
+kopyalıyor (`next/dist/server/lib/router-utils/resolve-routes.js:401-403`:
+`resHeaders[key] = value; req.headers[key] = value;`). Sonuç: sayfanın
+okuduğu `x-tenant-slug` ve CSP nonce'u, middleware'in İSTEK başlığı
+(`requestHeaders.set`) bozulsa bile YANIT başlığından (`supabaseResponse.
+headers.set`) gelir. Mutasyonda "gelen slug'a güven" (yalnız istek tarafı)
+ve "yanıt nonce'u farklı" **gözlenebilir hiçbir şey değiştirmedi** — iki
+katman var ve ikincisi Next'in iç ayrıntısı. Ayrıca middleware RSC/Flight
+başlıklarını GÖREMİYOR (`next/dist/server/web/adapter.js:113-122` siliyor).
+
+**Yükseltme için anlamı:** bu kopyalama Next 15/16'da kalkarsa izolasyon
+tek başına istek başlığı yoluna kalır. Bugün o yol da doğru; matris
+davranışı gözlediği için gerilemeyi o gün yakalar. Middleware'de İKİ yolun
+da doğru kalması şart: `requestHeaders.set("x-tenant-slug", …)` VE
+`supabaseResponse.headers.set("x-tenant-slug", …)`.
+
+## 🔴 Test tuzağı: Node `fetch` `Host` başlığını YOK SAYAR
+
+undici (Node fetch) `Host`'u yasak başlık sayıp sessizce atıyor; istek her
+zaman 127.0.0.1'e, yani APEX'e gider. Ölçüldü: aynı istek fetch ile
+`x-tenant-slug: default`, `http.get` ile `kurmay-teknoloji`. Host'a bağlı
+her HTTP testi `node:http` kullanmalı. `test:cerez` bugün fetch + `Host`
+kullanıyor: varsayılan host apex olduğu için sonuçları doğru, ama
+`TEST_HOST` ile verilen başka host SESSİZCE yok sayılır (düzeltme önerildi).
+
+## Önbellek geçersizleştirme — elle tatbikat (her yükseltme deploy'undan sonra)
+
+Otomatik değil: süper admin oturumu + veri yazma gerekiyor. Yerel ortam da
+CANLI Supabase'e bağlı, yani tatbikat her yerde canlı veriyi değiştirir →
+**gerçek müşteri pasife alınmaz, iki TEST kurumu kullanılır.**
+
+Ölçüm döngüsü (ayrı terminal):
+```bash
+A=https://tatbikat-bir.buyukdirilis.org.tr
+for i in $(seq 1 8); do printf '%s ' "$(date +%T)"; curl -s "$A/" | grep -o '<title>[^<]*'; sleep 1; done
+```
+
+1. Süper admin → yeni kurum "Tatbikat Bir", slug `tatbikat-bir`. Döngü: başlıkta "Tatbikat Bir" (2 kez iste → önbellek ısınsın).
+2. **Pasife al** → bir SONRAKİ istekte "Site Kapalı". 60 sn beklemek gerekiyorsa `revalidateTag` çalışmıyor, yalnız TTL var.
+3. **Aktif et** → bir sonraki istekte site geri.
+4. **Slug değiştir** `tatbikat-bir` → `tatbikat-iki`: eski adres HEMEN "Tatbikat Bir"i göstermeyi bırakmalı (bilinmeyen subdomain → belgeli davranış: default site, "Site Bulunamadı" başlığı); yeni adres hemen "Tatbikat Bir".
+5. 🔴 **Çapraz kurum senaryosu** (Next 16 `'max'` tuzağının tam yeri): ikinci test kurumu "Tatbikat İki"yi ESKİ slug `tatbikat-bir` ile oluştur → ilk istekte **"Tatbikat İki"**; "Tatbikat Bir"in kaydı bir kez bile görünmemeli.
+6. Temizlik: iki test kurumunu sil → iki adres de hemen düşmeli.
+
+Beklenen: her adımda ilk istek doğru. Kaynak mührü (`revalidateTag(tag,
+{ expire: 0 })`) Faz 4'te yazılacak.
+
+## Kapsam dışı (bilinçli)
+
+- Oturumlu senaryolar (A yöneticisi B panelinde): canlıda test hesabı
+  açmadan yapılamıyor; veri sınırı RLS'te (test:super-admin-kurum,
+  test:panel-yoneticileri).
+- 500 sayfası: sağlıklı uygulamada güvenli tetikleme yolu yok.
 
 ---
 

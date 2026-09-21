@@ -1,0 +1,4038 @@
+{
+  "surum": "14.2.35",
+  "kaydedildi": "2026-09-21T10:43:42.817Z",
+  "buildId": "vlAoF4KWQDqMsaHo5_ghX",
+  "kurumlar": {
+    "A": "default",
+    "B": "kurmay-teknoloji"
+  },
+  "hedefler": {
+    "A.haber": "var",
+    "B.haber": "var",
+    "A.duyuru": "var",
+    "B.duyuru": "YOK",
+    "A.sayfa": "var",
+    "B.sayfa": "YOK",
+    "A.manset": "var",
+    "B.manset": "var"
+  },
+  "bilinenKusurlar": {
+    "K1": 6,
+    "K2": 14,
+    "K3": 7,
+    "K4": 14,
+    "K5": 1
+  },
+  "gozlem": {
+    "gorsel|accept-avif": {
+      "durum": 200,
+      "tur": "image/webp",
+      "hata": null
+    },
+    "gorsel|accept-yildiz": {
+      "durum": 200,
+      "tur": "image/png",
+      "hata": null
+    },
+    "gorsel|baska-proje": {
+      "durum": 400,
+      "tur": "yok",
+      "hata": "\"url\" parameter is not allowed"
+    },
+    "gorsel|q50": {
+      "durum": 200,
+      "tur": "image/webp",
+      "hata": null
+    },
+    "gorsel|sonek-hilesi": {
+      "durum": 400,
+      "tur": "yok",
+      "hata": "\"url\" parameter is not allowed"
+    },
+    "gorsel|url-yok": {
+      "durum": 400,
+      "tur": "yok",
+      "hata": "\"url\" parameter is required"
+    },
+    "gorsel|w1200-q75": {
+      "durum": 200,
+      "tur": "image/webp",
+      "hata": null
+    },
+    "gorsel|w1201": {
+      "durum": 400,
+      "tur": "yok",
+      "hata": "\"w\" parameter (width) of 1201 is not allowed"
+    },
+    "html|A-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|A-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|A-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": null,
+        "nonceVar": false,
+        "attrSayisiPozitif": false,
+        "hepsiEsit": false
+      }
+    },
+    "html|A-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/haberler",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "robotsSitemap": "apex/sitemap.xml"
+    },
+    "html|A-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "locHostlari": [
+        "apex"
+      ]
+    },
+    "html|A-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|A-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.duyuru}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.haber}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.manset}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/kurumsal/hakkimizda",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|{B.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|A-sub|{B.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom/",
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|B-custom|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|B-custom|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": null,
+        "nonceVar": false,
+        "attrSayisiPozitif": false,
+        "hepsiEsit": false
+      }
+    },
+    "html|B-custom|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom/haberler",
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "text",
+      "robotsSitemap": "B-custom/sitemap.xml"
+    },
+    "html|B-custom|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "xml",
+      "locHostlari": [
+        "B-custom"
+      ]
+    },
+    "html|B-custom|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|B-custom|{A.duyuru}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|{A.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|{A.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|{A.sayfa}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom{B.haber}",
+      "ogImage": "B-custom/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-custom|{B.manset}": {
+      "durum": 307,
+      "konum": "{B.haber}",
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom{B.manset}",
+      "ogImage": "B-custom/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom/",
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|B-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|B-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": null,
+        "nonceVar": false,
+        "attrSayisiPozitif": false,
+        "hepsiEsit": false
+      }
+    },
+    "html|B-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom/haberler",
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "text",
+      "robotsSitemap": "B-custom/sitemap.xml"
+    },
+    "html|B-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "xml",
+      "locHostlari": [
+        "B-custom"
+      ]
+    },
+    "html|B-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|B-sub|{A.duyuru}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|{A.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|{A.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|{A.sayfa}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom{B.haber}",
+      "ogImage": "B-custom/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|B-sub|{B.manset}": {
+      "durum": 307,
+      "konum": "{B.haber}",
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": "B-custom{B.manset}",
+      "ogImage": "B-custom/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|apex|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|apex|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": null,
+        "nonceVar": false,
+        "attrSayisiPozitif": false,
+        "hepsiEsit": false
+      }
+    },
+    "html|apex|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/haberler",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "robotsSitemap": "apex/sitemap.xml"
+    },
+    "html|apex|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "locHostlari": [
+        "apex"
+      ]
+    },
+    "html|apex|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|apex|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.duyuru}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.haber}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.manset}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/kurumsal/hakkimizda",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|{B.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|apex|{B.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|/admin": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|bilinmeyen-custom|/admin/giris": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|bilinmeyen-custom|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|bilinmeyen-custom|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": null,
+        "nonceVar": false,
+        "attrSayisiPozitif": false,
+        "hepsiEsit": false
+      }
+    },
+    "html|bilinmeyen-custom|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/haberler",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "robotsSitemap": "apex/sitemap.xml"
+    },
+    "html|bilinmeyen-custom|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "locHostlari": [
+        "apex"
+      ]
+    },
+    "html|bilinmeyen-custom|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|bilinmeyen-custom|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.duyuru}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.haber}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex{A.manset}",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": "apex/kurumsal/hakkimizda",
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|{B.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-custom|{B.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": "A",
+      "ogUrl": "goreli:/",
+      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|bilinmeyen-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|bilinmeyen-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": null,
+        "nonceVar": false,
+        "attrSayisiPozitif": false,
+        "hepsiEsit": false
+      }
+    },
+    "html|bilinmeyen-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "?(Haberler)",
+      "kurumOg": "A",
+      "ogUrl": "goreli:/haberler",
+      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "text",
+      "robotsSitemap": "apex/sitemap.xml"
+    },
+    "html|bilinmeyen-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "xml",
+      "locHostlari": [
+        "apex"
+      ]
+    },
+    "html|bilinmeyen-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|bilinmeyen-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "?(Bayramlaşma Programı)",
+      "kurumOg": "A",
+      "ogUrl": "goreli:{A.duyuru}",
+      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "?(ASFASFASFASFASF)",
+      "kurumOg": "A",
+      "ogUrl": "goreli:{A.haber}",
+      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "?(Sendika Genel Kurulu Yapıldı)",
+      "kurumOg": "A",
+      "ogUrl": "goreli:{A.manset}",
+      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "?(Hakkımızda)",
+      "kurumOg": "A",
+      "ogUrl": "goreli:/kurumsal/hakkimizda",
+      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|{B.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|bilinmeyen-sub|{B.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "html",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      }
+    },
+    "html|superadmin|/": {
+      "durum": 307,
+      "konum": "/super-admin",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|superadmin|/admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|/admin/giris": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|/admin/haberler": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "html",
+      "kurumBaslik": "PANEL",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": null,
+        "nonceVar": false,
+        "attrSayisiPozitif": false,
+        "hepsiEsit": false
+      }
+    },
+    "html|superadmin|/haberler": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|/robots.txt": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|/sitemap.xml": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|/super-admin": {
+      "durum": 307,
+      "konum": "/super-admin/giris?next=%2Fsuper-admin",
+      "slug": null,
+      "tur": "yok"
+    },
+    "html|superadmin|{A.duyuru}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|{A.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|{A.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|{A.sayfa}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|{B.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "html|superadmin|{B.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text"
+    },
+    "prefetch|A-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|A-sub|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-custom|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|B-sub|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|apex|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/admin": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/admin/giris": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-custom|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|bilinmeyen-sub|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/": {
+      "durum": 307,
+      "konum": "/super-admin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/admin/giris": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/admin/haberler": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/haberler": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/robots.txt": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/sitemap.xml": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|/super-admin": {
+      "durum": 307,
+      "konum": "/super-admin/giris?next=%2Fsuper-admin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|{A.duyuru}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|{A.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|{A.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|{A.sayfa}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|{B.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "prefetch|superadmin|{B.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|A-sub|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|A-sub|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-custom|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-custom|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-custom|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-custom|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-custom|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-custom|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "redirect",
+      "sizinti": 0
+    },
+    "rsc|B-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|B-sub|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|B-sub|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "rsc",
+      "kurumlar": [
+        "B"
+      ],
+      "isaret": "redirect",
+      "sizinti": 0
+    },
+    "rsc|apex|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|apex|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|apex|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/admin": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/admin/giris": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/tenant-bulunamadi",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-custom|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "default",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/admin": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/admin/giris": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/admin/haberler": {
+      "durum": 307,
+      "konum": "/admin/giris?next=%2Fadmin%2Fhaberler",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/haberler": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/robots.txt": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/sitemap.xml": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "xml",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|/super-admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|{A.duyuru}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|{A.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|{A.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|{A.sayfa}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|{B.haber}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|bilinmeyen-sub|{B.manset}": {
+      "durum": 200,
+      "konum": null,
+      "slug": "yok-boyle-kurum",
+      "tur": "rsc",
+      "kurumlar": [
+        "A"
+      ],
+      "isaret": "notFound",
+      "sizinti": 0
+    },
+    "rsc|superadmin|/": {
+      "durum": 307,
+      "konum": "/super-admin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/admin": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/admin/giris": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/admin/haberler": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/apix": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "rsc",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/haberler": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/olmayan-sayfa": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/robots.txt": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/sitemap.xml": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|/super-admin": {
+      "durum": 307,
+      "konum": "/super-admin/giris?next=%2Fsuper-admin",
+      "slug": null,
+      "tur": "yok",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|{A.duyuru}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|{A.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|{A.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|{A.sayfa}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|{B.haber}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "rsc|superadmin|{B.manset}": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "kurumlar": [],
+      "isaret": null,
+      "sizinti": 0
+    },
+    "sahte|A-sub|/": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/admin/giris": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/admin/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/apix": {
+      "farkliAlanlar": [
+        "kurumBaslik",
+        "kurumOg",
+        "ogImage"
+      ],
+      "yansima": true
+    },
+    "sahte|A-sub|/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/olmayan-sayfa": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/robots.txt": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/sitemap.xml": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|/super-admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|{A.duyuru}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|{A.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|{A.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|{A.sayfa}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|{B.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|A-sub|{B.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/admin/giris": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/admin/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/apix": {
+      "farkliAlanlar": [
+        "kurumBaslik",
+        "kurumOg",
+        "ogImage"
+      ],
+      "yansima": true
+    },
+    "sahte|B-custom|/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/olmayan-sayfa": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/robots.txt": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/sitemap.xml": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|/super-admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|{A.duyuru}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|{A.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|{A.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|{A.sayfa}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|{B.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-custom|{B.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/admin/giris": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/admin/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/apix": {
+      "farkliAlanlar": [
+        "kurumBaslik",
+        "kurumOg",
+        "ogImage"
+      ],
+      "yansima": true
+    },
+    "sahte|B-sub|/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/olmayan-sayfa": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/robots.txt": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/sitemap.xml": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|/super-admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|{A.duyuru}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|{A.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|{A.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|{A.sayfa}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|{B.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|B-sub|{B.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/admin/giris": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/admin/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/apix": {
+      "farkliAlanlar": [
+        "kurumBaslik",
+        "kurumOg",
+        "ogImage"
+      ],
+      "yansima": true
+    },
+    "sahte|apex|/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/olmayan-sayfa": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/robots.txt": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/sitemap.xml": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|/super-admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|{A.duyuru}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|{A.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|{A.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|{A.sayfa}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|{B.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|apex|{B.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/admin/giris": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/admin/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/apix": {
+      "farkliAlanlar": [
+        "kurumBaslik",
+        "kurumOg",
+        "ogImage"
+      ],
+      "yansima": true
+    },
+    "sahte|bilinmeyen-custom|/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/olmayan-sayfa": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/robots.txt": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/sitemap.xml": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|/super-admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|{A.duyuru}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|{A.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|{A.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|{A.sayfa}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|{B.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-custom|{B.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/admin/giris": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/admin/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/apix": {
+      "farkliAlanlar": [
+        "kurumBaslik",
+        "kurumOg",
+        "ogImage"
+      ],
+      "yansima": true
+    },
+    "sahte|bilinmeyen-sub|/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/olmayan-sayfa": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/robots.txt": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/sitemap.xml": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|/super-admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|{A.duyuru}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|{A.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|{A.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|{A.sayfa}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|{B.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|bilinmeyen-sub|{B.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/admin/giris": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/admin/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/apix": {
+      "farkliAlanlar": [],
+      "yansima": true
+    },
+    "sahte|superadmin|/haberler": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/olmayan-sayfa": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/robots.txt": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/sitemap.xml": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|/super-admin": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|{A.duyuru}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|{A.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|{A.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|{A.sayfa}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|{B.haber}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    },
+    "sahte|superadmin|{B.manset}": {
+      "farkliAlanlar": [],
+      "yansima": false
+    }
+  }
+}
