@@ -1,0 +1,12 @@
+{
+  "tur": "B4 C2 — belirlenimci hedef secimi + sinif sabitleme + sabit B kurumu + kimlik kayitlari",
+  "yazildi": "2026-09-22T01:47:00+03:00",
+  "not": "KODDAN ONCE yazildi. Olcum (raporlar/2026-09-22-0125-b4-canli-veri-bagimliligi.md, 1. madde): tam siralama 6/6 hedefte bugunku satiri seciyor (A.haber e3888561, B.haber 8635e822, A.duyuru 882c6b63, A.sayfa 07afb3c5 hakkimizda = created_at sirasinda ilk VE kurumsal, A.manset 482455bb = order sirasinda ilk VE news, B.manset 55d93e9f = news); B.duyuru/B.sayfa YOK kalir. Sabit B = temel cizgideki kurmay-teknoloji (ilk kosuda eski bicim: slug; kayitta id yazilir). Sabit-B kontrolu kural DEGIL, ortam kapisi (kullanilamazsa cikis 1) — kural sayisi DEGISMEZ. Kimlik satirlari ('--- KIMLIK') teshistir, kirmizi degil; ilk kosuda 'kimlik kaydi yok' beklenir. Uc yeni yuva C4'te (yer tutucu ile).",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": { "0": 2, "1": 559, "2": 738, "3": 225, "4": 130, "5": 8, "6": 62, "7": 17 },
+  "beklenen_sonuc_satiri": "SONUC: 1741 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}

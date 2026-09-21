@@ -39,9 +39,15 @@
  * ## KARARLILIK (sahte fark uretmesin diye)
  *
  *   Kurum adlari, haber slug'lari, host'lar SEMBOLE cevrilir: A (default),
- *   B (custom domain'li ilk aktif kurum), {A.haber}, B-custom, storage...
+ *   B (temel cizgide KAYITLI kurum — B4 P6), {A.haber}, B-custom, storage...
  *   Icerik (yeni haber, isim degisikligi) fark URETMEZ; davranis uretir.
  *   Nonce degerleri kaydedilmez, yalniz TUTARLILIGI kaydedilir.
+ *
+ *   B4 (22 Eylul 2026) — canli veri bagimliligi kesildi:
+ *   - hedef secimi belirlenimci + sinif sabit (izolasyon-araclari/hedef-secimi.mjs;
+ *     veri kapisi ayni secimi kullanir)
+ *   - kimlik kayitlari (kurum id/slug, hedef satir id/slug, sembol tablosu)
+ *     belgede; degisince "--- KIMLIK" teshis satiri (kirmizi degil)
  *
  * ## BILINEN KUSURLAR (katı xfail)
  *
@@ -71,6 +77,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import http from "node:http";
 import https from "node:https";
 import { SUPER_ADMIN_SUBDOMAIN } from "../src/lib/constants.ts";
+import { hedefleriSec, hedefYolu, listeleriOku, sabitBSec, temelSec } from "./izolasyon-araclari/hedef-secimi.mjs";
 
 // ---------------------------------------------------------------------------
 // Ayarlar
@@ -78,6 +85,8 @@ import { SUPER_ADMIN_SUBDOMAIN } from "../src/lib/constants.ts";
 const ARGS = new Set(process.argv.slice(2));
 const KAYDET = ARGS.has("--kaydet");
 const UZERINE_YAZ = ARGS.has("--uzerine-yaz");
+// B4 P6: B kurumunu degistirmenin TEK yolu — bilincli, kayitla birlikte.
+const B_KURUM = (() => { const i = process.argv.indexOf("--b-kurum"); return i >= 0 ? process.argv[i + 1] : null; })();
 const AYRINTI = ARGS.has("--ayrinti");
 const ZORUNLU = process.env.IZOLASYON_ZORUNLU === "1";
 const TABAN = (process.env.IZOLASYON_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
@@ -172,32 +181,37 @@ async function supa(yol) {
   if (!r.ok) throw new Error(`supabase ${yol} → ${r.status}`);
   return r.json();
 }
-const kurumlar = await supa("tenants?select=id,slug,name,custom_domain,is_active");
-const A = kurumlar.find((k) => k.slug === "default");
-const B = kurumlar.filter((k) => k.slug !== "default" && k.is_active && k.custom_domain).sort((x, y) => x.slug.localeCompare(y.slug))[0];
-if (!A || !B) {
-  console.log("VERI YETERSIZ: 'default' kurumu ve custom domain'li ikinci bir aktif kurum gerekli.");
+// Karsilastirilacak temel cizgi — sabit B (P6) ve kimlik kayitlari buradan okunur.
+const TEMEL_YOL = temelSec(TEMEL_DIZIN, NEXT_SURUM);
+const TEMEL_BELGE = TEMEL_YOL && existsSync(TEMEL_YOL) ? JSON.parse(readFileSync(TEMEL_YOL, "utf8")) : null;
+// Erken cikis (ortam/veri hatasi): Windows'ta fetch'ten hemen sonra
+// process.exit() libuv assertion'iyla COKUYOR (olculdu: cikis 127, "Assertion
+// failed … src\win\async.c"). exitCode + kisa bekleme temiz 1 verir.
+async function erkenCik(mesaj) {
+  console.log(mesaj);
   console.log("SONUC: 0 gecti, 1 kaldi");
+  process.exitCode = 1;
+  await new Promise((r) => setTimeout(r, 50));
   process.exit(1);
 }
+const kurumlar = await supa("tenants?select=id,slug,name,custom_domain,is_active");
+const A = kurumlar.find((k) => k.slug === "default");
+if (!A) await erkenCik("VERI YETERSIZ: 'default' kurumu yok.");
+// B4 P6: B = temel cizgide KAYITLI kurum. "Custom domain'li ilk aktif kurum"
+// secimi kalkti — alfabetik olarak once gelen yeni bir musteri 127/515
+// hucreyi degistirirdi (olculdu). Kullanilamazsa KIRMIZI; baska kuruma
+// sessizce gecilmez. Yeni B: --b-kurum <id> yalniz --kaydet --uzerine-yaz ile.
+if (B_KURUM && !(KAYDET && UZERINE_YAZ)) await erkenCik("HATA: --b-kurum yalniz --kaydet --uzerine-yaz ile verilebilir (B'yi degistirmek temel cizgiyi yeniden yazmaktir).");
+const sabitB = sabitBSec(kurumlar, TEMEL_BELGE, B_KURUM);
+if (sabitB.hata) await erkenCik(`SABIT B KURUMU KULLANILAMIYOR: ${sabitB.hata}`);
+const B = sabitB.B;
 const ayarlar = await supa("site_settings?select=tenant_id,value&key=eq.site_title");
 const siteBaslik = Object.fromEntries(ayarlar.map((a) => [a.tenant_id, a.value]));
-const haberler = await supa("news?select=slug,title,tenant_id,cover_image&is_published=eq.true&order=published_at.desc");
-const duyurular = await supa("announcements?select=slug,title,tenant_id&is_published=eq.true&order=published_at.desc");
-const sayfalar = await supa("pages?select=slug,title,tenant_id&is_published=eq.true");
-const mansetler = await supa("headlines?select=id,tenant_id&is_active=eq.true");
-
-const ilk = (liste, k, kosul = () => true) => liste.find((x) => x.tenant_id === k.id && kosul(x));
-const HEDEF = {
-  "A.haber": ilk(haberler, A, (h) => !!h.cover_image)?.slug && `/haberler/${ilk(haberler, A, (h) => !!h.cover_image).slug}`,
-  "B.haber": ilk(haberler, B, (h) => !!h.cover_image)?.slug && `/haberler/${ilk(haberler, B, (h) => !!h.cover_image).slug}`,
-  "A.duyuru": ilk(duyurular, A)?.slug && `/duyurular/${ilk(duyurular, A).slug}`,
-  "B.duyuru": ilk(duyurular, B)?.slug && `/duyurular/${ilk(duyurular, B).slug}`,
-  "A.sayfa": ilk(sayfalar, A)?.slug && `/sayfa/${ilk(sayfalar, A).slug}`,
-  "B.sayfa": ilk(sayfalar, B)?.slug && `/sayfa/${ilk(sayfalar, B).slug}`,
-  "A.manset": ilk(mansetler, A)?.id && `/manset/${ilk(mansetler, A).id}`,
-  "B.manset": ilk(mansetler, B)?.id && `/manset/${ilk(mansetler, B).id}`,
-};
+// B4 P1+P2: belirlenimci sira + sinif sabitleme — scripts/izolasyon-araclari/hedef-secimi.mjs
+// (veri kapisi ayni secimi kullanir).
+const { haber: haberler, duyuru: duyurular, sayfa: sayfalar, manset: mansetler } = await listeleriOku(supa);
+const SECILEN = hedefleriSec({ haber: haberler, duyuru: duyurular, sayfa: sayfalar, manset: mansetler }, A, B);
+const HEDEF = Object.fromEntries(Object.entries(SECILEN).map(([k, x]) => [k, hedefYolu(k, x)]));
 const hedefYok = Object.entries(HEDEF).filter(([, v]) => !v).map(([k]) => k);
 
 // Sizinti dedektoru: YALNIZ bir kuruma ait, ayirt edici (≥ 12 karakter) basliklar
@@ -829,19 +843,8 @@ const KUSUR_ACIKLAMA = {};
 // ---------------------------------------------------------------------------
 // Temel cizgi
 // ---------------------------------------------------------------------------
-const surumSirala = (a, b) => {
-  const pa = a.split(".").map(Number), pb = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] - pb[i];
-  return 0;
-};
-function temelSec() {
-  if (process.env.IZOLASYON_TEMEL) return new URL(process.env.IZOLASYON_TEMEL, `file://${process.cwd().replace(/\\/g, "/")}/`);
-  if (!existsSync(TEMEL_DIZIN)) return null;
-  const surumler = readdirSync(TEMEL_DIZIN).map((f) => (f.match(/^next-(\d+\.\d+\.\d+)\.json$/) || [])[1]).filter(Boolean).sort(surumSirala);
-  if (surumler.includes(NEXT_SURUM)) return new URL(`next-${NEXT_SURUM}.json`, TEMEL_DIZIN);
-  const once = surumler.filter((s) => surumSirala(s, NEXT_SURUM) < 0).pop();
-  return once ? new URL(`next-${once}.json`, TEMEL_DIZIN) : null;
-}
+// Secim (IZOLASYON_TEMEL → surum dosyasi → kucuk en buyuk surum) hedef-secimi.mjs'te:
+// sabit B de ayni dosyadan okunuyor (TEMEL_YOL / TEMEL_BELGE, ustte).
 function farklar(eski, yeni) {
   const out = [];
   const anahtarlar = [...new Set([...Object.keys(eski), ...Object.keys(yeni)])].sort();
@@ -919,11 +922,54 @@ const belge = {
   surum: NEXT_SURUM,
   kaydedildi: new Date().toISOString(),
   buildId: sunucuBuild,
-  kurumlar: { A: A.slug, B: B.slug },
-  hedefler: Object.fromEntries(Object.entries(HEDEF).map(([k, v]) => [k, v ? "var" : "YOK"])),
+  // B4 kimlik kayitlari: gozlem sembolik (kurum adi/slug'i/icerik metni tasimaz);
+  // "hangi kurum, hangi satir" burada. Degisince asagida TESHIS satiri basilir.
+  kurumlar: { A: { id: A.id, slug: A.slug }, B: { id: B.id, slug: B.slug, custom_domain: B.custom_domain } },
+  hedefler: Object.fromEntries(Object.entries(SECILEN).map(([k, x]) => [k, x ? { id: x.id, slug: x.slug ?? null } : "YOK"])),
+  semboller: {
+    kurumSlug: { "{A.slug}": A.slug, "{B.slug}": B.slug, "{bilinmeyen-sub}": BILINMEYEN_SUB },
+    hedefYolu: Object.fromEntries(sembolMap.map(([somut, sembol]) => [sembol, somut])),
+  },
   bilinenKusurlar: Object.fromEntries([...bilinenGorulen].sort()),
   gozlem: sirali(gozlem),
 };
+
+// --- KIMLIK TESHISI (B4) — KIRMIZI DEGIL. Kurumun adresi, hedef satiri ya da
+// sembol tablosu degistiyse soyler: gozlem sembolik oldugu icin bu degisiklik
+// temel cizgi farki URETMEZ; sinyal burada kalir.
+function kimlikTeshisi(eski) {
+  if (!eski) return ["karsilastirilan temel cizgi yok"];
+  const out = [];
+  const kurumEski = (x) => (typeof x === "string" ? { slug: x } : x || {});
+  for (const ke of ["A", "B"]) {
+    const o = kurumEski(eski.kurumlar?.[ke]), n = belge.kurumlar[ke];
+    if (!o.id) out.push(`${ke} kurumunun id kaydi yok (eski bicim) — kayitta yazilir`);
+    else if (o.id !== n.id) out.push(`${ke} kurumunun id'si degisti: ${o.id} → ${n.id}`);
+    if (o.slug !== n.slug) out.push(`${ke} kurumunun slug'i degisti: ${o.slug} → ${n.slug}`);
+    if (ke === "B" && o.id && o.custom_domain !== n.custom_domain) out.push(`B kurumunun custom domain'i degisti: ${o.custom_domain} → ${n.custom_domain}`);
+  }
+  const eh = eski.hedefler || {};
+  const eskiBicim = Object.values(eh).some((v) => v === "var");
+  if (eskiBicim) out.push("hedef kimlik kaydi yok (eski bicim: var/YOK) — kayitta yazilir");
+  const g = (x) => (x === undefined ? "KAYITSIZ" : x === "YOK" ? "YOK" : `${x.id}${x.slug ? ` ${x.slug}` : ""}`);
+  for (const k of [...new Set([...Object.keys(eh), ...Object.keys(belge.hedefler)])].sort()) {
+    const o = eh[k], n = belge.hedefler[k];
+    if (eskiBicim) { if ((o === "var") !== (n !== "YOK") || o === undefined) out.push(`HEDEF DEGISTI: ${k} ${o ?? "KAYITSIZ"} → ${g(n)}`); continue; }
+    if (g(o) !== g(n)) out.push(`HEDEF DEGISTI: ${k} ${g(o)} → ${g(n)}`);
+  }
+  for (const [tablo, n] of Object.entries(belge.semboller)) {
+    const o = eski.semboller?.[tablo];
+    if (!o) { out.push(`sembol tablosu kaydi yok (${tablo}) — kayitta yazilir`); continue; }
+    for (const s of [...new Set([...Object.keys(o), ...Object.keys(n)])].sort()) {
+      if (o[s] !== n[s]) out.push(`SEMBOL DEGISTI: ${tablo} ${s}: ${o[s] ?? "KAYITSIZ"} → ${n[s] ?? "KAYITSIZ"}`);
+    }
+  }
+  return out;
+}
+console.log("\n--- KIMLIK (teshis — kirmizi degil)");
+const teshis = kimlikTeshisi(TEMEL_BELGE);
+if (teshis.length === 0) console.log("  degisiklik yok (kurumlar, hedef satirlari, sembol tablosu temel cizgiyle ayni)");
+for (const s of teshis) console.log(`  ${s}`);
 
 let farkSayisi = 0;
 console.log("\n--- TEMEL CIZGI");
@@ -940,12 +986,12 @@ if (KAYDET) {
     console.log(`  KAYDEDILDI: scripts/izolasyon-temel/next-${NEXT_SURUM}.json (${Object.keys(gozlem).length} hucre)`);
   }
 } else {
-  const secilen = temelSec();
-  if (!secilen || !existsSync(secilen)) {
+  const secilen = TEMEL_YOL;
+  if (!TEMEL_BELGE) {
     console.log("  TEMEL CIZGI YOK — once: npm run izolasyon:temel");
     kaldi++;
   } else {
-    const eski = JSON.parse(readFileSync(secilen, "utf8"));
+    const eski = TEMEL_BELGE;
     const f = farklar(eski.gozlem, belge.gozlem);
     farkSayisi = f.length;
     console.log(`  karsilastirilan: ${secilen.pathname.split("/").pop()} (Next ${eski.surum}, ${eski.kaydedildi}) ↔ simdiki (Next ${NEXT_SURUM})`);

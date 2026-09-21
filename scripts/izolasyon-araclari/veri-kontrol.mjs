@@ -9,12 +9,13 @@
  *
  * Anon anahtar, yalniz okuma (uygulamanin kendisiyle ayni gorunurluk).
  *
- * 🔴 HEDEF SECIMI matrisinkiyle (scripts/test-izolasyon-matrisi.mjs) AYNI
- * olmali; ayri duserse kapi yanlis satirlari izler. Matriste secim
- * degisirse burasi da ayni commit'te degisir.
+ * 🔴 HEDEF SECIMI matrisinkiyle AYNI: ikisi de hedef-secimi.mjs'i kullanir
+ * (sira, sinif filtresi, sabit B). IZOLASYON_TEMEL verilirse sabit B o
+ * belgeden okunur — matrisin karsilastirdigi belgeyle ayni.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { hedefleriSec, listeleriOku, sabitBSec, temelSec } from "./hedef-secimi.mjs";
 
 const REPO = new URL("../../", import.meta.url);
 const env = { ...process.env };
@@ -39,20 +40,17 @@ const q = async (p) => {
 };
 const kurumlar = await q("tenants?select=id,slug,name,custom_domain,is_active,updated_at");
 const A = kurumlar.find((k) => k.slug === "default");
-const B = kurumlar.filter((k) => k.slug !== "default" && k.is_active && k.custom_domain).sort((x, y) => x.slug.localeCompare(y.slug))[0];
-// Matrisle AYNI sorgular (+ updated_at)
-const haberler = await q("news?select=id,slug,title,tenant_id,cover_image,updated_at,published_at&is_published=eq.true&order=published_at.desc");
-const duyurular = await q("announcements?select=id,slug,title,tenant_id,updated_at&is_published=eq.true&order=published_at.desc");
-const sayfalar = await q("pages?select=id,slug,title,tenant_id,updated_at&is_published=eq.true");
-const mansetler = await q("headlines?select=*&is_active=eq.true");
-const ilk = (l, k, c = () => true) => l.find((x) => x.tenant_id === k.id && c(x));
-const hedef = {
-  "A.haber": ilk(haberler, A, (h) => !!h.cover_image),
-  "B.haber": ilk(haberler, B, (h) => !!h.cover_image),
-  "A.duyuru": ilk(duyurular, A), "B.duyuru": ilk(duyurular, B),
-  "A.sayfa": ilk(sayfalar, A), "B.sayfa": ilk(sayfalar, B),
-  "A.manset": ilk(mansetler, A), "B.manset": ilk(mansetler, B),
-};
+const nextSurum = JSON.parse(readFileSync(new URL("node_modules/next/package.json", REPO), "utf8")).version;
+const temelYol = temelSec(new URL("scripts/izolasyon-temel/", REPO), nextSurum, env);
+const sabit = sabitBSec(kurumlar, temelYol && existsSync(temelYol) ? JSON.parse(readFileSync(temelYol, "utf8")) : null, null);
+if (!A || sabit.hata) {
+  console.log(`VERI KAPISI OKUNAMADI: ${!A ? "default kurumu yok" : sabit.hata}`);
+  process.exit(1);
+}
+const B = sabit.B;
+// Matrisle AYNI secim (hedef-secimi.mjs; sorgular updated_at'i da getirir)
+const listeler = await listeleriOku(q);
+const hedef = hedefleriSec(listeler, A, B);
 const ozet = {};
 for (const [ad, x] of Object.entries(hedef)) {
   if (!x) { ozet[ad] = null; continue; }
@@ -69,8 +67,10 @@ for (const [ad, x] of Object.entries(hedef)) {
   }
   ozet[ad] = o;
 }
-ozet.kurumlar = { A: { slug: A.slug, name: A.name, updated_at: A.updated_at ?? null }, B: { slug: B.slug, name: B.name, custom_domain: B.custom_domain, updated_at: B.updated_at ?? null } };
-ozet.sayilar = { haber: haberler.length, duyuru: duyurular.length, sayfa: sayfalar.length, manset: mansetler.length };
+ozet.kurumlar = { A: { id: A.id, slug: A.slug, name: A.name, updated_at: A.updated_at ?? null }, B: { id: B.id, slug: B.slug, name: B.name, custom_domain: B.custom_domain, updated_at: B.updated_at ?? null } };
+ozet.sayilar = Object.fromEntries(Object.entries(listeler).map(([k, l]) => [k, l.length]));
+// Mansetlerde updated_at yok: secilen satirin kendisi (sira/sinif alanlari) ozetin parcasi
+ozet.mansetSirasi = listeler.manset.map((x) => `${x.id}/${x.order}/${x.source_type}/${x.source_id ?? ""}`);
 const ayar = await q("site_settings?select=tenant_id,key,value&key=eq.site_title");
 ozet.site_title = Object.fromEntries(ayar.filter((a) => [A.id, B.id].includes(a.tenant_id)).map((a) => [a.tenant_id === A.id ? "A" : "B", a.value]));
 const ozetMetni = JSON.stringify(ozet);

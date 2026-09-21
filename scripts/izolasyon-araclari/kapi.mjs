@@ -55,9 +55,11 @@ if (temel) console.log(`       temel ${temel} (sha256 ${sha(temel)})`);
 console.log(`       ara dosyalar: ${cikti}`);
 
 const node = (betik, args, env = {}) => spawnSync(process.execPath, [betik, ...args], { cwd: REPO, encoding: "utf8", maxBuffer: 64 << 20, env: { ...process.env, ...env } });
+// Matris ve veri kapisi AYNI belgeyi okur (sabit B oradan gelir).
+const temelEnv = temel ? { IZOLASYON_TEMEL: pathToFileURL(temel).href } : {};
 const veri = (etiket) => {
   const yol = path.join(cikti, `veri-${etiket}.json`);
-  const r = node(path.join(ARAC, "veri-kontrol.mjs"), [etiket, yol]);
+  const r = node(path.join(ARAC, "veri-kontrol.mjs"), [etiket, yol], temelEnv);
   process.stdout.write(r.stdout || ""); process.stderr.write(r.stderr || "");
   if (r.status !== 0) { console.log(`🔴 DUR: veri kapisi okunamadi (${etiket})`); process.exit(2); }
   return JSON.parse(readFileSync(yol, "utf8"));
@@ -71,7 +73,7 @@ const kosArgs = [];
 if (argv.includes("--build-yok")) kosArgs.push("--build-yok");
 else rmSync(path.join(REPO, ".next"), { recursive: true, force: true });
 const t0 = Date.now();
-const m = node(path.join(REPO, "scripts", "izolasyon-kos.mjs"), kosArgs, temel ? { IZOLASYON_TEMEL: pathToFileURL(temel).href } : {});
+const m = node(path.join(REPO, "scripts", "izolasyon-kos.mjs"), kosArgs, temelEnv);
 const matris = path.join(cikti, "matris.txt");
 writeFileSync(matris, (m.stdout || "") + (m.stderr || ""));
 const sonuc = ((m.stdout || "").match(/^SONUC:.*$/m) || ["(SONUC yok)"])[0];

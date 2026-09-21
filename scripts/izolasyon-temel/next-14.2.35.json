@@ -1,20 +1,60 @@
 {
   "surum": "14.2.35",
-  "kaydedildi": "2026-09-21T21:50:21.003Z",
-  "buildId": "_kUi-GUrzB5WCpUl1M-5X",
+  "kaydedildi": "2026-09-21T22:46:43.157Z",
+  "buildId": "4VmQhVpCmimL2T8ZUd4RW",
   "kurumlar": {
-    "A": "default",
-    "B": "kurmay-teknoloji"
+    "A": {
+      "id": "00000000-0000-0000-0000-000000000001",
+      "slug": "default"
+    },
+    "B": {
+      "id": "45260da6-152f-47f5-be3a-93c1c80ea904",
+      "slug": "kurmay-teknoloji",
+      "custom_domain": "kurmayteknoloji.com"
+    }
   },
   "hedefler": {
-    "A.haber": "var",
-    "B.haber": "var",
-    "A.duyuru": "var",
+    "A.haber": {
+      "id": "e3888561-14a4-437a-8fef-cd9264ba6469",
+      "slug": "asfasfasfasfasf"
+    },
+    "B.haber": {
+      "id": "8635e822-cf18-427e-8171-ce19206d00c2",
+      "slug": "test-x-butonu"
+    },
+    "A.duyuru": {
+      "id": "882c6b63-bc37-40c3-bf7d-9ce5cc682235",
+      "slug": "bayramlasma-programi"
+    },
     "B.duyuru": "YOK",
-    "A.sayfa": "var",
+    "A.sayfa": {
+      "id": "07afb3c5-fee5-4012-b00a-04d979d24ded",
+      "slug": "hakkimizda"
+    },
     "B.sayfa": "YOK",
-    "A.manset": "var",
-    "B.manset": "var"
+    "A.manset": {
+      "id": "482455bb-6e67-45a6-9e4c-fa60bf56bef0",
+      "slug": null
+    },
+    "B.manset": {
+      "id": "55d93e9f-c79e-4981-967f-0c9b774a3f89",
+      "slug": null
+    }
+  },
+  "semboller": {
+    "kurumSlug": {
+      "{A.slug}": "default",
+      "{B.slug}": "kurmay-teknoloji",
+      "{bilinmeyen-sub}": "yok-boyle-kurum"
+    },
+    "hedefYolu": {
+      "{A.haber}": "/haberler/asfasfasfasfasf",
+      "{B.haber}": "/haberler/test-x-butonu",
+      "{A.duyuru}": "/duyurular/bayramlasma-programi",
+      "{A.sayfa}": "/sayfa/hakkimizda",
+      "{A.manset}": "/manset/482455bb-6e67-45a6-9e4c-fa60bf56bef0",
+      "{B.manset}": "/manset/55d93e9f-c79e-4981-967f-0c9b774a3f89"
+    }
   },
   "bilinenKusurlar": {},
   "gozlem": {
