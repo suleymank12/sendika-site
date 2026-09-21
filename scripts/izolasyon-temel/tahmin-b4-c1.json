@@ -1,0 +1,12 @@
+{
+  "tur": "B4 C1 — kapi araclari repoya (denetci + veri kapisi); matris DEGISMEZ",
+  "yazildi": "2026-09-22T01:40:00+03:00",
+  "not": "KODDAN ONCE yazildi. C1 matrise dokunmaz: yalniz scripts/izolasyon-araclari/ (tahmin-denetle, veri-kontrol, kapi) + package.json betikleri. Karsilastirilan temel cizgi: next-14.2.35.json (K8 sonrasi, 45ba2fc).",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": { "0": 2, "1": 559, "2": 738, "3": 225, "4": 130, "5": 8, "6": 62, "7": 17 },
+  "beklenen_sonuc_satiri": "SONUC: 1741 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
