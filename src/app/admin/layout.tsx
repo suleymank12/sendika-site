@@ -1,5 +1,26 @@
-import { getCurrentTenantOrNull } from "@/lib/get-tenant";
+import type { Metadata } from "next";
+import { getCurrentTenantOrNull, resolveCurrentTenant } from "@/lib/get-tenant";
 import AdminTenantBulunamadiView from "./_components/AdminTenantBulunamadiView";
+
+/**
+ * K8 (22 Eylul 2026): root layout, kurumu olmayan her istege artik NOTR
+ * metadata veriyor ("Sayfa Bulunamadı" — public 404'u baska bir 404'ten
+ * ayirt edilemesin diye). /admin/* bu karardan ETKILENMEMELI: bilinmeyen
+ * subdomain'deki "Alan Adı Tanımlı Değil" ekrani K8'den ONCEKI metadata'yi
+ * aynen tasir (baslik, aciklama, noindex). Yalniz `unknown-slug`'da devreye
+ * girer; bulunan kurumda ve `no-header`'da (admin'de production'da olmaz)
+ * root'unki gecerli kalir. Muhur: izolasyon matrisi
+ * `bilinmeyen-sub|/admin/giris|admin-ekrani-korundu`.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const cozum = await resolveCurrentTenant();
+  if (cozum.kind !== "unknown-slug") return {};
+  return {
+    title: "Site Bulunamadı",
+    description: "Bu adrese tanımlı bir site bulunmuyor.",
+    robots: { index: false, follow: false },
+  };
+}
 
 /**
  * TUM /admin/* ROTALARININ FAIL-CLOSED KAPISI.

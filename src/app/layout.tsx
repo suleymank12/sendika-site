@@ -31,32 +31,28 @@ export async function generateMetadata(): Promise<Metadata> {
   // host'ta sanki gecerli bir siteymis gibi metadata uretilir.
   const cozum = await resolveCurrentTenant();
 
-  // K6 — BASLIK YOK (21 Eylul 2026): istek middleware'den GECMEDI. Bugun
-  // tek ornegi matcher disinda OLMAYAN bir dosya (`/_next/static/yok.js`):
-  // Next'in 404'u burada, hicbir kurumu bilmeden render ediliyor. HICBIR
-  // kurumun adi, aciklamasi, og'si, favicon'u basilmaz; `metadataBase` yok.
+  // KURUM YOK → NOTR (K6 + K8). Iki durum AYNI metadata'yi uretir; boylece
+  // bilinmeyen subdomain'in 404'u baska bir notr 404'ten AYIRT EDILEMEZ:
+  //   - no-header (K6, 21 Eylul 2026): istek middleware'den GECMEDI
+  //     (matcher disinda OLMAYAN bir dosya, `/_next/static/yok.js`).
+  //   - unknown-slug (K8, 22 Eylul 2026): kayitli olmayan subdomain.
+  //     Public sayfalar getCurrentTenant'ta notFound() atiyor; eskiden burada
+  //     "Site Bulunamadı" yazip govdede default kurumun sitesini gosteriyorduk.
+  // HICBIR kurumun adi, aciklamasi, og'si, favicon'u basilmaz; `metadataBase`
+  // yok. Govde root `not-found.tsx` ("Sayfa Bulunamadı", platform paleti,
+  // "/"a donus linki).
   //
-  // "Site Bulunamadı" DEGIL: site pekala var (kurmayteknoloji.com) — bulunamayan
-  // istenen adres. Govde zaten root `not-found.tsx` ("Sayfa Bulunamadı",
-  // platform paleti, "/"a donus linki — ayni host, dogru kurum).
-  if (cozum.kind === "no-header") {
+  // /admin/* bu metadata'yi GORMEZ: admin/layout.tsx unknown-slug'da kendi
+  // (degismemis) "Site Bulunamadı" metadata'sini veriyor — K8 admin'i
+  // degistirmedi.
+  if (cozum.kind !== "found") {
     return {
       title: "Sayfa Bulunamadı",
       robots: { index: false, follow: false },
     };
   }
 
-  const tenant = cozum.kind === "found" ? cozum.tenant : null;
-
-  // Tenant cozulemedi: notr baslik + noindex. `metadataBase` verilmez —
-  // hangi host'un kanonik oldugu belli degil.
-  if (!tenant) {
-    return {
-      title: "Site Bulunamadı",
-      description: "Bu adrese tanımlı bir site bulunmuyor.",
-      robots: { index: false, follow: false },
-    };
-  }
+  const tenant = cozum.tenant;
 
   // Pasif tenant: notr baslik + noindex (arama motorlari indekslemesin)
   if (!tenant.is_active) {

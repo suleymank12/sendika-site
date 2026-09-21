@@ -230,8 +230,13 @@ function hostEtiketi(host) {
 }
 // Kurumun kanonik (og:url) host etiketi — buildTenantPublicUrl: custom > apex(default)
 const KANONIK = { A: "apex", B: "B-custom" };
-// Host → beklenen kurum (bilinmeyen host'lar BELGELI olarak default'a duser — get-tenant.ts)
-const BEKLENEN = { apex: "A", "A-sub": "A", "B-sub": "B", "B-custom": "B", "bilinmeyen-sub": "A", "bilinmeyen-custom": "A", superadmin: null };
+// Host → beklenen kurum. null = HICBIR kurum.
+//   bilinmeyen-sub → null (K8, 22 Eylul 2026): kayitli olmayan subdomain public
+//     tarafta NOTR 404 (eskiden default kurumun sitesiydi); /admin'de "Alan Adi
+//     Tanimli Degil" ekrani (degismedi).
+//   bilinmeyen-custom → A: middleware cozemedigi custom domain'e "default"
+//     yaziyor (public'te default site, /admin'de fail-closed) — ayri karar.
+const BEKLENEN = { apex: "A", "A-sub": "A", "B-sub": "B", "B-custom": "B", "bilinmeyen-sub": null, "bilinmeyen-custom": "A", superadmin: null };
 const BEKLENEN_SLUG = { apex: A.slug, "A-sub": A.slug, "B-sub": B.slug, "B-custom": B.slug, "bilinmeyen-sub": BILINMEYEN_SUB, "bilinmeyen-custom": A.slug };
 const DIGER = { A: "B", B: "A" };
 
@@ -319,6 +324,8 @@ function notrBas(govde) {
     aciklamaYok: !/<meta name="description"/.test(bas),
     ikonYalnizPlatform: ikonlar.every((h) => h === "/favicon.ico"),
     noindexNofollow: bas.includes('<meta name="robots" content="noindex, nofollow"/>'),
+    // K8: yapisal veri de kurum tasiyabilir (projede bugun JSON-LD yok — eklenirse)
+    jsonLdYok: !govde.includes("application/ld+json"),
   };
 }
 
@@ -579,6 +586,41 @@ for (const h of hucreler) {
     iddia("1", `${b}|sizinti-yok`, sizintilar(htmlR[hucreler.indexOf(h)].govde, null).length === 0);
     continue;
   }
+  // K8 (22 Eylul 2026): bilinmeyen subdomain HICBIR kurumu gostermez. Public
+  // tarafta notr 404 — baska bir notr 404'ten (K6: /_next/static/yok.js)
+  // ayirt edilemez; robots/sitemap govdesiz 404. /admin'de K8'den ONCEKI
+  // "Alan Adi Tanimli Degil" ekrani AYNEN (muhurlu).
+  if (h.he === "bilinmeyen-sub") {
+    const govdeB = htmlR[hucreler.indexOf(h)].govde;
+    iddia("1", `${b}|sizinti-yok`, sizintilar(govdeB, null).length === 0, sizintilar(govdeB, null).join(" | "));
+    iddia("1", `${b}|kurum-gostermez`, !["A", "B"].includes(g.kurumBaslik) && !["A", "B"].includes(g.kurumOg), JSON.stringify(g));
+    if (h.ya === "/super-admin") {
+      iddia("1", `${b}|super-admin-404-yonlendirme-yok`, g.durum === 404 && !g.konum, JSON.stringify(g));
+      continue;
+    }
+    if (h.ya.startsWith("/admin")) {
+      if (h.ya === "/admin/giris") {
+        iddia("1", `${b}|kurum-bulunamadi`, g.durum === 200 && g.kurumBaslik === "BULUNAMADI", JSON.stringify(g));
+        // /admin DEGISMEDI: baslik K8 oncesiyle ayni, govde ekran, parola alani yok
+        const baslikAdmin = entity((govdeB.match(/<title>([^<]*)<\/title>/) || [])[1] || "");
+        iddia("1", `${b}|admin-ekrani-korundu`, baslikAdmin === "Site Bulunamadı" && govdeB.includes("Alan Adı Tanımlı Değil") && !govdeB.includes('type="password"'), `baslik=${baslikAdmin}`);
+      } else {
+        iddia("1", `${b}|oturumsuz-girise`, g.durum === 307 && String(g.konum).startsWith("/admin/giris?next="), JSON.stringify(g));
+      }
+      continue;
+    }
+    // public: middleware slug'i yine yazar (yanit basligi degismez)
+    iddia("1", `${b}|x-tenant-slug`, g.slug === BEKLENEN_SLUG[h.he], `gelen=${g.slug}`);
+    if (g.tur === "html") {
+      iddia("1", `${b}|notr-404`, g.durum === 404 && !g.konum && g.kurumBaslik === "BULUNAMADI" && g.kurumOg === null && g.ogUrl === null && g.ogImage === null, JSON.stringify(g));
+      const k = notrBas(govdeB);
+      iddia("1", `${b}|notr-bas`, Object.values(k).every(Boolean), JSON.stringify(k));
+    } else {
+      // robots.txt / sitemap.xml: govdesiz 404 (default kurumun dosyasi DEGIL)
+      iddia("1", `${b}|notr-404`, g.durum === 404 && !g.konum && !["text", "xml"].includes(g.tur), JSON.stringify(g));
+    }
+    continue;
+  }
   const govde = htmlR[hucreler.indexOf(h)].govde;
   iddia("1", `${b}|sizinti-yok`, sizintilar(govde, bek).length === 0, sizintilar(govde, bek).join(" | "));
   iddia("1", `${b}|baska-kurum-gorunmez`, g.kurumBaslik !== DIGER[bek] && g.kurumOg !== DIGER[bek], JSON.stringify(g));
@@ -633,7 +675,14 @@ for (const varyant of ["rsc", "prefetch"]) {
     if (d.durum === 404 && d.tur === "text") iddia("2", `${b}|duz-404-ayni`, r.durum === 404, `rsc=${r.durum}`);
     iddia("2", `${b}|icerik-sizintisi-yok`, r.sizinti === 0, `sizinti=${r.sizinti}`);
     if (h.he === "superadmin") { iddia("2", `${b}|kurum-yok`, r.kurumlar.length === 0, r.kurumlar.join()); continue; }
-    iddia("2", `${b}|baska-kurum-yok`, !r.kurumlar.includes(DIGER[bek]), r.kurumlar.join());
+    // Kurumu olmayan host (bilinmeyen-sub, K8): yukte HICBIR kurumun adi olamaz
+    if (bek) iddia("2", `${b}|baska-kurum-yok`, !r.kurumlar.includes(DIGER[bek]), r.kurumlar.join());
+    else iddia("2", `${b}|kurum-yok`, r.kurumlar.length === 0, r.kurumlar.join());
+    // K8: bilinmeyen subdomain'in public yollari RSC'de de notr — notFound
+    // isareti (layout'ta notFound → HTTP 200 + NEXT_NOT_FOUND) ya da 404
+    if (h.he === "bilinmeyen-sub" && varyant === "rsc" && !h.ya.startsWith("/admin") && h.ya !== "/super-admin") {
+      iddia("2", `${b}|notr-notFound`, (r.isaret === "notFound" || r.durum === 404) && r.kurumlar.length === 0, `durum=${r.durum} isaret=${r.isaret} kurumlar=${r.kurumlar.join()}`);
+    }
     if (CAPRAZ(h.he, h.ya) === "yabanci" && varyant === "rsc") {
       iddia("2", `${b}|🔴 capraz-detay-notFound`, r.isaret === "notFound" || r.durum === 404, `durum=${r.durum} isaret=${r.isaret}`);
     }

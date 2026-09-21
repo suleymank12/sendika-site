@@ -1823,7 +1823,7 @@ meşru süper admin'i kilitleyebilirdi.
 
 | Taraf | Slug çözülemezse | Gerekçe |
 |---|---|---|
-| **Public** | default siteye düşer (**değişmedi**) | `middleware.ts` fail-closed bölümünde **belgeli karar**: "ziyaretçi default siteyi görür, salt okuma, zarar yok, site tamamen kapanmaz". Yanlış yazılmış bir subdomain yüzünden çalışan siteyi 404'e düşürmek orantısız |
+| **Public** | default siteye düşer (**değişmedi**) — ⚠️ **22 Eylül 2026 (K8) itibarıyla bilinmeyen SUBDOMAIN'de artık nötr 404** (bkz. "🔑 K8"); bilinmeyen custom domain hâlâ default (middleware "default" yazıyor) | `middleware.ts` fail-closed bölümünde **belgeli karar**: "ziyaretçi default siteyi görür, salt okuma, zarar yok, site tamamen kapanmaz". Yanlış yazılmış bir subdomain yüzünden çalışan siteyi 404'e düşürmek orantısız |
 | **Admin** | `/admin/tenant-bulunamadi` | "Yanlış panel açmaktansa hiç panel açmamak doğru" |
 
 **Public için ayrı "kurum bulunamadı" sayfası YAPILMADI** — yukarıdaki belgeli
@@ -6161,8 +6161,9 @@ kalması gerekenler — `/api/…`, `/_next/static/…`, `/_next/image`,
 `/favicon.ico` — middleware'siz mi) + **(7) `/api` catch-all** (diskteki her
 gerçek route dosyası catch-all'dan ÖNCE eşleşiyor mu; catch-all'ın 404'ü
 süper admin uçlarının müşteri domainindeki 404'üyle ayırt edilemez mi) +
-matcher dışı 404'lerde sahte başlık = **515 gözlem, 1734 kural** (21 Eylül
-2026, K7-B turundan sonra: sahte istekler sahte `x-tenant-proof` da taşıyor
+matcher dışı 404'lerde sahte başlık = **515 gözlem, 1741 kural** (22 Eylül
+2026, K8 sonrası: bilinmeyen subdomain nötr 404 kuralları; K7-B sonrası
+515 / 1734 — sahte istekler sahte `x-tenant-proof` da taşıyor
 + "hiçbir yanıtta `x-tenant-proof` / `x-middleware-request-*` yok" kuralı;
 K6 sonrası 515 / 1731, K4+K5 sonrası 492 / 1702, ilk hâl 456 / 1603). A = `default`, B =
 custom domain'li ilk aktif kurum. Veri canlı Supabase'den anon anahtarla
@@ -6219,7 +6220,8 @@ nötr 404 olan `kurmayteknoloji.com/haberler` 200 + **A'nın haber listesi**.
 
 **Tasarım (K6):** `get-tenant.ts` `resolveCurrentTenant()` üç durum döner:
 `found` · `unknown-slug` (başlık var, kurum yok → bilinmeyen subdomain;
-public'te BELGELİ default kararı AYNEN) · `no-header` (middleware bu istekte
+public'te BELGELİ default kararı AYNEN — K8, 22 Eylül 2026'dan beri nötr
+404, bkz. "🔑 K8") · `no-header` (middleware bu istekte
 çalışmadı → kurum BİLİNMİYOR). `no-header`'da: `getCurrentTenantOrNull` →
 null, `getCurrentTenant` → `notFound()`, root metadata → "Sayfa Bulunamadı"
 + noindex, og/twitter/description/metadataBase YOK. Ölçüm (184 istek):
@@ -6231,11 +6233,65 @@ altında tek 404 biçimi. ⚠️ Gizlilik garantisi DEĞİL — uç adları pane
 herkese açık JS parçasında zaten yazılı (ölçüldü) ve GET'i olmayan uç GET'e
 405 döner (önceden de öyleydi).
 
-⚠️ **Açık karar — bilinmeyen subdomain tutarsızlığı** (K6'dan bağımsız;
-orada başlık VAR, `unknown-slug`): kök başlık "Site Bulunamadı" + noindex,
-gövde + og:site_name + og:image default'un; og:image `metadataBase` olmadığı
-için `localhost` adresine çözülüyor (production'da kırık önizleme).
-Değerlendirme ve seçenekler raporda; karar bekliyor.
+✅ **KAPANDI (K8, 22 Eylül 2026) — bilinmeyen subdomain tutarsızlığı**
+(K6'dan bağımsız; orada başlık VAR, `unknown-slug`): kök başlık "Site
+Bulunamadı" + noindex, gövde + og:site_name + og:image default'un; og:image
+`metadataBase` olmadığı için `localhost` adresine çözülüyordu (production'da
+kırık önizleme). Artık public tarafta nötr 404 — bkz. "🔑 K8" aşağıda.
+
+## 🔑 K8 — bilinmeyen subdomain public tarafta nötr 404 (22 Eylül 2026)
+
+Raporlar: `raporlar/2026-09-22-0017-k8-bilinmeyen-subdomain-DUR.md`,
+`raporlar/2026-09-22-0038-k8-devam-DUR.md` (iki DUR turu) ve aynı günün
+K8+B1 uygulama raporu. Kanıt repoda: `scripts/izolasyon-temel/`
+`tahmin-uret-k8.mjs`, `tahmin-k8.json`, `k8-on-analiz.md`.
+
+- **Ne:** `getCurrentTenant()` `unknown-slug`'da artık default kuruma
+  DÜŞMÜYOR → `notFound()`. Kayıtlı olmayan subdomain (`olmayanbirad.<apex>`)
+  public'te nötr 404: root metadata `found` dışındaki her durumda "Sayfa
+  Bulunamadı" + noindex, og/twitter/description/metadataBase YOK (K6'nın
+  no-header dalıyla aynı dal). `robots.txt` / `sitemap.xml` gövdesiz 404
+  (route handler `notFound()` → content-type yok). RSC: 200 +
+  `NEXT_NOT_FOUND` işareti, yükte kurum adı yok; prefetch değişmedi.
+- **Neden:** silinen ya da slug'ı değişen bir kurumun eski adresi ve
+  paylaşılmış linkleri sessizce BAŞKA bir kurumun (default) sitesini
+  gösteriyordu; og:image `localhost`'a çözülüyordu.
+- **`/admin/*` DEĞİŞMEDİ:** `admin/layout.tsx` `generateMetadata` yalnız
+  `unknown-slug`'da K8 öncesi "Site Bulunamadı" metadata'sını verir; gövde
+  "Alan Adı Tanımlı Değil" ekranı. Mühür: matris
+  `bilinmeyen-sub|/admin/giris|admin-ekrani-korundu`.
+- **Kapsam dışı:** bilinmeyen CUSTOM domain (middleware "default" yazıyor →
+  default site; ayrı karar, açık).
+- **Ölçülen yan davranış:** layout'taki `notFound()` sayfanın kendi
+  `redirect()`'inden ÖNCE geliyor — bilinmeyen subdomain'de manşetin haber
+  detayına 307'si artık yok (404, Location yok).
+- **Kanıt zinciri:** kurallar koddan önce yazıldı; ilk koşu canlı veri
+  kaymasıyla DUR (panelde bir haber kaydedilmişti) → HEAD kontrolü kaymayı
+  kanıtladı → temel çizgi veri tazelemesi (`4e03ef1`, kod yok) → ikinci
+  koşu tek satırla DUR (üreteçte `konum` kuralı yoktu; satır koşudan ÖNCE
+  `k8-on-analiz.md`'de öngörülmüştü, sha `d597047c…`) → kural düzeltmesi
+  (`92c1ea4`) → tahmin sha `698f2384…` ile **58/58 birebir, beklenmeyen 0**;
+  veri koşudan hemen önce/sonra aynı (özet sha `522c066e…`). Temel çizgi
+  515 hücre, doğrulama 1741/0 fark 0.
+- **Mutasyon (7/7 yakalandı, her biri try/finally + sha geri yükleme):**
+  M1 `unknown-slug` yine default'a düşer → 48 FAIL (notr-404, sizinti-yok,
+  kurum-gostermez, notr-bas, rsc kurum-yok/notr-notFound…); M2 og nötr
+  404'e sızar → 12 FAIL (`notr-bas`; Next og'dan twitter'ı da türetiyor);
+  M3 twitter sızar → 12 FAIL (`notr-bas`, K6 `/_next/static/yok.js` dahil);
+  M4a admin metadata'sı root'un nötr başlığına düşer → 1 FAIL
+  (`admin-ekrani-korundu`, başlık "Sayfa Bulunamadı"); M4b admin gövdesi
+  ekran yerine sayfayı render eder → 1 FAIL (aynı mühür, başlık aynı
+  kalmasına rağmen); M5 robots.txt 200 → 2 FAIL; M6 sitemap.xml 200 →
+  2 FAIL (`notr-404` + rsc `notr-notFound`).
+- 🔴 **Tahmin üreteci kuralı (kullanıcı kararı, 22 Eylül 2026, her turda
+  geçerli):** üreteç ancak (a) düzeltme koşudan ÖNCE yazılı ve sha'lı
+  öngörülmüşse VE (b) eksik bir KURALA dairse değiştirilebilir. Bir değeri
+  tutturmak için asla; ikisi yoksa DUR kalır ve kullanıcıya sorulur.
+- ⚠️ **Veri kayması (açık, B4):** matris hedefleri canlı veriden seçiliyor
+  ("A'nın ilk aktif manşeti" — sorguda sıralama yok; en yeni kapaklı haber
+  vb.). Panelde yapılan her içerik değişikliği temel çizgi farkı
+  üretebilir. Koşudan hemen önce/sonra hedeflerin `updated_at` özeti
+  karşılaştırılır; farklıysa sonuç yorumlanmaz.
 
 ## 🔑 K7-B — kurum başlığı kanıtı (21 Eylül 2026)
 
@@ -6312,7 +6368,7 @@ for i in $(seq 1 8); do printf '%s ' "$(date +%T)"; curl -s "$A/" | grep -o '<ti
 1. Süper admin → yeni kurum "Tatbikat Bir", slug `tatbikat-bir`. Döngü: başlıkta "Tatbikat Bir" (2 kez iste → önbellek ısınsın).
 2. **Pasife al** → bir SONRAKİ istekte "Site Kapalı". 60 sn beklemek gerekiyorsa `revalidateTag` çalışmıyor, yalnız TTL var.
 3. **Aktif et** → bir sonraki istekte site geri.
-4. **Slug değiştir** `tatbikat-bir` → `tatbikat-iki`: eski adres HEMEN "Tatbikat Bir"i göstermeyi bırakmalı (bilinmeyen subdomain → belgeli davranış: default site, "Site Bulunamadı" başlığı); yeni adres hemen "Tatbikat Bir".
+4. **Slug değiştir** `tatbikat-bir` → `tatbikat-iki`: eski adres HEMEN "Tatbikat Bir"i göstermeyi bırakmalı (bilinmeyen subdomain → K8'den beri (22 Eylül 2026) nötr 404, "Sayfa Bulunamadı" başlığı; önceden default site + "Site Bulunamadı"); yeni adres hemen "Tatbikat Bir".
 5. 🔴 **Çapraz kurum senaryosu** (Next 16 `'max'` tuzağının tam yeri): ikinci test kurumu "Tatbikat İki"yi ESKİ slug `tatbikat-bir` ile oluştur → ilk istekte **"Tatbikat İki"**; "Tatbikat Bir"in kaydı bir kez bile görünmemeli.
 6. Temizlik: iki test kurumunu sil → iki adres de hemen düşmeli.
 

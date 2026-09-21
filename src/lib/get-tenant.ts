@@ -97,31 +97,32 @@ export const getCurrentTenantOrNull = cache(async (): Promise<Tenant | null> => 
  * ayni istekte 3-4 kez cagiriyor). `getTenant` ise ISTEKLER ARASI cache'li
  * (b3) — ikisi ayri katman.
  *
- * ⚠️ Slug cozulemezse **default tenant'a duser**. Bu, public taraf icin
- * BELGELI ve KASITLI bir karardir (`middleware.ts` fail-closed bolumu:
- * "Public tarafta mevcut davranis KORUNUR … ziyaretci default siteyi gorur,
- * salt okuma, zarar yok, site tamamen kapanmaz"). Yanlis yazilmis bir
- * subdomain yuzunden calisan bir siteyi 404'e dusurmek orantisiz olurdu.
+ * 🔴 KURUM YOKSA HICBIR KURUMA DUSMEZ — `notFound()`, notr 404:
+ *   - `no-header` (K6): istek middleware'den gecmedi. Bugun bu dala giden
+ *     production yolu YOK (olculdu); dal, K4 sinifi bir gerilemenin
+ *     (matcher'dan bir public yolun dusmesi, Next 16'da prefetch'in
+ *     middleware'i atlamasi — NOTE.md "Prefetch-matcher") SESSIZCE "B'nin
+ *     domaininde A'nin sitesi"ne donusmesini engeller.
+ *   - `unknown-slug` (K8, 22 Eylul 2026): kayitli olmayan subdomain
+ *     (`olmayanbirad.<apex>`). ESKIDEN default kurumun TUM sitesini servis
+ *     ediyordu (baslik "Site Bulunamadı" + noindex, ama govde, og:site_name,
+ *     og:image — `metadataBase` yok diye `localhost`a cozulen — default'un;
+ *     olculdu). Silinen ya da slug'i degisen bir kurumun eski adresi ve
+ *     paylasilmis linkleri boylece sessizce baska bir kurumun sitesini
+ *     gosteriyordu. Artik: sayfa, robots.txt, sitemap.xml notr 404; metadata
+ *     root layout'un notr dalindan (hicbir kurumun adi/og'si/favicon'u yok).
+ *
+ * Bilinmeyen CUSTOM domain bu dala GELMEZ: middleware onu cozemeyince
+ * `x-tenant-slug`'a "default" yaziyor (fail-closed yalniz /admin'de) — ayri
+ * karar, bu kodun kapsaminda degil.
  *
  * 🔴 ADMIN TARAFI BUNU KULLANMAMALI. Orada yanlis panel acmaktansa hic
- * panel acmamak dogru — `getCurrentTenantOrNull()` + `/admin/tenant-bulunamadi`
- * kullanilir (bkz. `admin/(authenticated)/layout.tsx`).
- *
- * 🔴 Baslik HIC YOKSA default'a DUSMEZ — `notFound()` (K6). Bugun bu dala
- * giden production yolu YOK (olculdu); dal, K4 sinifi bir gerilemenin
- * (matcher'dan bir public yolun dusmesi, Next 16'da prefetch'in middleware'i
- * atlamasi — NOTE.md "Prefetch-matcher") SESSIZCE "B'nin domaininde A'nin
- * sitesi"ne donusmesini engeller: gerileme yerine her host'ta notr 404
- * gorunur, duman testinde ve izolasyon matrisinde hemen yakalanir.
+ * panel acmamak dogru — `getCurrentTenantOrNull()` + "Alan Adı Tanımlı Değil"
+ * ekrani kullanilir (bkz. `admin/layout.tsx`); K8 admin'i DEGISTIRMEDI.
  */
 export const getCurrentTenant = cache(async (): Promise<Tenant> => {
   const cozum = await resolveCurrentTenant();
   if (cozum.kind === "found") return cozum.tenant;
-  if (cozum.kind === "no-header") notFound();
-
-  const defaultTenant = await getTenant("default");
-  if (!defaultTenant) {
-    throw new Error("Default tenant bulunamadı!");
-  }
-  return defaultTenant;
+  // no-header ve unknown-slug: notr 404 (default'a dusus YOK)
+  notFound();
 });

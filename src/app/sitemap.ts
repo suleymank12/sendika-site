@@ -8,6 +8,9 @@ import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Kurum yoksa (bilinmeyen subdomain, K8 — 22 Eylul 2026) getCurrentTenant
+  // notFound() atar → govdesiz notr 404. Eskiden default kurumun dosyasi
+  // servis ediliyordu (apex adresleriyle).
   const tenant = await getCurrentTenant();
 
   // Pasif tenant: bos urlset (SEO icin "indekslenecek icerik yok" sinyali).

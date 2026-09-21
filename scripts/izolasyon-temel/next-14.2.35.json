@@ -1,7 +1,7 @@
 {
   "surum": "14.2.35",
-  "kaydedildi": "2026-09-21T21:25:43.290Z",
-  "buildId": "pJEUXIiOR8MHF0feFUz-2",
+  "kaydedildi": "2026-09-21T21:50:21.003Z",
+  "buildId": "_kUi-GUrzB5WCpUl1M-5X",
   "kurumlar": {
     "A": "default",
     "B": "kurmay-teknoloji"
@@ -1184,14 +1184,14 @@
       }
     },
     "html|bilinmeyen-sub|/": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "html",
       "kurumBaslik": "BULUNAMADI",
-      "kurumOg": "A",
-      "ogUrl": "goreli:/",
-      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
       "csp": {
         "ad": "Content-Security-Policy",
         "nonceVar": true,
@@ -1244,14 +1244,14 @@
       }
     },
     "html|bilinmeyen-sub|/haberler": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "html",
-      "kurumBaslik": "?(Haberler)",
-      "kurumOg": "A",
-      "ogUrl": "goreli:/haberler",
-      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
       "csp": {
         "ad": "Content-Security-Policy",
         "nonceVar": true,
@@ -1276,20 +1276,16 @@
       }
     },
     "html|bilinmeyen-sub|/robots.txt": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
-      "tur": "text",
-      "robotsSitemap": "apex/sitemap.xml"
+      "tur": "yok"
     },
     "html|bilinmeyen-sub|/sitemap.xml": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
-      "tur": "xml",
-      "locHostlari": [
-        "apex"
-      ]
+      "tur": "yok"
     },
     "html|bilinmeyen-sub|/super-admin": {
       "durum": 404,
@@ -1298,14 +1294,14 @@
       "tur": "text"
     },
     "html|bilinmeyen-sub|{A.duyuru}": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "html",
-      "kurumBaslik": "?(Bayramlaşma Programı)",
-      "kurumOg": "A",
-      "ogUrl": "goreli:{A.duyuru}",
-      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
       "csp": {
         "ad": "Content-Security-Policy",
         "nonceVar": true,
@@ -1314,14 +1310,14 @@
       }
     },
     "html|bilinmeyen-sub|{A.haber}": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "html",
-      "kurumBaslik": "?(ASFASFASFASFASF)",
-      "kurumOg": "A",
-      "ogUrl": "goreli:{A.haber}",
-      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
       "csp": {
         "ad": "Content-Security-Policy",
         "nonceVar": true,
@@ -1330,14 +1326,14 @@
       }
     },
     "html|bilinmeyen-sub|{A.manset}": {
-      "durum": 307,
-      "konum": "{A.haber}",
+      "durum": 404,
+      "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "html",
-      "kurumBaslik": "?(ASFASFASFASFASF)",
-      "kurumOg": "A",
-      "ogUrl": "goreli:{A.manset}",
-      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
       "csp": {
         "ad": "Content-Security-Policy",
         "nonceVar": true,
@@ -1346,14 +1342,14 @@
       }
     },
     "html|bilinmeyen-sub|{A.sayfa}": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "html",
-      "kurumBaslik": "?(Hakkımızda)",
-      "kurumOg": "A",
-      "ogUrl": "goreli:/kurumsal/hakkimizda",
-      "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
+      "ogUrl": null,
+      "ogImage": null,
       "csp": {
         "ad": "Content-Security-Policy",
         "nonceVar": true,
@@ -2273,19 +2269,19 @@
       "sizinti": 0
     },
     "prefetch|bilinmeyen-sub|/robots.txt": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
-      "tur": "text",
+      "tur": "yok",
       "kurumlar": [],
       "isaret": null,
       "sizinti": 0
     },
     "prefetch|bilinmeyen-sub|/sitemap.xml": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
-      "tur": "xml",
+      "tur": "yok",
       "kurumlar": [],
       "isaret": null,
       "sizinti": 0
@@ -3330,10 +3326,8 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
-      "isaret": null,
+      "kurumlar": [],
+      "isaret": "notFound",
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|/admin": {
@@ -3377,10 +3371,8 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
-      "isaret": null,
+      "kurumlar": [],
+      "isaret": "notFound",
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|/olmayan-sayfa": {
@@ -3393,19 +3385,19 @@
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|/robots.txt": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
-      "tur": "text",
+      "tur": "yok",
       "kurumlar": [],
       "isaret": null,
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|/sitemap.xml": {
-      "durum": 200,
+      "durum": 404,
       "konum": null,
       "slug": "yok-boyle-kurum",
-      "tur": "xml",
+      "tur": "yok",
       "kurumlar": [],
       "isaret": null,
       "sizinti": 0
@@ -3424,10 +3416,8 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
-      "isaret": null,
+      "kurumlar": [],
+      "isaret": "notFound",
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|{A.haber}": {
@@ -3435,10 +3425,8 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
-      "isaret": null,
+      "kurumlar": [],
+      "isaret": "notFound",
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|{A.manset}": {
@@ -3446,10 +3434,8 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
-      "isaret": "redirect",
+      "kurumlar": [],
+      "isaret": "notFound",
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|{A.sayfa}": {
@@ -3457,10 +3443,8 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
-      "isaret": null,
+      "kurumlar": [],
+      "isaret": "notFound",
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|{B.haber}": {
@@ -3468,9 +3452,7 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
+      "kurumlar": [],
       "isaret": "notFound",
       "sizinti": 0
     },
@@ -3479,9 +3461,7 @@
       "konum": null,
       "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
+      "kurumlar": [],
       "isaret": "notFound",
       "sizinti": 0
     },

@@ -6,6 +6,9 @@ import { buildTenantPublicUrl } from "@/lib/tenant-url";
 export const dynamic = "force-dynamic";
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
+  // Kurum yoksa (bilinmeyen subdomain, K8 — 22 Eylul 2026) getCurrentTenant
+  // notFound() atar → govdesiz notr 404. Eskiden default kurumun dosyasi
+  // servis ediliyordu (apex adresleriyle).
   const tenant = await getCurrentTenant();
 
   // Pasif tenant: tum site noindex (arama motorlari hicbir seyi indekslemesin).
