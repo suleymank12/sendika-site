@@ -48,6 +48,9 @@
  *     veri kapisi ayni secimi kullanir)
  *   - kimlik kayitlari (kurum id/slug, hedef satir id/slug, sembol tablosu)
  *     belgede; degisince "--- KIMLIK" teshis satiri (kirmizi degil)
+ *   - gozlemde icerik METNI yok, SAHIPLIK var: icerik yolu → "/haberler/{A}"
+ *     (P3), x-tenant-slug → "{A.slug}" (P4), sonek-siz baslik → "?(icerik:A)"
+ *     (P5). Bedel: ayni kurumun iki icerigi birbirinden ayirt edilemez.
  *
  * ## BILINEN KUSURLAR (katı xfail)
  *
@@ -251,14 +254,56 @@ const KANONIK = { A: "apex", B: "B-custom" };
 //   bilinmeyen-custom → A: middleware cozemedigi custom domain'e "default"
 //     yaziyor (public'te default site, /admin'de fail-closed) — ayri karar.
 const BEKLENEN = { apex: "A", "A-sub": "A", "B-sub": "B", "B-custom": "B", "bilinmeyen-sub": null, "bilinmeyen-custom": "A", superadmin: null };
-const BEKLENEN_SLUG = { apex: A.slug, "A-sub": A.slug, "B-sub": B.slug, "B-custom": B.slug, "bilinmeyen-sub": BILINMEYEN_SUB, "bilinmeyen-custom": A.slug };
+// B4 P4: x-tenant-slug SEMBOLLE kaydedilir — kurum slug'i yeniden adlandirilinca
+// 83 alan kaymasin. Ham slug "hangi kurum" sinyalini tasiyordu; sembol de
+// tasiyor (A ≠ B ≠ bilinmeyen). Tanimadigimiz slug HAM kalir: YABANCI(<slug>).
+// Adresin kendisi degisirse "--- KIMLIK" teshisi soyler (semboller.kurumSlug).
+const SLUG_SEMBOL = new Map([[A.slug, "{A.slug}"], [B.slug, "{B.slug}"], [BILINMEYEN_SUB, "{bilinmeyen-sub}"]]);
+const slugSembolu = (ham) => (ham == null ? null : SLUG_SEMBOL.get(ham) ?? `YABANCI(${ham})`);
+const BEKLENEN_SLUG = { apex: "{A.slug}", "A-sub": "{A.slug}", "B-sub": "{B.slug}", "B-custom": "{B.slug}", "bilinmeyen-sub": "{bilinmeyen-sub}", "bilinmeyen-custom": "{A.slug}" };
 const DIGER = { A: "B", B: "A" };
 
+// Hedef yolu ↔ sembol: yalniz KIMLIK kaydi (belge.semboller.hedefYolu). Gozlem
+// degerlerinde artik kullanilmiyor — bkz. icerikYolu.
 const sembolMap = Object.entries(HEDEF).filter(([, v]) => v).map(([k, v]) => [v, `{${k}}`]);
-function sembolik(yol) {
-  let s = String(yol || "");
-  for (const [somut, sembol] of sembolMap) s = s.split(somut).join(sembol);
-  return s;
+
+// B4 P3: icerik yolu → SAHIP JETONU. "/haberler/<slug>" → "/haberler/{A}".
+// Eskiden yalniz hedef yuvasinin yolu sembole donuyordu; manset baska bir
+// habere yonlenince ham slug kaliyor, temel cizgi kayiyor VE
+// `kendi-detay-acilir` yanlis FAIL veriyordu (olculdu: I1/I3/I6). Jeton metne
+// duyarsiz, SAHIPLIGE duyarli: A'nin host'undan B'nin icerigine giden yol
+// "/haberler/{B}" olur. Sahip = yayindaki listelerden (anon); iki kurumda ayni
+// slug (sema UNIQUE(tenant_id, slug)) → {A+B}; bilinmeyen/taslak → {?}.
+// Kod rotalari (/kurumsal/<sabit>, /admin/…, /super-admin) HAM kalir —
+// kurallar onlarin yoluna bakiyor.
+const KURUM_ETIKET = new Map([[A.id, "A"], [B.id, "B"]]);
+const SAHIP = { haberler: new Map(), duyurular: new Map(), sayfa: new Map(), manset: new Map() };
+const sahipEkle = (m, anahtar, tenantId) => { if (!anahtar) return; const s = m.get(anahtar) || new Set(); s.add(KURUM_ETIKET.get(tenantId) ?? "diger"); m.set(anahtar, s); };
+for (const x of haberler) sahipEkle(SAHIP.haberler, x.slug, x.tenant_id);
+for (const x of duyurular) sahipEkle(SAHIP.duyurular, x.slug, x.tenant_id);
+for (const x of sayfalar) sahipEkle(SAHIP.sayfa, x.slug, x.tenant_id);
+for (const x of mansetler) sahipEkle(SAHIP.manset, x.id, x.tenant_id);
+const jeton = (s) => `{${s ? [...s].sort().join("+") : "?"}}`;
+function icerikYolu(yol) {
+  return String(yol || "").replace(/^\/(haberler|duyurular|sayfa|manset)\/([^/?#]+)/, (_, t, parca) => {
+    let a = parca;
+    try { a = decodeURIComponent(parca); } catch { /* ham kalsin */ }
+    return `/${t}/${jeton(SAHIP[t].get(a))}`;
+  });
+}
+// Konumdaki icerik jetonunun sahibi ("A", "B", "A+B", "?") — icerik yolu yoksa null
+const konumSahibi = (k) => (String(k ?? "").match(/\/(?:haberler|duyurular|sayfa|manset)\/\{([^}]+)\}/) || [])[1] ?? null;
+
+// B4 P5: baslik geri dusumu "?(<metin>)" — metin yayindaki bir icerigin
+// basligiysa SAHIBINE iner ("?(icerik:A)"); degilse (koddan gelen sabit metin)
+// ham kalir. Bugun 0 hucre (K8'den sonra); bir koruma.
+const ICERIK_BASLIK = new Map();
+for (const x of [...haberler, ...duyurular, ...sayfalar, ...mansetler]) {
+  const t = (x.title || "").trim();
+  if (!t) continue;
+  const s = ICERIK_BASLIK.get(t) || new Set();
+  s.add(KURUM_ETIKET.get(x.tenant_id) ?? "diger");
+  ICERIK_BASLIK.set(t, s);
 }
 const entity = (s) => String(s || "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 function kurumEtiketi(metin) {
@@ -269,12 +314,14 @@ function kurumEtiketi(metin) {
   if (/bulunamad/i.test(t)) return "BULUNAMADI";
   if (t === "Platform Yönetimi") return "PANEL";
   if (t === "Site Kapalı") return "KAPALI";
+  const s = ICERIK_BASLIK.get(t);
+  if (s) return `?(icerik:${[...s].sort().join("+")})`;
   return `?(${t.slice(0, 40)})`;
 }
 function urlEtiketi(ham) {
   const r = entity(ham).trim();
   if (!r) return null;
-  if (r.startsWith("/")) return `goreli:${sembolik(r.split("?")[0])}`;
+  if (r.startsWith("/")) return `goreli:${icerikYolu(r.split("?")[0])}`;
   let u;
   try { u = new URL(r); } catch { return `BOZUK(${r.slice(0, 40)})`; }
   if (u.pathname === "/_next/image") {
@@ -284,7 +331,7 @@ function urlEtiketi(ham) {
     return `${hostEtiketi(u.host)}/_next/image?w=${u.searchParams.get("w")}&q=${u.searchParams.get("q")}&url=${icEt}`;
   }
   const et = hostEtiketi(u.host);
-  return et === "storage" ? "storage" : `${et}${sembolik(u.pathname)}`;
+  return et === "storage" ? "storage" : `${et}${icerikYolu(u.pathname)}`;
 }
 function tur(b) {
   const ct = (b["content-type"] || "").toLowerCase();
@@ -300,10 +347,13 @@ function tur(b) {
 function konum(b) {
   const l = b.location;
   if (!l) return null;
-  if (l.startsWith("/")) return sembolik(l);
+  if (l.startsWith("/")) {
+    const i = l.search(/[?#]/);
+    return i < 0 ? icerikYolu(l) : icerikYolu(l.slice(0, i)) + l.slice(i);
+  }
   try {
     const u = new URL(l);
-    return `${hostEtiketi(u.host)}${sembolik(u.pathname + u.search)}`;
+    return `${hostEtiketi(u.host)}${icerikYolu(u.pathname)}${u.search}`;
   } catch {
     return `BOZUK(${l})`;
   }
@@ -376,7 +426,7 @@ async function havuz(isler, n) {
 }
 
 function htmlGozlem(r) {
-  const g = { durum: r.durum, konum: konum(r.basliklar), slug: r.basliklar["x-tenant-slug"] ?? null, tur: tur(r.basliklar) };
+  const g = { durum: r.durum, konum: konum(r.basliklar), slug: slugSembolu(r.basliklar["x-tenant-slug"]), tur: tur(r.basliklar) };
   if (g.tur === "html") {
     const baslik = (r.govde.match(/<title>([^<]*)<\/title>/) || [])[1];
     g.kurumBaslik = baslik === undefined ? null : kurumEtiketi(entity(baslik).split(" | ").pop());
@@ -404,7 +454,7 @@ function rscGozlem(r, bek) {
   // RSC davranisi) — durum kodu tek basina "404 mu" sorusunu cevaplamaz.
   const isaret = r.govde.includes("NEXT_NOT_FOUND") ? "notFound" : r.govde.includes("NEXT_REDIRECT") ? "redirect" : null;
   return {
-    durum: r.durum, konum: konum(r.basliklar), slug: r.basliklar["x-tenant-slug"] ?? null, tur: tur(r.basliklar),
+    durum: r.durum, konum: konum(r.basliklar), slug: slugSembolu(r.basliklar["x-tenant-slug"]), tur: tur(r.basliklar),
     kurumlar: kurumlarVar, isaret, sizinti: sizintilar(r.govde, bek).length,
   };
 }
@@ -592,6 +642,11 @@ for (const h of hucreler) {
   const matcherDisi = MATCHER_DISI.has(h.ya);
 
   // --- (1) host × yol
+  // B4: bir yonlendirme ICERIGE gidiyorsa (konumda sahip jetonu) o icerik bu
+  // host'un kurumuna ait olmali. Kurumu olmayan host'ta (bilinmeyen-sub,
+  // super admin) icerige yonlendirme hic olmamali → beklenen null, her jeton FAIL.
+  const sahip = konumSahibi(g.konum);
+  if (sahip !== null) iddia("1", `${b}|yonlendirme-kendi-kurumuna`, sahip === bek, `konum=${g.konum} sahip=${sahip} beklenen=${bek}`);
   if (h.he === "superadmin") {
     if (h.ya === "/") iddia("1", `${b}|panele-yonlendirir`, g.durum === 307 && g.konum === "/super-admin", JSON.stringify(g));
     else if (h.ya === "/super-admin") iddia("1", `${b}|girise-yonlendirir`, g.durum === 307 && String(g.konum).startsWith("/super-admin/giris"), JSON.stringify(g));
@@ -662,8 +717,10 @@ for (const h of hucreler) {
   // Kendi detayi: 200 — ya da haber kaynakli mansette KENDI haberine 307
   // (027_headlines_kaynak_tekil: mansetin kaynagi haberse detay haberdir).
   if (capraz === "kendi") {
-    // konum sembolik: "/haberler/<slug>" tamami "{B.haber}" olur
-    iddia("1", `${b}|kendi-detay-acilir`, g.durum === 200 || (g.durum === 307 && String(g.konum).startsWith(`{${bek}.`)), `durum=${g.durum} konum=${g.konum}`);
+    // B4: 307'nin hedefi SAHIP jetonuyla sinanir ("/haberler/{B}"). Eskiden
+    // konumun `{B.` ile baslamasi aranirdi — manset kaynagi secilen {B.haber}
+    // ile ayni haber degilse yanlis FAIL veriyordu (olculdu: I1/I3/I6).
+    iddia("1", `${b}|kendi-detay-acilir`, g.durum === 200 || (g.durum === 307 && konumSahibi(g.konum) === bek), `durum=${g.durum} konum=${g.konum}`);
   }
   if (g.tur === "html") {
     if (h.he !== "bilinmeyen-sub") iddia("1", `${b}|kurum-baslik`, g.kurumBaslik === bek, `kurumBaslik=${g.kurumBaslik}`);

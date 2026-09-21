@@ -1,0 +1,25 @@
+{
+  "tur": "B4 C3 — icerik yolu sahip jetonu + slug sembolu + baslik geri dusumu",
+  "yazildi": "2026-09-21T22:53:12.642Z",
+  "not": "KODDAN ONCE uretildi (donustur-b4.mjs). Kosu temel_belge'ye BIREBIR uymali (IZOLASYON_TEMEL): fark 0, FAIL 0. Degisen alan: konum 5, ogUrl 13, slug 241. Yeni kural yonlendirme-kendi-kurumuna: 5 (bolum 1). kendi-detay-acilir kosulu degisti (sayi ayni).",
+  "temel_belge": {
+    "yol": "scripts/izolasyon-temel/tahmin-b4-c3-belge.json",
+    "sha256": "898ae05d71d09a29949c7268eacda5a79a46c64562a502a097f4db27146e8c13"
+  },
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 2,
+    "1": 564,
+    "2": 738,
+    "3": 225,
+    "4": 130,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 1746 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
