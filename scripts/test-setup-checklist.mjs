@@ -36,6 +36,7 @@ import {
   AUTH_RETURN_PATH,
   NGINX_APP_SNIPPET,
   NGINX_IMAGE_SNIPPET,
+  NGINX_STATIC_SNIPPET,
   SETUP_CHECK_API_PATH,
   TENANT_ERROR_PATH,
   buildCertbotText,
@@ -259,18 +260,35 @@ header("(a) Hazir metinler");
   ok("nginx", "(1) apex blogu server_name YALNIZ apex (www YOK)", serverNames(apex), [DOMAIN], apex.split("\n")[1]);
   okTrue("nginx", "(1) 443 ssl", apex.includes("listen 443 ssl;"), "apex");
   // 21 Eylul 2026 (Faz 1): uygulama location'i vekil ayarlarini ORTAK
-  // parcadan alir (deploy/nginx/snippets/sendika-uygulama.conf); static
-  // location'i kendi proxy_pass'ini tutar. Parcalarin ICERIGI
-  // test:gorsel-zinciri'nde sinanir.
-  okTrue("nginx", "(1) proxy_pass 127.0.0.1:3000 yalniz static'te (/ parcadan)", apex.split("proxy_pass http://127.0.0.1:3000;").length - 1 === 1, "apex");
+  // parcadan alir (deploy/nginx/snippets/sendika-uygulama.conf). Parcalarin
+  // ICERIGI test:gorsel-zinciri'nde sinanir.
+  //
+  // 🔴 21 Eylul 2026 (K7-A): static location'in kendi proxy_pass'i vardi ve
+  // uygulama parcasini include ETMIYORDU → gelen x-tenant-slug temizlenmeden
+  // uygulamaya gidiyordu (canlida olculdu). Artik static diskten (parca) ve
+  // apex blogunda HIC proxy_pass yok: uygulamaya giden her yol basliklari
+  // temizleyen parcadan gecmek ZORUNDA. Bloga dogrudan bir proxy_pass
+  // eklenirse (eski static blok geri gelirse) bu muhur kirilir.
+  ok("nginx", "🔴 (1) apex blogunda proxy_pass YOK (uygulamaya giden her yol parcadan)", apex.split("proxy_pass").length - 1, 0, "apex");
+  for (const parca of [NGINX_APP_SNIPPET, NGINX_IMAGE_SNIPPET, NGINX_STATIC_SNIPPET]) {
+    ok("nginx", `(1) parca TAM BIR KEZ include ediliyor: ${parca}`, apex.split(`include ${parca};`).length - 1, 1, "apex");
+  }
+  okTrue("nginx", "(1) blokta satir ici /_next/static location'i YOK (yalniz parcadan)", !/location[^{]*\/_next\/static/.test(apex), "apex");
   okTrue("nginx", "(1) location / ortak parcayi include ediyor", /location \/ \{\s*include snippets\/sendika-uygulama\.conf;\s*\}/.test(apex), "apex");
   okTrue("nginx", "(1) /_next/image parcasi include ediliyor", apex.includes(`include ${NGINX_IMAGE_SNIPPET};`), "apex");
-  okTrue("nginx", "(1) parca adlari sabitlerden", NGINX_APP_SNIPPET === "snippets/sendika-uygulama.conf" && NGINX_IMAGE_SNIPPET === "snippets/sendika-gorsel-ucu.conf", "sabit");
+  okTrue("nginx", "(1) parca adlari sabitlerden", NGINX_APP_SNIPPET === "snippets/sendika-uygulama.conf" && NGINX_IMAGE_SNIPPET === "snippets/sendika-gorsel-ucu.conf" && NGINX_STATIC_SNIPPET === "snippets/sendika-statik.conf", "sabit");
+  okTrue("nginx", "(1) on sart listesinde statik parca var (musteri sunucuda kurar)", conf.includes(`#   /etc/nginx/${NGINX_STATIC_SNIPPET}`), "on sart");
   // 🔴 WebSocket iletimi KALDIRILDI (GHSA-c4j6-fc7j-m34r) — sablonda geri
   //    gelmemeli; gelirse yeni musteri domaini korumasiz kurulur.
   okTrue("nginx", "🔴 (1) Upgrade/Connection 'upgrade' iletimi YOK", !conf.includes("$http_upgrade") && !conf.includes("Connection 'upgrade'"), "apex");
   okTrue("nginx", "(1) blokta tek basina proxy_set_header YOK (miras tuzagi)", !apex.includes("proxy_set_header"), "apex");
-  okTrue("nginx", "(1) canli bloktaki ayarlar korunur (450M, immutable)", apex.includes("client_max_body_size 450M;") && apex.includes("immutable"), "apex");  okTrue("nginx", "(1) sertifika yolu apex adina", apex.includes("ssl_certificate     /etc/letsencrypt/live/kurmayteknoloji.com/fullchain.pem;"), "apex");
+  okTrue("nginx", "(1) canli bloktaki ayar korunur (450M)", apex.includes("client_max_body_size 450M;"), "apex");
+  // K7-A: bir yillik immutable onbellek satiri bloktan statik PARCAYA tasindi
+  // (sablon onu include ediyor). Satir kaybolursa istemci her parcayi her
+  // sayfada yeniden indirir.
+  const statikParca = readFileSync(new URL(`../deploy/nginx/${NGINX_STATIC_SNIPPET}`, import.meta.url), "utf8");
+  okTrue("nginx", "(1) immutable onbellek statik parcada (bloktan tasindi)", statikParca.includes('add_header Cache-Control "public, max-age=31536000, immutable";'), NGINX_STATIC_SNIPPET);
+  okTrue("nginx", "(1) sertifika yolu apex adina", apex.includes("ssl_certificate     /etc/letsencrypt/live/kurmayteknoloji.com/fullchain.pem;"), "apex");
   ok("nginx", "(2) www blogu server_name YALNIZ www", serverNames(www), [WWW], "www");
   okTrue("nginx", "(2) www → apex 301 ($request_uri korunur)", www.includes("return 301 https://kurmayteknoloji.com$request_uri;"), "www");
   okTrue("nginx", "(2) www blogu da ayni sertifikayla 443", www.includes("listen 443 ssl;") && www.includes("/etc/letsencrypt/live/kurmayteknoloji.com/privkey.pem;"), "www");

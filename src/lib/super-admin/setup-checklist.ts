@@ -48,6 +48,14 @@ export const APP_UPSTREAM = "http://127.0.0.1:3000";
 export const NGINX_APP_SNIPPET = "snippets/sendika-uygulama.conf";
 export const NGINX_IMAGE_SNIPPET = "snippets/sendika-gorsel-ucu.conf";
 export const NGINX_RATE_ZONE_CONF = "conf.d/sendika-gorsel-sinir.conf";
+/**
+ * `/_next/static/` DİSKTEN (21 Eylül 2026, K7-A). Eskiden şablondaki blok
+ * `proxy_pass` ile uygulamaya gidiyor ve NGINX_APP_SNIPPET'i include
+ * etmiyordu → gelen `x-tenant-slug` temizlenmeden middleware'siz bir 404'e
+ * ulaşıyordu (canlıda ölçüldü). Parçanın içeriği (off-by-slash mühürleri
+ * dahil) `test:gorsel-zinciri`'nde sınanır.
+ */
+export const NGINX_STATIC_SNIPPET = "snippets/sendika-statik.conf";
 
 /**
  * Şifre sıfırlama (ve davet) dönüş sayfası — Supabase Redirect URLs
@@ -353,6 +361,11 @@ export function buildCertbotText(domain: string): string {
  * ediyor (NGINX_APP_SNIPPET / NGINX_IMAGE_SNIPPET): iç başlık temizliği,
  * WebSocket iletimi kapalı, /_next/image için q=75 + hız sınırı. Canlıdaki
  * iki blok aynı parçalarla güncellendi; şablon onlarla AYNI kalmalı.
+ *
+ * 21 Eylül 2026 (K7-A): `/_next/static/` de parçaya taşındı
+ * (NGINX_STATIC_SNIPPET, diskten `alias`). Apex bloğunda artık HİÇ
+ * `proxy_pass` yok — uygulamaya giden her yol başlık temizleyen parçadan
+ * geçiyor.
  */
 export function buildNginxConfig(domain: string): string {
   const www = `www.${domain}`;
@@ -376,6 +389,7 @@ export function buildNginxConfig(domain: string): string {
     `#   /etc/nginx/${NGINX_RATE_ZONE_CONF}`,
     `#   /etc/nginx/${NGINX_APP_SNIPPET}`,
     `#   /etc/nginx/${NGINX_IMAGE_SNIPPET}`,
+    `#   /etc/nginx/${NGINX_STATIC_SNIPPET}`,
     "",
     "# (1) apex — uygulama",
     "server {",
@@ -386,10 +400,8 @@ export function buildNginxConfig(domain: string): string {
     "",
     "    client_max_body_size 450M;",
     "",
-    "    location /_next/static/ {",
-    `        proxy_pass ${APP_UPSTREAM};`,
-    '        add_header Cache-Control "public, max-age=31536000, immutable";',
-    "    }",
+    "    # /_next/static/: diskten; olmayan dosya uygulamaya ulaşmaz",
+    `    include ${NGINX_STATIC_SNIPPET};`,
     "",
     "    # /_next/image: yalnız q=75 + IP başına hız sınırı",
     `    include ${NGINX_IMAGE_SNIPPET};`,

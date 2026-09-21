@@ -32,8 +32,11 @@ import type { Tenant } from "./tenant";
  *
  * ⚠️ SINIR (K7, acik): baslik VAR ama middleware calismadiysa — yani istemci
  * basligi KENDISI gonderdiyse — bu fonksiyon onu middleware'inkinden AYIRAMAZ.
- * Canlida nginx gelen `x-tenant-slug`'i siliyor (deploy/nginx/snippets/
- * sendika-uygulama.conf); uygulama katmaninda bu kapi yok.
+ * K7-A (21 Eylul 2026): nginx /_next/static/'i diskten servis ediyor, olmayan
+ * dosya uygulamaya ulasmiyor; ancak uygulama katmani hala istemcinin
+ * gonderdigi x-tenant-slug'a guveniyor — (B) turunda kapatilacak
+ * (raporlar/2026-09-21-2208-k7-teshis.md). Onceki "canlida nginx siliyor"
+ * kaydi yanlisti: static location baslik temizleyen parcayi include etmiyordu.
  */
 export type TenantResolution =
   | { kind: "found"; tenant: Tenant }

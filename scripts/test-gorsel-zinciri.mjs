@@ -51,6 +51,7 @@ import {
   NGINX_APP_SNIPPET,
   NGINX_IMAGE_SNIPPET,
   NGINX_RATE_ZONE_CONF,
+  NGINX_STATIC_SNIPPET,
   buildNginxConfig,
 } from "../src/lib/super-admin/setup-checklist.ts";
 
@@ -322,6 +323,7 @@ header("(g) nginx parcalari — deploy/nginx");
     zone: `deploy/nginx/${NGINX_RATE_ZONE_CONF}`,
     app: `deploy/nginx/${NGINX_APP_SNIPPET}`,
     img: `deploy/nginx/${NGINX_IMAGE_SNIPPET}`,
+    statik: `deploy/nginx/${NGINX_STATIC_SNIPPET}`,
   };
   for (const [ad, yol] of Object.entries(yollar)) {
     okTrue("nginx", `dosya repoda: ${yol}`, existsSync(new URL(`../${yol}`, import.meta.url)), ad);
@@ -329,6 +331,7 @@ header("(g) nginx parcalari — deploy/nginx");
   const zone = stripHashComments(read(yollar.zone));
   const app = stripHashComments(read(yollar.app));
   const img = stripHashComments(read(yollar.img));
+  const statik = stripHashComments(read(yollar.statik));
 
   // --- uygulama parcasi
   okTrue("nginx", "proxy_pass = APP_UPSTREAM", app.includes(`proxy_pass ${APP_UPSTREAM};`), "app");
@@ -369,7 +372,33 @@ header("(g) nginx parcalari — deploy/nginx");
   okTrue("nginx", "429 donuyor ve WARN loglaniyor", img.includes("limit_req_status 429;") && img.includes("limit_req_log_level warn;"), "img");
   okTrue("nginx", "gorsel ucu da ayni vekil parcasini kullaniyor", img.includes(`include ${NGINX_APP_SNIPPET};`), "img");
   okTrue("nginx", "gorsel ucunda tek basina proxy_set_header YOK (miras tuzagi)", !img.includes("proxy_set_header"), "img");
-  for (const [ad, metin] of [["zone", zone], ["app", app], ["img", img]]) {
+  // --- statik parca (K7-A, 21 Eylul 2026): /_next/static/ DISKTEN.
+  // 🔴 Asagidaki muhurlerin cogu OFF-BY-SLASH icin: location ya da alias
+  // sonundaki "/" dusurse `/_next/static../` ile .next/ alti (sunucu kodu,
+  // manifestler) disari acilir — yerel nginx 1.18.0'da olculdu, hicbir
+  // gorunur belirti vermez; yalniz bu muhurler yakalar.
+  const locSatiri = (statik.match(/^\s*location\b[^\n{]*\{/m) || [""])[0];
+  const aliasDeger = (statik.match(/^\s*alias\s+(\S+?);/m) || [])[1] || "";
+  // Tek location, prefix `^~`: ileride eklenecek bir regex location bu blogu ezmesin
+  okTrue("nginx", "statik: location '^~' ile", /^\s*location\s+\^~\s/.test(locSatiri), locSatiri.trim());
+  // location "/_next/static/" ile bitiyor — sondaki "/" yoksa off-by-slash
+  okTrue("nginx", "🔴 statik: location '/_next/static/' ile bitiyor (sondaki / ZORUNLU)", /\s\/_next\/static\/\s*\{$/.test(locSatiri), locSatiri.trim());
+  // alias "/" ile bitiyor — location'la birlikte ikisi de "/" ile bitmeli
+  okTrue("nginx", "🔴 statik: alias degeri '/' ile bitiyor", aliasDeger.endsWith("/"), aliasDeger);
+  // alias deploy akisinin yazdigi dizin (rsync → /var/www/sendika-site/.next/static/)
+  ok("nginx", "statik: alias hedefi canli dizin", aliasDeger, "/var/www/sendika-site/.next/static/", aliasDeger);
+  // proxy_pass olursa olmayan dosya yine uygulamaya gider — K7-A'nin tum amaci bozulur
+  okTrue("nginx", "🔴 statik: proxy_pass YOK (olmayan dosya uygulamaya ULASMAZ)", !statik.includes("proxy_pass"), "statik");
+  // try_files bilerek yok: alias zaten 404 donuyor; alias+try_files trac #97 deseni
+  okTrue("nginx", "statik: try_files YOK", !statik.includes("try_files"), "statik");
+  // nosniff Next'in statik yanitinda vardi; diskten servis edilince kaybolmasin (404'te de)
+  okTrue("nginx", "statik: X-Content-Type-Options nosniff always", /add_header\s+X-Content-Type-Options\s+"nosniff"\s+always;/.test(statik), "statik");
+  // Cache-Control'de always olursa 404'e bir yillik immutable yazilir → gecici 404 alan parca kalici zehirlenir
+  const ccSatiri = (statik.match(/^\s*add_header\s+Cache-Control\b[^\n]*$/m) || [""])[0];
+  okTrue("nginx", "🔴 statik: Cache-Control satirinda 'always' YOK", !!ccSatiri && !/\balways\b/.test(ccSatiri), ccSatiri.trim());
+  okTrue("nginx", "statik: Cache-Control bir yillik immutable", ccSatiri.includes('"public, max-age=31536000, immutable"'), ccSatiri.trim());
+
+  for (const [ad, metin] of [["zone", zone], ["app", app], ["img", img], ["statik", statik]]) {
     ok("nginx", `${ad}: suslu parantez dengeli`, metin.split("{").length, metin.split("}").length, ad);
   }
 
@@ -377,6 +406,7 @@ header("(g) nginx parcalari — deploy/nginx");
   const sablon = buildNginxConfig("ornek.org");
   okTrue("nginx", "sablon gorsel ucu parcasini include ediyor", sablon.includes(`include ${NGINX_IMAGE_SNIPPET};`), "sablon");
   okTrue("nginx", "sablon location / → uygulama parcasi", sablon.includes(`include ${NGINX_APP_SNIPPET};`), "sablon");
+  okTrue("nginx", "sablon statik parcasini include ediyor (K7-A)", sablon.includes(`include ${NGINX_STATIC_SNIPPET};`), "sablon");
 }
 
 // ---------------------------------------------------------------------------

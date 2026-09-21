@@ -459,8 +459,10 @@ const SINIR_DISARIDA = [
 const sinirIcerideR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_ICERIDE.map((yol) => async () => ({ he, yol, r: await istek(host, yol) }))), ESZAMANLI);
 const sinirDisaridaR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_DISARIDA.map(([ad, yol]) => async () => ({ he, ad, r: await istek(host, yol) }))), ESZAMANLI);
 // Matcher DISINDAKI 404'ler sahte baslikla (21 Eylul 2026, K6 turu): orada
-// middleware calismadigi icin gelen `x-tenant-slug`'i ezen kimse yok. Canlida
-// nginx basligi siliyor; bu istekler UYGULAMA katmanini olcer (K7).
+// middleware calismadigi icin gelen `x-tenant-slug`'i ezen kimse yok. Bu
+// istekler UYGULAMA katmanini olcer (K7) — matris nginx'ten gecmez. K7-A'dan
+// sonra canlida nginx /_next/static/'i diskten servis ediyor, olmayan dosya
+// uygulamaya ulasmiyor; uygulama katmani (B) turunda kapatilacak.
 const SAHTE_SINIR = ["/api/yok-boyle-uc", "/_next/static/yok.js"];
 const sinirSahteSlug = (he) => (BEKLENEN[he] === "B" ? A.slug : B.slug);
 const sinirSahteR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SAHTE_SINIR.map((ad) => async () => ({ he, ad, r: await istek(host, ad, { "x-tenant-slug": sinirSahteSlug(he) }) }))), ESZAMANLI);
@@ -747,15 +749,18 @@ const BILINEN_KUSURLAR = new Map([
   // K7 — K1'in dar kalintisi (21 Eylul 2026, K6 turunda olculdu): matcher
   //      disindaki HTML 404'te (K6'dan sonra yalniz /_next/static/<olmayan>)
   //      gelen `x-tenant-slug`'i ezen middleware yok → sahte baslik o kurumun
-  //      kimligini gosterir. Canlida nginx basligi siliyor
-  //      (deploy/nginx/snippets/sendika-uygulama.conf); bu iddialar UYGULAMA
-  //      katmanini olcer. get-tenant.ts gelen basligi middleware'inkinden
-  //      ayiramaz (oneri: raporlar/2026-09-21-2050-k6-kimlik-sizintisi.md).
+  //      kimligini gosterir. Bu iddialar UYGULAMA katmanini olcer.
+  //      K7-A (21 Eylul 2026): nginx /_next/static/'i diskten servis ediyor,
+  //      olmayan dosya uygulamaya ulasmiyor; ancak uygulama katmani hala
+  //      istemcinin gonderdigi x-tenant-slug'a guveniyor — (B) turunda
+  //      kapatilacak (raporlar/2026-09-21-2208-k7-teshis.md). Onceki "canlida
+  //      nginx siliyor" kaydi YANLISTI: static location sendika-uygulama.conf'u
+  //      include etmiyordu.
   ["sinir-sahte|apex|/_next/static/yok.js|etkisiz", "K7"],
   ["sinir-sahte|B-custom|/_next/static/yok.js|etkisiz", "K7"],
 ]);
 const KUSUR_ACIKLAMA = {
-  K7: "matcher disindaki HTML 404'te (/_next/static/<olmayan>) sahte x-tenant-slug kabul ediliyor — canlida nginx siliyor",
+  K7: "matcher disindaki HTML 404'te (/_next/static/<olmayan>) sahte x-tenant-slug kabul ediliyor — nginx artik diskten servis ediyor (K7-A), uygulama katmani (B) turunda kapatilacak",
 };
 
 // ---------------------------------------------------------------------------

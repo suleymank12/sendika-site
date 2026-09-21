@@ -6071,7 +6071,14 @@ sınır bütün ziyaretçilere BİRLİKTE uygulanır).
 > adı/og'si/favicon'u yok) — `x-tenant-slug` HİÇ yoksa kurum default'a değil
 > NÖTRE düşüyor (`get-tenant.ts` `resolveCurrentTenant` → `no-header`).
 > Açık kalan **K7**: aynı 404'te istemcinin KENDİ gönderdiği `x-tenant-slug`
-> uygulama katmanında hâlâ kabul ediliyor; canlıda nginx siliyor. Ayrıntı:
+> uygulama katmanında hâlâ kabul ediliyor. **K7-A (21 Eylül 2026):** nginx
+> `/_next/static/`'i diskten servis ediyor, olmayan dosya uygulamaya
+> ulaşmıyor; ancak uygulama katmanı hâlâ istemcinin gönderdiği
+> `x-tenant-slug`'a güveniyor — (B) turunda kapatılacak. (Parça:
+> `deploy/nginx/snippets/sendika-statik.conf`; canlıdaki iki site dosyasına
+> elle uygulanır.) 🔴 Önceki kayıt "canlıda nginx siliyor" diyordu —
+> YANLIŞTI: `/_next/static/` location'ı `sendika-uygulama.conf`'u include
+> etmiyordu, gelen başlık temizlenmiyordu (canlıda ölçüldü). Ayrıntı:
 > "🧪 İZOLASYON HTTP MATRİSİ" → bilinen kusurlar.
 >
 > **Önceki durum (21 Eylül 2026, K4+K5 turu):** matcher önek dışlamadan TAM
@@ -6169,7 +6176,7 @@ hiç üretilmezse) koşu kırmızı olur ("listeden çıkar").
 | K4 | matcher dışı yolda B host'u, sahte başlık OLMADAN, A'nın kimliğini gösteriyor | ✅ KAPANDI (`kurmayteknoloji.com/apix` → Kurmay) |
 | K5 | uygulama `q=50`'yi kabul ediyor | ✅ KAPANDI (`images.qualities: [75]`) |
 | K6 | `/api/` ve `/_next/static/` altında OLMAYAN yol middleware dışında HTML 404 render ediyor → B host'unda A'nın kimliği | ✅ KAPANDI 21 Eylül (catch-all JSON 404 + başlıksız istekte nötr kurum) |
-| **K7** | matcher dışındaki HTML 404'te (K6'dan sonra yalnız `/_next/static/<olmayan>`) istemcinin gönderdiği `x-tenant-slug` kabul ediliyor → o kurumun adı/og'si. K1'in dar kalıntısı. **Canlıda nginx siliyor** (`sendika-uygulama.conf`) | 🔴 **AÇIK** — uygulama katmanında kapı yok; öneri raporda |
+| **K7** | matcher dışındaki HTML 404'te (K6'dan sonra yalnız `/_next/static/<olmayan>`) istemcinin gönderdiği `x-tenant-slug` kabul ediliyor → o kurumun adı/og'si. K1'in dar kalıntısı. **K7-A:** nginx `/_next/static/`'i diskten servis ediyor, olmayan dosya uygulamaya ulaşmıyor; ancak uygulama katmanı hâlâ istemcinin gönderdiği `x-tenant-slug`'a güveniyor — (B) turunda kapatılacak. (Önceki "canlıda nginx siliyor" kaydı yanlıştı: static location başlık temizleyen parçayı include etmiyordu.) | 🔴 **AÇIK** — (A) nginx yarısı 21 Eylül (`raporlar/2026-09-21-2245-k7-a-uygulama.md`); (B) uygulama kanıt başlığı bekliyor (`raporlar/2026-09-21-2208-k7-teshis.md`) |
 
 Kapanış kanıtı K1–K5 (21 Eylül 2026, `raporlar/2026-09-21-1435-k4-k5-matcher-duzeltmesi.md`): düzeltmeden önce matris 0 fark; sonra
 tahmin edilen 42 iddianın 42'si "düzeldi" diye kırmızıya döndü, temel çizgi
