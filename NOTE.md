@@ -5957,6 +5957,118 @@ tablolar migration'dan önce de vardı, DROP TABLE bilerek dahil değil).
 
 ---
 
+# 🔒 NEXT SÜRÜMÜ + GÖRSEL ZİNCİRİ — FAZ 1 (21 Eylül 2026)
+
+Teşhis: `raporlar/2026-09-21-1148-next-surum-teshis.md` · Uygulama:
+`raporlar/2026-09-21-1230-faz1-gorsel-zinciri-uygulama.md`
+
+## Destek durumu (kaynak: nextjs.org/support-policy, 21 Eylül 2026'da okundu)
+
+| Sürüm | Durum | Not |
+|---|---|---|
+| 16.x | **Active LTS** (21 Eki 2025) | Politika: ilk sürümden 2 yıl → **21 Ekim 2027** |
+| 15.x | Maintenance LTS | 🔴 **21 Ekim 2026'da BİTER** (ilk sürüm 21 Eki 2024 + 2 yıl) |
+| 14.x | **Unsupported** | 14.2.35 = hattın SON sürümü (11 Aralık 2025); o tarihten beri 14.2.x yok |
+
+- Ocak 2026'dan beri çıkan 23 Next güvenlik kaydının **hiçbiri** 14.x'e yama
+  vermedi (GitHub Advisory API `first_patched_version` hep 15.x/16.x).
+- Büyük geçiş hedefi **16.3.x**. 15.5.25 yalnız **ara durak** olabilir, son
+  hedef olamaz (bir aylık destek).
+- **Eski kayıt düzeltmesi:** "desteklenmiyor" DOĞRU; "10 yüksek açık" YANLIŞ
+  (eskimiş + ölçü birimi paket). 21 Eylül: 15 paket / 49 kayıt; bize gerçekten
+  dokunan 4 kayıt, dördü de görsel zincirinde. Faz 1 sonrası `npm audit` yine
+  **5 paket** der (next kritik + next içindeki postcss 8.4.31 + eslint zinciri):
+  bu BEKLENEN — yalnız büyük geçişle listeden düşer, bizim yapılandırmamızda
+  istismar yolu kalmadı.
+
+## Faz 1'de ne değişti
+
+| Değişiklik | Neden |
+|---|---|
+| `remotePatterns`: `*.supabase.co` → **yalnız bizim proje** (host `NEXT_PUBLIC_SUPABASE_URL`'den) | Herhangi birinin Supabase projesi → kimliksiz AVIF/libheif RCE (GHSA-2xp9-vwfh-vxw4) ve bellek DoS'u (GHSA-9g9p). Ölçüm: canlı DB'de 31 Supabase adresinin 31'i bizim host'ta |
+| Kural TEK KAYNAKTA: `src/lib/storage-host.ts` | 3 tüketici: `next.config.mjs`, `utils.ts isNextImageSafeUrl` (SafeImage), `og-image.ts`. Biri geniş kalırsa sayfa 500 (SafeImage) ya da og:image 400 |
+| sharp 0.35.3 → **0.35.4** | libheif (GHSA-rgj7-g3m4-5g8c) — glibc Linux'ta RCE. 🔴 Kök düzeltme BU: bucket'ta MIME kısıtı yok, giriş yapmış kurum yöneticisi AVIF yükleyebilir |
+| sanitize-html 2.17.7, bütün `@tiptap/*` **3.31.3'te hizalı**, markdown-it/linkify-it ağaçtan çıktı | `npm audit fix` (--force'suz) yalnız core/pm'i çıkarıyordu → karışık sürüm |
+| nginx: `deploy/nginx/` (3 dosya) | İç başlıklar dışarıdan gelemez, WebSocket iletimi kapalı, `/_next/image` yalnız q=75 + IP başına hız sınırı |
+| `scripts/gorsel-onbellek-budama.sh` + cron | 14.2'de görsel önbelleğine üst sınır yok (GHSA-3x4c) |
+| Testler: `test:gorsel-zinciri` (98), `test:gorsel-onbellek` (34) | Mutasyon: 31/31 yakalandı |
+
+## 🔴 Kurallar — bozulursa ne olur
+
+- **Host kuralı kopyalanmaz.** `utils.ts`/`og-image.ts`'e ayrı regex yazmak
+  yasak; `storage-host.ts`'i kullanın. `next.config.mjs` TS import edemediği
+  için ayrıştırmayı tekrarlıyor — eşitliği test config'i gerçekten yükleyip
+  **Next'in kendi eşleştiricisiyle** (`match-remote-pattern`) sınıyor.
+- `process.env.NEXT_PUBLIC_SUPABASE_URL` **tam bu yazımla** okunmalı (Next
+  istemcide yalnız bu kalıbı literale çeviriyor; `process.env[ad]` →
+  tarayıcıda bütün görseller fallback'e düşer).
+- Env yoksa build **hatayla durur** (bilerek; sessiz boş liste bütün
+  görselleri 400'e düşürürdü).
+- **next/image'a `quality={…}` eklenmez** — nginx yalnız `q=75` geçiriyor,
+  başka kalite canlıda 400. OG_IMAGE_QUALITY de 75'te kalır (test mühürlü).
+- nginx parçaları **repodan kopyalanır**, sunucuda elle değiştirilmez.
+  Müşteri domaini şablonu (`buildNginxConfig`) aynı parçaları include ediyor;
+  parçalar sunucuda yoksa `nginx -t` açıkça düşer.
+- `/_next/image` hız sınırı (10 istek/sn, burst=120 delay=60) ölçümle
+  seçildi: 4 anasayfa (56 görsel) eşzamanlı → hepsi 200, gecikmesiz; 100
+  fotoğraflık galeri → hepsi 200, en geç ~3 sn; 250 eşzamanlı → 142 kabul,
+  108 × 429. Meşru trafik takılıyor mu: `grep "limiting requests"
+  /var/log/nginx/error.log`. Tek IP'yi durdurur, dağıtık saldırıyı DURDURMAZ.
+
+## ☁️ Cloudflare vekili (turuncu bulut) — AÇILMAYACAK (karar, 21 Eylül 2026)
+
+Cloudflare yalnız DNS. Ölçüm (1.1.1.1): `buyukdirilis.org.tr`, `www.` ve
+`kurmayteknoloji.com` doğrudan **185.33.234.67**.
+
+**Gerekçe:** (1) Vekil kapalıyken önde paylaşımlı önbellek yok → önbellek
+zehirleme sınıfı açıklar (GHSA-ffhc-5mcf-pf4q CSP nonce, GHSA-wfc6, GHSA-vfv6,
+GHSA-3g8h) **uyuyor**. (2) Vekil müşteri domainlerini zaten kapsamıyor —
+müşterinin DNS'i kendi panelinde.
+
+**Bedeli:** önde DoS kalkanı yok → nginx hız sınırı tek kalkan.
+
+⚠️ **Karar değişirse ÖNCE:** Next büyük geçişi (önbellek sınıfı canlanır) +
+nginx `real_ip` ayarı (yoksa `limit_req` anahtarı Cloudflare'in IP'si olur,
+sınır bütün ziyaretçilere BİRLİKTE uygulanır).
+
+## Büyük geçiş (Faz 3/4) — önceden yazılı tuzaklar
+
+1. 🔴 **revalidateTag:** 16'da ikinci argüman zorunlu. Kılavuz ve belge
+   `'max'` öneriyor = **stale-while-revalidate**: pasife alınan kurum bir
+   istek daha yayında kalır; slug değiştirilip eski slug başka kuruma
+   verilirse o host ilk istekte ESKİ kurumun kaydını alır (çapraz kurum).
+   `updateTag` yalnız Server Actions'ta (bizde yok). **Doğrusu
+   `revalidateTag(tag, { expire: 0 })`** — delete/toggle/update-tenant.
+   `use cache`/`cacheComponents` seçenek değil (belge: PPR nonce'lu CSP ile
+   uyumsuz) → `unstable_cache`'te kalınır; PM2 tek proses şartı aynen geçerli.
+2. 🔴 **Prefetch-matcher:** CSP belgesinin önerdiği matcher'daki
+   `missing: next-router-prefetch / purpose: prefetch` satırı **KOPYALANMAZ**.
+   Middleware/proxy kurumu da çözüyor; prefetch/RSC istekleri proxy'yi atlar
+   → `x-tenant-slug` yok → `getCurrentTenant()` **default kuruma** düşer →
+   müşteri domaininde istemci gezinmesi default kurumun sayfasını gösterir.
+3. 🔴 **ESLint:** 16'da `next lint` yok; eslint-config-next 16 eslint ≥9
+   flat config istiyor. `.eslintrc.json`'daki iki GÜVENLİK kuralı —
+   `react/no-danger` (SafeHtml istisnası) ve `next/image` yasağı (SafeImage
+   istisnası) — birebir taşınmalı ve **mutasyonla** kanıtlanmalı: lint
+   "temiz" der ama koruma gitmiş olabilir.
+4. middleware → `proxy.ts` (yalnız Node runtime): 5 test betiği
+   `src/middleware.ts`'i yol adıyla okuyor; `request.url` host üretimi Node
+   runtime'da ölçülmeli (bkz. VPS "Tuzak 1").
+5. Sıra: önce izolasyon HTTP matrisi (Faz 2) → 14.2.35'te temel çizgi →
+   her fazdan sonra aynı matris + fark.
+
+## Matcher dışı yollar (ölçüldü, nginx ile kapatıldı)
+
+Matcher `api` ile BAŞLAYAN her yolu dışlıyor (`/apix`, `/apiler`…); orada
+middleware çalışmaz. 14.2.35'te ölçüldü: `/apix` + sahte `x-tenant-slug` →
+404 **başka kurumun adıyla**; sahte CSP başlığı → `nonce="zz\"zz"` (nitelik
+kırılır). nginx artık `x-tenant-slug`, `x-nonce`, `Content-Security-Policy(-Report-Only)`,
+`x-middleware-subrequest`, `x-nextjs-data` başlıklarını uygulamaya
+iletmiyor (yerel nginx 1.18.0 + gerçek build ile uçtan uca ölçüldü: etkisiz).
+API rotaları etkilenmiyor (kurumu host'tan kendileri çözüyor).
+
+---
+
 # 📦 VPS DEPLOY — ✅ TAMAMLANDI, CANLIDA (27 Ağustos 2026)
 
 Bu bölüm 29 Temmuz 2026'da (Tur 2 / a2) **plan** olarak yazılmıştı. Deploy
@@ -5987,13 +6099,18 @@ canlıdaki gerçek hâl `crontab -l` ile teyit edilir.
 0 4 * * * /bin/bash /opt/build/sendika-site/scripts/backup-db.sh >> /var/log/supabase-yedek.log 2>&1
 30 4 * * * cd /opt/build/sendika-site && /usr/bin/node scripts/backup-storage.mjs /var/backups/storage >> /var/log/storage-yedek.log 2>&1
 0 */6 * * * curl -s -o /dev/null https://buyukdirilis.org.tr/haberler
+40 * * * * /bin/bash /opt/build/sendika-site/scripts/gorsel-onbellek-budama.sh /var/www/sendika-site/.next/cache/images 1024 30 >> /var/log/gorsel-onbellek.log 2>&1
 ```
+
+⏰ Son satır (görsel önbelleği budama, 21 Eylül 2026 Faz 1) — **kurulunca**
+`crontab -l` ile teyit edin. Ayrıntı: "🔒 NEXT SÜRÜMÜ + GÖRSEL ZİNCİRİ".
 
 | zaman | iş | ayrıntı |
 |---|---|---|
 | 04:00 | DB yedeği (custom format) | "💾 YEDEKTEN GERİ YÜKLEME" → "canlı cron'u yeni script'e geçirme" |
 | 04:30 | Storage aynası | "STORAGE YEDEĞİ" |
 | 6 saatte bir | Supabase Free 7 gün duraklatmasına karşı ping | "🧾 SUPABASE PLANI" — sunucu çökerse durur; sunucu dışı yedeği aşağıdaki izleme |
+| her saat :40 | `/_next/image` disk önbelleği budama (30 gün + 1024 MB sınırı) | "🔒 NEXT SÜRÜMÜ + GÖRSEL ZİNCİRİ" — log `/var/log/gorsel-onbellek.log` |
 
 ### Harici izleme (UptimeRobot, 12 Eylül 2026)
 
@@ -6094,6 +6211,31 @@ değerleriyle sunucuda ayrıca oluşturulmalı (standalone `.env.local` taşıma
 
 ## 3. Deploy akışı (her güncellemede)
 
+🔴 **21 Eylül 2026 güncellemesi — build artık SUNUCUDA yapılıyor**
+(`/opt/build/sendika-site`, kullanıcı beyanı). Aşağıdaki WSL akışı tarihî
+kayıt. Güncel akış:
+
+```bash
+cd /opt/build/sendika-site
+git pull
+npm ci        # 🔴 ŞART — package-lock değiştiyse (ör. sharp 0.35.4) atlanırsa
+              #    eski paketle build alınır ve düzeltme CANLIYA HİÇ ULAŞMAZ
+node -e "console.log(require('sharp').versions)"   # build dizininde beklenen sürüm
+npm run build
+cp -r .next/static .next/standalone/.next/static
+rsync -a --delete .next/standalone/ /var/www/sendika-site/
+pm2 restart sendika
+cd /var/www/sendika-site && node -e "console.log(require('sharp').versions)"   # canlıda aynı sürüm
+```
+
+- `npm run build` **`NEXT_PUBLIC_SUPABASE_URL` olmadan hatayla durur**
+  (görsel ucunun izin listesi ondan türetiliyor — bilerek).
+- `rsync --delete` `.env`'i silmez: Next build'de yüklediği `.env*`
+  dosyalarını standalone'a kopyalıyor (`next/dist/build/index.js`
+  writeStandaloneDirectory, 21 Eylül'de kaynaktan doğrulandı).
+
+**Tarihî (WSL) akış:**
+
 1. WSL (Ubuntu 22.04) içinde `~/projeler/sendika-site`:
    ```bash
    git pull
@@ -6192,6 +6334,11 @@ Ayrıca `node server.js` loglarında "sharp" uyarısı OLMAMALI. next/image
 varyantları `.next/cache/images`'ta birikir — disk yeterli (kök fs 18 GB),
 ama `.next/cache` rsync'e dahil edilmemeli (her deploy'da sıfırlanması sorun
 değil, yeniden üretilir).
+
+🔴 21 Eylül 2026'dan itibaren beklenen: `sharp: '0.35.4'` ya da üstü
+(libheif, GHSA-rgj7-g3m4-5g8c). 0.35.3 görürseniz deploy'da `npm ci`
+atlanmıştır. Önbelleğin üst sınırı: saatlik budama cron'u (bkz. cron
+listesi); Next 14.2'de yerleşik sınır yok.
 
 ## 8. Deploy sonrası ilk hafta işleri (Tur 2 teşhisinden — sırayla)
 

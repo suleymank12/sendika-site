@@ -23,6 +23,12 @@ import {
   normalizeMapEmbedInput,
 } from "../src/lib/utils.ts";
 
+// isNextImageSafeUrl uzak adresi YALNIZ bizim projemizde kabul eder
+// (storage-host.ts, 21 Eylul 2026). Kural env'i cagri aninda okuyor —
+// test projesi olarak "abcdefgh" sabitlenir; asagidaki vakalar bu host'a
+// gore yazildi.
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abcdefgh.supabase.co";
+
 // ---------------------------------------------------------------------------
 // Kucuk test kosucusu
 // ---------------------------------------------------------------------------
@@ -366,6 +372,10 @@ checkSafeUrl("protokol-goreli", "//evil.com/a.jpg", false);
 checkSafeUrl("http (https degil)", "http://abcdefgh.supabase.co/storage/v1/object/public/images/a.webp", false);
 checkSafeUrl("supabase host AMA yanlis pathname", "https://abcdefgh.supabase.co/rastgele/a.webp", false);
 checkSafeUrl("yabanci https host", "https://evil.com/storage/v1/object/public/images/a.webp", false);
+// 🔴 21 Eylul 2026: BASKA bir Supabase projesi artik gecmez. Gecseydi
+//    next.config (yalniz bizim host) onu reddeder, next/image render'da
+//    firlatir ve sayfa 500'e duserdi.
+checkSafeUrl("🔴 BASKA Supabase projesi", "https://saldirgan.supabase.co/storage/v1/object/public/images/a.webp", false);
 checkSafeUrl("data: URI", "data:image/png;base64,iVBORw0KGgo=", false);
 checkSafeUrl("bos string", "", false);
 checkSafeUrl("null", null, false);

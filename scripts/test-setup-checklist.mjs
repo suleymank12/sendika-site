@@ -34,6 +34,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import {
   AUTH_RETURN_PATH,
+  NGINX_APP_SNIPPET,
+  NGINX_IMAGE_SNIPPET,
   SETUP_CHECK_API_PATH,
   TENANT_ERROR_PATH,
   buildCertbotText,
@@ -256,10 +258,19 @@ header("(a) Hazir metinler");
   const [apex, www, http] = blocks;
   ok("nginx", "(1) apex blogu server_name YALNIZ apex (www YOK)", serverNames(apex), [DOMAIN], apex.split("\n")[1]);
   okTrue("nginx", "(1) 443 ssl", apex.includes("listen 443 ssl;"), "apex");
-  okTrue("nginx", "(1) proxy_pass 127.0.0.1:3000 (static + /)", apex.split("proxy_pass http://127.0.0.1:3000;").length - 1 === 2, "apex");
-  okTrue("nginx", "(1) Host $host + X-Forwarded-Proto $scheme", apex.includes("proxy_set_header Host $host;") && apex.includes("proxy_set_header X-Forwarded-Proto $scheme;"), "apex");
-  okTrue("nginx", "(1) canli bloktaki ayarlar korunur (450M, immutable, upgrade)", apex.includes("client_max_body_size 450M;") && apex.includes("immutable") && apex.includes("proxy_set_header Connection 'upgrade';"), "apex");
-  okTrue("nginx", "(1) sertifika yolu apex adina", apex.includes("ssl_certificate     /etc/letsencrypt/live/kurmayteknoloji.com/fullchain.pem;"), "apex");
+  // 21 Eylul 2026 (Faz 1): uygulama location'i vekil ayarlarini ORTAK
+  // parcadan alir (deploy/nginx/snippets/sendika-uygulama.conf); static
+  // location'i kendi proxy_pass'ini tutar. Parcalarin ICERIGI
+  // test:gorsel-zinciri'nde sinanir.
+  okTrue("nginx", "(1) proxy_pass 127.0.0.1:3000 yalniz static'te (/ parcadan)", apex.split("proxy_pass http://127.0.0.1:3000;").length - 1 === 1, "apex");
+  okTrue("nginx", "(1) location / ortak parcayi include ediyor", /location \/ \{\s*include snippets\/sendika-uygulama\.conf;\s*\}/.test(apex), "apex");
+  okTrue("nginx", "(1) /_next/image parcasi include ediliyor", apex.includes(`include ${NGINX_IMAGE_SNIPPET};`), "apex");
+  okTrue("nginx", "(1) parca adlari sabitlerden", NGINX_APP_SNIPPET === "snippets/sendika-uygulama.conf" && NGINX_IMAGE_SNIPPET === "snippets/sendika-gorsel-ucu.conf", "sabit");
+  // 🔴 WebSocket iletimi KALDIRILDI (GHSA-c4j6-fc7j-m34r) — sablonda geri
+  //    gelmemeli; gelirse yeni musteri domaini korumasiz kurulur.
+  okTrue("nginx", "🔴 (1) Upgrade/Connection 'upgrade' iletimi YOK", !conf.includes("$http_upgrade") && !conf.includes("Connection 'upgrade'"), "apex");
+  okTrue("nginx", "(1) blokta tek basina proxy_set_header YOK (miras tuzagi)", !apex.includes("proxy_set_header"), "apex");
+  okTrue("nginx", "(1) canli bloktaki ayarlar korunur (450M, immutable)", apex.includes("client_max_body_size 450M;") && apex.includes("immutable"), "apex");  okTrue("nginx", "(1) sertifika yolu apex adina", apex.includes("ssl_certificate     /etc/letsencrypt/live/kurmayteknoloji.com/fullchain.pem;"), "apex");
   ok("nginx", "(2) www blogu server_name YALNIZ www", serverNames(www), [WWW], "www");
   okTrue("nginx", "(2) www → apex 301 ($request_uri korunur)", www.includes("return 301 https://kurmayteknoloji.com$request_uri;"), "www");
   okTrue("nginx", "(2) www blogu da ayni sertifikayla 443", www.includes("listen 443 ssl;") && www.includes("/etc/letsencrypt/live/kurmayteknoloji.com/privkey.pem;"), "www");

@@ -65,6 +65,10 @@ import {
 } from "../src/lib/og-image.ts";
 import { PLACEHOLDER_LOGO_URL } from "../src/lib/constants.ts";
 
+// Gorsel ucu YALNIZ bizim projemizi kabul ediyor (storage-host.ts,
+// 21 Eylul 2026). Kural env'i cagri aninda okuyor; test projesi "ornek".
+process.env.NEXT_PUBLIC_SUPABASE_URL = "https://ornek.supabase.co";
+
 // ---------------------------------------------------------------------------
 // Kucuk test kosucusu (diger test script'leriyle ayni desen)
 // ---------------------------------------------------------------------------
@@ -187,6 +191,12 @@ header("(a) buildOgImageUrl — elenenler ve cevrilenler");
     !isOptimizableStorageUrl("https://x.supabase.co.saldirgan.test/storage/v1/object/public/a.jpg"),
     "sahte alt alan"
   );
+  // 🔴 21 Eylul 2026: ".supabase.co ile bitmek" ARTIK YETMEZ. Baska bir
+  //    projenin adresi optimize edilmez, HAM birakilir (uc onu 400'le
+  //    reddederdi; ham adres ise calisir).
+  const BASKA_PROJE = "https://saldirgan.supabase.co/storage/v1/object/public/images/a.avif";
+  okTrue("cevirme", "🔴 BASKA Supabase projesi optimize EDILMEZ", !isOptimizableStorageUrl(BASKA_PROJE), BASKA_PROJE);
+  ok("cevirme", "BASKA proje adresi HAM birakilir", buildOgImageUrl(BASKA_PROJE), BASKA_PROJE, BASKA_PROJE);
   okTrue("cevirme", "http:// Storage adresi optimize edilmez", !isOptimizableStorageUrl(STORAGE.replace("https", "http")), "http");
   okTrue("cevirme", "gecerli Storage adresi optimize edilir", isOptimizableStorageUrl(STORAGE), STORAGE);
   okTrue("cevirme", "bozuk adres cokmez", isOptimizableStorageUrl("bu bir adres degil") === false, "bozuk");
@@ -313,7 +323,11 @@ header("(e) next.config — gorsel ucu sozlesmesi");
 {
   const cfg = read("next.config.mjs");
 
-  okTrue("config", "supabase.co kaynak izinli", cfg.includes('hostname: "*.supabase.co"'), "remotePatterns");
+  // 21 Eylul 2026: joker KALDIRILDI; host env'den turetiliyor. Davranis
+  // esitligi (config ↔ storage-host) test:gorsel-zinciri'nde, config
+  // gercekten yuklenerek sinaniyor.
+  okTrue("config", "🔴 joker (*.supabase.co) YOK", !stripComments(cfg).includes("*.supabase.co"), "remotePatterns");
+  okTrue("config", "host env'den turetiliyor", cfg.includes("hostname: ownStorageHostname()"), "remotePatterns");
   okTrue(
     "config",
     "yalniz public storage yolu izinli",

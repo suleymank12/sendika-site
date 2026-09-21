@@ -1,4 +1,5 @@
 import { PLACEHOLDER_LOGO_URL } from "./constants.ts";
+import { isOwnPublicStorageUrl } from "./storage-host.ts";
 
 /**
  * PAYLASIM GORSELI (og:image / twitter:image) — adres uretimi. (20 Eylul 2026)
@@ -82,19 +83,14 @@ export const NEXT_IMAGE_PATH = "/_next/image";
  * orada izin verilmeyen bir adres ucta **400** doner, yani og:image
  * tamamen bozulur. Bu yuzden eslesmeyen adresler ucta DENENMEZ, ham
  * haliyle kullanilir (bkz. buildOgImageUrl).
+ *
+ * 🔴 Kuralin KENDISI burada degil, `storage-host.ts`'te (21 Eylul 2026):
+ * eskiden `*.supabase.co` idi — herhangi birinin projesi. Artik yalniz
+ * bizim projemiz; uc tuketici (config, SafeImage, burasi) ayni fonksiyonu
+ * kullaniyor. Burada kopya kural YAZMAYIN.
  */
 export function isOptimizableStorageUrl(raw: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return false;
-  }
-  return (
-    url.protocol === "https:" &&
-    url.hostname.endsWith(".supabase.co") &&
-    url.pathname.startsWith("/storage/v1/object/public/")
-  );
+  return isOwnPublicStorageUrl(raw);
 }
 
 /**

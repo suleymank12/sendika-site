@@ -1,6 +1,7 @@
 import slugifyLib from "slugify";
 import { format } from "date-fns";
 import { tr } from "date-fns/locale";
+import { isOwnPublicStorageUrl } from "./storage-host.ts";
 
 const TR_CHAR_MAP: Record<string, string> = {
   ç: "c", Ç: "c",
@@ -58,12 +59,12 @@ export function cn(...classes: (string | undefined | null | false)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
-const NEXT_IMAGE_HOST_RE = /^[a-z0-9-]+\.supabase\.co$/i;
-const NEXT_IMAGE_PATH_PREFIX = "/storage/v1/object/public/";
-
 // UYARI: Bu kural next.config.mjs images.remotePatterns ile SENKRON
-//  olmalı. Orayı değiştirirsen burayı da güncelle — yoksa geçerli
-//  görsel sessizce kaybolur ya da geçersiz src sayfayı çökertir.
+//  olmalı — yoksa geçerli görsel sessizce kaybolur ya da geçersiz src
+//  sayfayı çökertir. Uzak adres kuralı artık TEK YERDE: storage-host.ts
+//  (21 Eylül 2026: `*.supabase.co` → yalnız bizim projemiz). Burada kopya
+//  kural YAZMAYIN: config daralıp burası geniş kalırsa yabancı bir
+//  Supabase adresi SafeImage'dan geçer ve next/image sayfayı 500'e düşürür.
 /**
  * Verilen adresin next/image'a GUVENLE verilebilecegini soyler.
  *
@@ -85,16 +86,9 @@ export function isNextImageSafeUrl(url: string | null | undefined): url is strin
   // Site-goreli: TEK egik cizgi ("//host/x" protokol-gorelidir, reddedilir).
   if (value.startsWith("/")) return !value.startsWith("//");
 
-  try {
-    const parsed = new URL(value);
-    return (
-      parsed.protocol === "https:" &&
-      NEXT_IMAGE_HOST_RE.test(parsed.hostname) &&
-      parsed.pathname.startsWith(NEXT_IMAGE_PATH_PREFIX)
-    );
-  } catch {
-    return false;
-  }
+  // Mutlak adres: yalniz bizim projemizin public Storage nesnesi
+  // (isOwnPublicStorageUrl ASLA throw etmez).
+  return isOwnPublicStorageUrl(value);
 }
 
 /**

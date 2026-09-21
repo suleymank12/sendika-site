@@ -39,6 +39,17 @@ export const SETUP_CHECK_API_PATH = "/api/super-admin/tenant-setup-check";
 export const APP_UPSTREAM = "http://127.0.0.1:3000";
 
 /**
+ * Sunucuda BİR KEZ kurulan ortak Nginx parçaları (21 Eylül 2026, Faz 1).
+ * Kaynak: repo `deploy/nginx/` — `/etc/nginx/` altına aynı yolla kopyalanır.
+ * Müşteri dosyası bunları include eder; parça yoksa `nginx -t` açıkça
+ * düşer (sessizce korumasız çalışmaz). Test: dosyaların repoda var olduğu
+ * ve buradaki adlarla eşleştiği `test:gorsel-zinciri`'nde sınanır.
+ */
+export const NGINX_APP_SNIPPET = "snippets/sendika-uygulama.conf";
+export const NGINX_IMAGE_SNIPPET = "snippets/sendika-gorsel-ucu.conf";
+export const NGINX_RATE_ZONE_CONF = "conf.d/sendika-gorsel-sinir.conf";
+
+/**
  * Şifre sıfırlama (ve davet) dönüş sayfası — Supabase Redirect URLs
  * satırları bu yolla biter. setup-probes.ts'teki SUPABASE_RETURN_PATH ile
  * AYNI olmalı (import'suz modüller; test ikisini karşılaştırır).
@@ -337,6 +348,11 @@ export function buildCertbotText(domain: string): string {
  * Uygulama bloğu canlıdaki çalışan bloktan alındı (11 Eylül 2026) — TEK
  * düzeltmeyle: apex bloğunun server_name satırında www YOK. Canlıda vardı →
  * www→apex 301 hiç devreye girmiyordu, www kendi başına açılıyordu (ölçüldü).
+ *
+ * 21 Eylül 2026 (Faz 1): uygulama location'ları ortak parçaları include
+ * ediyor (NGINX_APP_SNIPPET / NGINX_IMAGE_SNIPPET): iç başlık temizliği,
+ * WebSocket iletimi kapalı, /_next/image için q=75 + hız sınırı. Canlıdaki
+ * iki blok aynı parçalarla güncellendi; şablon onlarla AYNI kalmalı.
  */
 export function buildNginxConfig(domain: string): string {
   const www = `www.${domain}`;
@@ -355,6 +371,11 @@ export function buildNginxConfig(domain: string): string {
     "#     eşleşmez, www kendi başına açılır (301 olmaz).",
     `# (2) www → apex 301: ${www} YALNIZ burada.`,
     "# (3) http → https 301: 80 portu, apex + www birlikte, doğrudan apex'e.",
+    "#",
+    "# Ön şart (sunucuda bir kez kurulur, repo deploy/nginx/):",
+    `#   /etc/nginx/${NGINX_RATE_ZONE_CONF}`,
+    `#   /etc/nginx/${NGINX_APP_SNIPPET}`,
+    `#   /etc/nginx/${NGINX_IMAGE_SNIPPET}`,
     "",
     "# (1) apex — uygulama",
     "server {",
@@ -370,18 +391,11 @@ export function buildNginxConfig(domain: string): string {
     '        add_header Cache-Control "public, max-age=31536000, immutable";',
     "    }",
     "",
+    "    # /_next/image: yalnız q=75 + IP başına hız sınırı",
+    `    include ${NGINX_IMAGE_SNIPPET};`,
+    "",
     "    location / {",
-    `        proxy_pass ${APP_UPSTREAM};`,
-    "        proxy_http_version 1.1;",
-    "        proxy_set_header Upgrade $http_upgrade;",
-    "        proxy_set_header Connection 'upgrade';",
-    "        proxy_set_header Host $host;",
-    "        proxy_set_header X-Forwarded-Host $host;",
-    "        proxy_set_header X-Forwarded-Port 443;",
-    "        proxy_set_header X-Real-IP $remote_addr;",
-    "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
-    "        proxy_set_header X-Forwarded-Proto $scheme;",
-    "        proxy_cache_bypass $http_upgrade;",
+    `        include ${NGINX_APP_SNIPPET};`,
     "    }",
     "}",
     "",
