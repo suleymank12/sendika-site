@@ -640,7 +640,9 @@ export default function DavetKabulPage() {
               </label>
               <input
                 id="password"
+                name="new-password"
                 type="password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="En az 8 karakter"
@@ -659,7 +661,9 @@ export default function DavetKabulPage() {
               </label>
               <input
                 id="passwordConfirm"
+                name="new-password-confirm"
                 type="password"
+                autoComplete="new-password"
                 value={passwordConfirm}
                 onChange={(e) => setPasswordConfirm(e.target.value)}
                 placeholder="Şifreyi tekrar girin"

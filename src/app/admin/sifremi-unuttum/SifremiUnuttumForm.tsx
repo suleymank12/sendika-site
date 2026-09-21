@@ -96,7 +96,9 @@ export default function SifremiUnuttumForm({ initialTitle }: { initialTitle: str
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="E-posta adresinizi girin"

@@ -106,8 +106,10 @@ export default function AdminLoginForm({ initialTitle }: { initialTitle: string 
             )}
             <Input
               id="email"
+              name="email"
               label="E-posta"
               type="email"
+              autoComplete="username"
               placeholder="E-posta adresinizi girin"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -115,8 +117,10 @@ export default function AdminLoginForm({ initialTitle }: { initialTitle: string 
             />
             <Input
               id="password"
+              name="password"
               label="Şifre"
               type="password"
+              autoComplete="current-password"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

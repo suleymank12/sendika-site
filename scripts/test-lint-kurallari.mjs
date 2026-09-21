@@ -59,18 +59,28 @@ const GECICI = {
   tehlike: "src/components/__lint_sinama_tehlike__.tsx",
   gorsel: "src/components/__lint_sinama_gorsel__.tsx",
   uygulama: "src/app/__lint_sinama_uygulama__.tsx",
+  parola: "src/app/__lint_sinama_parola__.tsx",
 };
 const ICERIK = {
   tehlike: `export default function LintSinamaTehlike({ h }: { h: string }) {\n  return <div dangerouslySetInnerHTML={{ __html: h }} />;\n}\n`,
   gorsel: `import Image from "next/image";\n\nexport default function LintSinamaGorsel() {\n  return <Image src="/a.png" alt="a" width={1} height={1} />;\n}\n`,
   uygulama: `import Image from "next/image";\n\nexport default function LintSinamaUygulama({ h }: { h: string }) {\n  return (\n    <>\n      <Image src="/a.png" alt="a" width={1} height={1} />\n      <div dangerouslySetInnerHTML={{ __html: h }} />\n    </>\n  );\n}\n`,
+  // 3 ihlal (duz input, Input bileseni, dinamik type) + 1 dogru kullanim
+  parola: `import Input from "@/components/ui/Input";\n\nexport default function LintSinamaParola({ g }: { g: boolean }) {\n  return (\n    <form>\n      <input type="password" />\n      <Input id="p" type="password" />\n      <input type={g ? "text" : "password"} />\n      <input type="password" autoComplete="current-password" />\n    </form>\n  );\n}\n`,
 };
 const MESRU = { safeHtml: "src/components/SafeHtml.tsx", safeImage: "src/components/SafeImage.tsx" };
+// Parola alani tasiyan GERCEK formlar (21 Eylul 2026) — kural onlarda hata vermemeli
+// ve dogru autocomplete degerini tasimalilar.
+const PAROLA_FORMLARI = {
+  "src/app/admin/giris/AdminLoginForm.tsx": ["current-password"],
+  "src/app/super-admin/giris/SuperAdminLoginForm.tsx": ["current-password"],
+  "src/app/admin/davet-kabul/page.tsx": ["new-password", "new-password"],
+};
 
 let sonuclar = null;
 try {
   for (const [ad, yol] of Object.entries(GECICI)) writeFileSync(path.join(REPO, yol), ICERIK[ad]);
-  const r = spawnSync(process.execPath, [ESLINT, "--format", "json", ...Object.values(GECICI), ...Object.values(MESRU)], {
+  const r = spawnSync(process.execPath, [ESLINT, "--format", "json", ...Object.values(GECICI), ...Object.values(MESRU), ...Object.keys(PAROLA_FORMLARI)], {
     cwd: REPO,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
@@ -111,6 +121,28 @@ if (Array.isArray(sonuclar)) {
   okTrue("istisna", "SafeHtml'de react/no-danger hatasi YOK", mesajlar(MESRU.safeHtml) !== null && kural(MESRU.safeHtml, "react/no-danger").length === 0, ozet(MESRU.safeHtml));
   okTrue("istisna", "SafeImage gercekten next/image import ediyor", /from ["']next\/image["']/.test(safeImageKaynak), MESRU.safeImage);
   okTrue("istisna", "SafeImage'da no-restricted-imports hatasi YOK", mesajlar(MESRU.safeImage) !== null && kural(MESRU.safeImage, "no-restricted-imports").length === 0, ozet(MESRU.safeImage));
+
+  // (d) Parola alanlarinda autoComplete ZORUNLU (21 Eylul 2026). Canlida
+  // Chrome konsolu "[DOM] Input elements should have autocomplete attributes
+  // (suggested: current-password)" basiyor ve ogeyi DEGERIYLE dokuyordu.
+  // Kural: .eslintrc.json no-restricted-syntax (JSX secicisi).
+  console.log("\n--- (d) parola alani autoComplete'siz → lint HATA");
+  const parolaHata = kural(GECICI.parola, "no-restricted-syntax");
+  const satirlar = parolaHata.map((m) => m.line).sort((a, b) => a - b);
+  okTrue("parola", "🔴 autoComplete'siz <input type=\"password\"> → HATA", satirlar.includes(6), ozet(GECICI.parola));
+  okTrue("parola", "🔴 autoComplete'siz <Input type=\"password\"> (bilesen) → HATA", satirlar.includes(7), ozet(GECICI.parola));
+  okTrue("parola", "🔴 dinamik type={… \"password\"} autoComplete'siz → HATA", satirlar.includes(8), ozet(GECICI.parola));
+  okTrue("parola", "autoComplete'li parola alani GECER (tam 3 hata)", parolaHata.length === 3 && !satirlar.includes(9), JSON.stringify(satirlar));
+  okTrue("parola", "hata mesaji dogru degerleri soyluyor", parolaHata.length > 0 && parolaHata[0].message.includes("current-password") && parolaHata[0].message.includes("new-password"), parolaHata[0]?.message || "");
+
+  console.log("\n--- (e) gercek parola formlari: kural temiz + dogru deger");
+  for (const [yol, beklenen] of Object.entries(PAROLA_FORMLARI)) {
+    const kaynak = readFileSync(path.join(REPO, yol), "utf8");
+    const bloklar = [...kaynak.matchAll(/<(?:input|Input)\b[^>]*?type="password"[^>]*?>/gs)].map((m) => m[0]);
+    const degerler = bloklar.map((b) => (b.match(/autoComplete="([^"]+)"/) || [])[1] || null);
+    okTrue("parola", `${yol}: lint'te autoComplete hatasi YOK`, mesajlar(yol) !== null && kural(yol, "no-restricted-syntax").length === 0, ozet(yol));
+    okTrue("parola", `${yol}: parola alanlari ${JSON.stringify(beklenen)}`, JSON.stringify(degerler) === JSON.stringify(beklenen), JSON.stringify(degerler));
+  }
 }
 
 console.log("");

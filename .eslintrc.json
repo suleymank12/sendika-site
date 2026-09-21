@@ -1,6 +1,13 @@
 {
   "extends": ["next/core-web-vitals", "next/typescript"],
   "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "JSXOpeningElement[name.name=/^(input|Input)$/]:has(JSXAttribute[name.name='type'] Literal[value='password']):not(:has(JSXAttribute[name.name='autoComplete']))",
+        "message": "Parola alaninda autoComplete ZORUNLU: giris icin \"current-password\", yeni/tekrar sifre icin \"new-password\" (parola yoneticileri + Chrome [DOM] uyarisi). Hesap alani: \"username\"."
+      }
+    ],
     "react/no-danger": "error",
     "no-restricted-imports": [
       "error",
