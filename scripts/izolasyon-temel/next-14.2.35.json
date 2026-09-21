@@ -1,7 +1,7 @@
 {
   "surum": "14.2.35",
-  "kaydedildi": "2026-09-21T19:53:29.871Z",
-  "buildId": "L0Hr7LU4x78JhaoxonKX8",
+  "kaydedildi": "2026-09-21T21:25:43.290Z",
+  "buildId": "pJEUXIiOR8MHF0feFUz-2",
   "kurumlar": {
     "A": "default",
     "B": "kurmay-teknoloji"
@@ -290,8 +290,8 @@
       }
     },
     "html|A-sub|{A.manset}": {
-      "durum": 200,
-      "konum": null,
+      "durum": 307,
+      "konum": "{A.haber}",
       "slug": "default",
       "tur": "html",
       "kurumBaslik": "A",
@@ -920,8 +920,8 @@
       }
     },
     "html|apex|{A.manset}": {
-      "durum": 200,
-      "konum": null,
+      "durum": 307,
+      "konum": "{A.haber}",
       "slug": "default",
       "tur": "html",
       "kurumBaslik": "A",
@@ -1120,8 +1120,8 @@
       }
     },
     "html|bilinmeyen-custom|{A.manset}": {
-      "durum": 200,
-      "konum": null,
+      "durum": 307,
+      "konum": "{A.haber}",
       "slug": "default",
       "tur": "html",
       "kurumBaslik": "A",
@@ -1330,11 +1330,11 @@
       }
     },
     "html|bilinmeyen-sub|{A.manset}": {
-      "durum": 200,
-      "konum": null,
+      "durum": 307,
+      "konum": "{A.haber}",
       "slug": "yok-boyle-kurum",
       "tur": "html",
-      "kurumBaslik": "?(Sendika Genel Kurulu Yapıldı)",
+      "kurumBaslik": "?(ASFASFASFASFASF)",
       "kurumOg": "A",
       "ogUrl": "goreli:{A.manset}",
       "ogImage": "localhost/_next/image?w=1200&q=75&url=storage",
@@ -2627,7 +2627,7 @@
       "kurumlar": [
         "A"
       ],
-      "isaret": null,
+      "isaret": "redirect",
       "sizinti": 0
     },
     "rsc|A-sub|{A.sayfa}": {
@@ -3125,7 +3125,7 @@
       "kurumlar": [
         "A"
       ],
-      "isaret": null,
+      "isaret": "redirect",
       "sizinti": 0
     },
     "rsc|apex|{A.sayfa}": {
@@ -3289,7 +3289,7 @@
       "kurumlar": [
         "A"
       ],
-      "isaret": null,
+      "isaret": "redirect",
       "sizinti": 0
     },
     "rsc|bilinmeyen-custom|{A.sayfa}": {
@@ -3449,7 +3449,7 @@
       "kurumlar": [
         "A"
       ],
-      "isaret": null,
+      "isaret": "redirect",
       "sizinti": 0
     },
     "rsc|bilinmeyen-sub|{A.sayfa}": {
