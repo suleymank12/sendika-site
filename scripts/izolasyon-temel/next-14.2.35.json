@@ -1,7 +1,7 @@
 {
   "surum": "14.2.35",
-  "kaydedildi": "2026-09-21T11:21:51.213Z",
-  "buildId": "lOh-5uKMT0sAx1ZtazQWF",
+  "kaydedildi": "2026-09-21T17:56:21.112Z",
+  "buildId": "A5I03nTmPOGiwROgjroyS",
   "kurumlar": {
     "A": "default",
     "B": "kurmay-teknoloji"
@@ -17,9 +17,94 @@
     "B.manset": "var"
   },
   "bilinenKusurlar": {
-    "K6": 2
+    "K7": 2
   },
   "gozlem": {
+    "api|/api/contact/fazla|apex": {
+      "durum": 404,
+      "tur": "json",
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "api|/api/contact|apex": {
+      "durum": 405,
+      "tur": "yok",
+      "hata": ""
+    },
+    "api|/api/panel-yoneticileri|apex": {
+      "durum": 401,
+      "tur": "json",
+      "hata": "{\"error\":\"Yetkisiz erişim.\"}"
+    },
+    "api|/api/super-admin/create-tenant|superadmin": {
+      "durum": 405,
+      "tur": "yok",
+      "hata": ""
+    },
+    "api|/api/super-admin/delete-tenant|superadmin": {
+      "durum": 405,
+      "tur": "yok",
+      "hata": ""
+    },
+    "api|/api/super-admin/orphan-users|B-custom": {
+      "durum": 404,
+      "tur": "json",
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "api|/api/super-admin/orphan-users|superadmin": {
+      "durum": 401,
+      "tur": "json",
+      "hata": "{\"error\":\"Yetkisiz erişim.\"}"
+    },
+    "api|/api/super-admin/tenant-setup-check|B-custom": {
+      "durum": 404,
+      "tur": "json",
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "api|/api/super-admin/tenant-setup-check|superadmin": {
+      "durum": 401,
+      "tur": "json",
+      "hata": "{\"error\":\"Yetkisiz erişim.\"}"
+    },
+    "api|/api/super-admin/tenant-users/list|B-custom": {
+      "durum": 404,
+      "tur": "json",
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "api|/api/super-admin/tenant-users/list|superadmin": {
+      "durum": 401,
+      "tur": "json",
+      "hata": "{\"error\":\"Yetkisiz erişim.\"}"
+    },
+    "api|/api/super-admin/tenant-users|superadmin": {
+      "durum": 405,
+      "tur": "yok",
+      "hata": ""
+    },
+    "api|/api/super-admin/toggle-tenant|superadmin": {
+      "durum": 405,
+      "tur": "yok",
+      "hata": ""
+    },
+    "api|/api/super-admin/update-tenant|superadmin": {
+      "durum": 405,
+      "tur": "yok",
+      "hata": ""
+    },
+    "api|/api/super-admin/yok|superadmin": {
+      "durum": 404,
+      "tur": "json",
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "api|/api/super-admin|B-custom": {
+      "durum": 404,
+      "tur": "json",
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "api|POST /api/yok-boyle-uc|B-custom": {
+      "durum": 404,
+      "tur": "json",
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
     "gorsel|accept-avif": {
       "durum": 200,
       "tur": "image/webp",
@@ -3994,6 +4079,45 @@
       "farkliAlanlar": [],
       "yansima": false
     },
+    "sinir-sahte|B-custom|/_next/static/yok.js": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "A",
+      "kurumOg": "A"
+    },
+    "sinir-sahte|B-custom|/api/yok-boyle-uc": {
+      "durum": 404,
+      "tur": "json",
+      "middleware": false,
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "sinir-sahte|apex|/_next/static/yok.js": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "B",
+      "kurumOg": "B"
+    },
+    "sinir-sahte|apex|/api/yok-boyle-uc": {
+      "durum": 404,
+      "tur": "json",
+      "middleware": false,
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
+    "sinir-sahte|superadmin|/_next/static/yok.js": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "PANEL",
+      "kurumOg": null
+    },
+    "sinir-sahte|superadmin|/api/yok-boyle-uc": {
+      "durum": 404,
+      "tur": "json",
+      "middleware": false,
+      "hata": "{\"error\":\"Bulunamadı.\"}"
+    },
     "sinir|B-custom|/_next/image(gecerli)": {
       "durum": 200,
       "tur": "image/png",
@@ -4008,8 +4132,8 @@
       "durum": 404,
       "tur": "html",
       "middleware": false,
-      "kurumBaslik": "A",
-      "kurumOg": "A"
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null
     },
     "sinir|B-custom|/_next/staticx": {
       "durum": 404,
@@ -4069,10 +4193,9 @@
     },
     "sinir|B-custom|/api/yok-boyle-uc": {
       "durum": 404,
-      "tur": "html",
+      "tur": "json",
       "middleware": false,
-      "kurumBaslik": "A",
-      "kurumOg": "A"
+      "hata": "{\"error\":\"Bulunamadı.\"}"
     },
     "sinir|B-custom|/apiler": {
       "durum": 404,
@@ -4132,8 +4255,8 @@
       "durum": 404,
       "tur": "html",
       "middleware": false,
-      "kurumBaslik": "A",
-      "kurumOg": "A"
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null
     },
     "sinir|apex|/_next/staticx": {
       "durum": 404,
@@ -4193,10 +4316,9 @@
     },
     "sinir|apex|/api/yok-boyle-uc": {
       "durum": 404,
-      "tur": "html",
+      "tur": "json",
       "middleware": false,
-      "kurumBaslik": "A",
-      "kurumOg": "A"
+      "hata": "{\"error\":\"Bulunamadı.\"}"
     },
     "sinir|apex|/apiler": {
       "durum": 404,
@@ -4287,10 +4409,9 @@
     },
     "sinir|superadmin|/api/yok-boyle-uc": {
       "durum": 404,
-      "tur": "html",
+      "tur": "json",
       "middleware": false,
-      "kurumBaslik": "PANEL",
-      "kurumOg": null
+      "hata": "{\"error\":\"Bulunamadı.\"}"
     },
     "sinir|superadmin|/apiler": {
       "durum": 404,

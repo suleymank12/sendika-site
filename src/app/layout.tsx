@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { getCurrentTenantOrNull } from "@/lib/get-tenant";
+import { resolveCurrentTenant } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
 import { buildTenantPublicUrl } from "@/lib/tenant-url";
 import { pickOgImage } from "@/lib/og-image";
@@ -29,7 +29,24 @@ export async function generateMetadata(): Promise<Metadata> {
   // `/admin/tenant-bulunamadi` dahil. Burada default'a dusulurse o hata
   // sayfasi default kurumun basligiyla acilir; daha kotusu, cozulemeyen bir
   // host'ta sanki gecerli bir siteymis gibi metadata uretilir.
-  const tenant = await getCurrentTenantOrNull();
+  const cozum = await resolveCurrentTenant();
+
+  // K6 — BASLIK YOK (21 Eylul 2026): istek middleware'den GECMEDI. Bugun
+  // tek ornegi matcher disinda OLMAYAN bir dosya (`/_next/static/yok.js`):
+  // Next'in 404'u burada, hicbir kurumu bilmeden render ediliyor. HICBIR
+  // kurumun adi, aciklamasi, og'si, favicon'u basilmaz; `metadataBase` yok.
+  //
+  // "Site Bulunamadı" DEGIL: site pekala var (kurmayteknoloji.com) — bulunamayan
+  // istenen adres. Govde zaten root `not-found.tsx` ("Sayfa Bulunamadı",
+  // platform paleti, "/"a donus linki — ayni host, dogru kurum).
+  if (cozum.kind === "no-header") {
+    return {
+      title: "Sayfa Bulunamadı",
+      robots: { index: false, follow: false },
+    };
+  }
+
+  const tenant = cozum.kind === "found" ? cozum.tenant : null;
 
   // Tenant cozulemedi: notr baslik + noindex. `metadataBase` verilmez —
   // hangi host'un kanonik oldugu belli degil.

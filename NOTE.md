@@ -6046,6 +6046,11 @@ sınır bütün ziyaretçilere BİRLİKTE uygulanır).
    Middleware/proxy kurumu da çözüyor; prefetch/RSC istekleri proxy'yi atlar
    → `x-tenant-slug` yok → `getCurrentTenant()` **default kuruma** düşer →
    müşteri domaininde istemci gezinmesi default kurumun sayfasını gösterir.
+   ✅ **21 Eylül 2026 (K6) sonrası:** başlık HİÇ yoksa `getCurrentTenant()`
+   artık default'a düşmüyor, `notFound()` → nötr 404. Yani bu hata yapılırsa
+   sonuç "B'nin domaininde A'nın sitesi" değil, her host'ta 404 — duman
+   testinde ve izolasyon matrisinde anında görünür (mutasyon M4 kanıtı:
+   `raporlar/2026-09-21-2050-k6-kimlik-sizintisi.md`). Satır yine KOPYALANMAZ.
 3. 🔴 **ESLint:** 16'da `next lint` yok; eslint-config-next 16 eslint ≥9
    flat config istiyor. `.eslintrc.json`'daki iki GÜVENLİK kuralı —
    `react/no-danger` (SafeHtml istisnası) ve `next/image` yasağı (SafeImage
@@ -6057,9 +6062,19 @@ sınır bütün ziyaretçilere BİRLİKTE uygulanır).
 5. Sıra: önce izolasyon HTTP matrisi (Faz 2) → 14.2.35'te temel çizgi →
    her fazdan sonra aynı matris + fark.
 
-## Matcher dışı yollar (ölçüldü — ✅ K1–K4 21 Eylül 2026'da KAPANDI, K6 kalıntısı açık)
+## Matcher dışı yollar (ölçüldü — ✅ K1–K4 ve K6 21 Eylül 2026'da KAPANDI, K7 açık)
 
-> **Güncel durum (21 Eylül 2026, K4+K5 turu):** matcher önek dışlamadan TAM
+> **Güncel durum (21 Eylül 2026, K6 turu):** matcher dışında kalan iki
+> önekte artık kimlik yok. `/api/<olmayan>` → catch-all JSON 404
+> (`app/api/[...yol]/route.ts`, HTML hiç render edilmez);
+> `/_next/static/<olmayan>` → nötr 404 ("Sayfa Bulunamadı", hiçbir kurumun
+> adı/og'si/favicon'u yok) — `x-tenant-slug` HİÇ yoksa kurum default'a değil
+> NÖTRE düşüyor (`get-tenant.ts` `resolveCurrentTenant` → `no-header`).
+> Açık kalan **K7**: aynı 404'te istemcinin KENDİ gönderdiği `x-tenant-slug`
+> uygulama katmanında hâlâ kabul ediliyor; canlıda nginx siliyor. Ayrıntı:
+> "🧪 İZOLASYON HTTP MATRİSİ" → bilinen kusurlar.
+>
+> **Önceki durum (21 Eylül 2026, K4+K5 turu):** matcher önek dışlamadan TAM
 > YOL dışlamaya geçti (`api/`, `_next/static/`, `_next/image$`,
 > `favicon\.ico$`). `/apix`, `/api`, `/apiler`… artık middleware'den geçiyor
 > ve sıradan bir 404 ile birebir aynı davranıyor. Kalıntı **K6**: `/api/` ve
@@ -6115,8 +6130,11 @@ sitemap, robots, /admin, /admin/giris, /admin/haberler, /super-admin,
 + 8 görsel ucu hücresi + **(6) matcher sınırı** 36 hücre (3 host × 12 yol:
 İÇERİDE olması gerekenler sıradan 404 ile birebir aynı mı, DIŞARIDA
 kalması gerekenler — `/api/…`, `/_next/static/…`, `/_next/image`,
-`/favicon.ico` — middleware'siz mi) = **492 gözlem, 1702 kural** (21 Eylül
-2026, K4+K5 turundan sonra; ilk hâl 456 / 1603). A = `default`, B =
+`/favicon.ico` — middleware'siz mi) + **(7) `/api` catch-all** (diskteki her
+gerçek route dosyası catch-all'dan ÖNCE eşleşiyor mu; catch-all'ın 404'ü
+süper admin uçlarının müşteri domainindeki 404'üyle ayırt edilemez mi) +
+matcher dışı 404'lerde sahte başlık = **515 gözlem, 1731 kural** (21 Eylül
+2026, K6 turundan sonra; K4+K5 sonrası 492 / 1702, ilk hâl 456 / 1603). A = `default`, B =
 custom domain'li ilk aktif kurum. Veri canlı Supabase'den anon anahtarla
 OKUNUR.
 
@@ -6150,19 +6168,42 @@ hiç üretilmezse) koşu kırmızı olur ("listeden çıkar").
 | K3 | matcher dışı yolda gelen CSP nonce'u HTML'e yansıyor | ✅ KAPANDI |
 | K4 | matcher dışı yolda B host'u, sahte başlık OLMADAN, A'nın kimliğini gösteriyor | ✅ KAPANDI (`kurmayteknoloji.com/apix` → Kurmay) |
 | K5 | uygulama `q=50`'yi kabul ediyor | ✅ KAPANDI (`images.qualities: [75]`) |
-| **K6** | `/api/` ve `/_next/static/` altında OLMAYAN yol middleware dışında HTML 404 render ediyor → B host'unda A'nın kimliği (`kurmayteknoloji.com/api/yok`, `/_next/static/yok.js`). İçerik sızmıyor | 🔴 **AÇIK** (K4'ün dar kalıntısı; matcher'la kapatılamaz — iki önek bilerek dışarıda) |
+| K6 | `/api/` ve `/_next/static/` altında OLMAYAN yol middleware dışında HTML 404 render ediyor → B host'unda A'nın kimliği | ✅ KAPANDI 21 Eylül (catch-all JSON 404 + başlıksız istekte nötr kurum) |
+| **K7** | matcher dışındaki HTML 404'te (K6'dan sonra yalnız `/_next/static/<olmayan>`) istemcinin gönderdiği `x-tenant-slug` kabul ediliyor → o kurumun adı/og'si. K1'in dar kalıntısı. **Canlıda nginx siliyor** (`sendika-uygulama.conf`) | 🔴 **AÇIK** — uygulama katmanında kapı yok; öneri raporda |
 
-Kapanış kanıtı (21 Eylül 2026, `raporlar/2026-09-21-1435-k4-k5-matcher-duzeltmesi.md`): düzeltmeden önce matris 0 fark; sonra
+Kapanış kanıtı K1–K5 (21 Eylül 2026, `raporlar/2026-09-21-1435-k4-k5-matcher-duzeltmesi.md`): düzeltmeden önce matris 0 fark; sonra
 tahmin edilen 42 iddianın 42'si "düzeldi" diye kırmızıya döndü, temel çizgi
 farkı YALNIZ 29 hücrede (`/apix` × 7 host × 4 varyant + `gorsel|q50`) —
 tahmin dosyası koddan önce yazıldı, izinsiz fark 0.
 
-**K6 için öneri (onayla, ayrı tur):** (a) `/api` için catch-all route
-(`src/app/api/[...yol]/route.ts`, her metotta JSON 404) → `/api/…` hiç
-HTML render etmez; (b) `/_next/static/` için: `x-tenant-slug` başlığı HİÇ
-YOKSA (middleware çalışmamış demek) kurum çözümü default'a değil NÖTR'e
-düşsün (`get-tenant.ts`). (b) çekirdek çözümlemeye dokunduğu için tasarım
-onayı ister.
+**Kapanış kanıtı K6** (21 Eylül 2026, `raporlar/2026-09-21-2050-k6-kimlik-sizintisi.md`):
+önce 1702/0 fark 0 → tahmin koddan önce (sha256 kilitli) → sonra 2/2
+beklenen FAIL, 16/16 değişen alan (5 sınır hücresi), 23/23 yeni hücre,
+beklenmeyen 0 → temel çizgi 515 hücre, doğrulama 1731/0 fark 0. Mutasyon:
+(a) catch-all silindi → 12 FAIL; (b) çekirdek default'a döndü → 6 FAIL;
+root layout nötr dalı kapatıldı → 2 FAIL; `getCurrentTenant` notFound dalı
+bozuldu (+ matcher'dan `/haberler` düşürme simülasyonu) → kontrol koşusunda
+nötr 404 olan `kurmayteknoloji.com/haberler` 200 + **A'nın haber listesi**.
+
+**Tasarım (K6):** `get-tenant.ts` `resolveCurrentTenant()` üç durum döner:
+`found` · `unknown-slug` (başlık var, kurum yok → bilinmeyen subdomain;
+public'te BELGELİ default kararı AYNEN) · `no-header` (middleware bu istekte
+çalışmadı → kurum BİLİNMİYOR). `no-header`'da: `getCurrentTenantOrNull` →
+null, `getCurrentTenant` → `notFound()`, root metadata → "Sayfa Bulunamadı"
++ noindex, og/twitter/description/metadataBase YOK. Ölçüm (184 istek):
+başlıksız çağrı YALNIZ root layout metadata'sında, YALNIZ matcher dışı
+404'te; build'de 80 giriş, 0 başlık okuma (`headers()` önce fırlatıyor).
+`/api/[...yol]` cevabı `apiNotFound()` — guard'ın 404'üyle AYNI fonksiyon
+(başlıklar + gövde bayt bayt aynı, ölçüldü): müşteri domaininde `/api/`
+altında tek 404 biçimi. ⚠️ Gizlilik garantisi DEĞİL — uç adları panelin
+herkese açık JS parçasında zaten yazılı (ölçüldü) ve GET'i olmayan uç GET'e
+405 döner (önceden de öyleydi).
+
+⚠️ **Açık karar — bilinmeyen subdomain tutarsızlığı** (K6'dan bağımsız;
+orada başlık VAR, `unknown-slug`): kök başlık "Site Bulunamadı" + noindex,
+gövde + og:site_name + og:image default'un; og:image `metadataBase` olmadığı
+için `localhost` adresine çözülüyor (production'da kırık önizleme).
+Değerlendirme ve seçenekler raporda; karar bekliyor.
 
 ## 🔴 Next 14'ün belgelenmemiş ikinci katmanı (mutasyonla bulundu)
 

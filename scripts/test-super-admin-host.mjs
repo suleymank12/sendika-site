@@ -336,11 +336,15 @@ header("(g) Notr marka — root layout");
   okTrue("marka", "root layout super admin host'unu taniyor", c.includes("isSuperAdminHost(headers().get(\"host\")"), "layout");
   okTrue("marka", "notr baslik", c.includes('title: "Platform Yönetimi"'), "layout");
   okTrue("marka", "noindex", c.includes("robots: { index: false, follow: false }"), "layout");
-  // Kontrol, tenant cozumunden ONCE olmali
+  // Kontrol, tenant cozumunden ONCE olmali. 21 Eylul 2026 (K6): root layout
+  // `getCurrentTenantOrNull()` yerine `resolveCurrentTenant()` kullaniyor
+  // (basligin HIC olmadigi durumu ayirt etmek icin). Cagri yoksa indexOf -1
+  // olur ve karsilastirma sessizce gecerdi — varligi AYRICA sinaniyor.
+  okTrue("marka", "root layout kurumu resolveCurrentTenant() ile cozuyor", c.includes("resolveCurrentTenant()"), "layout");
   okTrue(
     "marka",
-    "kontrol getCurrentTenantOrNull'dan ONCE",
-    c.indexOf("isSuperAdminHost") < c.indexOf("getCurrentTenantOrNull()"),
+    "kontrol resolveCurrentTenant'tan ONCE",
+    c.indexOf("isSuperAdminHost") < c.indexOf("resolveCurrentTenant()"),
     "sira"
   );
 }

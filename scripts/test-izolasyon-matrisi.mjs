@@ -67,7 +67,7 @@
  *     yerel build + ayni veri = ayni gozlem.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import { SUPER_ADMIN_SUBDOMAIN } from "../src/lib/constants.ts";
@@ -123,12 +123,12 @@ const OWN_STORAGE = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.toLow
  * "B'nin sitesi A'yi gosteriyor" diye SAHTE alarm verir — ya da tersine,
  * gercek bir sizintiyi hic goremez.
  */
-function istek(host, yol, ek = {}, govdeOku = true) {
+function istek(host, yol, ek = {}, govdeOku = true, yontem = "GET") {
   const u = new URL(`${TABAN}${yol}`);
   const modul = u.protocol === "https:" ? https : http;
   return new Promise((resolve, reject) => {
     const req = modul.request(
-      { protocol: u.protocol, hostname: u.hostname, port: u.port, path: u.pathname + u.search, method: "GET", headers: { Host: host, Accept: "text/html", ...ek } },
+      { protocol: u.protocol, hostname: u.hostname, port: u.port, path: u.pathname + u.search, method: yontem, headers: { Host: host, Accept: "text/html", ...ek } },
       (res) => {
         const parcalar = [];
         res.on("data", (d) => govdeOku && parcalar.push(d));
@@ -299,6 +299,26 @@ function cspGozlem(b, govde) {
   return { ad, nonceVar: !!nonce, attrSayisiPozitif: attrlar.length > 0, hepsiEsit: !!nonce && attrlar.length > 0 && attrlar.every((x) => x === nonce) };
 }
 
+/**
+ * NOTR BAS (K6, 21 Eylul 2026) — middleware'siz render edilen 404'un <head>'i
+ * hicbir kurumu gostermemeli. Next'in kendi ekledikleri serbest: 404 icin
+ * `robots: noindex` ve `app/favicon.ico`'nun `/favicon.ico` linki (platform
+ * dosyasi, her host'ta ayni; olculdu).
+ */
+function notrBas(govde) {
+  const bas = (govde.match(/<head>([\s\S]*?)<\/head>/) || [])[1] || "";
+  const baslik = entity((bas.match(/<title>([^<]*)<\/title>/) || [])[1] || "");
+  const ikonlar = [...bas.matchAll(/<link rel="(?:icon|shortcut icon|apple-touch-icon)" href="([^"]*)"/g)].map((m) => m[1]);
+  return {
+    baslik: baslik === "Sayfa Bulunamadı",
+    ogYok: !/<meta property="og:/.test(bas),
+    twitterYok: !/<meta name="twitter:/.test(bas),
+    aciklamaYok: !/<meta name="description"/.test(bas),
+    ikonYalnizPlatform: ikonlar.every((h) => h === "/favicon.ico"),
+    noindexNofollow: bas.includes('<meta name="robots" content="noindex, nofollow"/>'),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Matris hucreleri
 // ---------------------------------------------------------------------------
@@ -438,6 +458,52 @@ const SINIR_DISARIDA = [
 ].filter(([, yol]) => yol);
 const sinirIcerideR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_ICERIDE.map((yol) => async () => ({ he, yol, r: await istek(host, yol) }))), ESZAMANLI);
 const sinirDisaridaR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_DISARIDA.map(([ad, yol]) => async () => ({ he, ad, r: await istek(host, yol) }))), ESZAMANLI);
+// Matcher DISINDAKI 404'ler sahte baslikla (21 Eylul 2026, K6 turu): orada
+// middleware calismadigi icin gelen `x-tenant-slug`'i ezen kimse yok. Canlida
+// nginx basligi siliyor; bu istekler UYGULAMA katmanini olcer (K7).
+const SAHTE_SINIR = ["/api/yok-boyle-uc", "/_next/static/yok.js"];
+const sinirSahteSlug = (he) => (BEKLENEN[he] === "B" ? A.slug : B.slug);
+const sinirSahteR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SAHTE_SINIR.map((ad) => async () => ({ he, ad, r: await istek(host, ad, { "x-tenant-slug": sinirSahteSlug(he) }) }))), ESZAMANLI);
+
+// ---------------------------------------------------------------------------
+// (7) /api catch-all — gercek route'lar ONCE, olmayan yol JSON 404
+// ---------------------------------------------------------------------------
+// K6 (a), 21 Eylul 2026: `app/api/[...yol]/route.ts` `/api/` altinda OLMAYAN
+// her yola JSON 404 veriyor (eskiden middleware'siz HTML 404 → default kurumun
+// kimligi). Olculen iki sey:
+//   - Next her GERCEK route dosyasini catch-all'dan ONCE esliyor. Dosyalar
+//     DISKTEN sayilir: yeni route eklenince kendiliginden kapsama girer.
+//     GET'i olmayan uca GET → 405 (catch-all'in 404'u DEGIL).
+//   - catch-all'in 404'u, super admin uclarinin musteri domainindeki
+//     404'uyle AYIRT EDILEMEZ (ayni fonksiyon: apiNotFound) — musteri
+//     domaininde /api/ altinda tek 404 bicimi. (Gizlilik degil: uc adlari
+//     panelin acik JS'inde zaten var — bkz. api-host-guard apiNotFound.)
+// Istekler OTURUMSUZ: her gercek GET ucu host kapisindan ya da auth'tan
+// (401) doner, veriye inmez (kod okundu). Gercek uclara POST ATILMAZ.
+const CATCHALL = JSON.stringify({ error: "Bulunamadı." });
+const API_KOK = new URL("src/app/api/", REPO);
+function routeDosyalari(dizin = "", onek = "") {
+  const out = [];
+  for (const ad of readdirSync(new URL(dizin || ".", API_KOK)).sort()) {
+    if (ad.startsWith("[")) continue; // catch-all'in kendisi
+    const alt = `${dizin}${ad}`;
+    if (statSync(new URL(alt, API_KOK)).isDirectory()) out.push(...routeDosyalari(`${alt}/`, `${onek}/${ad}`));
+    else if (ad === "route.ts") out.push({ yol: `/api${onek}`, get: /export\s+(async\s+function|const)\s+GET\b/.test(readFileSync(new URL(alt, API_KOK), "utf8")) });
+  }
+  return out;
+}
+const GERCEK_API = routeDosyalari();
+const hostAdi = (he) => HOSTLAR.find(([e]) => e === he)[1];
+const API_ISLER = [
+  ...GERCEK_API.map((r) => ({ ...r, he: r.yol.startsWith("/api/super-admin/") ? "superadmin" : "apex", sinif: "gercek" })),
+  ...GERCEK_API.filter((r) => r.get && r.yol.startsWith("/api/super-admin/")).map((r) => ({ ...r, he: "B-custom", sinif: "musteri-host" })),
+  { yol: "/api/super-admin", he: "B-custom", sinif: "catch-all" },
+  { yol: "/api/contact/fazla", he: "apex", sinif: "catch-all" },
+  { yol: "/api/super-admin/yok", he: "superadmin", sinif: "catch-all" },
+  { yol: "/api/yok-boyle-uc", he: "B-custom", sinif: "catch-all", yontem: "POST" },
+];
+const apiAnahtar = (x) => `api|${x.yontem ? `${x.yontem} ` : ""}${x.yol}|${x.he}`;
+const apiR = await havuz(API_ISLER.map((x) => async () => ({ x, r: await istek(hostAdi(x.he), x.yol, { Accept: "application/json" }, true, x.yontem || "GET") })), ESZAMANLI);
 // Middleware izi: x-tenant-slug YA DA nonce'lu CSP. Yalniz "CSP var mi"ya
 // bakmak YANLIS: Next'in gorsel ucu optimize gorsele kendi CSP'sini koyuyor
 // (images.contentSecurityPolicy varsayilani `script-src 'none'; …; sandbox;`,
@@ -464,11 +530,17 @@ hucreler.forEach((h, i) => {
 GORSEL.forEach(([ad], i) => { gozlem[`gorsel|${ad}`] = { durum: gorselR[i].durum, tur: tur(gorselR[i].basliklar), hata: gorselHata(gorselR[i]) }; });
 if (!kendi) gozlem["gorsel|ornek"] = { durum: "ORNEK-GORSEL-YOK" };
 for (const { he, yol, r } of sinirIcerideR) gozlem[`sinir|${he}|${yol}`] = { ...htmlGozlem(r), middleware: middlewareCalisti(r.basliklar) };
-for (const { he, ad, r } of sinirDisaridaR) {
+function disariGozlem(r) {
   const g = { durum: r.durum, tur: tur(r.basliklar), middleware: middlewareCalisti(r.basliklar) };
   if (g.tur === "html") Object.assign(g, (({ kurumBaslik, kurumOg }) => ({ kurumBaslik, kurumOg }))(htmlGozlem(r)));
-  gozlem[`sinir|${he}|${ad}`] = g;
+  // JSON govdesi (catch-all'in 404'u) de kaydedilir: yalniz durum koduna
+  // bakmak, baska bir 404'u (ornegin guard'inkini) bununla karistirirdi.
+  if (g.tur === "json") g.hata = gorselHata(r);
+  return g;
 }
+for (const { he, ad, r } of sinirDisaridaR) gozlem[`sinir|${he}|${ad}`] = disariGozlem(r);
+for (const { he, ad, r } of sinirSahteR) gozlem[`sinir-sahte|${he}|${ad}`] = disariGozlem(r);
+for (const { x, r } of apiR) gozlem[apiAnahtar(x)] = { durum: r.durum, tur: tur(r.basliklar), hata: gorselHata(r) };
 
 // ---------------------------------------------------------------------------
 // Kurallar
@@ -613,12 +685,46 @@ for (const [he] of SINIR_HOSTLARI) {
     const g = gozlem[`sinir|${he}|${ad}`];
     iddia("6", `sinir|${he}|${ad}|middleware-calismadi`, g.middleware === false, JSON.stringify(g));
     if (g.tur === "html" && BEKLENEN[he]) iddia("6", `sinir|${he}|${ad}|baska-kurum-gorunmez`, g.kurumBaslik !== DIGER[BEKLENEN[he]] && g.kurumOg !== DIGER[BEKLENEN[he]], JSON.stringify(g));
+    // K6 (b): matcher disindaki HTML 404 HICBIR kurumun kimligini tasiyamaz —
+    // middleware calismadi, hangi kurumun host'unda olundugu BILINMIYOR.
+    // "baska-kurum-gorunmez"den siki: apex'te A'yi gostermek de yanlis tahmin.
+    if (g.tur === "html") iddia("6", `sinir|${he}|${ad}|kurum-gostermez`, !["A", "B"].includes(g.kurumBaslik) && !["A", "B"].includes(g.kurumOg), JSON.stringify(g));
+  }
+  // K6 (a): /api/ altinda olmayan yol HTML degil, catch-all'in JSON 404'u
+  const apiYok = gozlem[`sinir|${he}|/api/yok-boyle-uc`];
+  iddia("6", `sinir|${he}|/api/yok-boyle-uc|json-404`, apiYok.durum === 404 && apiYok.tur === "json" && apiYok.hata === CATCHALL, JSON.stringify(apiYok));
+  // K6 (b): kurum host'larinda notr BAS — ayrinti notrBas()
+  if (BEKLENEN[he]) {
+    const k = notrBas(sinirDisaridaR.find((x) => x.he === he && x.ad === "/_next/static/yok.js")?.r.govde || "");
+    iddia("6", `sinir|${he}|/_next/static/yok.js|notr-bas`, Object.values(k).every(Boolean), JSON.stringify(k));
+  }
+  // Sahte baslik matcher disinda da etkisiz olmali (K7: /_next/static/ acik)
+  for (const ad of SAHTE_SINIR) {
+    const s = gozlem[`sinir-sahte|${he}|${ad}`], d = gozlem[`sinir|${he}|${ad}`];
+    const farkli = ["durum", "tur", "kurumBaslik", "kurumOg", "hata"].filter((a) => JSON.stringify(s[a]) !== JSON.stringify(d[a]));
+    iddia("6", `sinir-sahte|${he}|${ad}|etkisiz`, farkli.length === 0, `sahte x-tenant-slug=${sinirSahteSlug(he)} farkli: ${farkli.map((a) => `${a}=${JSON.stringify(s[a])}≠${JSON.stringify(d[a])}`).join(" ")}`);
   }
   if (gozlem[`sinir|${he}|/api/contact`]) iddia("6", `sinir|${he}|/api/contact|route-handler-cevapladi-405`, gozlem[`sinir|${he}|/api/contact`].durum === 405, JSON.stringify(gozlem[`sinir|${he}|/api/contact`]));
   if (gozlem[`sinir|${he}|{statik-parca}`]) iddia("6", `sinir|${he}|{statik-parca}|200`, gozlem[`sinir|${he}|{statik-parca}`].durum === 200, JSON.stringify(gozlem[`sinir|${he}|{statik-parca}`]));
   iddia("6", `sinir|${he}|/favicon.ico|200`, gozlem[`sinir|${he}|/favicon.ico`].durum === 200, JSON.stringify(gozlem[`sinir|${he}|/favicon.ico`]));
 }
 iddia("6", "sinir|statik parca HTML'de bulundu", !!statikParca, "anasayfada /_next/static/chunks/*.js yok");
+
+// --- (7) /api catch-all
+for (const { x } of apiR) {
+  const k = apiAnahtar(x);
+  const g = gozlem[k];
+  if (x.sinif === "gercek") {
+    // GET'i olan uc: catch-all'in 404'u DEGIL (oturumsuz → 401). GET'i
+    // olmayan uc: 405 — Next yontem yoksa catch-all'a DUSMUYOR.
+    iddia("7", `${k}|gercek-route-once-eslesir`, x.get ? !(g.durum === 404 && g.hata === CATCHALL) : g.durum === 405, `get=${x.get} ${JSON.stringify(g)}`);
+  } else if (x.sinif === "musteri-host") {
+    const o = gozlem["sinir|B-custom|/api/yok-boyle-uc"];
+    iddia("7", `${k}|olmayan-yoldan-ayirt-edilemez`, g.durum === o.durum && g.tur === o.tur && g.hata === o.hata, `${JSON.stringify(g)} ≠ ${JSON.stringify(o)}`);
+  } else {
+    iddia("7", `${k}|catch-all-json-404`, g.durum === 404 && g.tur === "json" && g.hata === CATCHALL, JSON.stringify(g));
+  }
+}
 
 // --- ortam: build kimligi
 iddia("0", "ortam|sunucu build kimligi okundu", !!sunucuBuild, rscKok.govde.slice(0, 60));
@@ -631,17 +737,25 @@ if (yerelSunucu && yerelBuild) iddia("0", "ortam|sunucu = yerel .next/BUILD_ID (
 // images.qualities: [75] (K5). Gecis: tahmin edilen 42 iddia "duzeldi"
 // diye kirmiziya dondu, temel cizgi farki YALNIZ /apix hucrelerinde ve
 // gorsel|q50'de cikti (29 hucre) — raporlar/2026-09-21-1435-k4-k5-matcher-duzeltmesi.md
+//
+// K6 KAPANDI (21 Eylul 2026): (a) `app/api/[...yol]/route.ts` → /api/ altinda
+// olmayan yol JSON 404; (b) `x-tenant-slug` HIC yoksa kurum default'a degil
+// NOTRE (get-tenant.ts `resolveCurrentTenant` → "no-header"). Gecis: tahmin
+// edilen 2 iddia kirmiziya dondu, temel cizgi farki YALNIZ 5 sinir hucresinde
+// (16 alan) + 23 yeni hucre — raporlar/2026-09-21-2050-k6-kimlik-sizintisi.md
 const BILINEN_KUSURLAR = new Map([
-  // K6 — /api/ ve /_next/static/ altinda OLMAYAN bir yol, middleware DISINDA
-  //      Next'in HTML 404'unu render ediyor → slug yok → default kurumun
-  //      kimligi B'nin host'unda. K4'un dar kalintisi; matcher'la kapatilamaz
-  //      (iki onek bilincli olarak disarida). Oneri: /api icin catch-all JSON
-  //      404; basligi hic gelmeyen istekte notr kurum.
-  ["sinir|B-custom|/api/yok-boyle-uc|baska-kurum-gorunmez", "K6"],
-  ["sinir|B-custom|/_next/static/yok.js|baska-kurum-gorunmez", "K6"],
+  // K7 — K1'in dar kalintisi (21 Eylul 2026, K6 turunda olculdu): matcher
+  //      disindaki HTML 404'te (K6'dan sonra yalniz /_next/static/<olmayan>)
+  //      gelen `x-tenant-slug`'i ezen middleware yok → sahte baslik o kurumun
+  //      kimligini gosterir. Canlida nginx basligi siliyor
+  //      (deploy/nginx/snippets/sendika-uygulama.conf); bu iddialar UYGULAMA
+  //      katmanini olcer. get-tenant.ts gelen basligi middleware'inkinden
+  //      ayiramaz (oneri: raporlar/2026-09-21-2050-k6-kimlik-sizintisi.md).
+  ["sinir-sahte|apex|/_next/static/yok.js|etkisiz", "K7"],
+  ["sinir-sahte|B-custom|/_next/static/yok.js|etkisiz", "K7"],
 ]);
 const KUSUR_ACIKLAMA = {
-  K6: "/api/ ve /_next/static/ altinda olmayan yol middleware disinda HTML 404 render ediyor → B host'unda A'nin kimligi",
+  K7: "matcher disindaki HTML 404'te (/_next/static/<olmayan>) sahte x-tenant-slug kabul ediliyor — canlida nginx siliyor",
 };
 
 // ---------------------------------------------------------------------------
@@ -687,6 +801,7 @@ const BOLUM_AD = {
   "4": "(4) CSP uctan uca (her html yaniti)",
   "5": "(5) gorsel ucu sozlesmesi",
   "6": "(6) matcher siniri (iceride / disarida)",
+  "7": "(7) /api catch-all (gercek route once, olmayan yol JSON 404)",
 };
 let gecti = 0, kaldi = 0;
 const bilinenGorulen = new Map();

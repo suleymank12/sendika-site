@@ -33,8 +33,19 @@ import { isSameHostOrigin, isSuperAdminHost } from "@/lib/tenant-hostname";
  * unutulursa test kirilir.
  */
 
-/** Super admin host'u disindan gelen istekte donen cevap. */
-function notFound(): NextResponse {
+/**
+ * Super admin host'u disindan gelen istekte donen cevap — ve `/api/` altinda
+ * OLMAYAN her yolun cevabi (`app/api/[...yol]/route.ts`, K6).
+ *
+ * IKISI BILEREK AYNI FONKSIYON: musteri domaininde `/api/` altinda TEK bir
+ * 404 bicimi olsun (21 Eylul 2026'ya kadar olmayan yol HTML 404 donuyordu,
+ * guard JSON). Izolasyon matrisi (7) bu esitligi olcuyor.
+ *
+ * ⚠️ Bu bir GIZLILIK garantisi DEGIL: uc adlari panelin herkese acik JS
+ * parcasinda zaten yazili (`/_next/static/chunks/app/super-admin/...`,
+ * olculdu) ve GET'i olmayan uc GET'e 405 doner. Kazanc tutarlilik.
+ */
+export function apiNotFound(): NextResponse {
   // 404 (403 degil): rotanin varligini bile dogrulamiyoruz. Kural (b) her
   // musteri domaininde gecerli — "burada boyle bir sey var ama yetkin yok"
   // demek, super admin yuzeyinin varligini her musteri domaininden
@@ -56,7 +67,7 @@ export function requireSuperAdminHost(req: NextRequest): NextResponse | null {
   const host = req.headers.get("host") || "";
 
   // (b) Baska host -> yok say.
-  if (!isSuperAdminHost(host)) return notFound();
+  if (!isSuperAdminHost(host)) return apiNotFound();
 
   // Origin kontrolu — ayni-site CSRF kapisi (gerekce: isSameHostOrigin).
   //
@@ -86,5 +97,5 @@ export function requireSuperAdminHost(req: NextRequest): NextResponse | null {
  * bosa cikarirdi.
  */
 export function rejectSuperAdminHost(req: NextRequest): NextResponse | null {
-  return isSuperAdminHost(req.headers.get("host") || "") ? notFound() : null;
+  return isSuperAdminHost(req.headers.get("host") || "") ? apiNotFound() : null;
 }
