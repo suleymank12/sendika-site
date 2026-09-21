@@ -227,6 +227,22 @@ for (const x of [...haberler, ...duyurular, ...sayfalar]) {
 }
 const yalniz = (k, diger) => [...basliklar[k.id]].filter((t) => !basliklar[diger.id].has(t));
 const ICERIK = { A: yalniz(A, B), B: yalniz(B, A) };
+// B4 P8 (b): baslik yaninda YOL sozlugu — kurumun yayindaki icerik yollari
+// (/haberler/<slug>, /duyurular/<slug>, /sayfa/<slug>, /manset/<id>). Baslik
+// dedektoru kisa (<12) ya da ortak basliklarda kordu; yol her zaman kuruma ozgu
+// (iki kurumda ortak olanlar HARIC — sema ayni slug'a izin veriyor). Yalniz
+// BAGLANTIYI yakalar, metni degil; baslik dedektoru surer.
+const yollarOf = { [A.id]: new Set(), [B.id]: new Set() };
+for (const [liste, onek, alan] of [[haberler, "/haberler/", "slug"], [duyurular, "/duyurular/", "slug"], [sayfalar, "/sayfa/", "slug"], [mansetler, "/manset/", "id"]]) {
+  for (const x of liste) if (yollarOf[x.tenant_id] && x[alan]) yollarOf[x.tenant_id].add(onek + x[alan]);
+}
+const YOL_SOZLUGU = { A: [...yollarOf[A.id]].filter((y) => !yollarOf[B.id].has(y)), B: [...yollarOf[B.id]].filter((y) => !yollarOf[A.id].has(y)) };
+// Yol, daha uzun bir slug'in oneki olarak sayilmasin: iki yani [A-Za-z0-9-] olmamali
+const yolSiniri = (c) => c === undefined || !/[A-Za-z0-9-]/.test(c);
+function yolGecer(govde, y) {
+  for (let i = govde.indexOf(y); i >= 0; i = govde.indexOf(y, i + 1)) if (yolSiniri(govde[i - 1]) && yolSiniri(govde[i + y.length])) return true;
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Semboller
@@ -364,7 +380,10 @@ function konum(b) {
 const meta = (govde, ad) => (govde.match(new RegExp(`<meta property="${ad}" content="([^"]*)"`)) || [])[1];
 function sizintilar(govde, kurum) {
   const bak = kurum ? [DIGER[kurum]] : ["A", "B"];
-  return bak.flatMap((k) => ICERIK[k].filter((t) => govde.includes(t) || govde.includes(t.replace(/&/g, "&amp;"))));
+  return bak.flatMap((k) => [
+    ...ICERIK[k].filter((t) => govde.includes(t) || govde.includes(t.replace(/&/g, "&amp;"))),
+    ...YOL_SOZLUGU[k].filter((y) => yolGecer(govde, y)),
+  ]);
 }
 function cspGozlem(b, govde) {
   const ad = b["content-security-policy"] ? "Content-Security-Policy" : b["content-security-policy-report-only"] ? "Report-Only" : null;
@@ -883,6 +902,10 @@ for (const { x } of apiR) {
 
 // --- ortam: build kimligi
 iddia("0", "ortam|sunucu build kimligi okundu", !!sunucuBuild, rscKok.govde.slice(0, 60));
+// B4 P8 (a): sizinti dedektoru BOS sozlukle calisirsa sessizce kordur (B tarafi
+// bugun 3 test basligina dayaniyor). Taban altinda KIRMIZI.
+iddia("0", "ortam|sizinti sozlugu A yeterli (baslik >= 3, yol >= 1)", ICERIK.A.length >= 3 && YOL_SOZLUGU.A.length >= 1, `baslik=${ICERIK.A.length} yol=${YOL_SOZLUGU.A.length}`);
+iddia("0", "ortam|sizinti sozlugu B yeterli (baslik >= 1, yol >= 1)", ICERIK.B.length >= 1 && YOL_SOZLUGU.B.length >= 1, `baslik=${ICERIK.B.length} yol=${YOL_SOZLUGU.B.length}`);
 if (yerelSunucu && yerelBuild) iddia("0", "ortam|sunucu = yerel .next/BUILD_ID (eski build'e karsi kosulmuyor)", sunucuBuild === yerelBuild, `sunucu=${sunucuBuild} yerel=${yerelBuild}`);
 
 // ---------------------------------------------------------------------------

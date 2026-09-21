@@ -1,0 +1,14 @@
+{
+  "tur": "B4 C5 — sizinti sozlugu tabani + slug tabanli sizinti",
+  "yazildi": "2026-09-22T02:12:00+03:00",
+  "not": "KODDAN ONCE yazildi. Karsilastirilan: next-14.2.35.json (C4 kaydi, 739 hucre, 2109 kural). (a) Bolum 0'a iki taban kurali: sizinti sozlugu A (baslik >= 3, yol >= 1) ve B (baslik >= 1, yol >= 1); bugun baslik A 14 / B 3, yol A 21 / B 4 → ikisi de gecer. (b) sizintilar() baslige ek olarak DIGER kurumun yayindaki icerik yollarini arar (iki kurumda ortak yollar haric). Bagimsiz on olcum (scratchpad c5-tara.mjs, 399 istek: 7 host × 19 yol × html/rsc/prefetch): capraz yol isabeti 0; pozitif kontrol kendi yolu kendi host'unda apex 87 / B-custom 18. Dolayisiyla hicbir hucrenin `sizinti` alani ve hicbir sizinti kurali degismez: 0 hucre farki.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": { "0": 4, "1": 699, "2": 888, "3": 267, "4": 166, "5": 8, "6": 62, "7": 17 },
+  "beklenen_sonuc_satiri": "SONUC: 2111 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
