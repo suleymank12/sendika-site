@@ -1,7 +1,7 @@
 {
   "surum": "14.2.35",
-  "kaydedildi": "2026-09-21T10:43:42.817Z",
-  "buildId": "vlAoF4KWQDqMsaHo5_ghX",
+  "kaydedildi": "2026-09-21T11:21:51.213Z",
+  "buildId": "lOh-5uKMT0sAx1ZtazQWF",
   "kurumlar": {
     "A": "default",
     "B": "kurmay-teknoloji"
@@ -17,11 +17,7 @@
     "B.manset": "var"
   },
   "bilinenKusurlar": {
-    "K1": 6,
-    "K2": 14,
-    "K3": 7,
-    "K4": 14,
-    "K5": 1
+    "K6": 2
   },
   "gozlem": {
     "gorsel|accept-avif": {
@@ -40,9 +36,9 @@
       "hata": "\"url\" parameter is not allowed"
     },
     "gorsel|q50": {
-      "durum": 200,
-      "tur": "image/webp",
-      "hata": null
+      "durum": 400,
+      "tur": "yok",
+      "hata": "\"q\" parameter (quality) of 50 is not allowed"
     },
     "gorsel|sonek-hilesi": {
       "durum": 400,
@@ -111,17 +107,17 @@
     "html|A-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "html",
       "kurumBaslik": "A",
       "kurumOg": "A",
       "ogUrl": null,
       "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
       "csp": {
-        "ad": null,
-        "nonceVar": false,
-        "attrSayisiPozitif": false,
-        "hepsiEsit": false
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
       }
     },
     "html|A-sub|/haberler": {
@@ -321,17 +317,17 @@
     "html|B-custom|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "kurmay-teknoloji",
       "tur": "html",
-      "kurumBaslik": "A",
-      "kurumOg": "A",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
       "ogUrl": null,
-      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "ogImage": null,
       "csp": {
-        "ad": null,
-        "nonceVar": false,
-        "attrSayisiPozitif": false,
-        "hepsiEsit": false
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
       }
     },
     "html|B-custom|/haberler": {
@@ -531,17 +527,17 @@
     "html|B-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "kurmay-teknoloji",
       "tur": "html",
-      "kurumBaslik": "A",
-      "kurumOg": "A",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
       "ogUrl": null,
-      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "ogImage": null,
       "csp": {
-        "ad": null,
-        "nonceVar": false,
-        "attrSayisiPozitif": false,
-        "hepsiEsit": false
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
       }
     },
     "html|B-sub|/haberler": {
@@ -741,17 +737,17 @@
     "html|apex|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "html",
       "kurumBaslik": "A",
       "kurumOg": "A",
       "ogUrl": null,
       "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
       "csp": {
-        "ad": null,
-        "nonceVar": false,
-        "attrSayisiPozitif": false,
-        "hepsiEsit": false
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
       }
     },
     "html|apex|/haberler": {
@@ -941,17 +937,17 @@
     "html|bilinmeyen-custom|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "html",
       "kurumBaslik": "A",
       "kurumOg": "A",
       "ogUrl": null,
       "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
       "csp": {
-        "ad": null,
-        "nonceVar": false,
-        "attrSayisiPozitif": false,
-        "hepsiEsit": false
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
       }
     },
     "html|bilinmeyen-custom|/haberler": {
@@ -1151,17 +1147,17 @@
     "html|bilinmeyen-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "yok-boyle-kurum",
       "tur": "html",
-      "kurumBaslik": "A",
-      "kurumOg": "A",
+      "kurumBaslik": "BULUNAMADI",
+      "kurumOg": null,
       "ogUrl": null,
-      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "ogImage": null,
       "csp": {
-        "ad": null,
-        "nonceVar": false,
-        "attrSayisiPozitif": false,
-        "hepsiEsit": false
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
       }
     },
     "html|bilinmeyen-sub|/haberler": {
@@ -1342,17 +1338,7 @@
       "durum": 404,
       "konum": null,
       "slug": null,
-      "tur": "html",
-      "kurumBaslik": "PANEL",
-      "kurumOg": null,
-      "ogUrl": null,
-      "ogImage": null,
-      "csp": {
-        "ad": null,
-        "nonceVar": false,
-        "attrSayisiPozitif": false,
-        "hepsiEsit": false
-      }
+      "tur": "text"
     },
     "html|superadmin|/haberler": {
       "durum": 404,
@@ -1459,7 +1445,7 @@
     "prefetch|A-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "rsc",
       "kurumlar": [],
       "isaret": null,
@@ -1603,7 +1589,7 @@
     "prefetch|B-custom|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "kurmay-teknoloji",
       "tur": "rsc",
       "kurumlar": [],
       "isaret": null,
@@ -1747,7 +1733,7 @@
     "prefetch|B-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "kurmay-teknoloji",
       "tur": "rsc",
       "kurumlar": [],
       "isaret": null,
@@ -1891,7 +1877,7 @@
     "prefetch|apex|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "rsc",
       "kurumlar": [],
       "isaret": null,
@@ -2035,7 +2021,7 @@
     "prefetch|bilinmeyen-custom|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "rsc",
       "kurumlar": [],
       "isaret": null,
@@ -2179,7 +2165,7 @@
     "prefetch|bilinmeyen-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "yok-boyle-kurum",
       "tur": "rsc",
       "kurumlar": [],
       "isaret": null,
@@ -2324,7 +2310,7 @@
       "durum": 404,
       "konum": null,
       "slug": null,
-      "tur": "rsc",
+      "tur": "text",
       "kurumlar": [],
       "isaret": null,
       "sizinti": 0
@@ -2471,7 +2457,7 @@
     "rsc|A-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "rsc",
       "kurumlar": [
         "A"
@@ -2637,10 +2623,10 @@
     "rsc|B-custom|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "kurmay-teknoloji",
       "tur": "rsc",
       "kurumlar": [
-        "A"
+        "B"
       ],
       "isaret": null,
       "sizinti": 0
@@ -2803,10 +2789,10 @@
     "rsc|B-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "kurmay-teknoloji",
       "tur": "rsc",
       "kurumlar": [
-        "A"
+        "B"
       ],
       "isaret": null,
       "sizinti": 0
@@ -2969,7 +2955,7 @@
     "rsc|apex|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "rsc",
       "kurumlar": [
         "A"
@@ -3133,7 +3119,7 @@
     "rsc|bilinmeyen-custom|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "default",
       "tur": "rsc",
       "kurumlar": [
         "A"
@@ -3297,11 +3283,9 @@
     "rsc|bilinmeyen-sub|/apix": {
       "durum": 404,
       "konum": null,
-      "slug": null,
+      "slug": "yok-boyle-kurum",
       "tur": "rsc",
-      "kurumlar": [
-        "A"
-      ],
+      "kurumlar": [],
       "isaret": null,
       "sizinti": 0
     },
@@ -3458,7 +3442,7 @@
       "durum": 404,
       "konum": null,
       "slug": null,
-      "tur": "rsc",
+      "tur": "text",
       "kurumlar": [],
       "isaret": null,
       "sizinti": 0
@@ -3579,12 +3563,8 @@
       "yansima": false
     },
     "sahte|A-sub|/apix": {
-      "farkliAlanlar": [
-        "kurumBaslik",
-        "kurumOg",
-        "ogImage"
-      ],
-      "yansima": true
+      "farkliAlanlar": [],
+      "yansima": false
     },
     "sahte|A-sub|/haberler": {
       "farkliAlanlar": [],
@@ -3647,12 +3627,8 @@
       "yansima": false
     },
     "sahte|B-custom|/apix": {
-      "farkliAlanlar": [
-        "kurumBaslik",
-        "kurumOg",
-        "ogImage"
-      ],
-      "yansima": true
+      "farkliAlanlar": [],
+      "yansima": false
     },
     "sahte|B-custom|/haberler": {
       "farkliAlanlar": [],
@@ -3715,12 +3691,8 @@
       "yansima": false
     },
     "sahte|B-sub|/apix": {
-      "farkliAlanlar": [
-        "kurumBaslik",
-        "kurumOg",
-        "ogImage"
-      ],
-      "yansima": true
+      "farkliAlanlar": [],
+      "yansima": false
     },
     "sahte|B-sub|/haberler": {
       "farkliAlanlar": [],
@@ -3783,12 +3755,8 @@
       "yansima": false
     },
     "sahte|apex|/apix": {
-      "farkliAlanlar": [
-        "kurumBaslik",
-        "kurumOg",
-        "ogImage"
-      ],
-      "yansima": true
+      "farkliAlanlar": [],
+      "yansima": false
     },
     "sahte|apex|/haberler": {
       "farkliAlanlar": [],
@@ -3851,12 +3819,8 @@
       "yansima": false
     },
     "sahte|bilinmeyen-custom|/apix": {
-      "farkliAlanlar": [
-        "kurumBaslik",
-        "kurumOg",
-        "ogImage"
-      ],
-      "yansima": true
+      "farkliAlanlar": [],
+      "yansima": false
     },
     "sahte|bilinmeyen-custom|/haberler": {
       "farkliAlanlar": [],
@@ -3919,12 +3883,8 @@
       "yansima": false
     },
     "sahte|bilinmeyen-sub|/apix": {
-      "farkliAlanlar": [
-        "kurumBaslik",
-        "kurumOg",
-        "ogImage"
-      ],
-      "yansima": true
+      "farkliAlanlar": [],
+      "yansima": false
     },
     "sahte|bilinmeyen-sub|/haberler": {
       "farkliAlanlar": [],
@@ -3988,7 +3948,7 @@
     },
     "sahte|superadmin|/apix": {
       "farkliAlanlar": [],
-      "yansima": true
+      "yansima": false
     },
     "sahte|superadmin|/haberler": {
       "farkliAlanlar": [],
@@ -4033,6 +3993,328 @@
     "sahte|superadmin|{B.manset}": {
       "farkliAlanlar": [],
       "yansima": false
+    },
+    "sinir|B-custom|/_next/image(gecerli)": {
+      "durum": 200,
+      "tur": "image/png",
+      "middleware": false
+    },
+    "sinir|B-custom|/_next/imagex": {
+      "durum": 400,
+      "tur": "yok",
+      "middleware": false
+    },
+    "sinir|B-custom|/_next/static/yok.js": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "A",
+      "kurumOg": "A"
+    },
+    "sinir|B-custom|/_next/staticx": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|B-custom|/api": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|B-custom|/api-x": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|B-custom|/api/contact": {
+      "durum": 405,
+      "tur": "yok",
+      "middleware": false
+    },
+    "sinir|B-custom|/api/yok-boyle-uc": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "A",
+      "kurumOg": "A"
+    },
+    "sinir|B-custom|/apiler": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|B-custom|/favicon.ico": {
+      "durum": 200,
+      "tur": "image/x-icon",
+      "middleware": false
+    },
+    "sinir|B-custom|/favicon.ico.bak": {
+      "durum": 404,
+      "konum": null,
+      "slug": "kurmay-teknoloji",
+      "tur": "html",
+      "kurumBaslik": "B",
+      "kurumOg": "B",
+      "ogUrl": null,
+      "ogImage": null,
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|B-custom|{statik-parca}": {
+      "durum": 200,
+      "tur": "application/javascript",
+      "middleware": false
+    },
+    "sinir|apex|/_next/image(gecerli)": {
+      "durum": 200,
+      "tur": "image/png",
+      "middleware": false
+    },
+    "sinir|apex|/_next/imagex": {
+      "durum": 400,
+      "tur": "yok",
+      "middleware": false
+    },
+    "sinir|apex|/_next/static/yok.js": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "A",
+      "kurumOg": "A"
+    },
+    "sinir|apex|/_next/staticx": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|apex|/api": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|apex|/api-x": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|apex|/api/contact": {
+      "durum": 405,
+      "tur": "yok",
+      "middleware": false
+    },
+    "sinir|apex|/api/yok-boyle-uc": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "A",
+      "kurumOg": "A"
+    },
+    "sinir|apex|/apiler": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|apex|/favicon.ico": {
+      "durum": 200,
+      "tur": "image/x-icon",
+      "middleware": false
+    },
+    "sinir|apex|/favicon.ico.bak": {
+      "durum": 404,
+      "konum": null,
+      "slug": "default",
+      "tur": "html",
+      "kurumBaslik": "A",
+      "kurumOg": "A",
+      "ogUrl": null,
+      "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+      "csp": {
+        "ad": "Content-Security-Policy",
+        "nonceVar": true,
+        "attrSayisiPozitif": true,
+        "hepsiEsit": true
+      },
+      "middleware": true
+    },
+    "sinir|apex|{statik-parca}": {
+      "durum": 200,
+      "tur": "application/javascript",
+      "middleware": false
+    },
+    "sinir|superadmin|/_next/image(gecerli)": {
+      "durum": 200,
+      "tur": "image/png",
+      "middleware": false
+    },
+    "sinir|superadmin|/_next/imagex": {
+      "durum": 400,
+      "tur": "yok",
+      "middleware": false
+    },
+    "sinir|superadmin|/_next/static/yok.js": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "PANEL",
+      "kurumOg": null
+    },
+    "sinir|superadmin|/_next/staticx": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "middleware": false
+    },
+    "sinir|superadmin|/api": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "middleware": false
+    },
+    "sinir|superadmin|/api-x": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "middleware": false
+    },
+    "sinir|superadmin|/api/contact": {
+      "durum": 405,
+      "tur": "yok",
+      "middleware": false
+    },
+    "sinir|superadmin|/api/yok-boyle-uc": {
+      "durum": 404,
+      "tur": "html",
+      "middleware": false,
+      "kurumBaslik": "PANEL",
+      "kurumOg": null
+    },
+    "sinir|superadmin|/apiler": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "middleware": false
+    },
+    "sinir|superadmin|/favicon.ico": {
+      "durum": 200,
+      "tur": "image/x-icon",
+      "middleware": false
+    },
+    "sinir|superadmin|/favicon.ico.bak": {
+      "durum": 404,
+      "konum": null,
+      "slug": null,
+      "tur": "text",
+      "middleware": false
+    },
+    "sinir|superadmin|{statik-parca}": {
+      "durum": 200,
+      "tur": "application/javascript",
+      "middleware": false
     }
   }
 }

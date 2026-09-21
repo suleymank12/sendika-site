@@ -313,9 +313,13 @@ const YOLLAR = [
   ["/admin/haberler", "/admin/haberler"],
   ["/super-admin", "/super-admin"],
   ["/olmayan-sayfa", "/olmayan-sayfa"],
-  ["/apix", "/apix"], // matcher DISI (`api` ile baslayan her yol)
+  // 21 Eylul 2026'ya kadar matcher DISIYDI (`api` ONEKI dislaniyordu: K1-K4).
+  // Artik siradan yol — tam kurallarla sinanir; sinirin kendisi bolum (6)'da.
+  ["/apix", "/apix"],
 ];
-const MATCHER_DISI = new Set(["/apix"]);
+// Sayfa render eden ve bilincli olarak matcher disinda tutulan yol bu listede
+// yok; matcher siniri bolum (6)'da ayrica muhurlu.
+const MATCHER_DISI = new Set([]);
 const hucreler = HOSTLAR.flatMap(([he, host]) => YOLLAR.map(([ya, yol]) => ({ he, host, ya, yol })));
 
 async function havuz(isler, n) {
@@ -409,6 +413,39 @@ const gorselR = await havuz(GORSEL.map(([, yol, acc]) => () => istek(APEX_HOST, 
 const gorselHata = (r) => (r.durum >= 400 ? r.govde.replace(/\s+/g, " ").trim().slice(0, 80) : null);
 
 // ---------------------------------------------------------------------------
+// (6) Matcher SINIRI — middleware nerede calisiyor, nerede calismiyor
+// ---------------------------------------------------------------------------
+// 21 Eylul 2026: matcher onek dislamadan TAM YOL dislamaya gecti
+// (`api/`, `_next/static/`, `_next/image$`, `favicon\.ico$`). Iki yon de
+// muhurlenir:
+//   ICERIDE — eskiden onek yuzunden disarida kalan yollar artik middleware'den
+//             gecer ve SIRADAN bir 404 ile (/olmayan-sayfa) BIREBIR ayni davranir
+//             (beklenmedik yonlendirme/baslik YOK)
+//   DISARIDA — /api/… (route handler'lar kurumu host'tan kendileri cozer),
+//             /_next/static/… ve /_next/image (performans), /favicon.ico:
+//             middleware CALISMAZ (x-tenant-slug ve CSP basligi YOK)
+const SINIR_HOSTLARI = HOSTLAR.filter(([he]) => ["apex", "B-custom", "superadmin"].includes(he));
+const statikParca = ((await istek(APEX_HOST, "/")).govde.match(/\/_next\/static\/chunks\/[^"']+\.js/) || [])[0] || null;
+const SINIR_ICERIDE = ["/api", "/apiler", "/api-x", "/_next/staticx", "/favicon.ico.bak"];
+const SINIR_DISARIDA = [
+  ["/api/contact", "/api/contact"], // GET → 405 (yalniz POST var)
+  ["/api/yok-boyle-uc", "/api/yok-boyle-uc"],
+  ["{statik-parca}", statikParca],
+  ["/_next/static/yok.js", "/_next/static/yok.js"],
+  ["/favicon.ico", "/favicon.ico"],
+  ["/_next/image(gecerli)", kendi ? gorselUrl(kendi) : null],
+  ["/_next/imagex", "/_next/imagex"],
+].filter(([, yol]) => yol);
+const sinirIcerideR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_ICERIDE.map((yol) => async () => ({ he, yol, r: await istek(host, yol) }))), ESZAMANLI);
+const sinirDisaridaR = await havuz(SINIR_HOSTLARI.flatMap(([he, host]) => SINIR_DISARIDA.map(([ad, yol]) => async () => ({ he, ad, r: await istek(host, yol) }))), ESZAMANLI);
+// Middleware izi: x-tenant-slug YA DA nonce'lu CSP. Yalniz "CSP var mi"ya
+// bakmak YANLIS: Next'in gorsel ucu optimize gorsele kendi CSP'sini koyuyor
+// (images.contentSecurityPolicy varsayilani `script-src 'none'; …; sandbox;`,
+// nonce'suz) — olculdu. Bizim middleware'in CSP'si her zaman 'nonce-…' icerir.
+const middlewareCalisti = (b) =>
+  !!(b["x-tenant-slug"] || /'nonce-/.test(b["content-security-policy"] || "") || /'nonce-/.test(b["content-security-policy-report-only"] || ""));
+
+// ---------------------------------------------------------------------------
 // Gozlem belgesi
 // ---------------------------------------------------------------------------
 const gozlem = {};
@@ -426,6 +463,12 @@ hucreler.forEach((h, i) => {
 });
 GORSEL.forEach(([ad], i) => { gozlem[`gorsel|${ad}`] = { durum: gorselR[i].durum, tur: tur(gorselR[i].basliklar), hata: gorselHata(gorselR[i]) }; });
 if (!kendi) gozlem["gorsel|ornek"] = { durum: "ORNEK-GORSEL-YOK" };
+for (const { he, yol, r } of sinirIcerideR) gozlem[`sinir|${he}|${yol}`] = { ...htmlGozlem(r), middleware: middlewareCalisti(r.basliklar) };
+for (const { he, ad, r } of sinirDisaridaR) {
+  const g = { durum: r.durum, tur: tur(r.basliklar), middleware: middlewareCalisti(r.basliklar) };
+  if (g.tur === "html") Object.assign(g, (({ kurumBaslik, kurumOg }) => ({ kurumBaslik, kurumOg }))(htmlGozlem(r)));
+  gozlem[`sinir|${he}|${ad}`] = g;
+}
 
 // ---------------------------------------------------------------------------
 // Kurallar
@@ -557,6 +600,26 @@ else {
   iddia("5", "gorsel|Accept */* → 200 gorsel", gz("accept-yildiz").durum === 200 && gz("accept-yildiz").tur.startsWith("image/"), JSON.stringify(gz("accept-yildiz")));
 }
 
+// --- (6) matcher siniri
+const SINIRDA_KARSILASTIR = ["durum", "konum", "slug", "tur", "kurumBaslik", "kurumOg", "ogUrl", "ogImage", "csp", "middleware"];
+for (const [he] of SINIR_HOSTLARI) {
+  const olmayan = { ...gozlem[`html|${he}|/olmayan-sayfa`], middleware: middlewareCalisti(htmlR[hucreler.findIndex((h) => h.he === he && h.ya === "/olmayan-sayfa")].basliklar) };
+  for (const yol of SINIR_ICERIDE) {
+    const g = gozlem[`sinir|${he}|${yol}`];
+    const farkli = SINIRDA_KARSILASTIR.filter((a) => JSON.stringify(g[a]) !== JSON.stringify(olmayan[a]));
+    iddia("6", `sinir|${he}|${yol}|siradan-404-ile-birebir`, farkli.length === 0, `farkli: ${farkli.map((a) => `${a}=${JSON.stringify(g[a])}≠${JSON.stringify(olmayan[a])}`).join(" ")}`);
+  }
+  for (const [ad] of SINIR_DISARIDA) {
+    const g = gozlem[`sinir|${he}|${ad}`];
+    iddia("6", `sinir|${he}|${ad}|middleware-calismadi`, g.middleware === false, JSON.stringify(g));
+    if (g.tur === "html" && BEKLENEN[he]) iddia("6", `sinir|${he}|${ad}|baska-kurum-gorunmez`, g.kurumBaslik !== DIGER[BEKLENEN[he]] && g.kurumOg !== DIGER[BEKLENEN[he]], JSON.stringify(g));
+  }
+  if (gozlem[`sinir|${he}|/api/contact`]) iddia("6", `sinir|${he}|/api/contact|route-handler-cevapladi-405`, gozlem[`sinir|${he}|/api/contact`].durum === 405, JSON.stringify(gozlem[`sinir|${he}|/api/contact`]));
+  if (gozlem[`sinir|${he}|{statik-parca}`]) iddia("6", `sinir|${he}|{statik-parca}|200`, gozlem[`sinir|${he}|{statik-parca}`].durum === 200, JSON.stringify(gozlem[`sinir|${he}|{statik-parca}`]));
+  iddia("6", `sinir|${he}|/favicon.ico|200`, gozlem[`sinir|${he}|/favicon.ico`].durum === 200, JSON.stringify(gozlem[`sinir|${he}|/favicon.ico`]));
+}
+iddia("6", "sinir|statik parca HTML'de bulundu", !!statikParca, "anasayfada /_next/static/chunks/*.js yok");
+
 // --- ortam: build kimligi
 iddia("0", "ortam|sunucu build kimligi okundu", !!sunucuBuild, rscKok.govde.slice(0, 60));
 if (yerelSunucu && yerelBuild) iddia("0", "ortam|sunucu = yerel .next/BUILD_ID (eski build'e karsi kosulmuyor)", sunucuBuild === yerelBuild, `sunucu=${sunucuBuild} yerel=${yerelBuild}`);
@@ -564,36 +627,21 @@ if (yerelSunucu && yerelBuild) iddia("0", "ortam|sunucu = yerel .next/BUILD_ID (
 // ---------------------------------------------------------------------------
 // Bilinen kusurlar (14.2.35) — katı xfail
 // ---------------------------------------------------------------------------
-const MATCHER_DISI_KURUM_HOSTLARI = ["apex", "A-sub", "B-sub", "B-custom", "bilinmeyen-sub", "bilinmeyen-custom"];
+// K1-K5 KAPANDI (21 Eylul 2026): matcher tam yola daraltildi (K1-K4),
+// images.qualities: [75] (K5). Gecis: tahmin edilen 42 iddia "duzeldi"
+// diye kirmiziya dondu, temel cizgi farki YALNIZ /apix hucrelerinde ve
+// gorsel|q50'de cikti (29 hucre) — raporlar/2026-09-21-1435-k4-k5-matcher-duzeltmesi.md
 const BILINEN_KUSURLAR = new Map([
-  // K1 — matcher disi yolda gelen x-tenant-slug'a GUVENILIYOR (baska kurumun markasi)
-  ...MATCHER_DISI_KURUM_HOSTLARI.map((he) => [`sahte|${he}|/apix|etkisiz`, "K1"]),
-  // K2 — matcher disi yolun HTML 404'unde CSP yok
-  ...[...MATCHER_DISI_KURUM_HOSTLARI, "superadmin"].map((he) => [`csp|${he}|/apix|zorlayici-baslik`, "K2"]),
-  ...[...MATCHER_DISI_KURUM_HOSTLARI, "superadmin"].map((he) => [`csp|${he}|/apix|nonce-hepsi-esit`, "K2"]),
-  // K3 — matcher disi yolda gelen CSP basligindaki nonce HTML'e yansiyor (nitelik kirilir)
-  ...[...MATCHER_DISI_KURUM_HOSTLARI, "superadmin"].map((he) => [`sahte|${he}|/apix|nonce-yansimaz`, "K3"]),
-  // K4 — matcher disi yolda B host'u, SAHTE BASLIK OLMADAN, A'nin (default)
-  //      kimligini gosteriyor: middleware calismiyor → slug yok → default.
-  //      nginx bunu KAPATMAZ (sorun gelen baslikta degil).
-  ...["B-sub", "B-custom"].flatMap((he) => [
-    [`${he}|/apix|baska-kurum-gorunmez`, "K4"],
-    [`${he}|/apix|matcher-disi-kendi-kurumu`, "K4"],
-    [`${he}|/apix|kurum-baslik`, "K4"],
-    [`${he}|/apix|og-site-name`, "K4"],
-    [`${he}|/apix|og-image-host`, "K4"],
-    [`rsc|${he}|/apix|baska-kurum-yok`, "K4"],
-    [`rsc|${he}|/apix|yukte-kendi-kurumu`, "K4"],
-  ]),
-  // K5 — q=75 kurali yalniz nginx'te; uygulama q=50'yi kabul ediyor
-  ["gorsel|q50 → 400 (uygulama tek basina)", "K5"],
+  // K6 — /api/ ve /_next/static/ altinda OLMAYAN bir yol, middleware DISINDA
+  //      Next'in HTML 404'unu render ediyor → slug yok → default kurumun
+  //      kimligi B'nin host'unda. K4'un dar kalintisi; matcher'la kapatilamaz
+  //      (iki onek bilincli olarak disarida). Oneri: /api icin catch-all JSON
+  //      404; basligi hic gelmeyen istekte notr kurum.
+  ["sinir|B-custom|/api/yok-boyle-uc|baska-kurum-gorunmez", "K6"],
+  ["sinir|B-custom|/_next/static/yok.js|baska-kurum-gorunmez", "K6"],
 ]);
 const KUSUR_ACIKLAMA = {
-  K1: "matcher disi yol (/apix) gelen x-tenant-slug'a guveniyor — baska kurumun markasi",
-  K2: "matcher disi yolun HTML 404'unde CSP basligi/nonce yok",
-  K3: "matcher disi yolda gelen CSP basligindaki nonce HTML'e yansiyor",
-  K4: "matcher disi yolda B host'u sahte baslik OLMADAN A'nin (default) kimligini gosteriyor",
-  K5: "uygulama q=50'yi kabul ediyor (q=75 yalniz nginx'te)",
+  K6: "/api/ ve /_next/static/ altinda olmayan yol middleware disinda HTML 404 render ediyor → B host'unda A'nin kimligi",
 };
 
 // ---------------------------------------------------------------------------
@@ -638,6 +686,7 @@ const BOLUM_AD = {
   "3": "(3) sahte baslik matrisi (x-tenant-slug, CSP, x-nonce)",
   "4": "(4) CSP uctan uca (her html yaniti)",
   "5": "(5) gorsel ucu sozlesmesi",
+  "6": "(6) matcher siniri (iceride / disarida)",
 };
 let gecti = 0, kaldi = 0;
 const bilinenGorulen = new Map();
@@ -664,6 +713,18 @@ for (const bolum of Object.keys(BOLUM_AD)) {
   }
   console.log(`\n--- ${BOLUM_AD[bolum]}: ${bg} gecti, ${bk} kaldi${bb ? `, ${bb} bilinen kusur` : ""}`);
   for (const s of satirlar) console.log(s);
+}
+// Katı xfail'in ikinci yarisi: listedeki bir iddia bu kosuda HIC URETILMEDIYSE
+// (hucre degisti — ornegin HTML 404 duz metne dondu, CSP iddiasi dogmadi)
+// kusur da "gorulmuyor" demektir → listeden cikarilmali.
+const uretilen = new Set(iddialar.map((x) => x.id));
+const uretilmeyen = [...BILINEN_KUSURLAR.keys()].filter((id) => !uretilen.has(id));
+if (uretilmeyen.length) {
+  console.log(`\n--- BILINEN KUSUR LISTESINDE OLUP ARTIK URETILMEYEN IDDIALAR: ${uretilmeyen.length}`);
+  for (const id of uretilmeyen) {
+    kaldi++;
+    console.log(`  FAIL  ${id} — BILINEN KUSUR ${BILINEN_KUSURLAR.get(id)} ARTIK URETILMIYOR (hucre degisti): listeden cikar`);
+  }
 }
 const kayipKusur = [...new Set(BILINEN_KUSURLAR.values())].filter((k) => !bilinenGorulen.has(k));
 

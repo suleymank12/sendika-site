@@ -6057,7 +6057,15 @@ sınır bütün ziyaretçilere BİRLİKTE uygulanır).
 5. Sıra: önce izolasyon HTTP matrisi (Faz 2) → 14.2.35'te temel çizgi →
    her fazdan sonra aynı matris + fark.
 
-## Matcher dışı yollar (ölçüldü — gelen başlıkları nginx kapatıyor, K4 AÇIK)
+## Matcher dışı yollar (ölçüldü — ✅ K1–K4 21 Eylül 2026'da KAPANDI, K6 kalıntısı açık)
+
+> **Güncel durum (21 Eylül 2026, K4+K5 turu):** matcher önek dışlamadan TAM
+> YOL dışlamaya geçti (`api/`, `_next/static/`, `_next/image$`,
+> `favicon\.ico$`). `/apix`, `/api`, `/apiler`… artık middleware'den geçiyor
+> ve sıradan bir 404 ile birebir aynı davranıyor. Kalıntı **K6**: `/api/` ve
+> `/_next/static/` altında OLMAYAN bir yol hâlâ middleware dışında HTML 404
+> render ediyor → B'nin host'unda A'nın kimliği. Ayrıntı: "🧪 İZOLASYON HTTP
+> MATRİSİ" → bilinen kusurlar. Aşağıdaki metin tarihî kayıt.
 
 Matcher `api` ile BAŞLAYAN her yolu dışlıyor (`/apix`, `/apiler`…); orada
 middleware çalışmaz. 14.2.35'te ölçüldü: `/apix` + sahte `x-tenant-slug` →
@@ -6104,9 +6112,17 @@ nonce, matcher, görsel ucu). Bu matris uygulamaya DIŞARIDAN, gerçek HTTP ile,
 süper admin) × 16 yol (/, /haberler, A/B haber-duyuru-sayfa-manşet detayları,
 sitemap, robots, /admin, /admin/giris, /admin/haberler, /super-admin,
 /olmayan-sayfa, /apix) × 4 varyant (HTML · RSC · prefetch · sahte başlık)
-+ 8 görsel ucu hücresi = **456 gözlem, 1603 kural**. A = `default`, B =
++ 8 görsel ucu hücresi + **(6) matcher sınırı** 36 hücre (3 host × 12 yol:
+İÇERİDE olması gerekenler sıradan 404 ile birebir aynı mı, DIŞARIDA
+kalması gerekenler — `/api/…`, `/_next/static/…`, `/_next/image`,
+`/favicon.ico` — middleware'siz mi) = **492 gözlem, 1702 kural** (21 Eylül
+2026, K4+K5 turundan sonra; ilk hâl 456 / 1603). A = `default`, B =
 custom domain'li ilk aktif kurum. Veri canlı Supabase'den anon anahtarla
 OKUNUR.
+
+Middleware izi kuralı: `x-tenant-slug` YA DA **nonce'lu** CSP. Yalnız "CSP
+var mı"ya bakmak yanlış — Next'in görsel ucu optimize görsele kendi
+(nonce'suz) CSP'sini koyuyor: `script-src 'none'; frame-src 'none'; sandbox;`.
 
 ## Temel çizgi — yükseltmede ne yapılır
 
@@ -6122,24 +6138,31 @@ OKUNUR.
   `B-custom`); nonce değil TUTARLILIĞI kaydedilir. İki koşu arası 456/456
   aynı (yeni build'le de).
 
-## Bilinen kusurlar (14.2.35) — katı xfail
+## Bilinen kusurlar — katı xfail
 
-Kırmızı yapmaz, HER koşuda listelenir; biri DÜZELİRSE koşu kırmızı olur
-("listeden çıkar"). Ortak kök neden K1–K4: matcher `api` ile BAŞLAYAN her
-yolu dışlıyor (`/apix`, `/apiler`, `/api-...`), orada middleware çalışmıyor.
+Kırmızı yapmaz, HER koşuda listelenir; biri DÜZELİRSE (ya da iddiası artık
+hiç üretilmezse) koşu kırmızı olur ("listeden çıkar").
 
-| Kod | Kusur | Canlıda |
+| Kod | Kusur | Durum |
 |---|---|---|
-| K1 | matcher dışı yolda gelen `x-tenant-slug`'a güveniliyor | nginx kapatıyor |
-| K2 | matcher dışı yolun HTML 404'ünde CSP başlığı/nonce yok | açık (404 sayfası, kullanıcı içeriği yok) |
-| K3 | matcher dışı yolda gelen CSP nonce'u HTML'e yansıyor | nginx kapatıyor |
-| K4 | matcher dışı yolda B host'u, sahte başlık OLMADAN, A'nın kimliğini gösteriyor | 🔴 **AÇIK** — nginx kapatmaz |
-| K5 | uygulama `q=50`'yi kabul ediyor (q=75 yalnız nginx'te) | nginx kapatıyor |
+| K1 | matcher dışı yolda gelen `x-tenant-slug`'a güveniliyor | ✅ KAPANDI 21 Eylül (matcher tam yol) |
+| K2 | matcher dışı yolun HTML 404'ünde CSP başlığı/nonce yok | ✅ KAPANDI |
+| K3 | matcher dışı yolda gelen CSP nonce'u HTML'e yansıyor | ✅ KAPANDI |
+| K4 | matcher dışı yolda B host'u, sahte başlık OLMADAN, A'nın kimliğini gösteriyor | ✅ KAPANDI (`kurmayteknoloji.com/apix` → Kurmay) |
+| K5 | uygulama `q=50`'yi kabul ediyor | ✅ KAPANDI (`images.qualities: [75]`) |
+| **K6** | `/api/` ve `/_next/static/` altında OLMAYAN yol middleware dışında HTML 404 render ediyor → B host'unda A'nın kimliği (`kurmayteknoloji.com/api/yok`, `/_next/static/yok.js`). İçerik sızmıyor | 🔴 **AÇIK** (K4'ün dar kalıntısı; matcher'la kapatılamaz — iki önek bilerek dışarıda) |
 
-Önerilen düzeltmeler (ayrı tur, onayla): K1–K4 → matcher dışlamalarını tam
-yola daralt (`api/` önekli, `_next/static/`, `_next/image` tam eşleşme,
-`favicon.ico` tam eşleşme). K5 → `images.qualities: [75]` (14.2.35
-destekliyor: `image-optimizer.js:502-510`; Next 16 varsayılanıyla aynı).
+Kapanış kanıtı (21 Eylül 2026, `raporlar/2026-09-21-1435-k4-k5-matcher-duzeltmesi.md`): düzeltmeden önce matris 0 fark; sonra
+tahmin edilen 42 iddianın 42'si "düzeldi" diye kırmızıya döndü, temel çizgi
+farkı YALNIZ 29 hücrede (`/apix` × 7 host × 4 varyant + `gorsel|q50`) —
+tahmin dosyası koddan önce yazıldı, izinsiz fark 0.
+
+**K6 için öneri (onayla, ayrı tur):** (a) `/api` için catch-all route
+(`src/app/api/[...yol]/route.ts`, her metotta JSON 404) → `/api/…` hiç
+HTML render etmez; (b) `/_next/static/` için: `x-tenant-slug` başlığı HİÇ
+YOKSA (middleware çalışmamış demek) kurum çözümü default'a değil NÖTR'e
+düşsün (`get-tenant.ts`). (b) çekirdek çözümlemeye dokunduğu için tasarım
+onayı ister.
 
 ## 🔴 Next 14'ün belgelenmemiş ikinci katmanı (mutasyonla bulundu)
 
@@ -6164,9 +6187,11 @@ da doğru kalması şart: `requestHeaders.set("x-tenant-slug", …)` VE
 undici (Node fetch) `Host`'u yasak başlık sayıp sessizce atıyor; istek her
 zaman 127.0.0.1'e, yani APEX'e gider. Ölçüldü: aynı istek fetch ile
 `x-tenant-slug: default`, `http.get` ile `kurmay-teknoloji`. Host'a bağlı
-her HTTP testi `node:http` kullanmalı. `test:cerez` bugün fetch + `Host`
-kullanıyor: varsayılan host apex olduğu için sonuçları doğru, ama
-`TEST_HOST` ile verilen başka host SESSİZCE yok sayılır (düzeltme önerildi).
+her HTTP testi `node:http` kullanmalı. ✅ `test:cerez` 21 Eylül 2026'da
+`node:http`'ye çevrildi + **Host kanaryası**: kapıdan hemen sonra
+`host-yoklama.<kök>` ile istek atılıyor, yanıtta `x-tenant-slug: host-yoklama`
+yoksa (Host iletilmiyor) test ATLAMAZ, KIRILIR. `TEST_HOST=kurmayteknoloji.com`
+artık gerçekten B'yi sınıyor (ölçüldü: 59/0, `x-tenant-slug: kurmay-teknoloji`).
 
 ## Önbellek geçersizleştirme — elle tatbikat (her yükseltme deploy'undan sonra)
 

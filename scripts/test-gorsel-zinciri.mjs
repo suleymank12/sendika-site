@@ -168,6 +168,10 @@ let config = null;
   okTrue("config", "🔴 hostname'de joker YOK", !String(desenler?.[0]?.hostname).includes("*"), "hostname");
   okTrue("config", "images.domains kullanilmiyor", config.images?.domains === undefined, "domains");
   okTrue("config", "deviceSizes tanimsiz (1200 varsayilan listede)", config.images?.deviceSizes === undefined, "deviceSizes");
+  // K5 (21 Eylul 2026): uygulama da yalniz q=75'i kabul eder — nginx'e
+  // bagimli kalmadan. og:image kalitesiyle AYNI olmali, yoksa paylasim
+  // gorselleri "q parameter (quality) of … is not allowed" ile 400 olur.
+  ok("config", "🔴 images.qualities = [OG_IMAGE_QUALITY] (uygulama q≠75'i reddeder)", config.images?.qualities, [OG_IMAGE_QUALITY], JSON.stringify(config.images?.qualities));
 
   const onceki = process.env.NEXT_PUBLIC_SUPABASE_URL;
   delete process.env.NEXT_PUBLIC_SUPABASE_URL;

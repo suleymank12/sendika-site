@@ -520,7 +520,22 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Statik dosyalar ve API hariç tüm rotalar (public + admin)
-    "/((?!_next/static|_next/image|favicon.ico|api).*)",
+    // Middleware'in DIŞINDA kalanlar — yalnız TAM YOLLAR (21 Eylül 2026):
+    //   /api/…            route handler'lar; kurumu host'tan KENDİLERİ çözer
+    //                     (ör. api/contact), host kuralları api-host-guard'da
+    //   /_next/static/…   derlenmiş varlıklar (performans)
+    //   /_next/image      görsel ucu — TAM eşleşme (performans)
+    //   /favicon.ico      TAM eşleşme
+    //
+    // 🔴 ESKİ HÂLİ `(?!_next/static|_next/image|favicon.ico|api)` ÖNEK
+    // eşleşmesiydi: `api` ile BAŞLAYAN her yol (/apix, /apiler, /api-…)
+    // middleware'siz render ediliyordu → slug yok → default kurum (K4:
+    // kurmayteknoloji.com/apix Büyük Diriliş'in kimliğini gösteriyordu),
+    // gelen x-tenant-slug'a güveniliyordu (K1), CSP yoktu (K2), gelen CSP
+    // nonce'u HTML'e yansıyordu (K3). Ölçüm + mühür: test:izolasyon.
+    //
+    // Kaçış: `\\.` string içinde → regex'te `\.` (nokta harfiyen);
+    // `$` lookahead içinde yolun SONU (Next matcher'ı yol üzerinde test eder).
+    "/((?!api/|_next/static/|_next/image$|favicon\\.ico$).*)",
   ],
 };

@@ -240,9 +240,14 @@ header("(e) Kural (a) — middleware");
     "sira"
   );
 
-  // Statik varliklar ve /api matcher'in disinda -> panel calisir
-  okTrue("kural-a", "matcher statikleri disliyor", code.includes("_next/static"), "matcher");
-  okTrue("kural-a", "matcher /api'yi disliyor", code.includes("|api)"), "matcher");
+  // Statik varliklar ve /api/ matcher'in disinda -> panel calisir.
+  // 21 Eylul 2026: dislama ONEKTEN TAM YOLA gecti (`api/`, `_next/static/`,
+  // `_next/image$`, `favicon\.ico$`) — eski `|api)` onegi /apix'i de
+  // disliyordu (K1-K4). Davranisin kendisi (hangi yol iceride/disarida)
+  // gercek HTTP ile test:izolasyon bolum (6)'da muhurlu.
+  okTrue("kural-a", "matcher statikleri disliyor", code.includes("_next/static/"), "matcher");
+  okTrue("kural-a", "matcher /api/'yi (tam yol) disliyor", code.includes("(?!api/|"), "matcher");
+  okTrue("kural-a", "matcher'da eski ONEK dislama yok", !code.includes("|api)"), "matcher");
 }
 
 // ---------------------------------------------------------------------------
@@ -367,7 +372,7 @@ header("(h) Kural (b) — diger host'larda /super-admin KAPALI");
 header("(i) API host guard — 8 route, 10 handler");
 // ---------------------------------------------------------------------------
 {
-  // 🔴 NEDEN AYRI KATMAN: middleware matcher'i `api`'yi disliyor, yani
+  // 🔴 NEDEN AYRI KATMAN: middleware matcher'i `/api/`'yi disliyor, yani
   // kural (b) API rotalarina HIC ugramaz. Yalniz middleware'e konsaydi
   // panelin UI'si tasinmis ama tehlikeli API yuzeyi her musteri
   // domaininde acik kalmis olurdu.

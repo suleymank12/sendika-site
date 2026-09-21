@@ -4,8 +4,9 @@ import { isSameHostOrigin, isSuperAdminHost } from "@/lib/tenant-hostname";
 /**
  * API rotalari icin HOST politikasi (Deploy 2, 19 Eylul 2026).
  *
- * 🔴 NEDEN AYRI BIR KATMAN GEREKTI: `middleware.ts` matcher'i `api`'yi
- * DISLIYOR (`"/((?!_next/static|_next/image|favicon.ico|api).*)"`). Yani
+ * 🔴 NEDEN AYRI BIR KATMAN GEREKTI: `middleware.ts` matcher'i `/api/`'yi
+ * DISLIYOR (`"/((?!api/|_next/static/|_next/image$|favicon\\.ico$).*)"`;
+ * 21 Eylul 2026'ya kadar `api` ONEKI dislaniyordu, bkz. middleware). Yani
  * middleware'deki iki host kurali API rotalarina HIC UGRAMAZ. Kural (b)
  * yalniz middleware'e konsaydi panelin UI'si tasinmis ama tehlikeli API
  * yuzeyi HER MUSTERI DOMAININDE acik kalmis olurdu:

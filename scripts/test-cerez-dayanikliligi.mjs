@@ -1,8 +1,8 @@
 /**
  * BOZUK CEREZ DAYANIKLILIGI — CANLI HTTP testi (20 Eylul 2026).
  *
- * CALISTIRMA (dev sunucu ayakta olmali):
- *   npm run dev            # ayri terminalde
+ * CALISTIRMA (sunucu ayakta olmali — dev ya da production):
+ *   npm run dev            # ayri terminalde (ya da: next start)
  *   npm run test:cerez     # = node scripts/test-cerez-dayanikliligi.mjs
  *
  * ## NEDEN VAR
@@ -26,11 +26,39 @@
  * Boylece CI'da ya da sunucusuz makinede yanlis alarm uretmez.
  *
  * Saf mantik tarafi: `npm run test:admin-access` (suzgec + karar fonksiyonu).
+ *
+ * ## 🔴 ISTEK KATMANI: `fetch` DEGIL, `node:http` (21 Eylul 2026)
+ *
+ * Node'un fetch'i (undici) `Host` basligini SESSIZCE yok sayiyor — istek
+ * her zaman 127.0.0.1'e, yani APEX'e gidiyor (olculdu: ayni istek fetch ile
+ * `x-tenant-slug: default`, http.get ile `kurmay-teknoloji`). Bu test eskiden
+ * fetch kullaniyordu: varsayilan host apex oldugu icin sonuclari DOGRUYDU,
+ * ama `TEST_HOST` ile verilen baska bir host hic sinanmiyordu ve test bunu
+ * soylemiyordu. Artik:
+ *   - istekler node:http ile (Host gercekten gider)
+ *   - HOST KANARYASI: ortam kapisindan hemen sonra `host-yoklama.<kok>`
+ *     host'uyla bir istek atilir; yanitta `x-tenant-slug: host-yoklama`
+ *     gorulmezse Host iletilmiyor demektir → test ATLAMAZ, KIRILIR.
+ *     (Middleware subdomain slug'ini DB'ye sormadan yaziyor — kanarya
+ *     veriden bagimsiz.)
  */
+
+import http from "node:http";
+import https from "node:https";
+import { existsSync, readFileSync } from "node:fs";
 
 const TABAN = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
 const HOST = process.env.TEST_HOST || "lvh.me:3000";
 const CEREZ_ADI = "sb-jqwmnawzehyvpwrtdvku-auth-token";
+
+// Kanarya icin kok alan adi: env → .env.local → lvh.me
+let KOK = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+const envYol = new URL("../.env.local", import.meta.url);
+if (!KOK && existsSync(envYol)) KOK = (readFileSync(envYol, "utf8").match(/^NEXT_PUBLIC_ROOT_DOMAIN=(.*)$/m) || [])[1];
+KOK = String(KOK || "lvh.me").trim().split(":")[0];
+const PORT = new URL(TABAN).port;
+const KANARYA_SLUG = "host-yoklama";
+const KANARYA_HOST = `${KANARYA_SLUG}.${KOK}${PORT ? `:${PORT}` : ""}`;
 
 let passed = 0;
 const failures = [];
@@ -54,16 +82,36 @@ function header(title) {
   console.log(`--- ${title}`);
 }
 
-/** Yonlendirme TAKIP EDILMEZ: 307'yi 200'e cevirip testi korletmesin. */
-async function iste(yol, cerez) {
-  const res = await fetch(`${TABAN}${yol}`, {
-    redirect: "manual",
-    headers: { Host: HOST, ...(cerez ? { Cookie: cerez } : {}) },
+/**
+ * Ham HTTP istegi — `Host` GERCEKTEN gider (bkz. dosya basi: fetch onu yutar).
+ * Yonlendirme TAKIP EDILMEZ (http.request zaten etmez): 307'yi 200'e cevirip
+ * testi korletmesin.
+ */
+function hamIstek(yol, host, ekBasliklar = {}, zamanAsimi = 30000) {
+  const u = new URL(`${TABAN}${yol}`);
+  const modul = u.protocol === "https:" ? https : http;
+  return new Promise((resolve, reject) => {
+    const req = modul.request(
+      { protocol: u.protocol, hostname: u.hostname, port: u.port, path: u.pathname + u.search, method: "GET", headers: { Host: host, ...ekBasliklar } },
+      (res) => {
+        res.resume();
+        res.on("end", () => resolve(res));
+        res.on("error", reject);
+      }
+    );
+    req.setTimeout(zamanAsimi, () => req.destroy(new Error("zaman asimi")));
+    req.on("error", reject);
+    req.end();
   });
+}
+
+async function iste(yol, cerez) {
+  const res = await hamIstek(yol, HOST, cerez ? { Cookie: cerez } : {});
+  const sc = res.headers["set-cookie"];
   return {
-    status: res.status,
-    location: res.headers.get("location"),
-    setCookie: res.headers.getSetCookie?.() ?? [],
+    status: res.statusCode,
+    location: res.headers.location ?? null,
+    setCookie: Array.isArray(sc) ? sc : sc ? [sc] : [],
   };
 }
 
@@ -73,15 +121,12 @@ async function iste(yol, cerez) {
 // NOT: dev sunucusu rotayi ILK istekte derliyor; ilk cevap saniyeler
 // surebiliyor. Kapi bu yuzden comert (20 sn) ve iki denemeli — yoksa
 // "sunucu ayakta degil" deyip testi sessizce atlardi (ilk yazimda oldu).
+// Dev ya da production sunucusu olabilir (ikisinde de gecerli).
 let ayakta = false;
 for (let deneme = 1; deneme <= 2 && !ayakta; deneme++) {
   try {
-    const kontrol = await fetch(`${TABAN}/admin/giris`, {
-      redirect: "manual",
-      headers: { Host: HOST },
-      signal: AbortSignal.timeout(20000),
-    });
-    ayakta = kontrol.status < 500;
+    const kontrol = await hamIstek("/admin/giris", HOST, {}, 20000);
+    ayakta = kontrol.statusCode < 500;
   } catch {
     ayakta = false;
   }
@@ -89,11 +134,40 @@ for (let deneme = 1; deneme <= 2 && !ayakta; deneme++) {
 
 if (!ayakta) {
   console.log("");
-  console.log("ORTAM UYGUN DEGIL: dev sunucu ayakta degil (ya da 5xx donuyor).");
-  console.log(`Once baslatin:  npm run dev     (beklenen adres: ${TABAN}, Host: ${HOST})`);
+  console.log("ORTAM UYGUN DEGIL: sunucu ayakta degil (ya da 5xx donuyor).");
+  console.log(`Once baslatin:  npm run dev   ya da   next start     (beklenen adres: ${TABAN}, Host: ${HOST})`);
   console.log("Saf mantik testi icin: npm run test:admin-access");
   console.log("");
   process.exit(0);
+}
+
+// ---------------------------------------------------------------------------
+// 🔴 HOST KANARYASI — istek katmani Host'u gercekten tasiyor mu?
+// ---------------------------------------------------------------------------
+// Tasimiyorsa asagidaki her vaka SESSIZCE apex'i sinar; bu ATLAMA degil
+// KIRILMA sebebidir (sessiz yanlis guven, sessiz atlamadan daha kotu).
+header(`(0) istek katmani — Host basligi iletiliyor mu (kanarya ${KANARYA_HOST})`);
+{
+  let slug = null;
+  try {
+    slug = (await hamIstek("/haberler", KANARYA_HOST)).headers["x-tenant-slug"] ?? null;
+  } catch (e) {
+    slug = `HATA: ${e.message}`;
+  }
+  ok("kanarya", `Host '${KANARYA_HOST}' → x-tenant-slug '${KANARYA_SLUG}'`, slug, KANARYA_SLUG, KANARYA_HOST);
+  if (slug !== KANARYA_SLUG) {
+    console.log("");
+    console.log("🔴 ISTEK KATMANI HOST BASLIGINI TASIMIYOR — TEST_HOST sinanamaz, test DURDU.");
+    console.log(`SONUC: ${passed} gecti, ${failures.length} kaldi`);
+    process.exit(1);
+  }
+  let hedefSlug = null;
+  try {
+    hedefSlug = (await hamIstek("/haberler", HOST)).headers["x-tenant-slug"] ?? null;
+  } catch {
+    hedefSlug = null;
+  }
+  console.log(`  bilgi: sinanan Host '${HOST}' → x-tenant-slug '${hedefSlug}'`);
 }
 
 const YOLLAR = ["/", "/haberler", "/admin/giris", "/admin/yetkisiz", "/admin"];

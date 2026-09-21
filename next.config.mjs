@@ -66,6 +66,13 @@ const nextConfig = {
   // deploy adimlari NOTE.md "VPS deploy adimlari" bolumunde.
   output: "standalone",
   images: {
+    // Yalniz q=75 (21 Eylul 2026, K5). Sitede baska kalite yok: next/image
+    // varsayilani + og:image zinciri (OG_IMAGE_QUALITY) — test:gorsel-zinciri
+    // muhurluyor. Eskiden q 1-100 serbestti: varyant uzayi 100 kat, kural
+    // yalniz nginx'teydi. 14.2.35 bu ayari zorluyor (image-optimizer.js:
+    // "q parameter (quality) of 50 is not allowed"); Next 16'nin varsayilani
+    // da [75] → yukseltmede izolasyon matrisinde fark uretmez.
+    qualities: [75],
     remotePatterns: [
       {
         protocol: "https",
