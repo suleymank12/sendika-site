@@ -23,7 +23,11 @@ const PORT = process.env.IZOLASYON_PORT || "3100";
 const TABAN = `http://127.0.0.1:${PORT}`;
 const argv = process.argv.slice(2);
 const BUILD_YOK = argv.includes("--build-yok");
-const matrisArgs = argv.filter((a) => a !== "--build-yok");
+// --betik <yol>: matris yerine baska bir izolasyon betigi (ornek: korlesme
+// testleri) ayni build + sunucuyla kosar. Varsayilan: matris.
+const betikI = argv.indexOf("--betik");
+const BETIK = betikI >= 0 ? argv[betikI + 1] : path.join("scripts", "test-izolasyon-matrisi.mjs");
+const matrisArgs = argv.filter((a, i) => a !== "--build-yok" && i !== betikI && i !== betikI + 1);
 
 async function ayakta() {
   // Yalniz canlilik yoklamasi. Host basligi YOK: Node fetch'i Host'u zaten
@@ -70,8 +74,8 @@ try {
     console.log(sunucuLog);
     throw new Error("sunucu 60 sn icinde ayaga kalkmadi");
   }
-  console.log("izolasyon:tam — 3/3 matris …");
-  const m = spawnSync(process.execPath, [path.join(REPO, "scripts", "test-izolasyon-matrisi.mjs"), ...matrisArgs], {
+  console.log(`izolasyon:tam — 3/3 ${BETIK} …`);
+  const m = spawnSync(process.execPath, [path.join(REPO, BETIK), ...matrisArgs], {
     cwd: REPO,
     stdio: "inherit",
     env: { ...process.env, IZOLASYON_URL: TABAN, IZOLASYON_ZORUNLU: "1" },

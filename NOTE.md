@@ -6146,6 +6146,11 @@ nonce, matcher, görsel ucu). Bu matris uygulamaya DIŞARIDAN, gerçek HTTP ile,
 | `npm run izolasyon:temel` | aynısı + temel çizgiyi kaydeder (kural FAIL varsa KAYDETMEZ; var olan dosyayı `--uzerine-yaz` olmadan ezmez) |
 | `npm run test:izolasyon` | zaten ayakta olan PRODUCTION sunucuya karşı (`IZOLASYON_URL`, vars. 3000). Sunucu yoksa / dev sunucusuysa büyük **ATLANDI** bandı + `SONUC: ATLANDI (0 kontrol)`, çıkış 0; `IZOLASYON_ZORUNLU=1` → çıkış 1. Yerel build'den farklı build'e karşı koşuyorsa → FAIL |
 | `npm run test:lint-kurallari` | SafeHtml/SafeImage güvenlik lint kurallarının mutasyonu (ihlali kendisi üretir) |
+| `npm run izolasyon:kapi -- --tahmin <tahmin.json> [--temel <belge.json>]` | **TEK KOMUT KAPI** (B4): veri kapısı ÖNCE → temiz build + `izolasyon:tam` → veri kapısı SONRA (kaymışsa DUR, çıkış 2) → kilitli tahminle denetim (sapma çıkış 1). Temel çizgiyi KAYDETMEZ |
+| `npm run izolasyon:veri -- <etiket> <çıktı.json>` | hedef satırlarının özet sha256'sı — matrisle AYNI seçim (`hedef-secimi.mjs`) |
+| `npm run izolasyon:denetle -- <tahmin.json> <matris-çıktısı>` | kilitli tahmin ↔ matris çıktısı |
+| `npm run izolasyon:korlesme` | build + 3100 + körleşme testleri (B4 C6): hedef değişimi fark ÜRETMEMELİ, sahiplik ihlali KURAL FAIL'i üretmeli. Yalnız matrisin Supabase okumasına enjeksiyon, DB'ye yazma YOK |
+| `npm run test:izolasyon-korlesme` | aynısı, ayakta production sunucuya karşı; yoksa ATLANDI (`IZOLASYON_ZORUNLU=1` → çıkış 1) |
 
 ⚠️ `izolasyon:tam` `.next`'i yeniden yazar — aynı anda `next dev` açıksa önce kapatın.
 
@@ -6161,13 +6166,15 @@ kalması gerekenler — `/api/…`, `/_next/static/…`, `/_next/image`,
 `/favicon.ico` — middleware'siz mi) + **(7) `/api` catch-all** (diskteki her
 gerçek route dosyası catch-all'dan ÖNCE eşleşiyor mu; catch-all'ın 404'ü
 süper admin uçlarının müşteri domainindeki 404'üyle ayırt edilemez mi) +
-matcher dışı 404'lerde sahte başlık = **515 gözlem, 1741 kural** (22 Eylül
-2026, K8 sonrası: bilinmeyen subdomain nötr 404 kuralları; K7-B sonrası
+matcher dışı 404'lerde sahte başlık = **739 gözlem, 2111 kural** (22 Eylül
+2026, B4 sonrası: 515 + 84 yeni sınıf yuvası + 140 `YOK` yer tutucusu;
+K8 sonrası 515 / 1741 — bilinmeyen subdomain nötr 404 kuralları; K7-B sonrası
 515 / 1734 — sahte istekler sahte `x-tenant-proof` da taşıyor
 + "hiçbir yanıtta `x-tenant-proof` / `x-middleware-request-*` yok" kuralı;
 K6 sonrası 515 / 1731, K4+K5 sonrası 492 / 1702, ilk hâl 456 / 1603). A = `default`, B =
-custom domain'li ilk aktif kurum. Veri canlı Supabase'den anon anahtarla
-OKUNUR.
+temel çizgide KAYITLI kurum (id; B4 P6 — eskiden "custom domain'li ilk aktif
+kurum"). Veri canlı Supabase'den anon anahtarla OKUNUR; gözlem içerik
+METNİNE duyarsız, SAHİPLİĞE duyarlı (bkz. "🔑 B4").
 
 Middleware izi kuralı: `x-tenant-slug` YA DA **nonce'lu** CSP. Yalnız "CSP
 var mı"ya bakmak yanlış — Next'in görsel ucu optimize görsele kendi
@@ -6185,7 +6192,10 @@ var mı"ya bakmak yanlış — Next'in görsel ucu optimize görsele kendi
   diff'i inceleme kaydıdır.
 - Kararlılık: kurum adları/slug'lar/host'lar SEMBOL (`A`, `{B.haber}`,
   `B-custom`); nonce değil TUTARLILIĞI kaydedilir. İki koşu arası 456/456
-  aynı (yeni build'le de).
+  aynı (yeni build'le de). B4'ten (22 Eylül 2026) beri hedef seçimi
+  belirlenimci + sınıf sabit, içerik yolu sahip jetonu (`/haberler/{A}`),
+  `x-tenant-slug` sembolü (`{A.slug}`); "hangi kurum, hangi satır" belgenin
+  `kurumlar` / `hedefler` / `semboller` alanında — bkz. "🔑 B4".
 
 ## Bilinen kusurlar — katı xfail
 
@@ -6287,11 +6297,125 @@ K8+B1 uygulama raporu. Kanıt repoda: `scripts/izolasyon-temel/`
   geçerli):** üreteç ancak (a) düzeltme koşudan ÖNCE yazılı ve sha'lı
   öngörülmüşse VE (b) eksik bir KURALA dairse değiştirilebilir. Bir değeri
   tutturmak için asla; ikisi yoksa DUR kalır ve kullanıcıya sorulur.
-- ⚠️ **Veri kayması (açık, B4):** matris hedefleri canlı veriden seçiliyor
-  ("A'nın ilk aktif manşeti" — sorguda sıralama yok; en yeni kapaklı haber
-  vb.). Panelde yapılan her içerik değişikliği temel çizgi farkı
-  üretebilir. Koşudan hemen önce/sonra hedeflerin `updated_at` özeti
-  karşılaştırılır; farklıysa sonuç yorumlanmaz.
+- ✅ **Veri kayması KAPANDI (B4, 22 Eylül 2026)** — aşağıda "🔑 B4". Veri
+  kapısı (koşudan hemen önce/sonra hedef özeti sha'sı) kalıcı:
+  `npm run izolasyon:kapi`.
+
+## 🔑 B4 — izolasyon matrisinin canlı veri bağımlılığı kesildi (22 Eylül 2026)
+
+Raporlar: `raporlar/2026-09-22-0125-b4-canli-veri-bagimliligi.md` (ölçüm +
+tasarım, kod yok) ve aynı günün B4 uygulama raporu. Commit'ler: `39b49ee`
+(C1 araçlar) · `9481d23` (C2 seçim) · `a32f52d` (C3 normalizasyon) ·
+`9c5164c` (C4 yer tutucu + yeni yuvalar) · `aa31781` (C5 sızıntı sözlüğü) ·
+C6 (körleşme testleri + bu kayıt).
+
+**Neden:** K8 turunun iki koşusu canlı veri kayması yüzünden DUR etti.
+Panelde bir kayıt, SIRASIZ `headlines` sorgusunun seçtiği satırı değiştirdi
+(özel manşet 200 → haber kaynaklı manşet 307). Kapı yanlış alarm veriyordu.
+
+**🔴 Değişmez kural:** bir alan içerik METNİNE duyarsızlaşırken o içeriğin
+HANGİ KURUMA ait olduğuna duyarlı kalmak ZORUNDA. Her normalizasyon buna
+karşı sınandı (körleşme testleri aşağıda).
+
+**Kesilen bağımlılıklar:**
+- **P1 belirlenimci sıra** (anlam aynı + `id` eşitlik bozucu): haber/duyuru
+  `published_at.desc.nullslast,id.asc`, sayfa `created_at.asc,id.asc`, manşet
+  `order.asc,created_at.asc,id.asc`. Ölçüm: 6/6 hedef aynı satır, tek seferlik
+  kayma yok.
+- **P2 sınıf sabitleme:** her davranış sınıfının kendi yuvası — `manset`
+  (haber kaynaklı), `manset-ozel` (custom, 200), `manset-duyuru` (307 duyuru),
+  `sayfa` (kurumsal slug), `sayfa-genel` (kurumsal olmayan). Karşılığı olmayan
+  yuva `YOK` (P7).
+- **P3 içerik yolu → sahip jetonu** (`konum`, `ogUrl`): `/haberler/<slug>` →
+  `/haberler/{A}`; iki kurumda aynı slug `{A+B}`, bilinmeyen/taslak `{?}`.
+  Manşetin konumu yalnız tesadüfen `{A.haber}`'e eşit olduğunda sembol
+  oluyordu; aksi hâlde ham slug + `kendi-detay-acilir` YANLIŞ FAIL (ölçüldü,
+  gizli hataydı — kapandı). Yeni kural `yonlendirme-kendi-kurumuna`.
+- **P4 `x-tenant-slug` → sembol** (`{A.slug}`/`{B.slug}`/`{bilinmeyen-sub}`,
+  tanımsız → `YABANCI(<ham>)`); 83 ham alan vardı.
+- **P5 son eksiz başlık** `?(<metin>)` → içerik başlığıysa `?(icerik:A)`.
+- **P6 sabit B:** temel çizgideki kurum id'si; bulunamaz/pasif/custom
+  domain'siz → "SABIT B KURUMU KULLANILAMIYOR" (çıkış 1, sessiz geçiş YOK).
+  Yeni B yalnız `--b-kurum <id> --kaydet --uzerine-yaz`. Eskiden alfabetik
+  olarak önce gelen yeni bir müşteri 127/515 hücreyi değiştirirdi.
+- **P7 eksik hedef:** her yuva her koşuda var; veride yoksa `{hedef:"YOK"}`
+  (istek/kural yok). YOK → gerçek = kapsama artışı (bilgi, kurallar tam
+  koşar); gerçek → YOK = `- KAPSAMA KAYBI` (KIRMIZI).
+- **P8 sızıntı sözlüğü:** taban kuralları (A başlık ≥ 3 / yol ≥ 1, B başlık ≥ 1
+  / yol ≥ 1) + başlığa ek YOL tabanlı sızıntı (diğer kurumun yayındaki içerik
+  yolları; ortak yollar hariç).
+- **P9 kapı araçları repoda** (aşağıda); mutlak yol yok.
+- **Kimlik kayıtları:** belgede `kurumlar` (id/slug/custom_domain),
+  `hedefler` (satır id/slug), `semboller` (kurum slug ↔ sembol, hedef yolu ↔
+  sembol). Değişince `--- KIMLIK` teşhis satırı — KIRMIZI DEĞİL ("B kurumunun
+  slug'i degisti: …", "HEDEF DEGISTI: A.haber … → …"). P4'ün kaybettiği
+  "adres sessizce değişti" sinyali burada.
+
+**Her normalizasyonun bedeli — matris artık bunları YAKALAMIYOR:**
+- P1: test edilen içerik her yayında sessizce değişir; yalnız bazı
+  içeriklerde görünen bir gerileme aralıklı yakalanır. Yayın tarihi boş
+  haber hiç seçilmez.
+- P2: her sınıfın yalnız İLK satırı test edilir.
+- P3: AYNI kurum içindeki yanlış içerik — A manşeti A'nın BAŞKA haberine
+  gitse, A haberinin og:url'si A'nın başka içeriğini gösterse (SEO hatası,
+  izolasyon değil). Kendi taslağına ve başka kurumun taslağına yönlenme aynı
+  `{?}` kovası (ikisi de FAIL, ama ayırt edilmez).
+- P4: kurum slug'ının yeniden adlandırılması fark değil (yalnız teşhis).
+- P5: başlıkta hangi içeriğin göründüğü (aynı kurumun iki içeriği).
+- P6: tek müşteri test edilir; başka müşterilere özgü biçimler (uzun/rakamlı
+  slug, `www.`'lu domain) hiç. Müşteri ayrılırsa matris kırmızı (bilinçli).
+- P7: YOK → gerçek koşusunda o 28 hücre temel çizgiyle karşılaştırılmaz
+  (yalnız kurallar); meşru içerik kaldırma kırmızıdır (insan kararı).
+- P8: iki kurumda ortak slug'lardan sızıntı görülmez; yol dedektörü yalnız
+  bağlantıyı yakalar, metni değil.
+- P9: araçlar matrisin çıktı biçimiyle AYNI commit'te güncellenmeli —
+  denetçi eski biçimi ararsa sahte "birebir" verir.
+
+**Kanıt zinciri:** her commit'te tahmin koddan ÖNCE yazıldı ve sha ile
+kilitlendi; veri kapısı önce/sonra; temiz build + izolasyon:tam; denetçi.
+Beş kapının beşi tahminle BİREBİR. C3 ve C4 tahmini dönüştürücü/üreteç
+çıktısı (`donustur-b4.mjs`, `tahmin-uret-b4-c4.mjs`) — matrisin
+normalizasyon kodunu import ETMEZ (aynı kod iki tarafta olsaydı "birebir"
+totoloji olurdu); tabloda olmayan değerde DURUR. C4'ün yeni hücreleri iki
+bağımsız ölçümün (B4 ölçüm turu enjeksiyonları + geçici yuva ölçümü) ortak
+sonucu; 84/84 aynı.
+
+**Körleşme kanıtı (22 Eylül 2026):**
+- Kod mutasyonları (try/finally + sha geri yükleme, her biri temiz build) —
+  hepsi KURAL FAIL'i ile yakalandı:
+  - T1 `/haberler` listesi tenant filtresiz → `sizinti-yok` (A ve B host,
+    başlık + yol dedektörü) + rsc `icerik-sizintisi-yok`, 10 FAIL. İlk deneme
+    build'i düşürdü (kullanılmayan değişken) — mutasyon hatası, matris deliği
+    değil; değişkeni kullanan biçimle yeniden koşuldu.
+  - T2 A host'unda B'nin kimliği → `kurum-baslik` dahil 16 kural türü,
+    285 FAIL.
+  - T3 bilinmeyen subdomain default'a düşer → `notr-404` vb., 77 FAIL.
+  - T4 manşet + kaynak haber tenant filtresiz → iki yönde (A host'unda B'nin
+    manşeti `/haberler/{B}`'ye, B host'unda A'nınki `/haberler/{A}`'ya 307)
+    `yonlendirme-kendi-kurumuna` + `capraz-detay-404`, 37 FAIL.
+  - T8 middleware B host'una A'nın slug'ını yazar → `x-tenant-slug` dahil 17
+    kural türü, 354 FAIL.
+- Enjeksiyon (`npm run izolasyon:korlesme`, 10/10): K0 kontrol temiz; T5 beş
+  hedef değişimi → 0 fark 0 FAIL (normalizasyondan önce aynı tür değişim
+  3/9/3/0/3/2 fark ve 8 yanlış FAIL veriyordu); T6 A yuvasına B'nin haberi →
+  `kendi-detay-acilir` + `capraz-detay-404`; T7a kapsama artışı kırmızı değil;
+  T7b 28 KAPSAMA KAYBI; T9 B içeriği yok → sözlük tabanı FAIL.
+
+**Kapı araçları:** `scripts/izolasyon-araclari/` — `kapi.mjs` (tek komut),
+`veri-kontrol.mjs`, `tahmin-denetle.mjs`, `hedef-secimi.mjs` (matris ile veri
+kapısının ORTAK seçimi), `enjekte.cjs`, `korlesme.mjs`. Tahminler ve
+üreteçler: `scripts/izolasyon-temel/` (`tahmin-b4-c1..c5.json`,
+`donustur-b4.mjs`, `tahmin-uret-b4-c4.mjs`, `tahmin-b4-c3/c4-belge.json`).
+`tahmin-uret-k8.mjs` dokunulmadı (sha'lı K8 kanıtı; içindeki mutlak `REPO`
+yolu tarihî kayıt).
+
+**Ölçülen tuzaklar:** (1) Windows'ta `fetch`'ten hemen sonra `process.exit()`
+libuv assertion'ıyla çöküyor (çıkış 127) — matrisin erken çıkışları
+`exitCode` + kısa bekleme kullanıyor. (2) `src/lib/public-queries.ts` CRLF
+(gitattributes'a rağmen); çok satırlı mutasyon desenleri dosyanın satır
+sonuna uydurulmalı. (3) Bir filtreyi silen mutasyon değişkeni kullanılmaz
+bırakırsa build lint'te düşer — "yakalanmadı" sanılmasın, koşucu build
+hatasını ayrı raporluyor.
 
 ## 🔑 K7-B — kurum başlığı kanıtı (21 Eylül 2026)
 
