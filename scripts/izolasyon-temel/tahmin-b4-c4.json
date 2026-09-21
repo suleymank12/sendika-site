@@ -1,0 +1,27 @@
+{
+  "tur": "B4 C4 — eksik hedef yer tutucusu + asimetrik kapsama + uc yeni yuva",
+  "yazildi": "2026-09-21T23:03:11.831Z",
+  "not": "KODDAN ONCE uretildi (tahmin-uret-b4-c4.mjs). Kosu temel_belge'ye BIREBIR: 739 hucre (515 + 84 yeni A + 140 yer tutucu), fark 0, FAIL 0, kapsama gecisi 0.",
+  "temel_belge": {
+    "yol": "scripts/izolasyon-temel/tahmin-b4-c4-belge.json",
+    "sha256": "8ecd1ea99d9d931ca49657a6fb12b032f73118ecacc5a18d49266867776aec28"
+  },
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 2,
+    "1": 699,
+    "2": 888,
+    "3": 267,
+    "4": 166,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2109 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}

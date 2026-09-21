@@ -12,6 +12,9 @@
  *   fark_satirlari           "~ hucre.alan: eski → yeni" satirlari (temel cizgi farki)
  *   yeni_hucreler            "+ YENI HUCRE" anahtarlari
  *   kayip_hucreler           "- KAYIP HUCRE" anahtarlari
+ *   kapsama_kaybi            "- KAPSAMA KAYBI" anahtarlari (gercek → YOK; B4 P7, kirmizi)
+ *   kapsama_artti            "HEDEF DURUMU DEGISTI (kapsama artti…)" yuvalari (YOK → gercek; bilgi)
+ *                            (ikisi de yoksa [] sayilir — B4 oncesi tahminler)
  *   beklenen_bilinen_kusur   { K?: adet }
  *   bolum_sayilari_gecti     { "0": n, … } — bolum basliklarindaki "gecti" sayilari
  *   beklenen_sonuc_satiri    son "SONUC:" satiri, birebir
@@ -38,6 +41,8 @@ const fail = new Set(satirlar.filter((s) => /^\s+FAIL\s/.test(s)).map((s) => s.t
 const degisen = new Set(satirlar.filter((s) => /^\s+~ /.test(s)).map((s) => s.trim()));
 const yeni = new Set(satirlar.filter((s) => /^\s+\+ YENI HUCRE/.test(s)).map((s) => s.trim().replace(/^\+ YENI HUCRE\s+/, "").replace(/: [{\[].*$/, "")));
 const kayip = new Set(satirlar.filter((s) => /^\s+- KAYIP HUCRE/.test(s)).map((s) => s.trim().replace(/^- KAYIP HUCRE\s+/, "").replace(/: [{\[].*$/, "")));
+const kapsamaKaybi = new Set(satirlar.filter((s) => /^\s+- KAPSAMA KAYBI/.test(s)).map((s) => s.trim().replace(/^- KAPSAMA KAYBI\s+/, "")));
+const kapsamaArtti = new Set(satirlar.map((s) => (s.match(/^\s+HEDEF DURUMU DEGISTI \(kapsama artti[^)]*\): (\S+)/) || [])[1]).filter(Boolean));
 const bilinen = {};
 for (const s of satirlar) { const m = s.match(/^\s+(K\d+) ×(\d+):/); if (m) bilinen[m[1]] = Number(m[2]); }
 const bolum = {};
@@ -57,6 +62,8 @@ kume("FAIL iddialar", fail, new Set(t.beklenen_fail));
 kume("degisen alan satirlari", degisen, new Set(t.fark_satirlari));
 kume("yeni hucreler", yeni, new Set(t.yeni_hucreler));
 kume("kayip hucreler", kayip, new Set(t.kayip_hucreler));
+kume("kapsama kaybi (VAR → YOK)", kapsamaKaybi, new Set(t.kapsama_kaybi || []));
+kume("kapsama artisi (YOK → VAR, yuva)", kapsamaArtti, new Set(t.kapsama_artti || []));
 const bOk = JSON.stringify(bilinen) === JSON.stringify(t.beklenen_bilinen_kusur);
 out.push(`bilinen kusurlar: gorulen ${JSON.stringify(bilinen)} · beklenen ${JSON.stringify(t.beklenen_bilinen_kusur)} ${bOk ? "✓" : "✗"}`); if (!bOk) dur = true;
 const bolOk = JSON.stringify(bolum) === JSON.stringify(t.bolum_sayilari_gecti);

@@ -33,11 +33,22 @@ export const SORGULAR = {
 };
 
 // Hedef yuvalari: liste + sinif kosulu + istek yolu. Sira = matristeki yol sirasi.
+// Her DAVRANIS sinifinin kendi yuvasi var (P2): sinif filtresi disarida kalan
+// sinifi korlestirmesin diye. Veride karsiligi yoksa yuva YOK yer tutucusudur
+// (P7) — kirmizi degil; icerik eklenince kapsama kendiliginden artar.
+//   manset         haber kaynakli → 307 haber detayi
+//   manset-ozel    ozel (source_type "custom") → 200, kendi sayfasi
+//   manset-duyuru  duyuru kaynakli → 307 duyuru detayi
+//   sayfa          kurumsal slug (og:url /kurumsal/<slug>)
+//   sayfa-genel    kurumsal OLMAYAN /sayfa/<slug> (og:url /sayfa/<slug>)
 export const YUVALAR = [
   ["haber", "haber", (x) => !!x.cover_image, (x) => `/haberler/${x.slug}`],
   ["duyuru", "duyuru", () => true, (x) => `/duyurular/${x.slug}`],
   ["sayfa", "sayfa", (x) => KURUMSAL_PAGE_SLUGS.includes(x.slug), (x) => `/sayfa/${x.slug}`],
   ["manset", "manset", (x) => x.source_type === "news", (x) => `/manset/${x.id}`],
+  ["sayfa-genel", "sayfa", (x) => !KURUMSAL_PAGE_SLUGS.includes(x.slug), (x) => `/sayfa/${x.slug}`],
+  ["manset-ozel", "manset", (x) => x.source_type === "custom", (x) => `/manset/${x.id}`],
+  ["manset-duyuru", "manset", (x) => x.source_type === "announcement", (x) => `/manset/${x.id}`],
 ];
 
 export async function listeleriOku(supa) {

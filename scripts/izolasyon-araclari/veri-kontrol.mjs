@@ -55,7 +55,7 @@ const ozet = {};
 for (const [ad, x] of Object.entries(hedef)) {
   if (!x) { ozet[ad] = null; continue; }
   const o = { id: x.id, slug: x.slug ?? null, updated_at: x.updated_at ?? null };
-  if (ad.endsWith(".manset")) {
+  if (ad.includes(".manset")) {
     Object.assign(o, { source_type: x.source_type, source_id: x.source_id, link_url: x.link_url, created_at: x.created_at });
     if (x.source_type === "news" && x.source_id) {
       const n = await q(`news?select=slug,updated_at,is_published&id=eq.${x.source_id}`);

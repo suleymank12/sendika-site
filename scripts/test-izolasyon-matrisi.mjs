@@ -51,6 +51,9 @@
  *   - gozlemde icerik METNI yok, SAHIPLIK var: icerik yolu → "/haberler/{A}"
  *     (P3), x-tenant-slug → "{A.slug}" (P4), sonek-siz baslik → "?(icerik:A)"
  *     (P5). Bedel: ayni kurumun iki icerigi birbirinden ayirt edilemez.
+ *   - her hedef yuvasi her kosuda var; veride yoksa { hedef: "YOK" } yer
+ *     tutucusu (P7). YOK → gercek: kapsama artisi (bilgi, kurallar tam koşar);
+ *     gercek → YOK: "- KAPSAMA KAYBI" (kirmizi).
  *
  * ## BILINEN KUSURLAR (katı xfail)
  *
@@ -399,7 +402,9 @@ function notrBas(govde) {
 const YOLLAR = [
   ["/", "/"],
   ["/haberler", "/haberler"],
-  ...Object.entries(HEDEF).filter(([, v]) => v).map(([k, v]) => [`{${k}}`, v]),
+  // B4 P7: HER hedef yuvasi matriste — veride karsiligi yoksa yol null ve
+  // hucre { hedef: "YOK" } yer tutucusu (istek atilmaz, kural uretmez).
+  ...Object.entries(HEDEF).map(([k, v]) => [`{${k}}`, v]),
   ["/sitemap.xml", "/sitemap.xml"],
   ["/robots.txt", "/robots.txt"],
   ["/admin", "/admin"],
@@ -414,7 +419,8 @@ const YOLLAR = [
 // Sayfa render eden ve bilincli olarak matcher disinda tutulan yol bu listede
 // yok; matcher siniri bolum (6)'da ayrica muhurlu.
 const MATCHER_DISI = new Set([]);
-const hucreler = HOSTLAR.flatMap(([he, host]) => YOLLAR.map(([ya, yol]) => ({ he, host, ya, yol })));
+const hucreler = HOSTLAR.flatMap(([he, host]) => YOLLAR.map(([ya, yol]) => ({ he, host, ya, yol, yok: yol === null })));
+const YER_TUTUCU = { hedef: "YOK" };
 
 async function havuz(isler, n) {
   const sonuc = new Array(isler.length);
@@ -461,7 +467,7 @@ function rscGozlem(r, bek) {
 
 console.log(`Izolasyon matrisi — Next ${NEXT_SURUM} — ${TABAN}`);
 console.log(`Kurumlar: A=${A.slug}  B=${B.slug} (custom ${B.custom_domain})  hucre=${hucreler.length}`);
-if (hedefYok.length) console.log(`⚠️  Veride hedefi olmayan yollar (matrise GIRMEDI): ${hedefYok.join(", ")}`);
+if (hedefYok.length) console.log(`Veride karsiligi olmayan yuvalar (YOK yer tutucusu, istek/kural yok): ${hedefYok.join(", ")}`);
 
 // Build kimligi (eski build'e karsi kosma tuzagi)
 const rscKok = await istek(APEX_HOST, "/", { RSC: "1", Accept: "text/x-component" });
@@ -470,15 +476,15 @@ const yerelBuildYol = new URL(".next/BUILD_ID", REPO);
 const yerelBuild = existsSync(yerelBuildYol) ? readFileSync(yerelBuildYol, "utf8").trim() : null;
 const yerelSunucu = /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(TABAN);
 
-const htmlR = await havuz(hucreler.map((h) => () => istek(h.host, h.yol)), ESZAMANLI);
+const htmlR = await havuz(hucreler.map((h) => () => (h.yok ? null : istek(h.host, h.yol))), ESZAMANLI);
 // Sahte slug = duz yanitin GOSTERMEDIGI kurum. Sabit bir deger (ornegin B
 // host'unda hep A) secilseydi, zaten A gosteren bir hucrede (K4) sahte
 // basligin kabul edildigi hic gorulemezdi.
 const sahteSlug = (i) => (htmlGozlem(htmlR[i]).kurumBaslik === "B" || htmlGozlem(htmlR[i]).kurumOg === "B" ? A.slug : B.slug);
 const [rscR, prefR, sahteR] = await Promise.all([
-  havuz(hucreler.map((h) => () => istek(h.host, h.yol, { RSC: "1", Accept: "text/x-component" })), ESZAMANLI),
-  havuz(hucreler.map((h) => () => istek(h.host, h.yol, { RSC: "1", "Next-Router-Prefetch": "1", Accept: "text/x-component" })), ESZAMANLI),
-  havuz(hucreler.map((h, i) => () => istek(h.host, h.yol, {
+  havuz(hucreler.map((h) => () => (h.yok ? null : istek(h.host, h.yol, { RSC: "1", Accept: "text/x-component" }))), ESZAMANLI),
+  havuz(hucreler.map((h) => () => (h.yok ? null : istek(h.host, h.yol, { RSC: "1", "Next-Router-Prefetch": "1", Accept: "text/x-component" }))), ESZAMANLI),
+  havuz(hucreler.map((h, i) => () => h.yok ? null : istek(h.host, h.yol, {
     "x-tenant-slug": sahteSlug(i),
     // K7-B: middleware kaniti da EZMELI; ezmezse sahte slug + sahte kanit
     // render'a ulasir ve (bu cift dogrulanmadigi icin) hucre notre duser.
@@ -595,6 +601,10 @@ const middlewareCalisti = (b) =>
 // ---------------------------------------------------------------------------
 const gozlem = {};
 hucreler.forEach((h, i) => {
+  if (h.yok) {
+    for (const v of ["html", "rsc", "prefetch", "sahte"]) gozlem[`${v}|${h.he}|${h.ya}`] = { ...YER_TUTUCU };
+    return;
+  }
   gozlem[`html|${h.he}|${h.ya}`] = htmlGozlem(htmlR[i]);
   gozlem[`rsc|${h.he}|${h.ya}`] = rscGozlem(rscR[i], BEKLENEN[h.he]);
   gozlem[`prefetch|${h.he}|${h.ya}`] = rscGozlem(prefR[i], BEKLENEN[h.he]);
@@ -636,6 +646,7 @@ const CAPRAZ = (he, ya) => {
 };
 
 for (const h of hucreler) {
+  if (h.yok) continue; // B4 P7: yer tutucu — kural yok
   const g = gozlem[`html|${h.he}|${h.ya}`];
   const b = `${h.he}|${h.ya}`;
   const bek = BEKLENEN[h.he];
@@ -735,6 +746,7 @@ for (const h of hucreler) {
 // --- (2) RSC / prefetch
 for (const varyant of ["rsc", "prefetch"]) {
   for (const h of hucreler) {
+    if (h.yok) continue;
     const r = gozlem[`${varyant}|${h.he}|${h.ya}`];
     const d = gozlem[`html|${h.he}|${h.ya}`];
     const b = `${varyant}|${h.he}|${h.ya}`;
@@ -770,6 +782,7 @@ for (const varyant of ["rsc", "prefetch"]) {
 
 // --- (3) sahte baslik
 for (const h of hucreler) {
+  if (h.yok) continue;
   const s = gozlem[`sahte|${h.he}|${h.ya}`];
   const b = `sahte|${h.he}|${h.ya}`;
   iddia("3", `${b}|etkisiz`, s.farkliAlanlar.length === 0, `farkli: ${s.farkliAlanlar.join(",")}`);
@@ -782,7 +795,7 @@ for (const h of hucreler) {
 // ne x-tenant-proof ne de Next'in ic tasiyicisi x-middleware-request-* olabilir.
 {
   const tumYanitlar = [
-    rscKok, kaynakSayfa, ...htmlR, ...rscR, ...prefR, ...sahteR, ...gorselR,
+    rscKok, kaynakSayfa, ...[...htmlR, ...rscR, ...prefR, ...sahteR].filter(Boolean), ...gorselR,
     ...sinirIcerideR.map((x) => x.r), ...sinirDisaridaR.map((x) => x.r), ...sinirSahteR.map((x) => x.r), ...apiR.map((x) => x.r),
   ];
   const sizan = tumYanitlar.flatMap((r) => Object.keys(r.basliklar).filter((k) => k === "x-tenant-proof" || k.startsWith("x-middleware-request-")));
@@ -791,6 +804,7 @@ for (const h of hucreler) {
 
 // --- (4) CSP uctan uca — HER html yaniti
 for (const h of hucreler) {
+  if (h.yok) continue;
   const g = gozlem[`html|${h.he}|${h.ya}`];
   if (g.tur !== "html") continue;
   const b = `csp|${h.he}|${h.ya}`;
@@ -902,12 +916,20 @@ const KUSUR_ACIKLAMA = {};
 // ---------------------------------------------------------------------------
 // Secim (IZOLASYON_TEMEL → surum dosyasi → kucuk en buyuk surum) hedef-secimi.mjs'te:
 // sabit B de ayni dosyadan okunuyor (TEMEL_YOL / TEMEL_BELGE, ustte).
+// B4 P7 — ASIMETRIK kapsama: yer tutucu ({hedef:"YOK"}) ↔ gercek gozlem.
+//   YOK → VAR (icerik eklendi): FARK DEGIL. Hucre temel cizgiyle karsilastirilmaz,
+//     `kapsamaArtti`'ya yazilir; kurallari zaten TAM kostu. Sonraki kayitta girer.
+//   VAR → YOK (icerik kalkti): FARK — "- KAPSAMA KAYBI". Kapsama sessizce azalmaz.
+const yerTutucu = (c) => !!c && c.hedef === "YOK" && Object.keys(c).length === 1;
+const kapsamaArtti = [];
 function farklar(eski, yeni) {
   const out = [];
   const anahtarlar = [...new Set([...Object.keys(eski), ...Object.keys(yeni)])].sort();
   for (const k of anahtarlar) {
     if (!(k in eski)) { out.push(`+ YENI HUCRE   ${k}: ${JSON.stringify(yeni[k])}`); continue; }
     if (!(k in yeni)) { out.push(`- KAYIP HUCRE  ${k}: ${JSON.stringify(eski[k])}`); continue; }
+    if (yerTutucu(eski[k]) && !yerTutucu(yeni[k])) { kapsamaArtti.push(k); continue; }
+    if (!yerTutucu(eski[k]) && yerTutucu(yeni[k])) { out.push(`- KAPSAMA KAYBI  ${k}`); continue; }
     const alanlar = [...new Set([...Object.keys(eski[k]), ...Object.keys(yeni[k])])].sort();
     for (const a of alanlar) {
       const e = JSON.stringify(eski[k][a]), y = JSON.stringify(yeni[k][a]);
@@ -1052,7 +1074,11 @@ if (KAYDET) {
     const f = farklar(eski.gozlem, belge.gozlem);
     farkSayisi = f.length;
     console.log(`  karsilastirilan: ${secilen.pathname.split("/").pop()} (Next ${eski.surum}, ${eski.kaydedildi}) ↔ simdiki (Next ${NEXT_SURUM})`);
-    if (f.length === 0) console.log(`  FARK YOK — ${Object.keys(belge.gozlem).length} hucrenin hepsi temel cizgiyle ayni`);
+    // Kapsama artisi: yuva basina tek satir (kirmizi degil)
+    const artanYuva = {};
+    for (const k of kapsamaArtti) { const y = k.split("|")[2]; artanYuva[y] = (artanYuva[y] || 0) + 1; }
+    for (const [y, n] of Object.entries(artanYuva)) console.log(`  HEDEF DURUMU DEGISTI (kapsama artti, kirmizi degil): ${y} — ${n} hucre YOK → gercek; temel cizgiyle karsilastirilmadi, kurallari tam kostu`);
+    if (f.length === 0) console.log(`  FARK YOK — ${Object.keys(belge.gozlem).length} hucrenin hepsi temel cizgiyle ayni${kapsamaArtti.length ? ` (kapsama artisi haric: ${kapsamaArtti.length})` : ""}`);
     else {
       console.log(`  🔴 ${f.length} FARK — her biri incelenmeli; kabul edilirse yeni surum icin temel cizgi kaydedilir:`);
       for (const s of f.slice(0, 200)) console.log(`    ${s}`);
