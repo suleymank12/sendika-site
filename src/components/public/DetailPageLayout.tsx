@@ -120,7 +120,7 @@ export default function DetailPageLayout({
   const openLightbox = (i: number) => setLightboxIndex(i);
 
   return (
-    <div className="bg-white min-h-screen pb-16">
+    <div className="bg-white flex-1 pb-16">
       {/* Breadcrumb */}
       <nav aria-label="Sayfa yolu" className="w-full bg-transparent border-b border-gray-100 py-3 no-print">
         <div className="max-w-6xl mx-auto px-4 text-sm text-gray-400">

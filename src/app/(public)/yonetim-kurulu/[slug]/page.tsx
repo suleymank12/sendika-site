@@ -43,7 +43,7 @@ export default async function BoardMemberDetailPage({ params }: Props) {
   const m = member as BoardMember;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 flex-1">
       <Breadcrumb
         items={[
           { label: "Kurumsal", href: "#" },

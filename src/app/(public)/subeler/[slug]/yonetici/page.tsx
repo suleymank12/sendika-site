@@ -60,7 +60,7 @@ export default async function BranchManagerPage({ params }: Props) {
   if (!branch.manager_name) notFound();
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 flex-1">
       <Breadcrumb
         items={[
           { label: "Şubelerimiz", href: "/subeler" },

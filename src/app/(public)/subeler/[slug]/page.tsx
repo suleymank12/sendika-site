@@ -103,7 +103,7 @@ export default async function BranchDetailPage({ params }: Props) {
     : null;
 
   return (
-    <div className="bg-gray-50 min-h-screen">
+    <div className="bg-gray-50 flex-1">
       <Breadcrumb
         items={[
           { label: "Şubelerimiz", href: "/subeler" },

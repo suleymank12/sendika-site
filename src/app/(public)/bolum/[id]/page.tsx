@@ -76,7 +76,7 @@ export default async function SectionPage({ params }: Props) {
   const items = (itemsRes.data as HomepageSectionItem[]) || [];
 
   return (
-    <div className="bg-bg-light min-h-screen">
+    <div className="bg-bg-light flex-1">
       <Breadcrumb items={[{ label: section.title }]} />
 
       <section className="container mx-auto px-4 py-8">

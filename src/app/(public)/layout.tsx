@@ -61,8 +61,19 @@ export default async function PublicLayout({ children }: { children: React.React
 
   const navbarColor = settings.navbar_color || "#1B3A5C";
 
+  // YAPISKAN FOOTER (23 Eylul 2026): dis sarmalayici en az ekran boyu bir
+  // sutun; div.relative ve main kalan yuksekligi doldurur, footer ekranin
+  // dibine oturur. Kisa sayfada sayfa kaydirilmaz, bosluk ekranin icinde
+  // kalir. Eskiden main'de `min-h-[60vh]` + detay sablonlarinda ayrica
+  // `min-h-screen` vardi: header + 60vh + footer ekrandan uzundu (1440×900'de
+  // 61 px zorunlu kaydirma), detaylarda footer bir ekran asagi itiliyordu
+  // (raporlar/2026-09-22-2340-public-dogruluk-teshis.md A2).
+  // main de bir sutun: kendi zemin rengi olan sayfa koku (`bg-gray-50 flex-1`
+  // gibi) kalan alani doldurur. 🔴 Sayfalar kokte `min-h-screen` KULLANMAZ —
+  // footer'i bir ekran asagi iter; zemin icin `flex-1`.
   return (
     <div
+      className="flex min-h-screen flex-col"
       style={{
         "--color-primary": hexToRgbString(navbarColor),
         "--color-primary-dark": darkenColorRgb(navbarColor, 0.2),
@@ -75,11 +86,13 @@ export default async function PublicLayout({ children }: { children: React.React
       >
         İçeriğe atla
       </a>
-      <div className="relative">
+      <div className="relative flex flex-1 flex-col">
         {/* display:contents — header kutu olusturmaz: Navbar'in sticky (layout1)
             ve absolute overlay (layout2) konumlandirmasi, main'i de iceren bu
             div.relative'e gore cozulmeye devam eder. Duz bir header sarmalayici
-            sticky'yi kendi yuksekligine hapsedip bozardi. */}
+            sticky'yi kendi yuksekligine hapsedip bozardi. Flex sutunda da
+            ayni: TopBar ve Navbar bu div'in dogrudan ogeleri olur, sticky'nin
+            kapsayicisi yine header + main'i birlikte kapsayan bu div. */}
         <header className="contents">
           <TopBar
             siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
@@ -93,7 +106,7 @@ export default async function PublicLayout({ children }: { children: React.React
             layoutType={settings.layout_type || "layout1"}
           />
         </header>
-        <main id="icerik" tabIndex={-1} className="min-h-[60vh] outline-none">
+        <main id="icerik" tabIndex={-1} className="flex flex-1 flex-col outline-none">
           {children}
         </main>
       </div>
