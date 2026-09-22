@@ -2,7 +2,6 @@ import { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { buildTenantPublicUrl } from "@/lib/tenant-url";
-import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 
 // Tenant header'ina (x-tenant-slug) bagli oldugu icin statik render edilemez.
 export const dynamic = "force-dynamic";
@@ -62,10 +61,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: baseUrl, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
     { url: `${baseUrl}/haberler`, changeFrequency: "daily", priority: 0.9 },
     { url: `${baseUrl}/duyurular`, changeFrequency: "daily", priority: 0.9 },
-    { url: `${baseUrl}/kurumsal/hakkimizda`, changeFrequency: "monthly", priority: 0.7 },
-    { url: `${baseUrl}/kurumsal/tuzuk`, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${baseUrl}/kurumsal/misyon-vizyon`, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${baseUrl}/kurumsal/yonetim-kurulu`, changeFrequency: "monthly", priority: 0.7 },
+    // Yonetim kurulu listesi yalniz aktif uye varsa: bos liste noindex
+    // (kurumsal/yonetim-kurulu/page.tsx) — sitemap'te olmasi celiskili sinyal.
+    ...((membersRes.data || []).length > 0
+      ? [{ url: `${baseUrl}/kurumsal/yonetim-kurulu`, changeFrequency: "monthly" as const, priority: 0.7 }]
+      : []),
     { url: `${baseUrl}/galeri`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${baseUrl}/subeler`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/iletisim`, changeFrequency: "monthly", priority: 0.6 },
@@ -85,12 +85,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // Rezerve kurumsal slug'lar /sayfa/ altinda LISTELENMEZ: ayni icerik
-  // /kurumsal/{slug}'da (staticPages) zaten var — iki URL duplicate content
-  // olurdu. /sayfa/{slug} rotasi erisilebilir kalir ama canonical'i
-  // /kurumsal/{slug}'i gosterir (sayfa/[slug]/page.tsx).
+  // Her sayfa TEK adreste: /sayfa/<slug> (23 Eylul 2026). Eski
+  // /kurumsal/<slug> adresleri 308 ile buraya tasinir; sitemap'te yer almaz.
   const dynamicPages: MetadataRoute.Sitemap = (pagesRes.data || [])
-    .filter((item) => !(KURUMSAL_PAGE_SLUGS as readonly string[]).includes(item.slug))
     .map((item) => ({
       url: `${baseUrl}/sayfa/${item.slug}`,
       lastModified: new Date(item.updated_at),

@@ -28,8 +28,11 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                 <Link href={item.href} className="text-text-muted hover:text-primary transition-colors">
                   {item.label}
                 </Link>
+              ) : i === items.length - 1 ? (
+                <span className="text-text-dark font-medium" aria-current="page">{item.label}</span>
               ) : (
-                <span className="text-text-dark font-medium">{item.label}</span>
+                // Bagsiz ara etiket (ornek: "Kurumsal" grubu — kendi sayfasi yok)
+                <span className="text-text-muted">{item.label}</span>
               )}
             </li>
           ))}

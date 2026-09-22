@@ -46,7 +46,7 @@ export default async function BoardMemberDetailPage({ params }: Props) {
     <div className="bg-gray-50 flex-1">
       <Breadcrumb
         items={[
-          { label: "Kurumsal", href: "#" },
+          { label: "Kurumsal" },
           { label: "Yönetim Kurulu", href: "/kurumsal/yonetim-kurulu" },
           { label: m.name },
         ]}

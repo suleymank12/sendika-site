@@ -1,0 +1,64 @@
+{
+  "tur": "Public dogruluk A3 — kurumsal sayfalar tek adreste (/sayfa), eski adresler 308",
+  "yazildi": "2026-09-22T21:57:32.321Z",
+  "not": "KODDAN ONCE uretildi (tahmin-uret-public-a3.mjs). Kosu temel_belge'ye BIREBIR: 767 hucre (739 + 28 yeni /kurumsal/hakkimizda; 3 hucrede ogUrl → apex/sayfa/{A}), fark 0, FAIL 0, KIMLIK \"degisiklik yok\". Kural +113 (39/48/14/12).",
+  "temel_belge": {
+    "yol": "scripts/izolasyon-temel/tahmin-public-a3-belge.json",
+    "sha256": "574e9e626f4cd4768f546b8b710fcfda42d9ecf07e23406057763971f7232386"
+  },
+  "temel_cizgiye_gore": {
+    "fark_satirlari": [
+      "~ html|apex|{A.sayfa}.ogUrl: \"apex/kurumsal/hakkimizda\" → \"apex/sayfa/{A}\"",
+      "~ html|A-sub|{A.sayfa}.ogUrl: \"apex/kurumsal/hakkimizda\" → \"apex/sayfa/{A}\"",
+      "~ html|bilinmeyen-custom|{A.sayfa}.ogUrl: \"apex/kurumsal/hakkimizda\" → \"apex/sayfa/{A}\""
+    ],
+    "yeni_hucreler": [
+      "html|A-sub|/kurumsal/hakkimizda",
+      "html|B-custom|/kurumsal/hakkimizda",
+      "html|B-sub|/kurumsal/hakkimizda",
+      "html|apex|/kurumsal/hakkimizda",
+      "html|bilinmeyen-custom|/kurumsal/hakkimizda",
+      "html|bilinmeyen-sub|/kurumsal/hakkimizda",
+      "html|superadmin|/kurumsal/hakkimizda",
+      "prefetch|A-sub|/kurumsal/hakkimizda",
+      "prefetch|B-custom|/kurumsal/hakkimizda",
+      "prefetch|B-sub|/kurumsal/hakkimizda",
+      "prefetch|apex|/kurumsal/hakkimizda",
+      "prefetch|bilinmeyen-custom|/kurumsal/hakkimizda",
+      "prefetch|bilinmeyen-sub|/kurumsal/hakkimizda",
+      "prefetch|superadmin|/kurumsal/hakkimizda",
+      "rsc|A-sub|/kurumsal/hakkimizda",
+      "rsc|B-custom|/kurumsal/hakkimizda",
+      "rsc|B-sub|/kurumsal/hakkimizda",
+      "rsc|apex|/kurumsal/hakkimizda",
+      "rsc|bilinmeyen-custom|/kurumsal/hakkimizda",
+      "rsc|bilinmeyen-sub|/kurumsal/hakkimizda",
+      "rsc|superadmin|/kurumsal/hakkimizda",
+      "sahte|A-sub|/kurumsal/hakkimizda",
+      "sahte|B-custom|/kurumsal/hakkimizda",
+      "sahte|B-sub|/kurumsal/hakkimizda",
+      "sahte|apex|/kurumsal/hakkimizda",
+      "sahte|bilinmeyen-custom|/kurumsal/hakkimizda",
+      "sahte|bilinmeyen-sub|/kurumsal/hakkimizda",
+      "sahte|superadmin|/kurumsal/hakkimizda"
+    ]
+  },
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 738,
+    "2": 936,
+    "3": 281,
+    "4": 178,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2224 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}

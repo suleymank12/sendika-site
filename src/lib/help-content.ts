@@ -214,7 +214,7 @@ export const helpContent: Record<string, HelpTopic> = {
         steps: [
           { text: "'Yeni Menü Öğesi'ne bas." },
           { text: "Başlık yaz (örn. 'Hakkımızda')." },
-          { text: "URL gir.", outcome: "Site içi: /hakkimizda. Dış site: https://..." },
+          { text: "URL gir.", outcome: "Site içi: /sayfa/hakkimizda. Dış site: https://..." },
           { text: "Üst menü mü, alt menü mü olacağını seç." },
           { text: "'Aktif' olarak kaydet." },
         ],
@@ -248,9 +248,6 @@ export const helpContent: Record<string, HelpTopic> = {
           { text: "İstersen sağdaki Medya bölümünden kapak görseli, video (dosya veya YouTube) ve fotoğraf galerisi ekle." },
           { text: "'Yayınla' veya 'Taslak Kaydet'e bas.", outcome: "Yayınla = ziyaretçiye açık. Taslak = sadece sen görürsün." },
           { text: "Menüye eklemek istersen 'Site Menüsü'nden URL olarak '/sayfa/...' yaz." },
-        ],
-        warnings: [
-          "Kısa adı 'hakkimizda', 'tuzuk' veya 'misyon-vizyon' olan sayfalar sitedeki Kurumsal menüsünü besler (/kurumsal/hakkimizda gibi). Bu kısa adları değiştirirsen ilgili kurumsal sayfa boş kalır.",
         ],
       },
       {

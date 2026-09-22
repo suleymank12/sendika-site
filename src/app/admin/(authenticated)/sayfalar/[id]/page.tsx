@@ -19,7 +19,6 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Loading from "@/components/ui/Loading";
 import { createSlug } from "@/lib/utils";
-import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 import toast from "react-hot-toast";
 import { verifyWrite } from "@/lib/write-guard";
 
@@ -285,11 +284,7 @@ export default function AdminPageEditorPage() {
                   label="URL Kısa Adı"
                   value={slug}
                   onChange={(e) => { setSlug(e.target.value); setSlugManuallyEdited(true); }}
-                  helperText={
-                    (KURUMSAL_PAGE_SLUGS as readonly string[]).includes(slug.trim())
-                      ? `Bu ad kurumsal sayfayla eşleşir: sitedeki /kurumsal/${slug.trim()} adresi bu sayfanın içeriğini gösterir. Adı değiştirirsen o sayfa boş kalır.`
-                      : "Başlıktan otomatik oluşur. Sayfanın adresi: /sayfa/bu-ad"
-                  }
+                  helperText="Başlıktan otomatik oluşur. Sayfanın adresi: /sayfa/bu-ad"
                 />
               </div>
             </section>

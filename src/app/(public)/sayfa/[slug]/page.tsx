@@ -7,7 +7,6 @@ import SafeHtml from "@/components/SafeHtml";
 import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml, extractTextFromHtml } from "@/lib/utils";
 import { buildPublicMetadata } from "@/lib/seo";
-import { KURUMSAL_PAGE_SLUGS } from "@/lib/constants";
 import type { Metadata } from "next";
 
 interface Props {
@@ -21,17 +20,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // gibi sayfalarda onlarca kB tam HTML) hem burada hem sayfada çekiliyordu.
   const data = await getPageBySlug(tenant.id, params.slug);
 
-  if (!data) return { title: "Sayfa" };
+  // Kayit yok → sayfa notFound() atar. Eskiden burada "Sayfa" donuyordu ve
+  // DEV sunucusu sekmede "Sayfa | <kurum>" gosteriyordu (govde "Sayfa
+  // Bulunamadı"). ⚠️ PRODUCTION'da (next start, 23 Eylul 2026 olculdu)
+  // notFound() render'i bu donusu KULLANMAZ: basliga kok layout'un
+  // varsayilani (<kurum>) ve Next'in kendi `noindex`'i gelir. Metin yine de
+  // govdeyle ayni sozu soylesin (dev + ileride davranis degisirse).
+  if (!data) return { title: "Sayfa Bulunamadı", robots: { index: false, follow: false } };
 
-  // Rezerve kurumsal slug'lar iki URL'de yasar (/kurumsal/{slug} asil,
-  // /sayfa/{slug} kopya). Canonical asil adresi gosterir; Google kopyayi
-  // indekslemez. Sitemap de /sayfa/ varyantini listelemiyor (sitemap.ts).
-  const isKurumsalSlug = (KURUMSAL_PAGE_SLUGS as readonly string[]).includes(
-    params.slug
-  );
-
+  // Her sayfa TEK adreste (23 Eylul 2026): canonical her zaman /sayfa/<slug>.
+  // Eski /kurumsal/<slug> adresleri buraya 308 ile gelir
+  // (app/(public)/kurumsal/[slug]/page.tsx).
   return buildPublicMetadata({
-    path: isKurumsalSlug ? `/kurumsal/${params.slug}` : `/sayfa/${params.slug}`,
+    path: `/sayfa/${params.slug}`,
     title: data.title,
     description: extractTextFromHtml(data.content) || undefined,
     // 🔴 21 Eylul 2026'ya kadar EKSIKTI: `pages.cover_image` kolonu var,

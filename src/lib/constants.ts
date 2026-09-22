@@ -145,13 +145,22 @@ export const CUSTOM_DOMAIN_REGEX =
   /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 
 /**
- * /kurumsal/* rotalarinin icerik kaynagi olan rezerve pages slug'lari.
- * Ayni satirlar /sayfa/{slug} altinda da render edilebildigi icin duplicate
- * content olusur. Cozum iki katmanli (b6 Asama 2):
- *  - sitemap.ts /sayfa/ varyantini LISTELEMEZ
- *  - sayfa/[slug] canonical'i /kurumsal/{slug}'i gosterir
+ * ESKI ADRES UYUMLULUGU — /kurumsal/<slug> (23 Eylul 2026).
+ *
+ * Her `pages` kaydi TEK adreste yasar: /sayfa/<slug>. Eskiden bu uc slug
+ * ayrica /kurumsal/<slug>'da sabit bir sablonla render ediliyordu; musteri
+ * sayfayi baska kisa adla ("misyon-ve-vizyon") olusturunca kurumsal rota
+ * "henuz olusturulmamis" diye 200 donuyordu, ayni sayfa iki adreste
+ * yasiyordu (raporlar/2026-09-22-2340-public-dogruluk-teshis.md).
+ *
+ * Bu liste ICERIK BAGI DEGIL: hangi sayfanin "kurumsal" oldugunu soylemez,
+ * kisa ad kilitlemez. Yalniz eski yer imleri, dis baglantilar ve menu
+ * satirlari icin: kurumun bu kisa adla YAYINDA bir sayfasi varsa
+ * /kurumsal/<slug> → 308 /sayfa/<slug>, yoksa 404
+ * (app/(public)/kurumsal/[slug]/page.tsx). Listeye yeni ad EKLENMEZ.
+ * /kurumsal/yonetim-kurulu ayri, statik bir rota — bu listeyle ilgisi yok.
  */
-export const KURUMSAL_PAGE_SLUGS = [
+export const ESKI_KURUMSAL_ADRESLER = [
   "hakkimizda",
   "tuzuk",
   "misyon-vizyon",

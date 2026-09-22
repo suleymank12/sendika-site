@@ -424,6 +424,13 @@ const YOLLAR = [
   // B4 P7: HER hedef yuvasi matriste — veride karsiligi yoksa yol null ve
   // hucre { hedef: "YOK" } yer tutucusu (istek atilmaz, kural uretmez).
   ...Object.entries(HEDEF).map(([k, v]) => [`{${k}}`, v]),
+  // Eski adres uyumlulugu (23 Eylul 2026): kurumsal sayfa rotalari kalkti,
+  // /kurumsal/<eski-slug> kurumu cozup o kurumun YAYINDAKI sayfasina 308
+  // verir, yoksa 404. Yonlendirmenin hedefi sahip jetonuyla sinanir
+  // (`yonlendirme-kendi-kurumuna`): kurum cozumunu atlayan bir gerileme B
+  // host'unda A'nin sayfasina yonlendirir → FAIL. Bilinmeyen host'ta K8 notr
+  // 404 (yonlendirme kurumdan ONCE yapilsaydi burada 308 gorulurdu).
+  ["/kurumsal/hakkimizda", "/kurumsal/hakkimizda"],
   ["/sitemap.xml", "/sitemap.xml"],
   ["/robots.txt", "/robots.txt"],
   ["/admin", "/admin"],
