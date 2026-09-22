@@ -1713,7 +1713,8 @@ Ziyaretçi tarafındaki boş durum metinleri panelden bahsediyor:
 
 - `src/app/(public)/kurumsal/hakkimizda/page.tsx:36` →
   *"Bu sayfa henüz oluşturulmamış. **Admin panelden** içerik
-  ekleyebilirsiniz."*
+  ekleyebilirsiniz."* — ✅ 23 Eylül 2026: dosya kalktı (kurumsal sayfalar
+  tek adreste, kayıt yoksa 404; bkz. "🔑 Public doğruluk").
 - `components/public/HeadlineSlider.tsx` + `FullWidthSlider.tsx` →
   *"Manşet Eklenmemiş — **Admin panelden** manşet ekleyebilirsiniz."*
   (anasayfanın en üstünde, tam genişlikte)
@@ -6166,8 +6167,10 @@ kalması gerekenler — `/api/…`, `/_next/static/…`, `/_next/image`,
 `/favicon.ico` — middleware'siz mi) + **(7) `/api` catch-all** (diskteki her
 gerçek route dosyası catch-all'dan ÖNCE eşleşiyor mu; catch-all'ın 404'ü
 süper admin uçlarının müşteri domainindeki 404'üyle ayırt edilemez mi) +
-matcher dışı 404'lerde sahte başlık = **739 gözlem, 2111 kural** (22 Eylül
-2026, B4 sonrası: 515 + 84 yeni sınıf yuvası + 140 `YOK` yer tutucusu;
+matcher dışı 404'lerde sahte başlık = **767 gözlem, 2224 kural** (23 Eylül
+2026, public doğruluk turu: + `/kurumsal/hakkimizda` eski adres yolu, 28
+hücre / 113 kural — bkz. "🔑 Public doğruluk"; 22 Eylül 2026 B4 sonrası
+739 / 2111: 515 + 84 yeni sınıf yuvası + 140 `YOK` yer tutucusu;
 K8 sonrası 515 / 1741 — bilinmeyen subdomain nötr 404 kuralları; K7-B sonrası
 515 / 1734 — sahte istekler sahte `x-tenant-proof` da taşıyor
 + "hiçbir yanıtta `x-tenant-proof` / `x-middleware-request-*` yok" kuralı;
@@ -6325,7 +6328,9 @@ karşı sınandı (körleşme testleri aşağıda).
 - **P2 sınıf sabitleme:** her davranış sınıfının kendi yuvası — `manset`
   (haber kaynaklı), `manset-ozel` (custom, 200), `manset-duyuru` (307 duyuru),
   `sayfa` (kurumsal slug), `sayfa-genel` (kurumsal olmayan). Karşılığı olmayan
-  yuva `YOK` (P7).
+  yuva `YOK` (P7). (23 Eylül 2026: slug listesi artık aracın KENDİ dondurulmuş
+  kopyası `SAYFA_SINIF_SLUGLARI` — ürün `KURUMSAL_PAGE_SLUGS`'ı kaldırdı;
+  bkz. "🔑 Public doğruluk".)
 - **P3 içerik yolu → sahip jetonu** (`konum`, `ogUrl`): `/haberler/<slug>` →
   `/haberler/{A}`; iki kurumda aynı slug `{A+B}`, bilinmeyen/taslak `{?}`.
   Manşetin konumu yalnız tesadüfen `{A.haber}`'e eşit olduğunda sembol
@@ -6405,7 +6410,9 @@ sonucu; 84/84 aynı.
 `veri-kontrol.mjs`, `tahmin-denetle.mjs`, `hedef-secimi.mjs` (matris ile veri
 kapısının ORTAK seçimi), `enjekte.cjs`, `korlesme.mjs`. Tahminler ve
 üreteçler: `scripts/izolasyon-temel/` (`tahmin-b4-c1..c5.json`,
-`donustur-b4.mjs`, `tahmin-uret-b4-c4.mjs`, `tahmin-b4-c3/c4-belge.json`).
+`donustur-b4.mjs`, `tahmin-uret-b4-c4.mjs`, `tahmin-b4-c3/c4-belge.json`;
+23 Eylül 2026: `tahmin-public-a1/a2.json`, `tahmin-uret-public-a3.mjs`,
+`tahmin-public-a3(-belge).json`).
 `tahmin-uret-k8.mjs` dokunulmadı (sha'lı K8 kanıtı; içindeki mutlak `REPO`
 yolu tarihî kayıt).
 
@@ -6416,6 +6423,83 @@ libuv assertion'ıyla çöküyor (çıkış 127) — matrisin erken çıkışlar
 sonuna uydurulmalı. (3) Bir filtreyi silen mutasyon değişkeni kullanılmaz
 bırakırsa build lint'te düşer — "yakalanmadı" sanılmasın, koşucu build
 hatasını ayrı raporluyor.
+
+## 🔑 Public doğruluk — kurumsal sayfalar tek adreste + yapışkan footer (23 Eylül 2026)
+
+Teşhis: `raporlar/2026-09-22-2340-public-dogruluk-teshis.md`; uygulama raporu
+aynı klasörde (23 Eylül 2026). Commit'ler: `817eafe` (footer), `674b171`
+(araç bağımsızlığı), `144a7e0` (S1).
+
+**Kurumsal rota kararı (S1).** Her `pages` kaydı TEK adreste yaşar:
+`/sayfa/<slug>`. Sabit slug bekleyen `/kurumsal/hakkimizda|tuzuk|misyon-vizyon`
+rotaları kalktı. Sebep (canlıda ölçüldü): müşteri sayfayı "Misyon ve Vizyon"
+başlığıyla oluşturunca kısa ad otomatik `misyon-ve-vizyon` oldu, kurumsal rota
+"henüz oluşturulmamış" diye **200** döndü; aynı sayfa iki adreste yaşıyordu;
+sayfası olmayan kurumda (kurmay) üç boş kurumsal sayfa indekslenebilir ve
+sitemap'teydi. `/kurumsal/yonetim-kurulu` AYRI (board_members) ve kalıyor;
+üye yoksa `noindex, follow` ve sitemap'te yok. Menü müşteri nereye isterse
+oraya bakar; panel uyarıları ve `KURUMSAL_PAGE_SLUGS` kalktı.
+
+**Eski adres uyumluluğu — `ESKI_KURUMSAL_ADRESLER` (`src/lib/constants.ts`).**
+İçerik bağı DEĞİL: hangi sayfanın "kurumsal" olduğunu söylemez, kısa ad
+kilitlemez. Yalnız eski yer imleri / dış bağlantılar / menü satırları için:
+kurumun bu kısa adla YAYINDA sayfası varsa `/kurumsal/<slug>` → **308**
+`/sayfa/<slug>`, yoksa 404; listede olmayan her `/kurumsal/<x>` 404. Listeye
+yeni ad EKLENMEZ.
+
+**Neden 308 ve neden rota içinde** (`app/(public)/kurumsal/[slug]/page.tsx`):
+- Önce kurum çözülür (`getCurrentTenant`): bilinmeyen host'ta K8 nötr 404
+  aynen. `next.config` `redirects()` middleware'den ÖNCE ve host'tan bağımsız
+  çalışırdı → bilinmeyen host / süper admin host'u da 308 alırdı, sayfası
+  olmayan kurumda "308 → 404" zinciri olurdu.
+- `permanentRedirect` App Router'da **308** üretir (sayfa içinden 301 yok);
+  arama motorları 308'i 301 gibi kalıcı sayar. API Next 14/15/16'da aynı;
+  Next 16'nın middleware → proxy geçişine yük eklemez.
+- `/kurumsal/yonetim-kurulu` statik rota; Next statik bölümü dinamikten önce
+  eşler (ölçüldü: 200, yönlendirme yok).
+- 🔴 **Ölçülen (T10 körleşme, 23 Eylül 2026): layout'taki `notFound()` SAYFAYI
+  KORUMAZ.** Mutasyon sayfada kurum çözümünü atlayıp sabit kurumun kaydına
+  bakınca bilinmeyen-sub yanıtı yine nötr 404 kaldı AMA sayfanın yönlendirme
+  hedefi (`/sayfa/hakkimizda`, `NEXT_REDIRECT` digest'i) 404'ün HTML ve RSC
+  yüküne sızdı (sizinti 0 → 1). Next 14 layout ile sayfayı paralel render
+  ediyor. Kural: kuruma bağlı veri okuyan her sayfa kurumu KENDİSİ çözer;
+  "layout zaten 404 veriyor" varsayımı yanlış.
+
+**Yapışkan footer** (`(public)/layout.tsx`): dış sarmalayıcı `flex min-h-screen
+flex-col`, `div.relative` `flex flex-1 flex-col` (Navbar sticky/absolute
+bağlamı aynı div), `main` `flex flex-1 flex-col`. Kaldırılanlar: `main`'deki
+`min-h-[60vh]` ve beş sayfa kökündeki `min-h-screen` (DetailPageLayout,
+yönetim kurulu üyesi, şube detayı, şube yöneticisi, bölüm). 🔴 Sayfa kökü
+`min-h-screen` KULLANMAZ (footer'ı bir ekran aşağı iter); kendi zemin rengi
+olan kök `flex-1` ile içerik alanını doldurur. Ölçüm (1440×900): kısa kurumsal
+sayfada zorunlu 61 px kaydırma → 0; `/sayfa/misyon-vizyon` boşluk 657 → 236 px,
+kaydırma 421 → 0. İçerik konumu hiçbir sayfada kaymadı (54 ölçüm); sticky
+navbar, mobil menü, PageLoader, toast, lightbox, "İçeriğe atla" önce/sonra
+aynı. Yapışkan footer boşluğu yok etmez, ekranın içine taşır (1920×1080'de
+tek paragraflık sayfada ~416 px); "taban yükseklik hiç yok + body footer
+renginde" varyantı yalnız karşılaştırma için ölçüldü, commit edilmedi — karar
+kullanıcıda.
+
+**İzolasyon.** Matris 767 / 2224 (+ `/kurumsal/hakkimizda` × 7 host × 4:
+A host'ları 308 → `/sayfa/{A}`, B 404, bilinmeyen-sub nötr 404, süper admin
+düz metin 404). `hedef-secimi.mjs` sayfa sınıf listesini artık KENDİ tutuyor
+(`SAYFA_SINIF_SLUGLARI`, dondurulmuş kopya; kullanıcının açık izniyle, kilitli
+tahminle: veri özeti sha'sı ve KIMLIK satırları aynı). Kapılar: A1/A2 0 hücre
+farkı, A3 `tahmin-uret-public-a3.mjs` → tam beklenen belgeye BİREBİR. T10
+mutasyonu `yonlendirme-kendi-kurumuna` (B-sub, B-custom) + sızıntı kurallarıyla
+yakalandı.
+
+**D5 düzeltmesi (ölçüm):** `/sayfa/<olmayan>` sekme başlığının "Sayfa" olması
+yalnız DEV sunucusundaydı. Production'da (`next start`) `notFound()` render'ı
+sayfanın `generateMetadata` dönüşünü kullanmıyor: başlık kök varsayılanı
+(kurum adı) + Next'in `noindex`'i. Metadata dalı "Sayfa Bulunamadı" +
+noindex'e çevrildi (dev'de görünür); production'da sekmede "Sayfa
+Bulunamadı" istenirse kök `not-found` düzeyinde karar gerekir (kurum başlığı
+kuralını etkiler — ayrı tur).
+
+**Açık — elle:** C15 menü verisi SQL'i (default kurumda `/kurumsal/hakkimizda`
+ve `/kurumsal/misyon-vizyon` satırları → `/sayfa/…`) uygulama raporunda;
+çalıştırılana kadar bu satırlar 308 ile doğru sayfaya gider.
 
 ## 🔑 K7-B — kurum başlığı kanıtı (21 Eylül 2026)
 
