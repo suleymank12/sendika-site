@@ -17,12 +17,32 @@
  *      satiri seciyor, tek seferlik kayma yok.
  *   P2 sinif sabitleme — hedefin DAVRANIS sinifi filtreyle sabit: manset
  *      yuvasi yalniz haber kaynakli (307 → haber), sayfa yuvasi yalniz
- *      kurumsal slug. Siniflar arasi gecis artik hedef degistirmez.
+ *      SAYFA_SINIF_SLUGLARI (eski kurumsal slug listesi). Siniflar arasi
+ *      gecis artik hedef degistirmez.
  *   P6 sabit B — temel cizgide kayitli kurum ID'si; kullanilamazsa HATA
  *      (sessiz gecis yok). Yeni B yalniz `--b-kurum <id>` + kayitla.
  */
 import { existsSync, readdirSync } from "node:fs";
-import { KURUMSAL_PAGE_SLUGS } from "../../src/lib/constants.ts";
+
+/**
+ * SAYFA SINIF LISTESI — aracin KENDI dondurulmus kopyasi (23 Eylul 2026).
+ *
+ * Eskiden `src/lib/constants.ts`'teki `KURUMSAL_PAGE_SLUGS` import ediliyordu.
+ * Urun o kavrami kaldiriyor (ayni turun sonraki commit'i: kurumsal sayfa
+ * rotalari kalkar, her sayfa tek adreste /sayfa/<slug>; eski
+ * /kurumsal/<slug> adresleri 308). Bagimsizlik
+ * ilkesi (B4): arac urunun normalizasyon kodunu import etmedigi gibi urunun
+ * KAVRAM tanimlarini da import etmez — urun bir kavrami kaldirinca ya da
+ * genisletince test araci sessizce anlam degistirmemeli, hedef satiri
+ * kaymamali.
+ *
+ * Anlami: `sayfa` / `sayfa-genel` yuvalari bu slug'larla AYRILIR. Liste
+ * 22 Eylul 2026'daki urun sabitinin birebir kopyasi; degistirmek hedef
+ * secimini degistirir → yalniz kilitli tahminle (NOTE.md "🔑 K8" kurali).
+ * Degisiklik anindaki kanit: tahmin-public-a2.json (veri ozeti sha'si ayni,
+ * 0 hucre farki).
+ */
+export const SAYFA_SINIF_SLUGLARI = Object.freeze(["hakkimizda", "tuzuk", "misyon-vizyon"]);
 
 // Kolonlar: matrisin ve veri kapisinin ihtiyacinin birlesimi. Sira = ORDER.
 export const SORGULAR = {
@@ -39,14 +59,14 @@ export const SORGULAR = {
 //   manset         haber kaynakli → 307 haber detayi
 //   manset-ozel    ozel (source_type "custom") → 200, kendi sayfasi
 //   manset-duyuru  duyuru kaynakli → 307 duyuru detayi
-//   sayfa          kurumsal slug (og:url /kurumsal/<slug>)
-//   sayfa-genel    kurumsal OLMAYAN /sayfa/<slug> (og:url /sayfa/<slug>)
+//   sayfa          SAYFA_SINIF_SLUGLARI'ndaki slug (eski kurumsal sayfalar)
+//   sayfa-genel    listede OLMAYAN /sayfa/<slug>
 export const YUVALAR = [
   ["haber", "haber", (x) => !!x.cover_image, (x) => `/haberler/${x.slug}`],
   ["duyuru", "duyuru", () => true, (x) => `/duyurular/${x.slug}`],
-  ["sayfa", "sayfa", (x) => KURUMSAL_PAGE_SLUGS.includes(x.slug), (x) => `/sayfa/${x.slug}`],
+  ["sayfa", "sayfa", (x) => SAYFA_SINIF_SLUGLARI.includes(x.slug), (x) => `/sayfa/${x.slug}`],
   ["manset", "manset", (x) => x.source_type === "news", (x) => `/manset/${x.id}`],
-  ["sayfa-genel", "sayfa", (x) => !KURUMSAL_PAGE_SLUGS.includes(x.slug), (x) => `/sayfa/${x.slug}`],
+  ["sayfa-genel", "sayfa", (x) => !SAYFA_SINIF_SLUGLARI.includes(x.slug), (x) => `/sayfa/${x.slug}`],
   ["manset-ozel", "manset", (x) => x.source_type === "custom", (x) => `/manset/${x.id}`],
   ["manset-duyuru", "manset", (x) => x.source_type === "announcement", (x) => `/manset/${x.id}`],
 ];

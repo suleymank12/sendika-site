@@ -1,0 +1,19 @@
+{
+  "tur": "Public dogruluk A2 — hedef secimi eski kurumsal slug listesini kendisi tutsun",
+  "yazildi": "2026-09-23T00:50:00+03:00",
+  "not": "KODDAN ONCE yazildi. Kullanicinin acik izniyle (tahmin ureteci kuralina bilincli istisna): hedef-secimi.mjs `KURUMSAL_PAGE_SLUGS`'i src/lib/constants.ts'ten import etmeyi birakir; ayni uc slug (hakkimizda, tuzuk, misyon-vizyon) aracin icinde dondurulmus bir kopyada tutulur. Liste icerigi ve sirasi ayni oldugu icin secim birebir ayni: (1) matris 0 hucre farki, 0 FAIL, kural sayisi A1 ile ayni; (2) veri kapisi ozet sha'si A1 kapisindakiyle AYNI (0b880cb6ef526d4e2fd2ec7b126d38f72aaeb6974576c699c18db76e3cd655e4) — ozet secilen hedef satirlarinin id/slug/updated_at'ini icerir, farkli satir secilirse sha degisir; (3) KIMLIK bolumu A1 kapisindakiyle satir satir ayni (yalniz Adim 0'daki iki satir: A.sayfa-genel misyon-ve-vizyon → ai-egitimleri ve hedefYolu sembolu). (2) ve (3) denetcinin disinda, kapi ciktilarinin dogrudan karsilastirilmasiyla dogrulanir.",
+  "beklenen_veri_sha256": "0b880cb6ef526d4e2fd2ec7b126d38f72aaeb6974576c699c18db76e3cd655e4",
+  "beklenen_kimlik_satirlari": [
+    "HEDEF DEGISTI: A.sayfa-genel 4c3451cf-cca3-4a22-bbea-1583f35b92d9 misyon-ve-vizyon → 0fb675f3-f44d-41ec-b9a1-92cb8de3bbde ai-egitimleri",
+    "SEMBOL DEGISTI: hedefYolu {A.sayfa-genel}: /sayfa/misyon-ve-vizyon → /sayfa/ai-egitimleri"
+  ],
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": { "0": 4, "1": 699, "2": 888, "3": 267, "4": 166, "5": 8, "6": 62, "7": 17 },
+  "beklenen_sonuc_satiri": "SONUC: 2111 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
