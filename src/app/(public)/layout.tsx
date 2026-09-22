@@ -7,6 +7,7 @@ import TopBar from "@/components/public/TopBar";
 import Navbar from "@/components/public/Navbar";
 import Footer from "@/components/public/Footer";
 import ToastProvider from "@/components/ui/Toast";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 
 function hexToRgbString(hex: string): string {
   const num = parseInt(hex.replace("#", ""), 16);
@@ -95,14 +96,14 @@ export default async function PublicLayout({ children }: { children: React.React
             kapsayicisi yine header + main'i birlikte kapsayan bu div. */}
         <header className="contents">
           <TopBar
-            siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
+            siteTitle={settings.site_title || tenant.name || YEDEK_SITE_ADI}
             phone={settings.contact_phone || ""}
             email={settings.contact_email || ""}
           />
           <Navbar
             menuItems={menuItems}
             logoUrl={logoUrl}
-            siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
+            siteTitle={settings.site_title || tenant.name || YEDEK_SITE_ADI}
             layoutType={settings.layout_type || "layout1"}
           />
         </header>
@@ -111,7 +112,7 @@ export default async function PublicLayout({ children }: { children: React.React
         </main>
       </div>
       <Footer
-        siteTitle={settings.site_title || tenant.name || "Sendika Adı"}
+        siteTitle={settings.site_title || tenant.name || YEDEK_SITE_ADI}
         siteDescription={settings.site_description || ""}
         footerText={settings.footer_text || ""}
         showCredit={settings.footer_credit_enabled !== "false"}

@@ -1,0 +1,9 @@
+{
+  "tur": "B2 uygulama 1 — sendika varsayan metinler notrlestirildi, T.C. kaldirildi",
+  "yazildi": "2026-09-23T02:20:00+03:00",
+  "not": "KOSUDAN ONCE yazildi. Karsilastirilan: next-14.2.35.json (public dogruluk A3 kaydi, 767 hucre, 2224 kural). Degisenler: TopBar'da 'T.C.' metni, iki sayfa aciklamasi (description matriste gozlenmez), yedek site adi (site_title iki kurumda dolu — ulasilmaz), panel yardim/yer tutucu metinleri (panel matriste yok). Matrisin gozledigi alanlar (durum, konum, x-tenant-slug, tur, <title>, og:site_name, og:url, og:image, CSP, sizinti, RSC kurum adlari) degismez: 0 hucre farki, 0 FAIL, KIMLIK 'degisiklik yok'.",
+  "fark_satirlari": [], "yeni_hucreler": [], "kayip_hucreler": [], "kapsama_kaybi": [], "kapsama_artti": [],
+  "beklenen_fail": [], "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": { "0": 4, "1": 738, "2": 936, "3": 281, "4": 178, "5": 8, "6": 62, "7": 17 },
+  "beklenen_sonuc_satiri": "SONUC: 2224 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}

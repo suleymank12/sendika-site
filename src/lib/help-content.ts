@@ -306,7 +306,7 @@ export const helpContent: Record<string, HelpTopic> = {
 
   "yonetim-kurulu": {
     title: "Yönetim Kurulu",
-    intro: "Sendikanın yönetim kurulu üyelerini yönetirsin.",
+    intro: "Kurumunuzun yönetim kurulu üyelerini yönetirsin.",
     sections: [
       {
         id: "uye",
@@ -532,7 +532,7 @@ export const helpContent: Record<string, HelpTopic> = {
 
   ayarlar: {
     title: "Site Ayarları",
-    intro: "Logo, favicon, sendika adı, iletişim, sosyal medya, renk gibi genel ayarları yönetirsin. Değişiklikler tüm sitede aynı anda yansır.",
+    intro: "Logo, favicon, site adı, iletişim, sosyal medya, renk gibi genel ayarları yönetirsin. Değişiklikler tüm sitede aynı anda yansır.",
     sections: [
       {
         id: "site",
@@ -549,17 +549,17 @@ export const helpContent: Record<string, HelpTopic> = {
         title: "İletişim",
         body: "Buradaki bilgiler footer'da ve İletişim sayfasında görünür. Boş bıraktıkların gösterilmez.",
         fields: [
-          { name: "Telefon", description: "Sendika merkez telefonu." },
-          { name: "E-posta", description: "Sendika resmi e-posta adresi." },
+          { name: "Telefon", description: "Merkez telefonu." },
+          { name: "E-posta", description: "Resmi e-posta adresi." },
           { name: "Adres", description: "Merkez ofis adresi." },
         ],
       },
       {
         id: "sosyal",
         title: "Sosyal Medya",
-        body: "Sendikanın kullandığı sosyal medya hesaplarının tam URL'lerini gir. 11 farklı platform için alan var: Facebook, Twitter (X), Instagram, YouTube, LinkedIn, WhatsApp Kanalı, Telegram, TikTok, Threads, Bluesky, Spotify. Boş bıraktığın platformların ikonu footer'da görünmez — yalnızca kullandıklarını doldur.",
+        body: "Kurumunuzun kullandığı sosyal medya hesaplarının tam URL'lerini gir. 11 farklı platform için alan var: Facebook, Twitter (X), Instagram, YouTube, LinkedIn, WhatsApp Kanalı, Telegram, TikTok, Threads, Bluesky, Spotify. Boş bıraktığın platformların ikonu footer'da görünmez — yalnızca kullandıklarını doldur.",
         tips: [
-          "Hesabın tam adresini yapıştır (facebook.com/sendika gibi) — başındaki https:// eksikse sistem otomatik ekler. Yalnız kullanıcı adı yeterli değil.",
+          "Hesabın tam adresini yapıştır (facebook.com/kurumadi gibi) — başındaki https:// eksikse sistem otomatik ekler. Yalnız kullanıcı adı yeterli değil.",
           "Hangi platformları kullanmıyorsan boş bırak; sitede sadece doldurduğun ikonlar görünecek.",
           "WhatsApp için kanal linkini kullan (https://whatsapp.com/channel/...), kişisel telefon numarası değil.",
         ],

@@ -5,6 +5,7 @@ import { getSiteSettings } from "@/lib/site-settings";
 import { buildTenantPublicUrl } from "@/lib/tenant-url";
 import { pickOgImage } from "@/lib/og-image";
 import { isSuperAdminHost } from "@/lib/tenant-hostname";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 import HydrationFlag from "@/components/HydrationFlag";
 import "./globals.css";
 
@@ -68,7 +69,7 @@ export async function generateMetadata(): Promise<Metadata> {
   // bir sorgu vardi.)
   const map = await getSiteSettings(tenant.id);
 
-  const title = map.site_title || tenant.name || "Sendika Adı";
+  const title = map.site_title || tenant.name || YEDEK_SITE_ADI;
   const description = map.site_description || `${title} Kurumsal Web Sitesi`;
   // Önce site_settings'teki favicon, sonra tenant.favicon_url
   const faviconUrl = map.favicon_url || tenant.favicon_url || undefined;

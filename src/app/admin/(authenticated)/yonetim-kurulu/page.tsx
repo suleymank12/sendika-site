@@ -455,7 +455,7 @@ export default function AdminBoardMembersPage() {
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="uye@sendika.tr"
+                  placeholder="uye@kurum.org.tr"
                   helperText="Opsiyonel"
                 />
               </section>

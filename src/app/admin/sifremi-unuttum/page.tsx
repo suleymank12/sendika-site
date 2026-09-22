@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenantOrNull } from "@/lib/get-tenant";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 import SifremiUnuttumForm from "./SifremiUnuttumForm";
 
 export default async function SifremiUnuttumPage() {
@@ -18,7 +19,7 @@ export default async function SifremiUnuttumPage() {
     .eq("key", "site_title")
     .maybeSingle();
 
-  const title = settings?.value || tenant.name || "Sendika Adı";
+  const title = settings?.value || tenant.name || YEDEK_SITE_ADI;
 
   return <SifremiUnuttumForm initialTitle={title} />;
 }

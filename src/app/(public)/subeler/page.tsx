@@ -10,7 +10,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return buildPublicMetadata({
     path: "/subeler",
     title: "Şubelerimiz",
-    description: "Sendika şubeleri ve iletişim bilgileri",
+    // Aciklama verilmez: "Şubelerimiz — <site adi>" (bkz. duyurular/page.tsx).
   });
 }
 

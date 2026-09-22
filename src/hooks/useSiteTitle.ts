@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTenant } from "@/hooks/useTenant";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 
 // Modul-seviyesi in-flight/sonuc cache'i: Sidebar (layout) + dashboard ayni
 // anda mount oldugunda ayni site_title sorgusu 2 kez atiliyordu; artik ayni
@@ -11,9 +12,12 @@ import { useTenant } from "@/hooks/useTenant";
 // degisikligi eskiden de tam sayfa yenilemeyle yansiyordu).
 const titleCache = new Map<string, Promise<string | null>>();
 
-export function useSiteTitle(fallback = "Sendika Adı") {
-  const [title, setTitle] = useState(fallback);
+// Ilk deger kurum adi: TenantProvider kurumu sunucudan hazir aliyor, yani
+// sorgu donene kadar da dogru ad gorunur (eskiden "Sendika Adı" parliyordu).
+// Zincir: site_title → kurum adi → YEDEK_SITE_ADI (lib/constants).
+export function useSiteTitle(fallback: string = YEDEK_SITE_ADI) {
   const { tenant } = useTenant();
+  const [title, setTitle] = useState(tenant?.name || fallback);
 
   useEffect(() => {
     if (!tenant) return;

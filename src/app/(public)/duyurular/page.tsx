@@ -19,7 +19,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   return buildPublicMetadata({
     path: page > 1 ? `/duyurular?sayfa=${page}` : "/duyurular",
     title: "Duyurular",
-    description: "Sendika duyuruları ve bilgilendirmeler",
+    // Aciklama verilmez: buildPublicMetadata "Duyurular — <site adi>" uretir
+    // (eskiden "Sendika duyurulari…" — her kuruma ayni, sendika varsayiyordu).
   });
 }
 

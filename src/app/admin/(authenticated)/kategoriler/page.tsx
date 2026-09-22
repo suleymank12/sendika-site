@@ -337,7 +337,7 @@ export default function AdminNewsCategoriesPage() {
               label="Kategori Adı"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Toplu Sözleşme"
+              placeholder="Etkinlikler"
               required
             />
             <Input

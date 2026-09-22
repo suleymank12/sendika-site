@@ -350,7 +350,7 @@ export default function AdminSettingsPage() {
               label="Site Başlığı"
               value={settings.site_title}
               onChange={(e) => update("site_title", e.target.value)}
-              placeholder="Sendika Adı"
+              placeholder="Kurum Adı"
               helperText="Tarayıcı sekmesinde ve navbar'da görünür."
             />
             <FormField label="Site Açıklaması">
@@ -420,7 +420,7 @@ export default function AdminSettingsPage() {
                 type="email"
                 value={settings.contact_email}
                 onChange={(e) => update("contact_email", e.target.value)}
-                placeholder="info@sendika.org.tr"
+                placeholder="info@kurum.org.tr"
               />
             </div>
             <FormField label="Adres">
@@ -448,16 +448,16 @@ export default function AdminSettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {(
                 [
-                  { key: "facebook_url", label: "Facebook", placeholder: "https://facebook.com/sendika" },
-                  { key: "twitter_url", label: "Twitter (X)", placeholder: "https://twitter.com/sendika" },
-                  { key: "instagram_url", label: "Instagram", placeholder: "https://instagram.com/sendika" },
-                  { key: "youtube_url", label: "YouTube", placeholder: "https://youtube.com/@sendika" },
-                  { key: "linkedin_url", label: "LinkedIn", placeholder: "https://linkedin.com/company/sendika" },
+                  { key: "facebook_url", label: "Facebook", placeholder: "https://facebook.com/kurumadi" },
+                  { key: "twitter_url", label: "Twitter (X)", placeholder: "https://twitter.com/kurumadi" },
+                  { key: "instagram_url", label: "Instagram", placeholder: "https://instagram.com/kurumadi" },
+                  { key: "youtube_url", label: "YouTube", placeholder: "https://youtube.com/@kurumadi" },
+                  { key: "linkedin_url", label: "LinkedIn", placeholder: "https://linkedin.com/company/kurumadi" },
                   { key: "whatsapp_url", label: "WhatsApp Kanalı", placeholder: "https://whatsapp.com/channel/..." },
-                  { key: "telegram_url", label: "Telegram", placeholder: "https://t.me/sendika" },
-                  { key: "tiktok_url", label: "TikTok", placeholder: "https://tiktok.com/@sendika" },
-                  { key: "threads_url", label: "Threads", placeholder: "https://threads.net/@sendika" },
-                  { key: "bluesky_url", label: "Bluesky", placeholder: "https://bsky.app/profile/sendika.bsky.social" },
+                  { key: "telegram_url", label: "Telegram", placeholder: "https://t.me/kurumadi" },
+                  { key: "tiktok_url", label: "TikTok", placeholder: "https://tiktok.com/@kurumadi" },
+                  { key: "threads_url", label: "Threads", placeholder: "https://threads.net/@kurumadi" },
+                  { key: "bluesky_url", label: "Bluesky", placeholder: "https://bsky.app/profile/kurumadi.bsky.social" },
                   { key: "spotify_url", label: "Spotify", placeholder: "https://open.spotify.com/show/..." },
                 ] as const
               ).map((field) => (
@@ -555,7 +555,7 @@ export default function AdminSettingsPage() {
               label="Footer Alt Yazısı"
               value={settings.footer_text}
               onChange={(e) => update("footer_text", e.target.value)}
-              placeholder="© 2026 Sendika Adı. Tüm hakları saklıdır."
+              placeholder="© 2026 Kurum Adı. Tüm hakları saklıdır."
               helperText="Her sayfanın en altında görünür."
             />
             <FormField label="Yapımcı Bilgisi">

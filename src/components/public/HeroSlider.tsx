@@ -10,13 +10,14 @@ import SafeImage from "@/components/SafeImage";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Newspaper } from "lucide-react";
 import { Slider } from "@/types";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 
 interface HeroSliderProps {
   slides: Slider[];
   siteTitle?: string;
 }
 
-export default function HeroSlider({ slides, siteTitle = "Sendika Adı" }: HeroSliderProps) {
+export default function HeroSlider({ slides, siteTitle = YEDEK_SITE_ADI }: HeroSliderProps) {
   const swiperRef = useRef<SwiperType | null>(null);
 
   if (slides.length === 0) {

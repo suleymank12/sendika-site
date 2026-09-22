@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenantOrNull } from "@/lib/get-tenant";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 import AdminLoginForm from "./AdminLoginForm";
 
 export default async function AdminLoginPage() {
@@ -28,7 +29,7 @@ export default async function AdminLoginPage() {
   // Pasif tenant'ta tenant kimligini sizdirma: notr baslik goster.
   // Login acik kalir (super admin buradan /super-admin'e ulasabilir).
   const title = tenant.is_active
-    ? settings?.value || tenant.name || "Sendika Adı"
+    ? settings?.value || tenant.name || YEDEK_SITE_ADI
     : "Yönetim Paneli";
 
   return (

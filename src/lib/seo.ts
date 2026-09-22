@@ -1,6 +1,7 @@
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
 import { pickOgImage } from "@/lib/og-image";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 import type { Metadata } from "next";
 
 /**
@@ -53,7 +54,7 @@ export async function buildPublicMetadata(
   const map = await getSiteSettings(tenant.id);
 
   // Fallback zinciri root layout generateMetadata ile SENKRON tutulmali.
-  const siteName = map.site_title || tenant.name || "Sendika Adı";
+  const siteName = map.site_title || tenant.name || YEDEK_SITE_ADI;
   const ogTitle = input.title || siteName;
   const description =
     input.description ||

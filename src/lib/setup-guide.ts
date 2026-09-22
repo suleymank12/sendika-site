@@ -251,7 +251,7 @@ export function evaluateSetupGuide(snapshot: SetupGuideSnapshot): SetupGuideResu
     step(
       "logo",
       "Logo",
-      "Şu an sitede logo yerine sendikanın baş harfi görünüyor.",
+      "Şu an sitede logo yerine sitenin baş harfi görünüyor.",
       "Logo yükle",
       "/admin/ayarlar#genel",
       hasRealLogo(tenantLogoUrl, settings.logo_url)

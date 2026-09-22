@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { YEDEK_SITE_ADI } from "@/lib/constants";
 import { getSiteSettings } from "@/lib/site-settings";
 import Layout1Homepage from "@/components/public/Layout1Homepage";
 import Layout2Homepage from "@/components/public/Layout2Homepage";
@@ -221,7 +222,7 @@ export default async function HomePage() {
     <>
       {/* Anasayfanin gorsel tasariminda sayfa basligi yok; h1 ekran
           okuyucu/SEO icin sr-only verilir (her iki varyantta da). */}
-      <h1 className="sr-only">{settings.site_title || tenant.name || "Sendika Adı"}</h1>
+      <h1 className="sr-only">{settings.site_title || tenant.name || YEDEK_SITE_ADI}</h1>
       {layoutType === "layout2" ? (
         <Layout2Homepage {...layoutProps} />
       ) : (

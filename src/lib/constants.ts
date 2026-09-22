@@ -49,6 +49,14 @@ export const MAX_UPLOAD_MB = {
  */
 export const PLACEHOLDER_LOGO_URL = "/placeholder-logo.png";
 
+/**
+ * Site adinin EN SON yedegi (23 Eylul 2026). Zincir her yerde ayni:
+ * `site_title` ayari → kurum adi (`tenants.name`, NOT NULL) → bu metin.
+ * Pratikte ulasilmaz; ulasilirsa kurum turu varsaymayan notr bir ifade.
+ * Eskiden "Sendika Adı" idi — urun sendika, vakif ve derneklere satiliyor.
+ */
+export const YEDEK_SITE_ADI = "Web Sitesi";
+
 /*
  * `DEFAULT_META` KALDIRILDI (20 Eylul 2026).
  *

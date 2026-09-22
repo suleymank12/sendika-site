@@ -599,7 +599,7 @@ export default function AdminBranchesPage() {
                       type="email"
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      placeholder="sube@sendika.org.tr"
+                      placeholder="sube@kurum.org.tr"
                     />
                   </div>
                   <Input
@@ -793,7 +793,7 @@ export default function AdminBranchesPage() {
                         type="email"
                         value={form.manager_email}
                         onChange={(e) => setForm({ ...form, manager_email: e.target.value })}
-                        placeholder="yonetici@sendika.tr"
+                        placeholder="yonetici@kurum.org.tr"
                         helperText="Opsiyonel"
                       />
                     </section>

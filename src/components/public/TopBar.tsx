@@ -10,8 +10,9 @@ export default function TopBar({ siteTitle, phone, email }: TopBarProps) {
   return (
     <div className="bg-primary-dark text-white/80 text-sm">
       <div className="container mx-auto flex items-center justify-between px-4 py-2.5">
+        {/* 23 Eylul 2026: "T.C." on eki kalkti — ozel bir kurulusa devlet
+            kurumu izlenimi veren yaniltici bir ibareydi (ayar olarak da yok). */}
         <div className="flex items-center gap-1.5">
-          <span className="font-semibold text-white">T.C.</span>
           <span>{siteTitle}</span>
         </div>
         <div className="hidden sm:flex items-center gap-4">
