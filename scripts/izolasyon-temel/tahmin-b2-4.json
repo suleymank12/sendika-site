@@ -1,0 +1,27 @@
+{
+  "tur": "B2 uygulama 4 — kurumsuz host'lara eksik 10 public yol",
+  "yazildi": "2026-09-22T23:46:12.260Z",
+  "not": "KODDAN ONCE uretildi (tahmin-uret-b2-4.mjs). Kosu temel_belge'ye BIREBIR: 875 hucre (795 + 80), fark 0, FAIL 0, KIMLIK 'degisiklik yok' (kurumsuzYol tablosu belgede).",
+  "temel_belge": {
+    "yol": "scripts/izolasyon-temel/tahmin-b2-4-belge.json",
+    "sha256": "316e1b50f075a94f38e5bfcf941f6cdf779b852439edb7167b8e08f0bb19e85a"
+  },
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}

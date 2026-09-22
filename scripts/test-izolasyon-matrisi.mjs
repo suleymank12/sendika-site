@@ -458,7 +458,45 @@ const YOLLAR = [
 // Sayfa render eden ve bilincli olarak matcher disinda tutulan yol bu listede
 // yok; matcher siniri bolum (6)'da ayrica muhurlu.
 const MATCHER_DISI = new Set([]);
-const hucreler = HOSTLAR.flatMap(([he, host]) => YOLLAR.map(([ya, yol]) => ({ he, host, ya, yol, yok: yol === null })));
+// KURUMSUZ HOST'LARA EK PUBLIC YOLLAR (B2, 23 Eylul 2026 — T10 muhrunun davranis
+// ayagi). T10 mutasyonu gosterdi: layout notFound() verirken sayfa kendi
+// verisini okuyup 404 yukune sizdirabilir. Asagidaki 10 public rota yukaridaki
+// YOLLAR'da yoktu; YALNIZ iki kurumsuz host'a eklenir (kayitli host'larda
+// hucre degeri veriye bagli olurdu). Beklenen: hepsinde notr 404.
+// Dinamik yollarda A'nin GERCEK adresi (uydurma slug'da sayfa veri bulamaz,
+// sizinti gorunmez). Anon anahtar bu tablolari goremiyor (RLS) → adres
+// uygulamanin KENDI apex sayfasindaki ilk baglantidan; bulunamazsa sabit yer
+// tutucu (hucre degeri yine notr 404 — adresten bagimsiz). Secilen adresler
+// belgede `semboller.kurumsuzYol` (degisirse KIMLIK teshisi).
+const YER_TUTUCU_UUID = "00000000-0000-4000-8000-000000000000";
+async function ilkBaglanti(kaynak, onek) {
+  const r = await istek(APEX_HOST, kaynak);
+  const m = r.govde.match(new RegExp(`href="(${onek}[^"/?#]+)"`));
+  return m ? entity(m[1]) : null;
+}
+const bulunan = {
+  album: await ilkBaglanti("/galeri", "/galeri/"),
+  sube: await ilkBaglanti("/subeler", "/subeler/"),
+  uye: await ilkBaglanti("/kurumsal/yonetim-kurulu", "/yonetim-kurulu/"),
+  bolum: await ilkBaglanti("/", "/bolum/"),
+};
+const yt = (etiket, somut, yerTutucu) => [etiket, somut ?? yerTutucu, somut ? somut : `YER-TUTUCU ${yerTutucu}`];
+const KURUMSUZ_YOLLAR = [
+  ["/duyurular", "/duyurular", "/duyurular"],
+  ["/galeri", "/galeri", "/galeri"],
+  ["/iletisim", "/iletisim", "/iletisim"],
+  ["/subeler", "/subeler", "/subeler"],
+  ["/kurumsal/yonetim-kurulu", "/kurumsal/yonetim-kurulu", "/kurumsal/yonetim-kurulu"],
+  yt("/galeri/{A.album}", bulunan.album, `/galeri/${YER_TUTUCU_UUID}`),
+  yt("/subeler/{A.sube}", bulunan.sube, "/subeler/yok-boyle-sube"),
+  yt("/subeler/{A.sube}/yonetici", bulunan.sube && `${bulunan.sube}/yonetici`, "/subeler/yok-boyle-sube/yonetici"),
+  yt("/yonetim-kurulu/{A.uye}", bulunan.uye, "/yonetim-kurulu/yok-boyle-uye"),
+  yt("/bolum/{A.bolum}", bulunan.bolum, `/bolum/${YER_TUTUCU_UUID}`),
+];
+const hucreler = [
+  ...HOSTLAR.flatMap(([he, host]) => YOLLAR.map(([ya, yol]) => ({ he, host, ya, yol, yok: yol === null }))),
+  ...HOSTLAR.filter(([he]) => KURUMSUZ.has(he)).flatMap(([he, host]) => KURUMSUZ_YOLLAR.map(([ya, yol]) => ({ he, host, ya, yol, yok: false }))),
+];
 const YER_TUTUCU = { hedef: "YOK" };
 
 async function havuz(isler, n) {
@@ -1065,6 +1103,7 @@ const belge = {
   semboller: {
     kurumSlug: { "{A.slug}": A.slug, "{B.slug}": B.slug, "{bilinmeyen-sub}": BILINMEYEN_SUB, "{bilinmeyen-alan}": BILINMEYEN_ALAN },
     hedefYolu: Object.fromEntries(sembolMap.map(([somut, sembol]) => [sembol, somut])),
+    kurumsuzYol: Object.fromEntries(KURUMSUZ_YOLLAR.map(([etiket, , kayit]) => [etiket, kayit])),
   },
   bilinenKusurlar: Object.fromEntries([...bilinenGorulen].sort()),
   gozlem: sirali(gozlem),
