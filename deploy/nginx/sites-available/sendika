@@ -1,0 +1,33 @@
+# HTTP → HTTPS yönlendirme
+server {
+    listen 80;
+    server_name buyukdirilis.org.tr *.buyukdirilis.org.tr;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name buyukdirilis.org.tr *.buyukdirilis.org.tr;
+
+    ssl_certificate /etc/letsencrypt/live/buyukdirilis.org.tr/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/buyukdirilis.org.tr/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    # HSTS — tarayıcı bir daha HTTP denemesin
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    client_max_body_size 450M;
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+
+    include snippets/sendika-statik.conf;
+
+    include snippets/sendika-gorsel-ucu.conf;
+
+    location / {
+        include snippets/sendika-uygulama.conf;
+    }
+}
