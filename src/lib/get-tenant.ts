@@ -4,12 +4,14 @@ import { notFound } from "next/navigation";
 import { getTenant } from "./tenant";
 import type { Tenant } from "./tenant";
 import { dogrula } from "./tenant-proof";
+import { BILINMEYEN_ALAN_SLUG } from "./constants";
 
 /**
  * Bu istegin kurumu — UC durum, ikisi birbirine KARISTIRILMAZ (K6, 21 Eylul 2026):
  *
  *   found        middleware slug yazdi, kurum var
- *   unknown-slug middleware slug yazdi, kurum YOK (bilinmeyen subdomain)
+ *   unknown-slug middleware slug yazdi, kurum YOK (bilinmeyen subdomain ya da
+ *                B2 isareti: bilinmeyen ozel alan adi — DB'ye gidilmez)
  *   no-header    `x-tenant-slug` HIC YOK ya da kaniti (x-tenant-proof)
  *                DOGRULANMIYOR → bu istek middleware'den GECMEDI
  *
@@ -64,6 +66,10 @@ export const resolveCurrentTenant = cache(async (): Promise<TenantResolution> =>
   const host = h.get("host");
   if (!slug || !host) return { kind: "no-header" };
   if (!(await dogrula(host, slug, h.get("x-tenant-proof")))) return { kind: "no-header" };
+  // B2: middleware'in "bu ozel alan adi hicbir kurumda yok" isareti — kurum
+  // olmadigi KESIN, veritabanina sorgu gonderilmez (unstable_cache girdisi
+  // de acilmaz). Kanit dogrulandiktan SONRA: imzasiz isaret no-header.
+  if (slug === BILINMEYEN_ALAN_SLUG) return { kind: "unknown-slug" };
   const tenant = await getTenant(slug);
   return tenant ? { kind: "found", tenant } : { kind: "unknown-slug" };
 });
@@ -112,9 +118,10 @@ export const getCurrentTenantOrNull = cache(async (): Promise<Tenant | null> => 
  *     gosteriyordu. Artik: sayfa, robots.txt, sitemap.xml notr 404; metadata
  *     root layout'un notr dalindan (hicbir kurumun adi/og'si/favicon'u yok).
  *
- * Bilinmeyen CUSTOM domain bu dala GELMEZ: middleware onu cozemeyince
- * `x-tenant-slug`'a "default" yaziyor (fail-closed yalniz /admin'de) — ayri
- * karar, bu kodun kapsaminda degil.
+ * Bilinmeyen CUSTOM domain de bu dala gelir (B2, 23 Eylul 2026): middleware
+ * onu cozemeyince BILINMEYEN_ALAN_SLUG isaretini yaziyor (eskiden "default" —
+ * default kurumun sitesi yayinlaniyordu). Veritabani HATASI buraya gelmez:
+ * middleware 503 donuyor (gecici, arama motoru sayfayi dusurmesin).
  *
  * 🔴 ADMIN TARAFI BUNU KULLANMAMALI. Orada yanlis panel acmaktansa hic
  * panel acmamak dogru — `getCurrentTenantOrNull()` + "Alan Adı Tanımlı Değil"

@@ -57,6 +57,32 @@ export const PLACEHOLDER_LOGO_URL = "/placeholder-logo.png";
  */
 export const YEDEK_SITE_ADI = "Web Sitesi";
 
+/**
+ * BILINMEYEN OZEL ALAN ADI ISARETI (B2, 23 Eylul 2026).
+ *
+ * Middleware bir ozel alan adini `tenants.custom_domain`'de BULAMAZSA
+ * `x-tenant-slug`'a bunu yazar (eskiden "default" kaliyordu: kayitli
+ * olmayan / musterisi ayrilmis alan adi default kurumun sitesini,
+ * indekslenebilir hâlde yayinliyordu). Render (`resolveCurrentTenant`)
+ * bu degeri gorunce veritabanina HIC gitmeden `unknown-slug` doner →
+ * K8'in notr 404'u; /admin/tenant-bulunamadi notr ekran.
+ *
+ * `!` bilerek: hicbir kurum slug'i olamaz (SLUG_REGEX, parseHostname
+ * etiketleri [a-z0-9-]) — gercek bir kurumla CAKISAMAZ. Kanit (K7-B)
+ * host + isaret uzerine imzalanir; imzasiz isaret `no-header`'a duser.
+ */
+export const BILINMEYEN_ALAN_SLUG = "!bilinmeyen-alan";
+
+/**
+ * Middleware'in veritabani GECICI HATASI yaniti (503) bu basligi tasir:
+ * kurulum yoklamasi (setup-probes) "Nginx uygulamaya ulasamiyor" 503'unu
+ * uygulamanin kendi gecici hatasindan ayirt edebilsin. Deger ve ad
+ * setup-probes.ts'te de var (o dosya bilincli olarak import'suz; test
+ * karsilastirir).
+ */
+export const KURUM_DURUMU_BASLIGI = "x-kurum-durumu";
+export const KURUM_DURUMU_GECICI_HATA = "gecici-hata";
+
 /*
  * `DEFAULT_META` KALDIRILDI (20 Eylul 2026).
  *

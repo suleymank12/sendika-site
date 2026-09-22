@@ -1,0 +1,272 @@
+{
+ "not": "B2 uygulama 3 ON OLCUMU — KOD DEGISMEDEN (HEAD b77342d build, matrise GECICI /admin/tenant-bulunamadi yolu, --build-yok --ayrinti). Yeni yolun BUGUNKU gozlemi; tahmin-uret-b2-3.mjs bunun ustune elle yazilmis fark tablosunu uygular.",
+ "kaynak_cikti_sha256": "10c7784cb1caf7ba5a4ec888defabbf90666f1957b643e82ee4581c14b97daa7",
+ "hucreler": {
+  "html|A-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "html",
+   "kurumBaslik": "A",
+   "kurumOg": "A",
+   "ogUrl": null,
+   "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+   "csp": {
+    "ad": "Content-Security-Policy",
+    "nonceVar": true,
+    "attrSayisiPozitif": true,
+    "hepsiEsit": true
+   }
+  },
+  "html|B-custom|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{B.slug}",
+   "tur": "html",
+   "kurumBaslik": "B",
+   "kurumOg": "B",
+   "ogUrl": null,
+   "ogImage": null,
+   "csp": {
+    "ad": "Content-Security-Policy",
+    "nonceVar": true,
+    "attrSayisiPozitif": true,
+    "hepsiEsit": true
+   }
+  },
+  "html|B-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{B.slug}",
+   "tur": "html",
+   "kurumBaslik": "B",
+   "kurumOg": "B",
+   "ogUrl": null,
+   "ogImage": null,
+   "csp": {
+    "ad": "Content-Security-Policy",
+    "nonceVar": true,
+    "attrSayisiPozitif": true,
+    "hepsiEsit": true
+   }
+  },
+  "html|apex|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "html",
+   "kurumBaslik": "A",
+   "kurumOg": "A",
+   "ogUrl": null,
+   "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+   "csp": {
+    "ad": "Content-Security-Policy",
+    "nonceVar": true,
+    "attrSayisiPozitif": true,
+    "hepsiEsit": true
+   }
+  },
+  "html|bilinmeyen-custom|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "html",
+   "kurumBaslik": "A",
+   "kurumOg": "A",
+   "ogUrl": null,
+   "ogImage": "apex/_next/image?w=1200&q=75&url=storage",
+   "csp": {
+    "ad": "Content-Security-Policy",
+    "nonceVar": true,
+    "attrSayisiPozitif": true,
+    "hepsiEsit": true
+   }
+  },
+  "html|bilinmeyen-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{bilinmeyen-sub}",
+   "tur": "html",
+   "kurumBaslik": "?(Alan adı tanımlı değil)",
+   "kurumOg": null,
+   "ogUrl": null,
+   "ogImage": null,
+   "csp": {
+    "ad": "Content-Security-Policy",
+    "nonceVar": true,
+    "attrSayisiPozitif": true,
+    "hepsiEsit": true
+   }
+  },
+  "html|superadmin|/admin/tenant-bulunamadi": {
+   "durum": 404,
+   "konum": null,
+   "slug": null,
+   "tur": "text"
+  },
+  "prefetch|A-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "rsc",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "prefetch|B-custom|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{B.slug}",
+   "tur": "rsc",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "prefetch|B-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{B.slug}",
+   "tur": "rsc",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "prefetch|apex|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "rsc",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "prefetch|bilinmeyen-custom|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "rsc",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "prefetch|bilinmeyen-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{bilinmeyen-sub}",
+   "tur": "rsc",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "prefetch|superadmin|/admin/tenant-bulunamadi": {
+   "durum": 404,
+   "konum": null,
+   "slug": null,
+   "tur": "text",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "rsc|A-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "rsc",
+   "kurumlar": [
+    "A"
+   ],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "rsc|B-custom|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{B.slug}",
+   "tur": "rsc",
+   "kurumlar": [
+    "B"
+   ],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "rsc|B-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{B.slug}",
+   "tur": "rsc",
+   "kurumlar": [
+    "B"
+   ],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "rsc|apex|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "rsc",
+   "kurumlar": [
+    "A"
+   ],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "rsc|bilinmeyen-custom|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{A.slug}",
+   "tur": "rsc",
+   "kurumlar": [
+    "A"
+   ],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "rsc|bilinmeyen-sub|/admin/tenant-bulunamadi": {
+   "durum": 200,
+   "konum": null,
+   "slug": "{bilinmeyen-sub}",
+   "tur": "rsc",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "rsc|superadmin|/admin/tenant-bulunamadi": {
+   "durum": 404,
+   "konum": null,
+   "slug": null,
+   "tur": "text",
+   "kurumlar": [],
+   "isaret": null,
+   "sizinti": 0
+  },
+  "sahte|A-sub|/admin/tenant-bulunamadi": {
+   "farkliAlanlar": [],
+   "yansima": false
+  },
+  "sahte|B-custom|/admin/tenant-bulunamadi": {
+   "farkliAlanlar": [],
+   "yansima": false
+  },
+  "sahte|B-sub|/admin/tenant-bulunamadi": {
+   "farkliAlanlar": [],
+   "yansima": false
+  },
+  "sahte|apex|/admin/tenant-bulunamadi": {
+   "farkliAlanlar": [],
+   "yansima": false
+  },
+  "sahte|bilinmeyen-custom|/admin/tenant-bulunamadi": {
+   "farkliAlanlar": [],
+   "yansima": false
+  },
+  "sahte|bilinmeyen-sub|/admin/tenant-bulunamadi": {
+   "farkliAlanlar": [],
+   "yansima": false
+  },
+  "sahte|superadmin|/admin/tenant-bulunamadi": {
+   "farkliAlanlar": [],
+   "yansima": false
+  }
+ }
+}

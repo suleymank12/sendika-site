@@ -270,16 +270,26 @@ const KANONIK = { A: "apex", B: "B-custom" };
 //   bilinmeyen-sub → null (K8, 22 Eylul 2026): kayitli olmayan subdomain public
 //     tarafta NOTR 404 (eskiden default kurumun sitesiydi); /admin'de "Alan Adi
 //     Tanimli Degil" ekrani (degismedi).
-//   bilinmeyen-custom → A: middleware cozemedigi custom domain'e "default"
-//     yaziyor (public'te default site, /admin'de fail-closed) — ayri karar.
-const BEKLENEN = { apex: "A", "A-sub": "A", "B-sub": "B", "B-custom": "B", "bilinmeyen-sub": null, "bilinmeyen-custom": "A", superadmin: null };
+//   bilinmeyen-custom → null (B2, 23 Eylul 2026): middleware cozemedigi ozel
+//     alan adina isaret slug'i (BILINMEYEN_ALAN) yaziyor → public tarafta
+//     bilinmeyen-sub'la AYNI notr 404; /admin'de fail-closed (degismedi).
+//     Eskiden "default" yaziliyordu: default kurumun sitesi yayinlaniyordu.
+const BEKLENEN = { apex: "A", "A-sub": "A", "B-sub": "B", "B-custom": "B", "bilinmeyen-sub": null, "bilinmeyen-custom": null, superadmin: null };
+// Kurumu OLMAYAN host'lar (superadmin haric — onun ayri kurallari var).
+const KURUMSUZ = new Set(["bilinmeyen-sub", "bilinmeyen-custom"]);
+// Urunun isaret degeri (lib/constants BILINMEYEN_ALAN_SLUG) BILEREK kopyalandi,
+// import edilmedi (B4 bagimsizlik ilkesi): urun degeri degistirirse slug
+// YABANCI(…) gorunur ve x-tenant-slug kurali KIRMIZI olur — sessiz uyum yok.
+const BILINMEYEN_ALAN = "!bilinmeyen-alan";
+// Middleware'in fail-closed hedefi; kayitli host'ta /admin/giris'e yonlenir.
+const TENANT_ERROR_PATH = "/admin/tenant-bulunamadi";
 // B4 P4: x-tenant-slug SEMBOLLE kaydedilir — kurum slug'i yeniden adlandirilinca
 // 83 alan kaymasin. Ham slug "hangi kurum" sinyalini tasiyordu; sembol de
 // tasiyor (A ≠ B ≠ bilinmeyen). Tanimadigimiz slug HAM kalir: YABANCI(<slug>).
 // Adresin kendisi degisirse "--- KIMLIK" teshisi soyler (semboller.kurumSlug).
-const SLUG_SEMBOL = new Map([[A.slug, "{A.slug}"], [B.slug, "{B.slug}"], [BILINMEYEN_SUB, "{bilinmeyen-sub}"]]);
+const SLUG_SEMBOL = new Map([[A.slug, "{A.slug}"], [B.slug, "{B.slug}"], [BILINMEYEN_SUB, "{bilinmeyen-sub}"], [BILINMEYEN_ALAN, "{bilinmeyen-alan}"]]);
 const slugSembolu = (ham) => (ham == null ? null : SLUG_SEMBOL.get(ham) ?? `YABANCI(${ham})`);
-const BEKLENEN_SLUG = { apex: "{A.slug}", "A-sub": "{A.slug}", "B-sub": "{B.slug}", "B-custom": "{B.slug}", "bilinmeyen-sub": "{bilinmeyen-sub}", "bilinmeyen-custom": "{A.slug}" };
+const BEKLENEN_SLUG = { apex: "{A.slug}", "A-sub": "{A.slug}", "B-sub": "{B.slug}", "B-custom": "{B.slug}", "bilinmeyen-sub": "{bilinmeyen-sub}", "bilinmeyen-custom": "{bilinmeyen-alan}" };
 const DIGER = { A: "B", B: "A" };
 
 // Hedef yolu ↔ sembol: yalniz KIMLIK kaydi (belge.semboller.hedefYolu). Gozlem
@@ -436,6 +446,9 @@ const YOLLAR = [
   ["/admin", "/admin"],
   ["/admin/giris", "/admin/giris"],
   ["/admin/haberler", "/admin/haberler"],
+  // B2 (23 Eylul 2026): fail-closed hedefi. Kurumsuz host'ta notr ekran
+  // (kurum kimligi yok); kayitli host'ta /admin/giris'e 307 (sayfa ici).
+  [TENANT_ERROR_PATH, TENANT_ERROR_PATH],
   ["/super-admin", "/super-admin"],
   ["/olmayan-sayfa", "/olmayan-sayfa"],
   // 21 Eylul 2026'ya kadar matcher DISIYDI (`api` ONEKI dislaniyordu: K1-K4).
@@ -696,7 +709,8 @@ for (const h of hucreler) {
   // tarafta notr 404 — baska bir notr 404'ten (K6: /_next/static/yok.js)
   // ayirt edilemez; robots/sitemap govdesiz 404. /admin'de K8'den ONCEKI
   // "Alan Adi Tanimli Degil" ekrani AYNEN (muhurlu).
-  if (h.he === "bilinmeyen-sub") {
+  // B2 (23 Eylul 2026): bilinmeyen-custom da bu dalda — ayni notr 404.
+  if (KURUMSUZ.has(h.he)) {
     const govdeB = htmlR[hucreler.indexOf(h)].govde;
     iddia("1", `${b}|sizinti-yok`, sizintilar(govdeB, null).length === 0, sizintilar(govdeB, null).join(" | "));
     iddia("1", `${b}|kurum-gostermez`, !["A", "B"].includes(g.kurumBaslik) && !["A", "B"].includes(g.kurumOg), JSON.stringify(g));
@@ -705,7 +719,13 @@ for (const h of hucreler) {
       continue;
     }
     if (h.ya.startsWith("/admin")) {
-      if (h.ya === "/admin/giris") {
+      if (h.ya === TENANT_ERROR_PATH) {
+        // Notr "Alan Adi Tanimli Degil" ekrani; giris formu (parola alani) YOK
+        iddia("1", `${b}|bulunamadi-ekrani`, g.durum === 200 && govdeB.includes("Alan Adı Tanımlı Değil") && !govdeB.includes('type="password"'), JSON.stringify(g));
+      } else if (h.he === "bilinmeyen-custom") {
+        // /admin fail-closed: slug yazilmadan ONCE hata sayfasina (degismedi)
+        iddia("1", `${b}|fail-closed`, g.durum === 307 && g.konum === TENANT_ERROR_PATH, JSON.stringify(g));
+      } else if (h.ya === "/admin/giris") {
         iddia("1", `${b}|kurum-bulunamadi`, g.durum === 200 && g.kurumBaslik === "BULUNAMADI", JSON.stringify(g));
         // /admin DEGISMEDI: baslik K8 oncesiyle ayni, govde ekran, parola alani yok
         const baslikAdmin = entity((govdeB.match(/<title>([^<]*)<\/title>/) || [])[1] || "");
@@ -736,8 +756,9 @@ for (const h of hucreler) {
     continue;
   }
   if (h.ya.startsWith("/admin")) {
-    if (h.he === "bilinmeyen-custom") {
-      iddia("1", `${b}|fail-closed`, g.durum === 307 && g.konum === "/admin/tenant-bulunamadi", JSON.stringify(g));
+    if (h.ya === TENANT_ERROR_PATH) {
+      // Kayitli host'ta "alan adi tanimli degil" YANLIS — giris sayfasina (B2)
+      iddia("1", `${b}|kayitli-hostta-girise`, g.durum === 307 && g.konum === "/admin/giris", JSON.stringify(g));
     } else if (h.ya === "/admin/giris") {
       if (h.he === "bilinmeyen-sub") iddia("1", `${b}|kurum-bulunamadi`, g.durum === 200 && g.kurumBaslik === "BULUNAMADI", JSON.stringify(g));
       else iddia("1", `${b}|giris-kendi-kurumu`, g.durum === 200 && g.kurumBaslik === bek && g.slug === BEKLENEN_SLUG[h.he], JSON.stringify(g));
@@ -779,17 +800,23 @@ for (const varyant of ["rsc", "prefetch"]) {
     const bek = BEKLENEN[h.he];
     // Middleware yonlendirmesi (fail-closed, oturumsuz giris, super admin
     // kurallari) RSC'de de AYNI olmali — istemci gezinmesi bu yoldan gider.
-    const middlewareYonlendirmesi = d.durum >= 300 && d.durum < 400 && (h.he === "superadmin" || h.ya.startsWith("/admin") || h.ya === "/super-admin");
+    // TENANT_ERROR_PATH haric: kayitli host'taki yonlendirmesi SAYFA ici (redirect()),
+    // RSC'de 200 + NEXT_REDIRECT doner — asagida ayri kural (B2).
+    const middlewareYonlendirmesi = d.durum >= 300 && d.durum < 400 && (h.he === "superadmin" || (h.ya.startsWith("/admin") && h.ya !== TENANT_ERROR_PATH) || h.ya === "/super-admin");
     if (middlewareYonlendirmesi) iddia("2", `${b}|middleware-yonlendirmesi-ayni`, r.durum === d.durum && r.konum === d.konum, `rsc=${r.durum} ${r.konum} html=${d.durum} ${d.konum}`);
     if (d.durum === 404 && d.tur === "text") iddia("2", `${b}|duz-404-ayni`, r.durum === 404, `rsc=${r.durum}`);
     iddia("2", `${b}|icerik-sizintisi-yok`, r.sizinti === 0, `sizinti=${r.sizinti}`);
     if (h.he === "superadmin") { iddia("2", `${b}|kurum-yok`, r.kurumlar.length === 0, r.kurumlar.join()); continue; }
-    // Kurumu olmayan host (bilinmeyen-sub, K8): yukte HICBIR kurumun adi olamaz
+    // Kurumu olmayan host (bilinmeyen-sub K8, bilinmeyen-custom B2): yukte HICBIR kurumun adi olamaz
     if (bek) iddia("2", `${b}|baska-kurum-yok`, !r.kurumlar.includes(DIGER[bek]), r.kurumlar.join());
     else iddia("2", `${b}|kurum-yok`, r.kurumlar.length === 0, r.kurumlar.join());
+    // B2: kayitli host'ta fail-closed hedefi RSC'de de girise yonlendirir
+    if (h.ya === TENANT_ERROR_PATH && bek && varyant === "rsc") {
+      iddia("2", `${b}|kayitli-hostta-girise`, r.isaret === "redirect" || (r.durum === 307 && r.konum === "/admin/giris"), `durum=${r.durum} konum=${r.konum} isaret=${r.isaret}`);
+    }
     // K8: bilinmeyen subdomain'in public yollari RSC'de de notr — notFound
     // isareti (layout'ta notFound → HTTP 200 + NEXT_NOT_FOUND) ya da 404
-    if (h.he === "bilinmeyen-sub" && varyant === "rsc" && !h.ya.startsWith("/admin") && h.ya !== "/super-admin") {
+    if (KURUMSUZ.has(h.he) && varyant === "rsc" && !h.ya.startsWith("/admin") && h.ya !== "/super-admin") {
       iddia("2", `${b}|notr-notFound`, (r.isaret === "notFound" || r.durum === 404) && r.kurumlar.length === 0, `durum=${r.durum} isaret=${r.isaret} kurumlar=${r.kurumlar.join()}`);
     }
     if (CAPRAZ(h.he, h.ya) === "yabanci" && varyant === "rsc") {
@@ -799,7 +826,7 @@ for (const varyant of ["rsc", "prefetch"]) {
       if (!MATCHER_DISI.has(h.ya) && !h.ya.startsWith("/admin/") && h.ya !== "/super-admin") {
         iddia("2", `${b}|x-tenant-slug`, r.slug === BEKLENEN_SLUG[h.he], `gelen=${r.slug}`);
       }
-      if (r.tur === "rsc" && varyant === "rsc" && h.he !== "bilinmeyen-sub" && !h.ya.startsWith("/admin")) {
+      if (r.tur === "rsc" && varyant === "rsc" && !KURUMSUZ.has(h.he) && !h.ya.startsWith("/admin")) {
         iddia("2", `${b}|yukte-kendi-kurumu`, r.kurumlar.includes(bek), r.kurumlar.join());
       }
     }
@@ -1036,7 +1063,7 @@ const belge = {
   kurumlar: { A: { id: A.id, slug: A.slug }, B: { id: B.id, slug: B.slug, custom_domain: B.custom_domain } },
   hedefler: Object.fromEntries(Object.entries(SECILEN).map(([k, x]) => [k, x ? { id: x.id, slug: x.slug ?? null } : "YOK"])),
   semboller: {
-    kurumSlug: { "{A.slug}": A.slug, "{B.slug}": B.slug, "{bilinmeyen-sub}": BILINMEYEN_SUB },
+    kurumSlug: { "{A.slug}": A.slug, "{B.slug}": B.slug, "{bilinmeyen-sub}": BILINMEYEN_SUB, "{bilinmeyen-alan}": BILINMEYEN_ALAN },
     hedefYolu: Object.fromEntries(sembolMap.map(([somut, sembol]) => [sembol, somut])),
   },
   bilinenKusurlar: Object.fromEntries([...bilinenGorulen].sort()),

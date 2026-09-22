@@ -62,6 +62,8 @@ import {
   summarizeSetup,
 } from "../src/lib/super-admin/setup-checklist.ts";
 import {
+  KURUM_DURUMU_BASLIGI as YOKLAMA_KURUM_DURUMU_BASLIGI,
+  KURUM_DURUMU_GECICI_HATA as YOKLAMA_KURUM_DURUMU_GECICI_HATA,
   PROBE_INVALID_TOKEN,
   PROBE_PAGE_PATH,
   SUPABASE_RETURN_PATH,
@@ -74,6 +76,7 @@ import {
   runSetupProbes,
 } from "../src/lib/super-admin/setup-probes.ts";
 import { buildRecoveryReturnUrl } from "../src/lib/super-admin/admin-invite.ts";
+import { BILINMEYEN_ALAN_SLUG, KURUM_DURUMU_BASLIGI, KURUM_DURUMU_GECICI_HATA, SLUG_REGEX } from "../src/lib/constants.ts";
 
 // ---------------------------------------------------------------------------
 // Kucuk test kosucusu (diger test script'leriyle ayni desen)
@@ -369,6 +372,23 @@ ok("uygulama", "200 + baslik yok → Eksik (yanit bu uygulamadan degil)", evalua
   okTrue("uygulama", "goreli Location da cozulur", v.detail.includes("eşleyemedi"), v.detail);
 }
 ok("uygulama", "502 → Eksik", evaluateAppResponse(httpOk(502), SLUG, ORIGIN).status, "missing", "502");
+// B2 (23 Eylul 2026): uygulamanin KENDI 503'u (veritabani gecici hatasi) ≠ Nginx 503'u
+{
+  const v = evaluateAppResponse({ ...httpOk(503), kurumDurumu: "gecici-hata" }, SLUG, ORIGIN);
+  okTrue("uygulama", "503 + x-kurum-durumu: gecici-hata → Belirlenemedi (veritabani gecici hatasi, Nginx DEGIL)", v.status === "unknown" && v.detail.includes("veritabanı geçici hatası") && !v.detail.includes("Nginx"), v.detail);
+}
+{
+  const v = evaluateAppResponse(httpOk(503), SLUG, ORIGIN);
+  okTrue("uygulama", "503 basliksiz → Eksik (Nginx uygulamaya ulasamiyor — eski davranis)", v.status === "missing" && v.detail.includes("Nginx"), v.detail);
+}
+{
+  const v = evaluateAppResponse({ ...httpOk(503), kurumDurumu: "baska" }, SLUG, ORIGIN);
+  ok("uygulama", "503 + taninmayan x-kurum-durumu degeri → Eksik (yalniz tam deger kabul)", v.status, "missing", v.detail);
+}
+ok("uygulama", "yoklama basligi = lib/constants (ad)", YOKLAMA_KURUM_DURUMU_BASLIGI, KURUM_DURUMU_BASLIGI, "sabit");
+ok("uygulama", "yoklama degeri = lib/constants (deger)", YOKLAMA_KURUM_DURUMU_GECICI_HATA, KURUM_DURUMU_GECICI_HATA, "sabit");
+ok("uygulama", "evaluateAppResponse'daki sabit metin = lib/constants", KURUM_DURUMU_GECICI_HATA, "gecici-hata", "sabit");
+okTrue("uygulama", "🔴 BILINMEYEN_ALAN_SLUG hicbir kurum slug'i OLAMAZ (SLUG_REGEX reddeder)", !SLUG_REGEX.test(BILINMEYEN_ALAN_SLUG), BILINMEYEN_ALAN_SLUG);
 ok("uygulama", "sertifika hatasi → Belirlenemedi", evaluateAppResponse({ ok: false, code: "ERR_TLS_CERT_ALTNAME_INVALID" }, SLUG, ORIGIN).status, "unknown", "tls");
 ok("uygulama", "DNS kapisi → Belirlenemedi", evaluateAppResponse({ ok: false, code: "DNS_NOT_READY" }, SLUG, ORIGIN).status, "unknown", "gate");
 ok("uygulama", "baglanti reddi → Belirlenemedi", evaluateAppResponse({ ok: false, code: "ECONNREFUSED" }, SLUG, ORIGIN).status, "unknown", "refused");

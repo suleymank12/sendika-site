@@ -37,6 +37,16 @@ import type {
 /** setup-checklist.ts AUTH_RETURN_PATH ile AYNI (test karşılaştırır). */
 export const SUPABASE_RETURN_PATH = "/admin/davet-kabul";
 
+/**
+ * Uygulamanın KENDİ geçici hata yanıtının başlığı (B2, 23 Eylül 2026) —
+ * lib/constants.ts KURUM_DURUMU_BASLIGI / KURUM_DURUMU_GECICI_HATA ile AYNI
+ * (test karşılaştırır). Middleware özel alan adı sorgusu veritabanı hatası
+ * verince 503 + bu başlığı döner; yoklama bunu "Nginx uygulamaya
+ * ulaşamıyor" 503'ünden ayırt eder.
+ */
+export const KURUM_DURUMU_BASLIGI = "x-kurum-durumu";
+export const KURUM_DURUMU_GECICI_HATA = "gecici-hata";
+
 /** Yoklanan uygulama sayfası: giriş istemez, middleware x-tenant-slug yazar. */
 export const PROBE_PAGE_PATH = "/admin/giris";
 
@@ -47,6 +57,8 @@ export interface RawHttpResponse {
   status: number;
   location: string | null;
   tenantSlug: string | null;
+  /** `x-kurum-durumu` (yoksa null) — bkz. KURUM_DURUMU_BASLIGI. */
+  kurumDurumu?: string | null;
 }
 
 export interface RawTlsResult {
@@ -158,7 +170,7 @@ async function lookup(
 async function http(deps: ProbeDeps, url: string): Promise<HttpProbe> {
   try {
     const r = await deps.httpGet(url);
-    return { ok: true, status: r.status, location: r.location, tenantSlug: r.tenantSlug };
+    return { ok: true, status: r.status, location: r.location, tenantSlug: r.tenantSlug, kurumDurumu: r.kurumDurumu ?? null };
   } catch (err) {
     return { ok: false, code: probeErrorCode(err) };
   }

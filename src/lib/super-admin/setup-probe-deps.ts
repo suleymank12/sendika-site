@@ -1,7 +1,7 @@
 import "server-only";
 import { Resolver } from "node:dns/promises";
 import tls from "node:tls";
-import type { ProbeDeps } from "@/lib/super-admin/setup-probes";
+import { KURUM_DURUMU_BASLIGI, type ProbeDeps } from "@/lib/super-admin/setup-probes";
 
 /**
  * Kurulum Durumu yoklamalarının GERÇEK ağ bağımlılıkları (yalnız sunucu).
@@ -34,6 +34,7 @@ export function createNodeProbeDeps(): ProbeDeps {
         status: res.status,
         location: res.headers.get("location"),
         tenantSlug: res.headers.get("x-tenant-slug"),
+        kurumDurumu: res.headers.get(KURUM_DURUMU_BASLIGI),
       };
     },
 

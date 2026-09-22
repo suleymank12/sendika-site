@@ -196,7 +196,7 @@ export type DnsLookup = { ok: true; addresses: string[] } | { ok: false; code: s
 
 /** Yönlendirme takip EDİLMEDEN tek HTTP isteği. */
 export type HttpProbe =
-  | { ok: true; status: number; location: string | null; tenantSlug: string | null }
+  | { ok: true; status: number; location: string | null; tenantSlug: string | null; kurumDurumu?: string | null }
   | { ok: false; code: ProbeSkipCode | string };
 
 /** TLS el sıkışması: sertifika reddedilse de okunur (authorized ayrı). */
@@ -638,6 +638,16 @@ export function evaluateAppResponse(probe: HttpProbe, expectedSlug: string, orig
       };
     }
     return { status: "missing", detail: `Beklenmeyen yönlendirme: ${status} → ${location ?? "?"}.` };
+  }
+  // B2 (23 Eylül 2026): uygulamanın KENDİ 503'ü — özel alan adı sorgusu
+  // veritabanı hatası verdi (middleware geciciHataYaniti). Nginx/proxy_pass
+  // sorunu DEĞİL; kurulum eksik de sayılmaz. "gecici-hata" değeri
+  // setup-probes.ts KURUM_DURUMU_GECICI_HATA ile AYNI (test karşılaştırır).
+  if (status === 503 && probe.kurumDurumu === "gecici-hata") {
+    return {
+      status: "unknown",
+      detail: "Uygulama bu adresin kurum kaydını şu an okuyamıyor (veritabanı geçici hatası) — biraz sonra yeniden deneyin.",
+    };
   }
   if (status === 502 || status === 503 || status === 504) {
     return {

@@ -2,7 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
 import { imzala } from "@/lib/tenant-proof";
-import { SUPER_ADMIN_HOME_PATH, SUPER_ADMIN_LOGIN_PATH } from "@/lib/constants";
+import {
+  BILINMEYEN_ALAN_SLUG,
+  KURUM_DURUMU_BASLIGI,
+  KURUM_DURUMU_GECICI_HATA,
+  SUPER_ADMIN_HOME_PATH,
+  SUPER_ADMIN_LOGIN_PATH,
+} from "@/lib/constants";
 import { AUTH_RETURN_PATH, parseAuthLink } from "@/lib/super-admin/admin-invite";
 import {
   isAuthCookieName,
@@ -96,6 +102,39 @@ function notFound(): NextResponse {
   return new NextResponse("Not Found", {
     status: 404,
     headers: { "content-type": "text/plain; charset=utf-8" },
+  });
+}
+
+/**
+ * VERİTABANI GEÇİCİ HATASI (B2, 23 Eylül 2026) — özel alan adı sorgusu HATA
+ * verdiğinde (satır yok DEĞİL). Eskiden "bulunamadı" ile aynı yola girip
+ * public tarafta default kurumun sitesini gösteriyordu; "bulunamadı" artık
+ * nötr 404 olduğu için aynı yola girse MÜŞTERİNİN sitesi geçici bir Supabase
+ * kesintisinde 404 verirdi ve arama motoru sayfaları düşürürdü.
+ *
+ * 503 + Retry-After: "geçici, sonra gel". Gövde nötr (hiçbir kurumun adı
+ * yok), script yok, noindex. Public ve /admin İÇİN AYNI: admin'de "alan adı
+ * tanımlı değil" demek yanlış olurdu — alan adı tanımlı olabilir, yalnız şu
+ * an okunamadı. `x-kurum-durumu`: kurulum yoklaması Nginx'in kendi 503'ünü
+ * bundan ayırt etsin (setup-checklist evaluateAppResponse).
+ */
+const GECICI_HATA_HTML =
+  '<!doctype html><html lang="tr"><head><meta charset="utf-8">' +
+  '<meta name="robots" content="noindex"><title>Geçici sorun</title></head>' +
+  "<body><h1>Geçici bir sorun oluştu</h1>" +
+  "<p>Site şu anda yanıt veremiyor. Lütfen birkaç dakika sonra yeniden deneyin.</p>" +
+  "</body></html>";
+
+function geciciHataYaniti(): NextResponse {
+  return new NextResponse(GECICI_HATA_HTML, {
+    status: 503,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "retry-after": "30",
+      "cache-control": "no-store",
+      "content-security-policy": "default-src 'none'",
+      [KURUM_DURUMU_BASLIGI]: KURUM_DURUMU_GECICI_HATA,
+    },
   });
 }
 
@@ -320,8 +359,9 @@ export async function middleware(request: NextRequest) {
       .maybeSingle();
 
     if (error) {
+      // VERİTABANI HATASI ≠ BULUNAMADI (B2) — gerekçe: geciciHataYaniti.
       console.error("[Middleware] custom_domain lookup hatasi:", error);
-      tenantResolveFailed = true;
+      return yanit(geciciHataYaniti());
     } else if (data?.slug) {
       tenantSlug = data.slug;
     } else {
@@ -333,8 +373,10 @@ export async function middleware(request: NextRequest) {
   // ==========================================================================
   // FAIL-CLOSED — yalnizca /admin ve /super-admin
   // ==========================================================================
-  // Public tarafta mevcut davranis KORUNUR: tenantSlug "default" kalir, ziyaretci
-  // default siteyi gorur (salt okuma, zarar yok, site tamamen kapanmaz).
+  // Public taraf (B2, 23 Eylul 2026'dan beri): default'a DUSULMEZ — asagida
+  // isaret slug'i yazilir, notr 404. Eskiden "default" kaliyordu: kayitli
+  // olmayan / musterisi ayrilmis alan adi default kurumun sitesini
+  // indekslenebilir hâlde yayinliyordu (raporlar/2026-09-23-0159-…).
   //
   // Admin tarafinda AYNI davranis TEHLIKELI: yonetici, yanlis tenant'in
   // panelinde islem yapar. 8 Eylul 2026 bug'inin zarar mekanizmasi tam olarak
@@ -359,6 +401,14 @@ export async function middleware(request: NextRequest) {
     url.search = "";
     return yanit(NextResponse.redirect(url));
   }
+
+  // BİLİNMEYEN ÖZEL ALAN ADI (B2, 23 Eylül 2026): public tarafta artık
+  // default'a DÜŞÜLMEZ — işaret slug'ı (lib/constants BILINMEYEN_ALAN_SLUG)
+  // yazılır, render K8'in nötr 404'üne iner (resolveCurrentTenant DB'ye
+  // gitmeden `unknown-slug`). /admin yukarıdaki fail-closed ile zaten
+  // tenant-bulunamadi'ya gitti; o sayfanın KENDİ isteği de buradan işaretle
+  // geçer ve admin layout nötr ekranı render eder (kurum kimliği YOK).
+  if (tenantResolveFailed) tenantSlug = BILINMEYEN_ALAN_SLUG;
 
   // Final slug belli. Forward edilen request header'ına yaz ve response'u
   // güncel header'larla YENİDEN kur (setAll henüz tetiklenmemiş olabilir —
