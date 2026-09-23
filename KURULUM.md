@@ -457,6 +457,7 @@ değiştirilmez. Müşteri alan adı dosyaları (Adım 9) bunlara dayanır.
 |---|---|---|
 | `conf.d/sendika-log-jetonsuz.conf` | `/etc/nginx/conf.d/` | `jetonsuz` erişim log'u (adresteki `token_hash` gizlenir) |
 | `conf.d/sendika-gorsel-sinir.conf` | `/etc/nginx/conf.d/` | `/_next/image` hız sınırı bölgesi |
+| `conf.d/sendika-gzip.conf` | `/etc/nginx/conf.d/` | gzip — http düzeyinde TEK yer (platform + her müşteri) |
 | `snippets/sendika-*.conf` (3) | `/etc/nginx/snippets/` | uygulama / statik / görsel ucu parçaları |
 | `sites-available/sendika` | `/etc/nginx/sites-available/` (+ `sites-enabled` bağlantısı) | platform alan adı (apex + joker) |
 | `sites-available/000-varsayilan-red` | `/etc/nginx/sites-available/` (+ `sites-enabled` bağlantısı) | tanınmayan Host/SNI ve IP → 444 (80 + 443) |
@@ -469,11 +470,13 @@ değiştirilmez. Müşteri alan adı dosyaları (Adım 9) bunlara dayanır.
      -keyout /etc/nginx/ssl/varsayilan-red.key -out /etc/nginx/ssl/varsayilan-red.crt
    chmod 600 /etc/nginx/ssl/varsayilan-red.key
    ```
-2. **Log biçimi:** Ubuntu'nun `nginx.conf`'unda `http {}` içinde başka bir
-   `log_format jetonsuz` / `map $request_uri $log_uri` / `access_log` satırı
-   OLMAMALI — `conf.d` dosyasıyla aynı anda dururlarsa `nginx -t`
-   `duplicate "log_format" name "jetonsuz"` ile düşer. Eski kurulumlarda bu üç
-   parça `nginx.conf`'taydı; taşıma komutu NOTE.md "🔑 B2 kapanışı"nda.
+2. **`nginx.conf` ile çakışma:** Ubuntu'nun `nginx.conf`'unda `http {}` içinde
+   - `gzip on;` satırı **kaldırılır** (varsayılan kurulumda vardır) — `conf.d`
+     dosyasıyla birlikte `nginx -t` `"gzip" directive is duplicate` ile düşer;
+   - başka bir `log_format jetonsuz` / `map $request_uri $log_uri` /
+     `access_log` satırı OLMAMALI — `duplicate "log_format" name "jetonsuz"`.
+   Eski kurulumlarda bu parçalar `nginx.conf`'taydı; korumalı taşıma komutu
+   NOTE.md "🔑 B2 kapanışı"nda.
 3. Dosyaları kopyalayın, iki site dosyasını etkinleştirin:
    ```bash
    ln -s /etc/nginx/sites-available/sendika /etc/nginx/sites-enabled/

@@ -123,6 +123,28 @@ console.log("\n--- (4) repo geneli: default_server yalniz varsayilan red dosyasi
   iddia("setup-checklist on sart adlari repodaki dosyalar", existsSync(yol(`deploy/nginx/${NGINX_DEFAULT_RED_SITE}`)) && existsSync(yol(`deploy/nginx/${NGINX_LOG_CONF}`)), `${NGINX_DEFAULT_RED_SITE} ${NGINX_LOG_CONF}`);
 }
 
+// ---------------------------------------------------------------------------
+console.log("\n--- (5) gzip — http duzeyinde tek yer (conf.d/sendika-gzip.conf)");
+{
+  const GZ = "deploy/nginx/conf.d/sendika-gzip.conf";
+  iddia(`dosya repoda: ${GZ}`, existsSync(yol(GZ)));
+  const gz = yorumsuz(oku(GZ));
+  iddia("`gzip on;` TAM BIR KEZ", say(gz, "gzip on;") === 1);
+  const tipler = (gz.match(/gzip_types([^;]*);/) || [])[1] || "";
+  for (const t of ["application/javascript", "text/css", "application/json", "image/svg+xml"]) iddia(`gzip_types: ${t}`, tipler.split(/\s+/).includes(t), tipler);
+  iddia("gzip_vary on (onbellek Accept-Encoding'e gore ayrissin)", /gzip_vary on;/.test(gz));
+  iddia("dosyada server blogu YOK (http baglami)", bloklar(gz).length === 0);
+  const { readdirSync, statSync } = await import("node:fs");
+  const hepsi = [];
+  const gez = (d) => { for (const a of readdirSync(yol(d))) { const g = `${d}/${a}`; statSync(yol(g)).isDirectory() ? gez(g) : hepsi.push(g); } };
+  gez("deploy/nginx");
+  const gzipli = hepsi.filter((g) => /\bgzip/.test(yorumsuz(oku(g))));
+  iddia("🔴 gzip yonergesi YALNIZ bu dosyada (site dosyalari / parcalar tekrar etmez)", JSON.stringify(gzipli) === JSON.stringify([GZ]), JSON.stringify(gzipli));
+  const { buildNginxConfig } = await import("../src/lib/super-admin/setup-checklist.ts");
+  iddia("musteri sablonunda gzip satiri YOK (http duzeyinden alir)", !/^\s*gzip/m.test(buildNginxConfig("ornek.org.tr")));
+  iddia("🔴 platform dosyasinda gzip satiri YOK (eskiden gzip on + gzip_types vardi)", !/\bgzip/.test(plat));
+}
+
 console.log("");
 console.log(`SONUC: ${gecti} gecti, ${hatalar.length} kaldi`);
 process.exitCode = hatalar.length ? 1 : 0;

@@ -20,8 +20,6 @@ server {
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     client_max_body_size 450M;
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
 
     include snippets/sendika-statik.conf;
 
