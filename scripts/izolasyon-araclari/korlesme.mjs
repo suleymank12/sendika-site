@@ -28,12 +28,14 @@
  *   npm run test:izolasyon-korlesme     ayakta PRODUCTION sunucuya karsi
  *                                       (IZOLASYON_URL, vars. 3000); yoksa ATLANDI
  */
+import { nodeSurumKapisi } from "../node-surum-kapisi.mjs";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { YUVALAR, hedefleriSec, listeleriOku, sabitBSec, temelSec } from "./hedef-secimi.mjs";
+nodeSurumKapisi("izolasyon korlesme"); // uretimle ayni ana surum degilse DUR (NOTE.md "Her oturum basinda")
 
 const REPO_URL = new URL("../../", import.meta.url);
 const REPO = fileURLToPath(REPO_URL);

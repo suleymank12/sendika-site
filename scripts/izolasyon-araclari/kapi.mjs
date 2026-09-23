@@ -21,12 +21,14 @@
  * Temel cizgiyi KAYDETMEZ — kapi gectikten sonra bilincli olarak:
  *   node scripts/izolasyon-kos.mjs --build-yok --kaydet --uzerine-yaz
  */
+import { nodeSurumKapisi } from "../node-surum-kapisi.mjs";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+nodeSurumKapisi("izolasyon:kapi"); // uretimle ayni ana surum degilse DUR (NOTE.md "Her oturum basinda")
 
 const REPO = fileURLToPath(new URL("../../", import.meta.url));
 const ARAC = fileURLToPath(new URL("./", import.meta.url));

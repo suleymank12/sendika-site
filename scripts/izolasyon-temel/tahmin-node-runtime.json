@@ -1,0 +1,14 @@
+{
+  "tur": "Node runtime yukseltmesi — ayni commit (04b6a26), Next 14.2.35 sabit, Node 20.20.2 / 22 LTS son / 24 LTS son",
+  "yazildi": "2026-09-24T01:25:00+03:00",
+  "not": "KODDAN VE KOSUDAN ONCE yazildi. Karsilastirilan: next-14.2.35.json (d36deda kaydi, 875 hucre, 2590 kural). Kaynak, bagimliliklar ve Next surumu degismiyor; yalniz calisma zamani (node) degisiyor. Matrisin gozlemledigi alanlar (durum, konum, basliklar, <title>, og:*, CSP/nonce, sizinti, RSC isaretleri, sitemap/robots) runtime'dan bagimsiz olmali: UC surumde de 0 hucre farki, 0 FAIL, 0 bilinen kusur, bolum sayilari d36deda..04b6a26 kosulariyla ayni. Tek satir sapma = DUR (hangi surumde oldugu raporlanir).",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": { "0": 4, "1": 824, "2": 1110, "3": 335, "4": 230, "5": 8, "6": 62, "7": 17 },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}

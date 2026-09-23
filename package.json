@@ -2,8 +2,12 @@
   "name": "sendika-site",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.18.0 <23"
+  },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/node-surum-kapisi.mjs build",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

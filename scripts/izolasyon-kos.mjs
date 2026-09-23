@@ -13,9 +13,11 @@
  * ⚠️ `next build` .next'i yeniden yazar — ayni anda `next dev` calisiyorsa
  * dev sunucusu bozulur; once onu kapatin.
  */
+import { nodeSurumKapisi } from "./node-surum-kapisi.mjs";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+nodeSurumKapisi("izolasyon-kos (izolasyon:tam / temel / korlesme)"); // uretimle ayni ana surum degilse DUR (NOTE.md "Her oturum basinda")
 
 const REPO = fileURLToPath(new URL("../", import.meta.url));
 const NEXT = path.join(REPO, "node_modules", "next", "dist", "bin", "next");

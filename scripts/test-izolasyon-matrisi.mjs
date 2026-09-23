@@ -79,11 +79,13 @@
  *     yerel build + ayni veri = ayni gozlem.
  */
 
+import { nodeSurumKapisi } from "./node-surum-kapisi.mjs";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import https from "node:https";
 import { SUPER_ADMIN_SUBDOMAIN } from "../src/lib/constants.ts";
 import { hedefleriSec, hedefYolu, listeleriOku, sabitBSec, temelSec } from "./izolasyon-araclari/hedef-secimi.mjs";
+nodeSurumKapisi("izolasyon matrisi"); // uretimle ayni ana surum degilse DUR (NOTE.md "Her oturum basinda")
 
 // ---------------------------------------------------------------------------
 // Ayarlar
