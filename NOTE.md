@@ -1824,7 +1824,7 @@ meşru süper admin'i kilitleyebilirdi.
 
 | Taraf | Slug çözülemezse | Gerekçe |
 |---|---|---|
-| **Public** | default siteye düşer (**değişmedi**) — ⚠️ **22 Eylül 2026 (K8) itibarıyla bilinmeyen SUBDOMAIN'de artık nötr 404** (bkz. "🔑 K8"); bilinmeyen custom domain hâlâ default (middleware "default" yazıyor) | `middleware.ts` fail-closed bölümünde **belgeli karar**: "ziyaretçi default siteyi görür, salt okuma, zarar yok, site tamamen kapanmaz". Yanlış yazılmış bir subdomain yüzünden çalışan siteyi 404'e düşürmek orantısız |
+| **Public** | default siteye düşer (**değişmedi**) — ⚠️ **22 Eylül 2026 (K8) itibarıyla bilinmeyen SUBDOMAIN'de artık nötr 404** (bkz. "🔑 K8"); bilinmeyen custom domain hâlâ default (middleware "default" yazıyor) — ✅ **23 Eylül 2026 (B2): bilinmeyen custom domain de nötr 404** (işaret slug'ı; bkz. "🔑 B2 kapanışı") | `middleware.ts` fail-closed bölümünde **belgeli karar**: "ziyaretçi default siteyi görür, salt okuma, zarar yok, site tamamen kapanmaz". Yanlış yazılmış bir subdomain yüzünden çalışan siteyi 404'e düşürmek orantısız |
 | **Admin** | `/admin/tenant-bulunamadi` | "Yanlış panel açmaktansa hiç panel açmamak doğru" |
 
 **Public için ayrı "kurum bulunamadı" sayfası YAPILMADI** — yukarıdaki belgeli
@@ -6147,6 +6147,8 @@ nonce, matcher, görsel ucu). Bu matris uygulamaya DIŞARIDAN, gerçek HTTP ile,
 | `npm run izolasyon:temel` | aynısı + temel çizgiyi kaydeder (kural FAIL varsa KAYDETMEZ; var olan dosyayı `--uzerine-yaz` olmadan ezmez) |
 | `npm run test:izolasyon` | zaten ayakta olan PRODUCTION sunucuya karşı (`IZOLASYON_URL`, vars. 3000). Sunucu yoksa / dev sunucusuysa büyük **ATLANDI** bandı + `SONUC: ATLANDI (0 kontrol)`, çıkış 0; `IZOLASYON_ZORUNLU=1` → çıkış 1. Yerel build'den farklı build'e karşı koşuyorsa → FAIL |
 | `npm run test:lint-kurallari` | SafeHtml/SafeImage güvenlik lint kurallarının mutasyonu (ihlali kendisi üretir) |
+| `npm run test:kurum-cozumu` | **T10 mührü** (23 Eylül 2026): (public)/** + kök layout/robots/sitemap/seo/public-queries/site-settings'te "kuruma bağlı veri okuyan fonksiyon kurumu KENDİSİ çözer" (TypeScript AST) + 8 bellek içi mutasyonla öz-sınama — bkz. "🔑 B2 kapanışı" |
+| `npm run test:nginx` | repo `deploy/nginx/` sunucu geneli dosyaların mühürleri: platform, jetonsuz log, varsayılan red, gzip tek yer |
 | `npm run izolasyon:kapi -- --tahmin <tahmin.json> [--temel <belge.json>]` | **TEK KOMUT KAPI** (B4): veri kapısı ÖNCE → temiz build + `izolasyon:tam` → veri kapısı SONRA (kaymışsa DUR, çıkış 2) → kilitli tahminle denetim (sapma çıkış 1). Temel çizgiyi KAYDETMEZ |
 | `npm run izolasyon:veri -- <etiket> <çıktı.json>` | hedef satırlarının özet sha256'sı — matrisle AYNI seçim (`hedef-secimi.mjs`) |
 | `npm run izolasyon:denetle -- <tahmin.json> <matris-çıktısı>` | kilitli tahmin ↔ matris çıktısı |
@@ -6167,8 +6169,10 @@ kalması gerekenler — `/api/…`, `/_next/static/…`, `/_next/image`,
 `/favicon.ico` — middleware'siz mi) + **(7) `/api` catch-all** (diskteki her
 gerçek route dosyası catch-all'dan ÖNCE eşleşiyor mu; catch-all'ın 404'ü
 süper admin uçlarının müşteri domainindeki 404'üyle ayırt edilemez mi) +
-matcher dışı 404'lerde sahte başlık = **767 gözlem, 2224 kural** (23 Eylül
-2026, public doğruluk turu: + `/kurumsal/hakkimizda` eski adres yolu, 28
+matcher dışı 404'lerde sahte başlık = **875 gözlem, 2590 kural** (23 Eylül
+2026, B2 kapanışı: bilinmeyen-custom kurumsuz host oldu, + `/admin/tenant-bulunamadi`
+28 hücre, + kurumsuz iki host'a 10 public yol 80 hücre — bkz. "🔑 B2 kapanışı";
+öncesi 767 / 2224, public doğruluk turu: + `/kurumsal/hakkimizda` eski adres yolu, 28
 hücre / 113 kural — bkz. "🔑 Public doğruluk"; 22 Eylül 2026 B4 sonrası
 739 / 2111: 515 + 84 yeni sınıf yuvası + 140 `YOK` yer tutucusu;
 K8 sonrası 515 / 1741 — bilinmeyen subdomain nötr 404 kuralları; K7-B sonrası
@@ -6500,6 +6504,100 @@ kuralını etkiler — ayrı tur).
 **Açık — elle:** C15 menü verisi SQL'i (default kurumda `/kurumsal/hakkimizda`
 ve `/kurumsal/misyon-vizyon` satırları → `/sayfa/…`) uygulama raporunda;
 çalıştırılana kadar bu satırlar 308 ile doğru sayfaya gider.
+
+## 🔑 B2 kapanışı — bilinmeyen özel alan adı, T10 mührü, nginx dosyaları repoda, gzip (23 Eylül 2026)
+
+Teşhis: `raporlar/2026-09-23-0159-b2-kalan-katmanlar-teshis.md`; uygulama
+raporu aynı klasörde (23 Eylül 2026). Commit'ler: `d7b98e9` (sendika
+metinleri), `b77342d` (T10 mührü), `d8ca115` (B2 uygulama), `d36deda`
+(kurumsuz host yolları), `a132a95` (platform + log biçimi), `c530997`
+(varsayılan red), `027c4f6` (gzip).
+
+**B2 — dış katman (nginx, 22-23 Eylül 2026 gecesi canlıda, elle):**
+`000-varsayilan-red` 443 bloğu: tanınmayan SNI/Host ve IP → 444, CN=invalid.
+Port 80 bloğu bu turda repoya eklendi (sunucuya kopyalanması kullanıcıda).
+
+**B2 — uygulama katmanı (`d8ca115`):**
+- **İşaret slug'ı** `BILINMEYEN_ALAN_SLUG = "!bilinmeyen-alan"` (lib/constants):
+  middleware `tenants.custom_domain`'de BULUNAMAYAN alan adına bunu yazar →
+  render K8'in nötr 404'üne iner. `resolveCurrentTenant` işareti görünce
+  veritabanına HİÇ gitmez (`unknown-slug`, kanıt doğrulandıktan sonra). `!`
+  hiçbir kurum slug'ında olamaz (SLUG_REGEX; test mühürlü). Neden "hiç
+  yazmamak" değil: `no-header` K6'nın "istek middleware'den geçmedi"
+  anlamı; karışırsa teşhis kaybolur.
+- **Veritabanı HATASI ≠ bulunamadı:** middleware public VE /admin için
+  **503 + `Retry-After: 30`**, nötr gövde, `x-kurum-durumu: gecici-hata`.
+  Gerekçe: bulunamadı artık 404; aynı yola girse müşterinin sitesi geçici bir
+  Supabase kesintisinde 404 verir, arama motoru sayfaları düşürürdü. Admin'de
+  "alan adı tanımlı değil" demek yanlış olurdu. Kurulum yoklaması
+  (setup-checklist `evaluateAppResponse`) başlıklı 503'ü "Belirlenemedi —
+  veritabanı geçici hatası" olarak okur (Nginx 503'ünden ayrı). Yerelde
+  mutasyonla ölçüldü (sorgu var olmayan sütuna): iki özel alan adında tüm
+  yollar 503; apex etkilenmez (sorgu yok). CANLIDA sınanamaz.
+- **`/admin/tenant-bulunamadi` kayıtlı kurumun host'unda → `/admin/giris`**
+  (sayfa içi `redirect`). Ölçüldü: dört kayıtlı host'ta "Alan adı tanımlı
+  değil | <kurum>" diyordu. Karar sayfada çünkü geçerli/geçersiz SUBDOMAIN'i
+  middleware bilmiyor. Yoklama etkilenmez (yalnız middleware'in
+  `Location`'ına bakar).
+- Pasife alınan kurum default'a DÜŞMÜYOR (kendi "Site Kapalı" ekranı,
+  noindex, `Disallow: /` — teşhiste ölçüldü). Tehdit silme/taşımaydı.
+
+**T10 mührü (`b77342d`) — `npm run test:kurum-cozumu`:** R1 veri okuyan
+fonksiyon ya `tenantId` parametreli yardımcıdır ya da ilk veri okumasından
+ÖNCE kurumu kendisi çözer · R2 her `.from("…")` zinciri
+`.eq("tenant_id", <sabit olmayan>)` · R3 sabit kurum kimliği yok · R4 kapsam
+körleşmesin (her page.tsx). TypeScript AST; öz-sınama 8 bellek içi mutasyon
+(T10'un aynısı dahil) + negatif kontrol. Kapsam dışı: /admin (kurum layout +
+istemci bağlamından, sorgular RLS altında — ayrı değerlendirme uygulama
+raporunda), /api.
+
+**Matrisin davranış ayağı (`d36deda`):** bilinmeyen-sub ve bilinmeyen-custom'a
+10 public yol (80 hücre, hepsi nötr 404). Dinamik yollarda A'nın gerçek adresi
+apex sayfalarındaki ilk bağlantıdan (anon anahtar branches / board_members /
+homepage_sections / gallery_albums'u göremiyor); `semboller.kurumsuzYol`.
+🔴 **Ölçülen sınır (T12):** şube detay sayfası kurum çözümünü atlayınca matris
+YAKALAMADI (şube adı sızıntı sözlüğünde yok, 404 yükünde görünür iz yok);
+kaynak mührü R1+R3 ile yakaladı. Yani T10 sınıfının asıl sigortası kaynak
+mührü; matris ikincil.
+
+**Körleşme:** 10/10 (3. ve 4. commit sonrası). **T11** (işaret yerine yine
+"default"): yalnız bilinmeyen-custom'da `kurum-gostermez`, `notr-404`,
+`notr-bas`, `x-tenant-slug`, `sizinti-yok`, `yonlendirme-kendi-kurumuna`,
+rsc `kurum-yok` / `notr-notFound`, `bulunamadi-ekrani` FAIL'leri.
+
+**nginx dosyaları repoda** (`deploy/nginx/`; KURULUM.md 8.1 "sunucuda bir kez"):
+
+| Repo | Sunucu | Not |
+|---|---|---|
+| `sites-available/sendika` | platform (apex + joker) | canlı metinle birebir alındı (`a132a95`), gzip satırları `027c4f6`'da kalktı |
+| `sites-available/000-varsayilan-red` | 443 + 80 `default_server`, 444 | kendinden imzalı sertifika komutu dosyada; `default_server` YALNIZ burada (test:nginx) |
+| `conf.d/sendika-log-jetonsuz.conf` | map + `log_format jetonsuz` + `access_log` | nginx.conf 38-47'den TAŞINIR — ikisi birlikte `duplicate "log_format"` |
+| `conf.d/sendika-gzip.conf` | `gzip on` + types/vary/comp_level | nginx.conf satır 54'teki `gzip on;` da TAŞINIR — ikisi birlikte `"gzip" directive is duplicate` |
+
+🔴 Varsayılan red'in 443 bloğundaki `include /etc/letsencrypt/options-ssl-nginx.conf;`
+ÇIKARILMAZ — yerel nginx 1.18.0'da ölçüldü: çıkarılınca platform alan adı TLS
+1.1 KABUL ediyor (kendi `ssl_protocols TLSv1.2 TLSv1.3` satırına rağmen);
+soketin protokolünü varsayılan blok belirliyor.
+certbot 1.21.0 (`--nginx`) yeni müşteri için port 80 varsayılan bloğunu
+kopyalayıp en üste `rewrite ^(/.well-known/acme-challenge/.*) $1 break;`
+koyuyor → `return 444` doğrulamayı engellemiyor (kaynak + yerel deney).
+
+**gzip gerilemesi ve düzeltmesi (`027c4f6`):** K7-A'dan beri `/_next/static/`
+diskten; `gzip_types` yalnız platform dosyasındaydı → müşteri alan adlarında
+JS/CSS sıkıştırmasız (canlıda ölçüldü: kurmayteknoloji.com Content-Encoding
+yok). Artık http düzeyinde tek dosya; yerelde iki host'ta
+`content-encoding: gzip` + `Vary: Accept-Encoding`.
+
+**Sunucu sırası** (uygulama raporundaki korumalı komutlar): (a) uygulama
+deploy'u → (b) nginx.conf'tan log üçlüsü + `gzip on;` çıkar (korumalı Python
+betiği: üçü + gzip TAM BİR KEZ yoksa ATLA) ve iki conf.d dosyasını AYNI adımda
+koy → (c) platform dosyası (diff sonra kopya) → (d) varsayılan red (80
+eklenmiş) → (e) doğrulama → (f) certbot dry-run'lar.
+
+**"Sendika" metinleri (`d7b98e9`):** "T.C." TopBar'dan tamamen kalktı; site
+adı yedeği `site_title → kurum adı → YEDEK_SITE_ADI ("Web Sitesi")`; duyuru/
+şube açıklamaları site adından; panel yardım/yer tutucuları nötr. Seed
+migration'ına dokunulmadı; kurum türü sütunu yok (karar).
 
 ## 🔑 K7-B — kurum başlığı kanıtı (21 Eylül 2026)
 
