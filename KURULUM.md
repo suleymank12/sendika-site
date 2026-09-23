@@ -448,6 +448,47 @@ Adım 5'teki hesabı silip **Invite user** ile yeniden davet edin; mail gelmeli.
 Lokal geliştirmede `NEXT_PUBLIC_ROOT_DOMAIN=lvh.me` kullanılır; kurumlara
 `http://{slug}.lvh.me:3000` üzerinden erişilir (`lvh.me` daima 127.0.0.1'e çözer).
 
+### 8.1 — Nginx: sunucuda BİR KEZ (23 Eylül 2026)
+
+Kaynak repo `deploy/nginx/` — sunucudaki dosyalar oradan kopyalanır, elle
+değiştirilmez. Müşteri alan adı dosyaları (Adım 9) bunlara dayanır.
+
+| Repo | Sunucu | Ne |
+|---|---|---|
+| `conf.d/sendika-log-jetonsuz.conf` | `/etc/nginx/conf.d/` | `jetonsuz` erişim log'u (adresteki `token_hash` gizlenir) |
+| `conf.d/sendika-gorsel-sinir.conf` | `/etc/nginx/conf.d/` | `/_next/image` hız sınırı bölgesi |
+| `snippets/sendika-*.conf` (3) | `/etc/nginx/snippets/` | uygulama / statik / görsel ucu parçaları |
+| `sites-available/sendika` | `/etc/nginx/sites-available/` (+ `sites-enabled` bağlantısı) | platform alan adı (apex + joker) |
+| `sites-available/000-varsayilan-red` | `/etc/nginx/sites-available/` (+ `sites-enabled` bağlantısı) | tanınmayan Host/SNI ve IP → 444 (80 + 443) |
+
+1. **Kendinden imzalı sertifika** (varsayılan red'in 443 bloğu için; nginx
+   1.18'de `ssl_reject_handshake` yok):
+   ```bash
+   mkdir -p /etc/nginx/ssl
+   openssl req -x509 -nodes -newkey rsa:2048 -days 3650 -subj "/CN=invalid" \
+     -keyout /etc/nginx/ssl/varsayilan-red.key -out /etc/nginx/ssl/varsayilan-red.crt
+   chmod 600 /etc/nginx/ssl/varsayilan-red.key
+   ```
+2. **Log biçimi:** Ubuntu'nun `nginx.conf`'unda `http {}` içinde başka bir
+   `log_format jetonsuz` / `map $request_uri $log_uri` / `access_log` satırı
+   OLMAMALI — `conf.d` dosyasıyla aynı anda dururlarsa `nginx -t`
+   `duplicate "log_format" name "jetonsuz"` ile düşer. Eski kurulumlarda bu üç
+   parça `nginx.conf`'taydı; taşıma komutu NOTE.md "🔑 B2 kapanışı"nda.
+3. Dosyaları kopyalayın, iki site dosyasını etkinleştirin:
+   ```bash
+   ln -s /etc/nginx/sites-available/sendika /etc/nginx/sites-enabled/
+   ln -s /etc/nginx/sites-available/000-varsayilan-red /etc/nginx/sites-enabled/
+   nginx -t && systemctl reload nginx
+   ```
+4. Doğrulama: tanınmayan alan adı ve IP ile doğrudan erişim bağlantıyı
+   yanıtsız kapatmalı (curl `000`); platform ve müşteri alan adları kendi
+   sertifikalarıyla açılmalı.
+
+> 🔴 Varsayılan red'in 443 bloğundaki `include /etc/letsencrypt/options-ssl-nginx.conf;`
+> çıkarılmaz: soketin TLS protokol ayarını varsayılan blok belirler — çıkarılırsa
+> platform alan adı TLS 1.1 kabul eder (yerel nginx 1.18.0'da ölçüldü).
+> `default_server` yalnız bu dosyada; müşteri / platform dosyalarına eklenmez.
+
 ---
 
 ## Adım 9 — İlk kurum ve içerik

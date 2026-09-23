@@ -85,6 +85,44 @@ iddia("🔴 bicim $log_uri kullanir — $request / $request_uri / $args YOK (jet
 iddia("🔴 access_log AYNI dosyada, tanimdan SONRA (tanimdan once kullanilamaz)", log.indexOf("access_log /var/log/nginx/access.log jetonsuz;") > log.indexOf("log_format jetonsuz"));
 iddia("dosyada server blogu YOK (http baglami)", bloklar(log).length === 0);
 
+// ---------------------------------------------------------------------------
+console.log("\n--- (3) varsayilan red — deploy/nginx/sites-available/000-varsayilan-red");
+const RED = "deploy/nginx/sites-available/000-varsayilan-red";
+iddia(`dosya repoda: ${RED}`, existsSync(yol(RED)));
+const redHam = oku(RED);
+const red = yorumsuz(redHam);
+const redBloklar = bloklar(red);
+const r443 = redBloklar.find((b) => /listen 443/.test(b)) || "";
+const r80 = redBloklar.find((b) => /listen 80\b/.test(b)) || "";
+iddia("iki server blogu (443 + 80)", redBloklar.length === 2 && !!r443 && !!r80, String(redBloklar.length));
+iddia("🔴 443: `listen 443 ssl default_server;` TAM BIR KEZ", say(red, "listen 443 ssl default_server;") === 1);
+iddia("🔴 80: `listen 80 default_server;` TAM BIR KEZ", say(red, "listen 80 default_server;") === 1);
+for (const [ad, b] of [["443", r443], ["80", r80]]) {
+  iddia(`${ad}: return 444 (yanitsiz kapat)`, /return 444;/.test(b));
+  iddia(`${ad}: server_name _`, /server_name _;/.test(b));
+  iddia(`🔴 ${ad}: proxy_pass / location / include snippets YOK (hicbir sey servis etmez)`, !/proxy_pass|location|include snippets\//.test(b));
+  iddia(`${ad}: access_log varsayilan-red.log jetonsuz`, b.includes("access_log /var/log/nginx/varsayilan-red.log jetonsuz;"));
+}
+iddia("🔴 443: options-ssl-nginx.conf include (soketin TLS protokolunu varsayilan blok belirler)", r443.includes("include /etc/letsencrypt/options-ssl-nginx.conf;"));
+iddia("443: ssl_dhparam", r443.includes("ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;"));
+iddia("443: kendinden imzali sertifika /etc/nginx/ssl (letsencrypt DEGIL — nobetci saymaz)", r443.includes("ssl_certificate     /etc/nginx/ssl/varsayilan-red.crt;") && r443.includes("ssl_certificate_key /etc/nginx/ssl/varsayilan-red.key;") && !/ssl_certificate[^;]*letsencrypt/.test(r443));
+iddia("gerekce yorumu: options-ssl include'unun NEDENI dosyada yazili", /options-ssl-nginx\.conf[\s\S]*TLS/.test(redHam) && redHam.includes("BÜTÜN sitelerin TLS ayarı değişir"));
+iddia("sertifika uretme komutu dosyada yazili (CN=invalid, 3650 gun)", redHam.includes('-subj "/CN=invalid"') && redHam.includes("-days 3650"));
+iddia("jetonsuz bicimi repodaki conf.d dosyasinda tanimli (bu dosya onu kullaniyor)", say(log, "log_format jetonsuz") === 1);
+
+// ---------------------------------------------------------------------------
+console.log("\n--- (4) repo geneli: default_server yalniz varsayilan red dosyasinda");
+{
+  const { readdirSync, statSync } = await import("node:fs");
+  const hepsi = [];
+  const gez = (d) => { for (const a of readdirSync(yol(d))) { const g = `${d}/${a}`; statSync(yol(g)).isDirectory() ? gez(g) : hepsi.push(g); } };
+  gez("deploy/nginx");
+  const sahip = hepsi.filter((g) => /default_server/.test(yorumsuz(oku(g))));
+  iddia("default_server iceren tek dosya 000-varsayilan-red", JSON.stringify(sahip) === JSON.stringify([RED]), JSON.stringify(sahip));
+  const { NGINX_DEFAULT_RED_SITE, NGINX_LOG_CONF } = await import("../src/lib/super-admin/setup-checklist.ts");
+  iddia("setup-checklist on sart adlari repodaki dosyalar", existsSync(yol(`deploy/nginx/${NGINX_DEFAULT_RED_SITE}`)) && existsSync(yol(`deploy/nginx/${NGINX_LOG_CONF}`)), `${NGINX_DEFAULT_RED_SITE} ${NGINX_LOG_CONF}`);
+}
+
 console.log("");
 console.log(`SONUC: ${gecti} gecti, ${hatalar.length} kaldi`);
 process.exitCode = hatalar.length ? 1 : 0;

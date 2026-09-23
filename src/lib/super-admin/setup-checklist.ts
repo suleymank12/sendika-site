@@ -56,6 +56,19 @@ export const NGINX_RATE_ZONE_CONF = "conf.d/sendika-gorsel-sinir.conf";
  * dahil) `test:gorsel-zinciri`'nde sınanır.
  */
 export const NGINX_STATIC_SNIPPET = "snippets/sendika-statik.conf";
+/**
+ * SUNUCU GENELİ dosyalar (B2, 23 Eylül 2026) — müşteri dosyası bunları
+ * include ETMEZ ama sunucu onlarsız eksik:
+ *  - varsayılan red: tanınmayan Host/SNI ve IP ile erişim 444 (443 + 80).
+ *    Yoksa müşteri ayrılınca eski alan adı alfabetik ilk siteye düşer.
+ *  - jetonsuz log biçimi: 000-varsayilan-red onu kullanıyor; tanımsızsa
+ *    `nginx -t` "unknown log format" ile düşer.
+ * Müşteri şablonunda `default_server` YOKTUR (iki default_server aynı
+ * adreste `nginx -t`'yi düşürür) — test:setup-checklist mühürlü. İçerik
+ * mühürleri: test:nginx.
+ */
+export const NGINX_DEFAULT_RED_SITE = "sites-available/000-varsayilan-red";
+export const NGINX_LOG_CONF = "conf.d/sendika-log-jetonsuz.conf";
 
 /**
  * Müşteri domain'inin HSTS değeri (21 Eylül 2026). Canlıda ölçüldü:
@@ -406,6 +419,8 @@ export function buildNginxConfig(domain: string): string {
     `#   /etc/nginx/${NGINX_APP_SNIPPET}`,
     `#   /etc/nginx/${NGINX_IMAGE_SNIPPET}`,
     `#   /etc/nginx/${NGINX_STATIC_SNIPPET}`,
+    `#   /etc/nginx/${NGINX_LOG_CONF}`,
+    `#   /etc/nginx/${NGINX_DEFAULT_RED_SITE} (+ sites-enabled bağlantısı)`,
     "",
     "# (1) apex — uygulama",
     "server {",

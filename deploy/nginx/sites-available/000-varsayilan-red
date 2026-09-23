@@ -1,0 +1,61 @@
+# /etc/nginx/sites-available/000-varsayilan-red  (+ sites-enabled bağlantısı)
+#
+# TANINMAYAN HER ŞEYİ REDDEDEN VARSAYILAN BLOKLAR (B2, 22-23 Eylül 2026).
+# Kaynak: repo deploy/nginx/ — sunucuda elle değiştirmeyin, repodan kopyalayın.
+#
+# Neden: nginx, Host/SNI hiçbir server_name'le eşleşmezse "varsayılan" bloğa
+# düşer; default_server yoksa ALFABETİK İLK dosyanın bloğu. Önceden:
+#   443: bilinmeyen alan adı → 200, default kurumun sitesi; IP ile doğrudan
+#        → 200; bilinmeyen SNI'ye kurmayteknoloji.com sertifikası.
+#   80:  bilinmeyen alan adı → 301 https://kurmayteknoloji.com/.
+# Şimdi ikisi de 444 (nginx bağlantıyı yanıtsız kapatır). Adı eşleşen her
+# blok bundan ÖNCE seçilir; müşteri / platform dosyalarında default_server
+# YOKTUR (iki default_server aynı adreste `nginx -t`'yi düşürür).
+#
+# 🔴 443 bloğundaki `include /etc/letsencrypt/options-ssl-nginx.conf;` BİLEREK:
+# nginx'te bir soketin TLS protokol ayarını varsayılan blok belirler — bu
+# satır çıkarılırsa BÜTÜN sitelerin TLS ayarı değişir (TLS 1.1 red / 1.2 /
+# 1.3 kabul davranışı önce/sonra birebir aynı olmalı).
+#
+# nginx 1.18'de ssl_reject_handshake yok: el sıkışması için bir sertifika
+# ŞART. Kendinden imzalı, CN=invalid, 10 yıl — sunucuda BİR KEZ üretilir:
+#
+#   mkdir -p /etc/nginx/ssl
+#   openssl req -x509 -nodes -newkey rsa:2048 -days 3650 -subj "/CN=invalid" \
+#     -keyout /etc/nginx/ssl/varsayilan-red.key \
+#     -out /etc/nginx/ssl/varsayilan-red.crt
+#   chmod 600 /etc/nginx/ssl/varsayilan-red.key
+#
+# Sertifika /etc/letsencrypt DIŞINDA: nobetci.sh'nin süre kontrolü
+# (/etc/letsencrypt/live/*) onu saymaz, yanlış alarm yok. Dosya kaybolursa
+# nobetci'nin koştuğu `nginx -t` düşer.
+#
+# certbot (--nginx, 1.21.0): yeni müşterinin ilk sertifikasında port 80
+# varsayılan bloğunu KOPYALAR, kopyaya server_name ekler ve en üste
+# `rewrite ^(/.well-known/acme-challenge/.*) $1 break;` koyar — `return 444`
+# doğrulamayı engellemez (certbot http_01.py + configurator.py; yerel nginx
+# 1.18.0 deneyi: raporlar/2026-09-23-0159-b2-kalan-katmanlar-teshis.md A3).
+#
+# Log: `jetonsuz` biçimi conf.d/sendika-log-jetonsuz.conf'ta (sites-enabled'dan
+# ÖNCE include edilir). Yalnız IPv4 (sunucuda IPv6 yok); açılırsa iki bloğa da
+# `listen [::]:… default_server` eklenmeli.
+
+# 443 — tanınmayan SNI / Host, IP ile doğrudan erişim
+server {
+    listen 443 ssl default_server;
+    server_name _;
+    ssl_certificate     /etc/nginx/ssl/varsayilan-red.crt;
+    ssl_certificate_key /etc/nginx/ssl/varsayilan-red.key;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    access_log /var/log/nginx/varsayilan-red.log jetonsuz;
+    return 444;
+}
+
+# 80 — tanınmayan Host (IP ile doğrudan, eski/silinmiş müşteri alan adı)
+server {
+    listen 80 default_server;
+    server_name _;
+    access_log /var/log/nginx/varsayilan-red.log jetonsuz;
+    return 444;
+}

@@ -37,6 +37,8 @@ import {
   NGINX_APP_SNIPPET,
   NGINX_IMAGE_SNIPPET,
   NGINX_STATIC_SNIPPET,
+  NGINX_DEFAULT_RED_SITE,
+  NGINX_LOG_CONF,
   HSTS_DEGERI,
   SETUP_CHECK_API_PATH,
   TENANT_ERROR_PATH,
@@ -282,6 +284,15 @@ header("(a) Hazir metinler");
   okTrue("nginx", "(1) /_next/image parcasi include ediliyor", apex.includes(`include ${NGINX_IMAGE_SNIPPET};`), "apex");
   okTrue("nginx", "(1) parca adlari sabitlerden", NGINX_APP_SNIPPET === "snippets/sendika-uygulama.conf" && NGINX_IMAGE_SNIPPET === "snippets/sendika-gorsel-ucu.conf" && NGINX_STATIC_SNIPPET === "snippets/sendika-statik.conf", "sabit");
   okTrue("nginx", "(1) on sart listesinde statik parca var (musteri sunucuda kurar)", conf.includes(`#   /etc/nginx/${NGINX_STATIC_SNIPPET}`), "on sart");
+  // B2 (23 Eylul 2026): sunucu geneli dosyalar + default_server YOKLUGU
+  okTrue("nginx", "(B2) on sart listesinde varsayilan red dosyasi var", conf.includes(`#   /etc/nginx/${NGINX_DEFAULT_RED_SITE}`), "on sart");
+  okTrue("nginx", "(B2) on sart listesinde jetonsuz log bicimi var", conf.includes(`#   /etc/nginx/${NGINX_LOG_CONF}`), "on sart");
+  {
+    const kodSatirlari = conf.split("\n").filter((x) => !/^\s*#/.test(x)).join("\n");
+    ok("nginx", "🔴 (B2) musteri sablonunda default_server YOK (iki default_server nginx -t'yi dusurur)", kodSatirlari.split("default_server").length - 1, 0, "conf");
+    ok("nginx", "(B2) musteri sablonunda return 444 YOK (reddetmek varsayilan blogun isi)", kodSatirlari.split("return 444").length - 1, 0, "conf");
+  }
+  ok("nginx", "(B2) sunucu geneli dosya adlari", [NGINX_DEFAULT_RED_SITE, NGINX_LOG_CONF], ["sites-available/000-varsayilan-red", "conf.d/sendika-log-jetonsuz.conf"], "sabit");
   // 🔴 WebSocket iletimi KALDIRILDI (GHSA-c4j6-fc7j-m34r) — sablonda geri
   //    gelmemeli; gelirse yeni musteri domaini korumasiz kurulur.
   okTrue("nginx", "🔴 (1) Upgrade/Connection 'upgrade' iletimi YOK", !conf.includes("$http_upgrade") && !conf.includes("Connection 'upgrade'"), "apex");
