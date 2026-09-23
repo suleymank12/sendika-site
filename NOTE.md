@@ -5,6 +5,43 @@ başka panellerden elle yapılması gereken adımları toplar.
 
 ---
 
+# ▶️ Her oturum başında — Node 22'yi etkinleştir (24 Eylül 2026)
+
+Bu proje **Node 22** ister: `package.json` → `engines.node ">=22.18.0 <23"`, sunucu da Node 22.
+Makinenin **genel Node'u 24.13.1** kalır. Başka projeler onu kullanıyor, değiştirilmez.
+
+Yanlış Node'da şunlar **bilerek düşer**:
+- `npm ci` (`.npmrc` engine-strict)
+- `npm run build` (prebuild kapısı)
+- `izolasyon:kapi`, `izolasyon:korlesme`, `izolasyon:tam`, `izolasyon:temel` ve matris betiği (`scripts/node-surum-kapisi.mjs`)
+
+**Neden bu bölüm var:** Temel çizgilerin hepsi yerelde 24.13.1 ile alınmıştı, üretim ise Node 20'deydi. Yani "taban" hiç ölçülmemişti ("🔑 Node 22 kararı").
+
+**Git Bash / Claude Bash aracı:** Kabuk durumu komutlar arasında KORUNMAZ (ölçüldü). Proje dizininde çalışan **her** komutun başına şu yazılır:
+
+```bash
+eval "$(fnm env --shell bash)" && fnm use --silent-if-unchanged && node -v   # v22.x (.nvmrc'den)
+```
+
+Tek satırlık alternatif, fnm'siz:
+`export PATH="/c/Users/suley/AppData/Roaming/fnm/node-versions/v22.23.3/installation:$PATH"`.
+
+**PowerShell** (yalnız o pencere):
+
+```powershell
+fnm env --shell powershell | Out-String | Invoke-Expression; fnm use
+```
+
+Tek komutluk çalıştırma: `fnm exec --using=22 -- node …`. 🔴 Windows'ta npm için `npm.cmd` yazılır (`fnm exec --using=22 -- npm.cmd ci`).
+
+**Denetim ve kurulum:**
+- Sürüm doğru mu: `node scripts/node-surum-kapisi.mjs` → "uygun" demeli.
+- fnm winget ile kurulu. Sürümler `%APPDATA%\fnm\node-versions` altında (20.20.2 / 22.23.3 / 24.21.0).
+- Yeni 22.x yamasını kurmak için `fnm install 22`, ardından yukarıdaki yolu güncelleyin.
+- Node'u doğrudan çağıran koşucular (`execFileSync(process.execPath, …)`) çağıran Node'u devralır. Önce etkinleştirin, sonra koşun.
+
+---
+
 # 📝 ÇALIŞMA KURALI — her turun raporu `raporlar/` klasörüne yazılır (18 Eylül 2026)
 
 **Her turun sonunda** terminale verilen rapor, **birebir aynısı** olacak
@@ -6688,6 +6725,273 @@ Beklenen: her adımda ilk istek doğru. Kaynak mührü (`revalidateTag(tag,
   test:panel-yoneticileri).
 - 500 sayfası: sağlıklı uygulamada güvenli tetikleme yolu yok.
 
+## 🔑 Node 22 kararı — Node 20 → 22 LTS, 24 neden şimdilik yok (24 Eylül 2026)
+
+**Karar:** Node **22 LTS**. Destek bitişi 30 Nisan 2027. Next 14.2.35 bu turda değişmedi.
+
+**Neden şimdi:** Node 20'nin desteği 30 Nisan 2026'da bitti. Sunucu 20.20.2'de, güvenlik yaması almıyordu. Node, Next yükseltmelerinden (Faz 3/4) ÖNCE ve TEK BAŞINA yükseltildi. Böylece matrisin "0 fark" demesi yalnız Node'un sorunsuz olduğunu kanıtlar.
+
+**Neden 24 değil — nodejs/node#65110:**
+- 24.19.0 ile gelen #64275 (`stream: preserve half-open duplexes in async iteration`), `allowHalfOpen` Duplex'lerde `for await` bitince soketi kapatmıyor. `http.Server`'ın bağlantıları `allowHalfOpen: true`.
+- Etki: bağlantı başına bir tutamaç sızıyor. Bağımsız OOM raporları var; biri yoğun trafikli bir Next.js uygulaması.
+- Düzeltme #65986, 18 Eylül 2026'da main'e girdi. **24.21.0 (8 Eylül) içinde yok.** 22 hattında #64275 hiç yok.
+- Bu makinede yeniden üretildi: 24.21.0'da **50/50 soket sızdı**; 20.20.2, 22.23.3 ve 24.13.1'de 0.
+- Uygulamamızda yük altında ölçüldü (`next start`, 1002 gerçek 200 + 198 beklenen 404, yedi bağlantı deseni): 24.21.0'da da 0 sızıntı. Aynı süreçteki pozitif kontrol 50 gördü.
+- Yine de engel sayıldı:
+  - Gerçek trafiğin bütün yolları sınanmadı.
+  - 1.8 GB tek süreçli sunucuda sızıntı sessiz OOM demek.
+- 24.18.1'e sabitleme yapılmadı: sonraki güvenlik düzeltmelerini kaçırır.
+- Beklenmedi: Node 20 yamasız.
+
+⏭️ **İZLEME — #65986'yı içeren ilk 24.x çıkınca 24'e geçiş turu.**
+- Denetim yeri: `CHANGELOG_V24.md`'de "65986" ya da "destroy half-open sockets after iteration".
+- Ölçüm düzeneği hazır (tur raporu `raporlar/2026-09-24-0222-node-yukseltme-olcum-DUR.md`): üç sürüm tam koşu, #65110 yeniden üretimi, pozitif kontrollü yük testi, build belleği / heap tavanı.
+- Repo tarafı: `engines`, `.nvmrc`, (varsa) bu bölüm.
+- Sunucu tarafı: aşağıdaki komutlar, `node_22.x` → `node_24.x`.
+
+**Asıl ders — "taban" hiç ölçülmemişti:**
+- Test araçları (`scripts/test-*.mjs`, matris) `src/**/*.ts`'yi doğrudan içe aktarıyor. Bu, Node ≥22.18 ister; Node 20'de `ERR_UNKNOWN_FILE_EXTENSION`.
+- Bütün temel çizgiler yerelde genel Node **24.13.1** ile alınmıştı, üretim ise 20'deydi.
+- Önlem: `scripts/node-surum-kapisi.mjs`. `prebuild`'de ve izolasyon kapısı, körleşme, `izolasyon-kos` (tam / temel) ile matrisin başında çalışır. `engines`'e uymayan Node'da kapı koşmaz, temel çizgi kaydedilmez.
+- Oturum başında Node 22 etkinleştirilir: bu dosyanın başı, "▶️ Her oturum başında".
+- Node 20 tabanı sonradan bölünmüş koşuyla ölçüldü: uygulama Node 20'de, matris istemcisi 24.13.1'de. Sonuç 2590/0 BİREBİR, körleşme 10/10. Uygulama üç sürümde özdeş davranıyor.
+
+**Ölçüm (aynı commit `04b6a26`, kilitli tahmin `scripts/izolasyon-temel/tahmin-node-runtime.json`, sha256 `b2cab3e7…ce1bfc`):**
+
+| | 20.20.2 | 22.23.3 | 24.21.0 |
+|---|---|---|---|
+| npm ci EBADENGINE | 1 (sanitize-html `>=22.12.0`) | 0 | 0 |
+| tsc / lint / build | 0 / ✔ / 42/42 | 0 / ✔ / 42/42 | 0 / ✔ / 42/42 |
+| izolasyon:kapi | koşamadı (.ts) · bölünmüş **2590/0 BİREBİR** | **2590/0 BİREBİR** | **2590/0 BİREBİR** |
+| korlesme | bölünmüş 10/10 | 10/10 | 10/10 |
+| testler (betik / kontrol / başarısız) | 21 betik .ts yüzünden koşamadı | 32 / 2319 / 0 | 32 / 2319 / 0 |
+| test:cerez / kurum-cozumu | 59/0 / 56/0 | 59/0 / 56/0 | 59/0 / 56/0 |
+| backup-storage (sahte Storage, 3 koşu) | geçti | geçti | geçti |
+| build toplam bellek, 3 koşu (Windows, 39 süreç) | ≈2150 MB | ≈2410 (+%12) | ≈2690 (+%25) |
+| build için gereken en düşük `--max-old-space-size` | 580–600 | 560–580 | 560–580 |
+| #65110 örneği | 0 | 0 | **50/50 sızıntı** |
+
+- Native modüllerin üçü de N-API: sharp 0.35.4, @next/swc, unrs-resolver. Node değişince yeniden derleme gerekmez.
+- `pm2 7.0.4` `>=18`.
+- Next engines: 14.2.35 `>=18.17`, 15.5 `>=20`, 16.x `>=20.9`. 22'yi ve 24'ü engelleyen yok.
+
+**Uygulama turu doğrulaması** (commit `f02a388`, Node 22.23.3):
+- npm ci EBADENGINE 0, tsc 0, lint ✔.
+- `npm run build` 42/42 (prebuild kapısı "uygun").
+- `izolasyon:kapi` 2590/0 BİREBİR, `izolasyon:korlesme` 10/10.
+- Testler 32 / 2319 / 0 (+ `test:backup-db` ortam kapısı), kurum-cozumu 56/0, çerez 59/0, yedek geçti.
+
+**Kapı sınaması:** Node 24.13.1 ve 20.20.2'de şunların hepsi çıkış 1:
+- `npm ci` (`EBADENGINE … Not compatible`)
+- `npm run build`
+- `izolasyon:kapi`, `izolasyon:korlesme`, `izolasyon:temel`, `izolasyon:tam`
+- `matris --kaydet`
+- `test:izolasyon-korlesme`
+
+node_modules işareti, `.next/BUILD_ID` ve temel çizgi sha'sı değişmedi. Node 20'de matris, statik `.ts` içe aktarması yüzünden kapıdan önce düşüyor; sonuç yine 1.
+
+**Yerel kapı davranışı** (ölçüldü):
+- engine-strict `npm ci`'yi kök `engines` uymazsa **node_modules'a dokunmadan** düşürür.
+- `npm run` engines'e bakmaz. `prebuild` kapısı bu yüzden var.
+
+### Sunucuda Node 22'ye geçiş (yazıldı, ÇALIŞTIRILMADI — 24 Eylül 2026)
+
+Sıra: (a) kayıt → (b) sigorta → (c) Node → (d) deploy + pm2 (systemd yolu) → (e) doğrulama. (g) geri alma.
+
+- Cron saati 04:00–04:30'dan uzak bir zamanda yapın.
+- (c) ile (d) arasında site eski Node'la çalışmaya devam eder: apt çalışan süreçleri yeniden başlatmaz.
+- Yeni kodla Node 20'de `npm ci` bilerek düşer. Sıra zorunlu: **önce Node, sonra deploy**.
+
+**a) ÖNCE kaydı**
+
+```bash
+T=$(date +%F-%H%M%S); echo "T=$T" | tee /root/node-T.txt
+O=/root/node-once-$T.txt
+{
+echo "## surumler"; node -v; npm -v; command -v node; pm2 -v
+dpkg -l nodejs | tail -1; apt-cache policy nodejs | head -4
+echo "## pm2"; pm2 describe sendika | grep -E "status|node.js version|interpreter|script path|exec cwd|restarts|uptime"
+P=$(pm2 pid sendika); echo "uygulama pid=$P"; ls -l /proc/$P/exe; /proc/$P/exe -v
+PD=$(cat /root/.pm2/pm2.pid); echo "pm2 daemon pid=$PD"; ls -l /proc/$PD/exe; /proc/$PD/exe -v
+systemctl is-active pm2-root; systemctl show -p MainPID pm2-root     # MainPID = pm2 daemon pid olmali
+grep -E "^(Type|PIDFile|Restart|ExecStart|ExecStop|Environment)" /etc/systemd/system/pm2-root.service
+echo "## bellek"; free -m; swapon --show
+node -e 'console.log("heap_size_limit MB", Math.round(require("v8").getHeapStatistics().heap_size_limit/1048576))'
+echo "## disk"; df -h /
+du -sh /var/www/sendika-site /var/www/sendika-site.yedek-* 2>/dev/null
+for d in /var/www/sendika-site.yedek-*; do [ -d "$d" ] && stat -c '%z  %n' "$d"; done | sort    # %z = ctime: kopyanin alindigi an
+echo "## canli"; for u in https://buyukdirilis.org.tr/ https://buyukdirilis.org.tr/haberler https://buyukdirilis.org.tr/admin/giris https://kurmayteknoloji.com/ https://kurmayteknoloji.com/haberler https://kurmayteknoloji.com/admin/giris; do printf '%-45s ' $u; curl -s -o /dev/null -m 10 -w '%{http_code}\n' $u; done
+curl -s -o /dev/null -D - https://buyukdirilis.org.tr/ | grep -ci '^x-powered-by'    # 0 (surum disari sizmiyor)
+} 2>&1 | tee $O
+# Bugunku (Node 20) build tepe bellegi — (d)'deki Node 22 olcumuyle kiyaslanir. Deploy yapmaz, yalniz /opt/build/.next'i yeniden uretir:
+command -v /usr/bin/time >/dev/null || apt-get install -y time
+cd /opt/build/sendika-site && /usr/bin/time -v -o /root/node20-build-zaman.txt npm run build > /dev/null; echo "cikis $?"
+grep -E "Maximum resident|Elapsed|Exit status" /root/node20-build-zaman.txt | tee -a $O
+```
+
+**a2) Eski uygulama yedekleri — İSTEĞE BAĞLI, AYRI** (disk 18 GB; her deploy bir kopya bıraktı)
+
+- Öneri: (e) geçtikten ve site birkaç gün Node 22'de sorunsuz koştuktan SONRA temizleyin.
+- En yeni iki kopya korunur: (b)'de alınacak `yedek-node20-$T` ile ondan önceki son kopya. Daha eskileri silinebilir.
+- Sıralama ctime'a göre (`cp -a` mtime'ı kaynaktan kopyalar, mtime yanıltır). Silmeden önce listeyi TARİHLERİYLE gözle kontrol edin:
+
+```bash
+for d in /var/www/sendika-site.yedek-*; do stat -c '%Z %z %n' "$d"; done | sort -rn | tail -n +3 | cut -d' ' -f2- | tee /root/silinecek-yedekler.txt
+awk '{print $NF}' /root/silinecek-yedekler.txt | xargs -r du -sh
+# Liste dogruysa ve yedek-node20-$T icinde DEGILSE:
+grep -q "yedek-node20-" /root/silinecek-yedekler.txt && echo "DUR: node20 yedegi listede" || awk '{print $NF}' /root/silinecek-yedekler.txt | xargs -r rm -rf --
+df -h /
+```
+
+**b) Geri dönüş sigortası**
+
+```bash
+T=$(cut -d= -f2 /root/node-T.txt); Y=/root/node20-geri-donus; mkdir -p $Y && cd $Y
+apt-get download nodejs=20.20.2-1nodesource1 \
+  || cp /var/cache/apt/archives/nodejs_20.20.2-1nodesource1_amd64.deb . \
+  || curl -fO https://deb.nodesource.com/node_20.x/pool/main/n/nodejs/nodejs_20.20.2-1nodesource1_amd64.deb
+dpkg-deb -f nodejs_20.20.2-1nodesource1_amd64.deb Package Version    # nodejs / 20.20.2-1nodesource1
+sha256sum nodejs_20.20.2-1nodesource1_amd64.deb | tee deb.sha256
+cp -a /etc/apt/sources.list.d/nodesource.sources ./nodesource.sources.yedek
+cp -a /etc/apt/preferences.d ./preferences.d.yedek; grep -H . /etc/apt/preferences.d/*   # Pin: origin deb.nodesource.com / 600
+cp -a /usr/share/keyrings/nodesource.gpg ./ 2>/dev/null
+tar czf pm2-global.tgz -C /usr/lib/node_modules pm2       # global pm2'nin kopyasi
+pm2 save && cp -a /root/.pm2/dump.pm2 ./dump.pm2.yedek
+cp -a /etc/systemd/system/pm2-root.service ./
+cp -a /var/www/sendika-site /var/www/sendika-site.yedek-node20-$T
+ls -la $Y
+```
+
+**c) NodeSource deposunu 22'ye çevirme** — deb822 dosyası korumalı elle düzenlenir, `setup_22.x` betiği kullanılmaz.
+
+- Betik root olarak uzak kod çalıştırıyor; anahtarı, `.sources`'u ve iki pin dosyasını silip yeniden yazıyor.
+- Ana sürüm yalnız `URIs:` satırında. Anahtar ve pin sürümden bağımsız.
+- **URIs koruması düşerse apt hiç çalışmaz:**
+
+```bash
+F=/etc/apt/sources.list.d/nodesource.sources
+if [ "$(grep -cE '^URIs: https://deb\.nodesource\.com/node_20\.x/?$' $F)" = 1 ]; then
+  sed -i -E 's#^(URIs: https://deb\.nodesource\.com/node_)20(\.x/?)$#\122\2#' $F
+  diff /root/node20-geri-donus/nodesource.sources.yedek $F   # YALNIZ URIs satiri degismeli (yerelde sinandi)
+  apt-get update 2>&1 | grep -i nodesource                    # hata yok, node_22.x okundu
+  apt-cache policy nodejs | head -4                           # Candidate: 22.23.3-1nodesource1 (ya da ustu)
+  apt-get install -y nodejs && node -v && npm -v              # v22.x
+  ls /usr/lib/node_modules/pm2/package.json && pm2 -v         # global pm2 yerinde: 7.0.4
+else
+  echo "DUR: beklenen URIs satiri yok — dosyaya ve apt'ye DOKUNULMADI"; cat $F
+fi
+```
+
+- Yedek `/root`'ta tutulur, `sources.list.d` içine konmaz (apt oradaki bilinmeyen uzantıları uyarıyla atlar).
+
+**d) Uygulama deploy'u + pm2 daemon'u systemd üzerinden yeni Node'la**
+
+```bash
+T=$(cut -d= -f2 /root/node-T.txt); cd /opt/build/sendika-site
+command -v /usr/bin/time >/dev/null || { echo "DUR: /usr/bin/time yok (apt-get install -y time)"; false; } \
+&& { node -v | grep -q '^v22\.' || { echo "DUR: node 22 degil"; false; }; } \
+&& git fetch && git log --oneline -3 origin/main \
+&& git pull --ff-only \
+&& awk -F= '/^TENANT_HEADER_SECRET=/{n=length($2)} END{print "sir uzunlugu:", n+0; exit !(n>=32)}' .env \
+&& npm ci --no-audit --no-fund --prefer-offline \
+&& node -e "console.log(require('sharp').versions)" \
+&& /usr/bin/time -v -o /root/node22-build-zaman.txt npm run build \
+&& cp -r .next/static .next/standalone/.next/static \
+&& grep -q '^TENANT_HEADER_SECRET=' .next/standalone/.env \
+&& rsync -a --delete .next/standalone/ /var/www/sendika-site/ \
+&& echo "DEPLOY TAMAM" || echo "DUR — zincir kirildi; /var/www ve pm2'ye dokunulmadi"
+grep -E "Maximum resident|Elapsed|Exit status" /root/node20-build-zaman.txt /root/node22-build-zaman.txt
+```
+
+- GNU `time` alt komutun çıkış kodunu aynen döndürür, zincir bozulmaz.
+- `npm run build` önce `prebuild` kapısını çalıştırır.
+
+Yalnız "DEPLOY TAMAM" görüldüyse:
+
+```bash
+pm2 save                                             # 🔴 ZORUNLU: ExecStop'taki `pm2 kill` dump ALMAZ
+PD=$(cat /root/.pm2/pm2.pid); MP=$(systemctl show -p MainPID --value pm2-root); echo "pm2.pid=$PD MainPID=$MP"
+if [ "$MP" = "$PD" ]; then
+  systemctl restart pm2-root                         # ExecStop: pm2 kill → ExecStart: pm2 resurrect (yeni /usr/bin/node)
+else
+  pm2 kill; systemctl is-active -q pm2-root && systemctl stop pm2-root; systemctl start pm2-root
+fi
+sleep 5
+systemctl is-active pm2-root                                                            # active
+[ "$(systemctl show -p MainPID --value pm2-root)" = "$(cat /root/.pm2/pm2.pid)" ] && echo "MainPID == pm2.pid"
+P=$(pm2 pid sendika); PD=$(cat /root/.pm2/pm2.pid)
+ls -l /proc/$P/exe /proc/$PD/exe                                                         # "(deleted)" YOK
+/proc/$P/exe -v; /proc/$PD/exe -v                                                        # v22.x ikisi de
+pm2 ls                                                                                   # sendika online
+curl -s -o /dev/null -w '%{http_code}\n' https://buyukdirilis.org.tr/                   # 200
+```
+
+Başarısız olursa (sendika online değil / 502):
+
+```bash
+cd /var/www/sendika-site && PORT=3000 pm2 start server.js --name sendika && pm2 save
+# Site ayaga kalkinca daemon'u tekrar systemd'ye devretmek icin (trafik az iken): pm2 kill && systemctl start pm2-root
+```
+
+**Neden `pm2 update` değil (pm2 7.0.4 kaynağı ve şablonu okundu):**
+- `pm2 update`: `dump → killDaemon → Client.launchDaemon → resurrect` (lib/API.js). Yeni daemon'u çağıran CLI süreci `spawn(process.execPath, …)` ile başlatır (lib/Client.js). Yani daemon systemd'nin dışında kalır.
+  - Birimin (`Type=forking`, `PIDFile=…/pm2.pid`, `Restart=on-failure`) izlediği eski ana süreç ölür, `MainPID` uyuşmaz.
+  - Sonrasında zaten kill + start gerekir.
+- `systemctl restart pm2-root` tek adımda üç şey yapar:
+  - daemon'u yeni `/usr/bin/node` ile kaldırır (`/usr/bin/pm2` `#!/usr/bin/env node`, birimin PATH'inde `/usr/bin` var);
+  - denetimi systemd'de tutar;
+  - açılış yolunu (`resurrect`) sınar.
+- Uygulama süreci fork modda `exec_interpreter "node"` ile PATH'ten açılır (lib/God/ForkMode.js). O da yeni ikiliye gider.
+- Eski (f) adımı ("sunucu yeniden başlarsa resurrect kalkar mı") böylece (d)'ye katıldı.
+- `pm2 unstartup/startup` gerekmez: birimde node yolu yok, NodeSource aynı yola (`/usr/bin/node`) kurar.
+
+**e) Doğrulama**
+
+```bash
+S=https://kurmayteknoloji.com; A=https://buyukdirilis.org.tr; T=$(cut -d= -f2 /root/node-T.txt)
+node -v
+# Calisan ikili (HTTP'ye sizdirmadan): "(deleted)" GORULMEMELI, surum v22
+P=$(pm2 pid sendika);            ls -l /proc/$P/exe;  /proc/$P/exe -v
+PD=$(cat /root/.pm2/pm2.pid);    ls -l /proc/$PD/exe; /proc/$PD/exe -v
+curl -s -o /dev/null -D - $A/ | grep -ci '^x-powered-by'          # 0
+for u in $A/ $A/haberler $A/admin/giris $S/ $S/haberler $S/admin/giris; do printf '%-42s ' $u; curl -s -o /dev/null -m 10 -w '%{http_code}\n' $u; done   # hepsi 200
+curl -s $S/haberler | grep -o '<title>[^<]*'                       # Haberler | Kurmay Teknoloji
+# K7-B
+pm2 logs sendika --lines 300 --nostream | grep -c "TENANT_HEADER_SECRET yok"                   # 0
+SAHTE=$(printf '5a%.0s' $(seq 32))
+curl -s -H 'Host: kurmayteknoloji.com' -H 'x-tenant-slug: default' -H "x-tenant-proof: $SAHTE" http://127.0.0.1:3000/_next/static/yok.js | grep -o '<title>[^<]*'   # Sayfa Bulunamadı
+curl -s -o /dev/null -D - $S/haberler | grep -ci 'x-tenant-proof\|x-middleware-request'       # 0
+# K8 — bilinmeyen subdomain notr 404
+curl -s -o /dev/null -m 10 -w '%{http_code}\n' -H "Host: yok-$T.buyukdirilis.org.tr" http://127.0.0.1:3000/   # 404
+curl -s -m 10 -H "Host: yok-$T.buyukdirilis.org.tr" http://127.0.0.1:3000/ | grep -o '<title>[^<]*'          # Sayfa Bulunamadı
+# B2 — bilinmeyen ozel alan adi notr 404
+curl -s -o /dev/null -m 10 -w '%{http_code}\n' -H "Host: eski-musteri.example" http://127.0.0.1:3000/haberler # 404
+curl -sI -m 10 -H "Host: eski-musteri.example" http://127.0.0.1:3000/ | grep -i x-tenant-slug                # !bilinmeyen-alan
+# backup-storage: sozdizimi + ice aktarma (gercek yedek almaz, ping atmaz)
+cd /opt/build/sendika-site && node --check scripts/backup-storage.mjs \
+  && node --input-type=module -e 'await import("@supabase/supabase-js"); await import("./scripts/lib/healthchecks.mjs"); console.log("ice aktarma tamam", process.version)'
+# Ertesi sabah (04:30 cron'u yeni Node'la kostuktan sonra):
+tail -3 /var/log/storage-yedek.log; tail -1 /var/backups/storage/yedek.log          # hata=0
+```
+
+**g) GERİ ALMA**
+
+```bash
+T=$(cut -d= -f2 /root/node-T.txt); Y=/root/node20-geri-donus
+cp -a $Y/nodesource.sources.yedek /etc/apt/sources.list.d/nodesource.sources
+cp -a $Y/preferences.d.yedek/. /etc/apt/preferences.d/
+apt-get update
+dpkg -i $Y/nodejs_20.20.2-1nodesource1_amd64.deb && node -v          # v20.20.2 (surum dusurme uyarisi normal)
+[ -f /usr/lib/node_modules/pm2/package.json ] || tar xzf $Y/pm2-global.tgz -C /usr/lib/node_modules
+rsync -a --delete /var/www/sendika-site.yedek-node20-$T/ /var/www/sendika-site/
+pm2 update && pm2 save
+P=$(pm2 pid sendika); /proc/$P/exe -v                                  # v20.20.2
+curl -s -o /dev/null -w '%{http_code}\n' https://buyukdirilis.org.tr/  # 200
+```
+
+- ⚠️ (d)'deki gerekçe burada da geçerli: `pm2 update` daemon'u systemd dışına alır. Geri almada da `pm2 update` yerine (d)'deki `pm2 save` + systemd bloğu önerilir. (g) karar gereği değiştirilmedi.
+- Geri alındıktan sonra `origin/main`'deki runtime commit'i yüzünden `/opt/build`'de `npm ci` **bilerek düşer** (engine-strict). Node 20'de yeni deploy gerekirse o commit geri alınmalı (`git revert f02a388`).
+
 ---
 
 # 📦 VPS DEPLOY — ✅ TAMAMLANDI, CANLIDA (27 Ağustos 2026)
@@ -6706,8 +7010,9 @@ kullanılmıyor — canlı ortam VPS.
 - **Kaynak dizini:** `/opt/build/sendika-site` — sunucudaki kaynak kod +
   script'ler. Storage yedeği cron'u (`scripts/backup-storage.mjs`) buradan
   çalışır; deploy'dan etkilenmez.
-- **Runtime:** Node 20 (NodeSource) + PM2 (`pm2 startup systemd` kurulu,
-  proses adı `sendika`)
+- **Runtime:** Node 22 LTS (NodeSource `node_22.x`). Geçiş 24 Eylül 2026'da karar verildi, sunucuda uygulanması bekleniyor. Öncesi Node 20.20.2.
+  Ayrıntı: "🔑 Node 22 kararı".
+  PM2 7.0.4: `pm2 startup systemd` kurulu (`pm2-root.service`), proses adı `sendika`.
 - **Reverse proxy:** Nginx — config `/etc/nginx/sites-available/sendika`
 - **Domain:** `buyukdirilis.org.tr` (kayıt: isimtescil, DNS paneli: dnsenable.com)
 
