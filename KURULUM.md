@@ -16,7 +16,7 @@ Adım 11'deki doğrulama listesi söyler.
 | 5 | Süper admin | Auth + SQL | 5 dk |
 | 6 | Auth URL ayarları | Dashboard → Auth | 3 dk |
 | 7 | Custom SMTP (Resend) | Resend + Dashboard | 20 dk (DNS bekler) |
-| 8 | Ortam değişkenleri + build | Sunucu | 10 dk |
+| 8 | Node 22 + pm2, ortam değişkenleri, build | Sunucu | 20 dk |
 | 9 | İlk kurum ve içerik | Panel | — |
 | 10 | Yedekleme | VPS cron | 10 dk |
 | 11 | Doğrulama | — | 5 dk |
@@ -429,6 +429,69 @@ Adım 5'teki hesabı silip **Invite user** ile yeniden davet edin; mail gelmeli.
 ---
 
 ## Adım 8 — Ortam değişkenleri ve build
+
+### 8.0 — Node 22 (NodeSource) + pm2: sunucuda BİR KEZ (24 Eylül 2026)
+
+Proje **Node 22 LTS** ister: `package.json` → `"engines": { "node": ">=22.18.0 <23" }`.
+Bu aralık üç yerde denetlenir:
+
+- **`.npmrc` → `engine-strict=true`:** yanlış Node'da `npm ci` `EBADENGINE` ile
+  düşer ve `node_modules`'a dokunmaz.
+- **`prebuild` → `scripts/node-surum-kapisi.mjs`:** `npm run build` yanlış
+  Node'da build'e başlamadan durur. `npm run` engines'e kendisi bakmaz; bu kapı
+  o yüzden var.
+- **Ölçüm araçları** (`izolasyon:kapi`, `izolasyon:korlesme`, `izolasyon:tam`,
+  `izolasyon:temel`) aynı kapıyla başlar.
+
+Neden 22, neden 24 değil, ve bir sonraki geçişin koşulu: NOTE.md → "🔑 Node 22 kararı".
+
+Ubuntu 22.04, root. NodeSource'un kendi dosya biçimiyle aynı (`setup_22.x` betiğinin
+yazdığı `.sources`, anahtar ve pin). Betiği uzaktan çalıştırmak yerine elle yazılır:
+
+```bash
+apt-get install -y ca-certificates curl gnupg
+mkdir -p /usr/share/keyrings
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+chmod 644 /usr/share/keyrings/nodesource.gpg
+cat > /etc/apt/sources.list.d/nodesource.sources <<'EOF'
+Types: deb
+URIs: https://deb.nodesource.com/node_22.x
+Suites: nodistro
+Components: main
+Architectures: amd64
+Signed-By: /usr/share/keyrings/nodesource.gpg
+EOF
+printf 'Package: nodejs\nPin: origin deb.nodesource.com\nPin-Priority: 600\n' > /etc/apt/preferences.d/nodejs
+apt-get update && apt-get install -y nodejs
+node -v                          # v22.x — 22.18.0 ya da üstü olmalı
+npm install -g pm2@7.0.4 && pm2 -v
+```
+
+- Ana sürüm yalnız `URIs:` satırındadır (`node_22.x`). Suite her zaman `nodistro`.
+- Anahtar ve pin sürümden bağımsızdır.
+
+**İlk çalıştırma ve açılışta otomatik başlama.** Build ve rsync bittikten sonra,
+yani Adım 8'in geri kalanı ve NOTE.md "VPS DEPLOY" tamamlanınca:
+
+```bash
+cd /var/www/sendika-site && PORT=3000 pm2 start server.js --name sendika   # HOSTNAME VERİLMEZ (NOTE.md "Tuzak 1")
+pm2 save
+pm2 startup systemd              # /etc/systemd/system/pm2-root.service yazar ve etkinleştirir
+pm2 kill && systemctl start pm2-root                 # daemon'u systemd'ye devret
+systemctl is-active pm2-root                         # active
+[ "$(systemctl show -p MainPID --value pm2-root)" = "$(cat /root/.pm2/pm2.pid)" ] && echo "systemd denetiminde"
+pm2 ls                                               # sendika online
+```
+
+- **Neden `pm2 kill && systemctl start`:** `pm2 start` ile başlayan daemon systemd'nin
+  dışındadır. Birimin `MainPID`'i ona bağlı olmaz. Bir sonraki
+  `systemctl restart pm2-root` ikinci bir daemon açmaya kalkar.
+- **Birimin davranışı** (pm2 7.0.4 şablonu): `ExecStart=pm2 resurrect`, `ExecStop=pm2 kill`.
+- 🔴 **`pm2 kill` dump almaz.** Süreç listesi değiştiyse önce `pm2 save`.
+
+**Node ana sürümü değiştirmek** (ör. ileride 24): yalnız `URIs:` satırı değişir,
+ardından deploy ve pm2 daemon'unun systemd üzerinden yeniden başlatılması gelir.
+Korumalı komutlar ve geri alma: NOTE.md → "🔑 Node 22 kararı".
 
 `.env.local.example` dosyasını kopyalayıp doldurun:
 
