@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 1 / C8 — panel ekranlari: gecici hata ≠ yetkisiz/giris",
+  "yazildi": "2026-09-24T16:55:00+03:00",
+  "not": "KODDAN ONCE yazildi. Matris oturumsuz kosar: admin (authenticated) layout'u ve super admin layout'u oturumsuz istekte middleware'de girise yonlenir; /api/super-admin/* oturumsuz 401 (degismez; oturum yok = 'giris' dali). Yeni dallar yalniz oturum VARKEN tasima/rpc hatasinda calisir → 0 hucre farki, 0 FAIL, bolum sayilari ayni. Birim: test:admin-access 54 → 72 (+18: decideOturum 7, decideSuperAdminAccess 7, kaynak muhurleri 4 — admin layout tasima dali gecici ekran/redirect yok, super admin layout decideSuperAdminAccess + gecici ekran, yerel requireSuperAdmin kopyasi 0 ve 7 route paylasilan modulu kullaniyor, paylasilan modulde gecici-hata → 503). test:super-admin-host 144 AYNI (layout'ta redirect(SUPER_ADMIN_LOGIN_PATH) ve <SuperAdminYetkisizView /> korunur; handler govdesinde requireSuperAdminHost( → requireSuperAdmin() sirasi korunur). test:kurum-cozumu 65, diger betikler ayni.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
