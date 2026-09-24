@@ -1,0 +1,1828 @@
+{
+  "tur": "Guvenlik G1 — super admin panosu T10 deseni: sayfa veri okumadan once yetkiyi kendisi cozer (superAdminKarari, React cache)",
+  "yazildi": "2026-09-25T01:57:06+03:00",
+  "not": "KODDAN ONCE yazildi. Taban: beklenti-c6.json (68d4dec, 64 adim) — 64 adim BIREBIR (G1 yalniz /super-admin panosunu degistirir; mevcut SA/panel-rpc-hatasi ve SA/panel-rpc-false ekranlari aynen). YENI s1 senaryosu (6 adim). ONCE kaydi (Tur 2 teshisi, 0d7a4f3 kodu, raporlar/2026-09-25-0126): S1a–S1d'de isaret 'S1-SIZINTI-KURUM' ve 'Platform Ozeti' RSC yukunde VAR (1), tenants istegi 3 (HEAD ×2 + GET), rpc 1, auth GET 2. G1 SONRASI (tasarim): pano ilk iki ifade 'const karar = await superAdminKarari(); if (karar.kind !== \"izin\") return null;'. Karar React cache() ile istek ici TEK hesap: layout ve pano paralel render edilse de ayni sozu bekler → rpc 1 (cache kirilirsa 2 olurdu), auth GET 2 (middleware 1 + kapi 1). Yetkisiz/gecici: pano hic okumaz → tenants istegi 0, isaret YOK. Izin: tenants 3, isaret VAR (pozitif kontrol). Formul: tum cevaplar vekilde yerel sahte (authKota, rpcCevap, sahteRest) → [0; 3 000] ms. Kesin: durum, icerir/icermez, restIstegi, authIstegi, konum.",
+  "senaryolar": [
+    {
+      "id": "saglikli",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "A/haberler",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/haberler",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "A/haber",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/haberler/{A.haber}",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "A/sayfa",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/sayfa/{A.sayfa}",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "type=\"password\""
+            ],
+            "icermez": [
+              "Alan Adı Tanımlı Değil"
+            ],
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "SA/giris",
+          "kaynak": "olculdu",
+          "host": "{sa}",
+          "yol": "/super-admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "A/sitemap",
+          "kaynak": "ongoru",
+          "host": "{kok}",
+          "yol": "/sitemap.xml",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "<urlset",
+              "re:/haberler/[^<]+</loc>"
+            ],
+            "basliklar": {
+              "content-type": "application/xml"
+            },
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "A/robots",
+          "kaynak": "ongoru",
+          "host": "{kok}",
+          "yol": "/robots.txt",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "User-Agent"
+            ],
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "gorsel",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "{gorsel:640}",
+          "accept": "image/webp",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        }
+      ],
+      "yenidenBaslat": true
+    },
+    {
+      "id": "karadelik-taze",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "C3 tahmini: R: 2 render × P(5 sn)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 10000,
+            "karadelikBaglanti": 8
+          },
+          "yenidenBaslat": true,
+          "tarayici": {
+            "durum": 500,
+            "sinir": "kok",
+            "gorunenMetin": "Geçici bir sorun oluştu, lütfen biraz sonra tekrar deneyin.",
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji"
+            ]
+          },
+          "formul": "R: 2 render × P(5 sn)"
+        },
+        {
+          "id": "A/haberler",
+          "kaynak": "C3 tahmini: R: 2 render × P(5 sn)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/haberler",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 10000,
+            "karadelikBaglanti": 4
+          },
+          "yenidenBaslat": true,
+          "formul": "R: 2 render × P(5 sn)"
+        },
+        {
+          "id": "A/haber",
+          "kaynak": "C3 tahmini: R: 2 render × P(5 sn)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/haberler/{A.haber}",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 10000,
+            "karadelikBaglanti": 6
+          },
+          "yenidenBaslat": true,
+          "formul": "R: 2 render × P(5 sn)"
+        },
+        {
+          "id": "A/sayfa",
+          "kaynak": "C3 tahmini: R: 2 render × P(5 sn)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/sayfa/{A.sayfa}",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 10000,
+            "karadelikBaglanti": 5
+          },
+          "yenidenBaslat": true,
+          "formul": "R: 2 render × P(5 sn)"
+        },
+        {
+          "id": "Bsub/",
+          "kaynak": "C3 tahmini: R: 2 render × P(5 sn)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{B.sub}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 10000,
+            "karadelikBaglanti": 8
+          },
+          "yenidenBaslat": true,
+          "formul": "R: 2 render × P(5 sn)"
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "C3 tahmini: M(4 sn) ozel alan adi sorgusu → 503",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 5500,
+            "icerir": [
+              "Geçici bir sorun oluştu"
+            ],
+            "basliklar": {
+              "retry-after": "30",
+              "x-kurum-durumu": "gecici-hata"
+            },
+            "altMs": 4000,
+            "karadelikBaglanti": 1
+          },
+          "yenidenBaslat": true,
+          "formul": "M(4 sn) ozel alan adi sorgusu → 503"
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "C3 tahmini: kok metadata ayari P(5 sn, notr) ∥ giris sayfasi ayari A(6 sn, yutulur) → max = 6 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 7500,
+            "icerir": [
+              "type=\"password\""
+            ],
+            "icermez": [
+              "Alan Adı Tanımlı Değil"
+            ],
+            "altMs": 6000,
+            "karadelikBaglanti": 2
+          },
+          "yenidenBaslat": true,
+          "formul": "kok metadata ayari P(5 sn, notr) ∥ giris sayfasi ayari A(6 sn, yutulur) → max = 6 sn"
+        },
+        {
+          "id": "A/admin+taze-cerez",
+          "kaynak": "C3 tahmini: middleware getUser M(4 sn) → tasima → girise",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 307,
+            "ustMs": 5500,
+            "konum": "re:^/admin/giris",
+            "cerezSil": false,
+            "altMs": 4000,
+            "karadelikBaglanti": 1
+          },
+          "yenidenBaslat": true,
+          "formul": "middleware getUser M(4 sn) → tasima → girise"
+        },
+        {
+          "id": "SA/giris",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{sa}",
+          "yol": "/super-admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "altMs": 0,
+            "karadelikBaglanti": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "gorsel",
+          "kaynak": "olculdu 10,6 sn",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "{gorsel:750}",
+          "accept": "image/webp",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "altMs": 10000,
+            "karadelikBaglanti": 1
+          },
+          "yenidenBaslat": true,
+          "formul": "1 dalga × T(10 sn)"
+        },
+        {
+          "id": "A/sitemap",
+          "kaynak": "C3 tahmini: 6 paralel service role okumasi P(5 sn) → 503",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/sitemap.xml",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 6500,
+            "icerir": [
+              "Geçici bir sorun oluştu, lütfen biraz sonra tekrar deneyin."
+            ],
+            "icermez": [
+              "<urlset",
+              "User-Agent"
+            ],
+            "basliklar": {
+              "retry-after": "30",
+              "cache-control": "re:no-store"
+            },
+            "altMs": 5000,
+            "karadelikBaglanti": 6
+          },
+          "yenidenBaslat": true,
+          "formul": "6 paralel service role okumasi P(5 sn) → 503"
+        },
+        {
+          "id": "A/robots",
+          "kaynak": "C2+C7 v2: kurum onbellekte → dogru robots, Supabase'e gidilmez (kabul)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/robots.txt",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icerir": [
+              "User-Agent"
+            ],
+            "karadelikBaglanti": 0,
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        }
+      ]
+    },
+    {
+      "id": "ret-taze",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "C2+C7 v2: 500 hata kabugu (hizli)",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 3000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "tarayici": {
+            "durum": 500,
+            "sinir": "kok",
+            "gorunenMetin": "Geçici bir sorun oluştu, lütfen biraz sonra tekrar deneyin.",
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji"
+            ]
+          },
+          "formul": "hizli ret: dalga basina < 0,1 sn"
+        },
+        {
+          "id": "A/haberler",
+          "kaynak": "C2+C7 v2: 500 hata kabugu (hizli)",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/haberler",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 3000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "hizli ret: dalga basina < 0,1 sn"
+        },
+        {
+          "id": "A/haber",
+          "kaynak": "C2+C7 v2: 500 hata kabugu (hizli)",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/haberler/{A.haber}",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 3000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "hizli ret: dalga basina < 0,1 sn"
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 3000,
+            "basliklar": {
+              "retry-after": "30"
+            },
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "hizli ret: dalga basina < 0,1 sn"
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icerir": [
+              "type=\"password\""
+            ],
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "hizli ret: dalga basina < 0,1 sn"
+        },
+        {
+          "id": "A/admin+sure-cerez",
+          "kaynak": "olculdu 25,5 sn (yenileme geri cekilmesi)",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "sure",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 4000,
+            "ustMs": 5500,
+            "konum": "re:^/admin/giris",
+            "cerezSil": false,
+            "logIcerir": [
+              "toplam butce 4000 ms doldu"
+            ]
+          },
+          "yenidenBaslat": true,
+          "formul": "C6: panel getUser toplam butcesi — ECONNREFUSED hizli, geri cekilme 0/0,2/0,6/1,4/3,0 sn, 6. deneme 6,2 sn > 4 sn → yaris 4,0 sn: [4 000; 5 500]; tasima dali, cerez KORUNUR"
+        },
+        {
+          "id": "gorsel",
+          "kaynak": "olculdu",
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "{gorsel:828}",
+          "accept": "image/webp",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 3000,
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "hizli ret: dalga basina < 0,1 sn"
+        },
+        {
+          "id": "A/sitemap",
+          "kaynak": "C2+C7 tahmini: route handler 503 (hizli)",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/sitemap.xml",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 3000,
+            "icerir": [
+              "Geçici bir sorun oluştu, lütfen biraz sonra tekrar deneyin."
+            ],
+            "icermez": [
+              "<urlset",
+              "User-Agent"
+            ],
+            "basliklar": {
+              "retry-after": "30",
+              "cache-control": "re:no-store"
+            },
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "formul": "hizli ret: dalga basina < 0,1 sn"
+        }
+      ]
+    },
+    {
+      "id": "gecikme-3sn",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "olculdu 6,3 sn (2 dalga)",
+          "isit": true,
+          "mod": "delay",
+          "gecikmeMs": 3000,
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 6000,
+            "ustMs": 7500,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true,
+          "formul": "2 dalga × 3 sn gecikme"
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu 9,5 sn (3 dalga)",
+          "isit": true,
+          "mod": "delay",
+          "gecikmeMs": 3000,
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 9000,
+            "ustMs": 10500
+          },
+          "yenidenBaslat": true,
+          "formul": "middleware + 2 dalga × 3 sn gecikme"
+        }
+      ]
+    },
+    {
+      "id": "zehirlenme",
+      "adimlar": [
+        {
+          "id": "Bsub/-bayat-karadelik",
+          "kaynak": "C3 tahmini: R: 2 render × P(5 sn) (bayat kurum sunulur, yenileme P arkada)",
+          "isit": true,
+          "bekleOnceMs": 65000,
+          "mod": "blackhole",
+          "host": "{B.sub}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "altMs": 10000,
+            "karadelikBaglanti": 10
+          },
+          "formul": "R: 2 render × P(5 sn) (bayat kurum sunulur, yenileme P arkada)"
+        },
+        {
+          "id": "Bsub/admin-giris-saglikli",
+          "kaynak": "C2 tahmini: bayat kayit korundu",
+          "mod": "pass",
+          "host": "{B.sub}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icerir": [
+              "type=\"password\""
+            ],
+            "icermez": [
+              "Alan Adı Tanımlı Değil"
+            ],
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "Bsub/-saglikli",
+          "kaynak": "C2 tahmini: bayat kayit korundu",
+          "mod": "pass",
+          "host": "{B.sub}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "altMs": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        }
+      ],
+      "yenidenBaslat": true
+    },
+    {
+      "id": "soguk",
+      "yenidenBaslat": true,
+      "adimlar": [
+        {
+          "id": "A/robots",
+          "kaynak": "C3 tahmini: kurum sorgusu P(5 sn) → gecici-hata → 503",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/robots.txt",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 6500,
+            "icerir": [
+              "Geçici bir sorun oluştu, lütfen biraz sonra tekrar deneyin."
+            ],
+            "icermez": [
+              "<urlset",
+              "User-Agent"
+            ],
+            "basliklar": {
+              "retry-after": "30",
+              "cache-control": "re:no-store"
+            },
+            "altMs": 5000,
+            "karadelikBaglanti": 1
+          },
+          "formul": "kurum sorgusu P(5 sn) → gecici-hata → 503"
+        },
+        {
+          "id": "A/",
+          "kaynak": "C3 tahmini: R: kurum sorgusu 2 render × P(5 sn), kd 2",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "karadelikBaglanti": 2,
+            "altMs": 10000
+          },
+          "formul": "R: kurum sorgusu 2 render × P(5 sn), kd 2"
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "C3 tahmini: kurum sorgusu P(5 sn) → admin 'Geçici Bir Sorun Oluştu'",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 6500,
+            "icerir": [
+              "Geçici Bir Sorun Oluştu"
+            ],
+            "icermez": [
+              "Alan Adı Tanımlı Değil",
+              "type=\"password\""
+            ],
+            "altMs": 5000,
+            "karadelikBaglanti": 1
+          },
+          "formul": "kurum sorgusu P(5 sn) → admin 'Geçici Bir Sorun Oluştu'"
+        },
+        {
+          "id": "SA/giris",
+          "kaynak": "olculdu",
+          "mod": "blackhole",
+          "host": "{sa}",
+          "yol": "/super-admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "altMs": 0,
+            "karadelikBaglanti": 0
+          },
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "C3 tahmini: M(4 sn) → 503",
+          "mod": "blackhole",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 5500,
+            "basliklar": {
+              "retry-after": "30"
+            },
+            "altMs": 4000,
+            "karadelikBaglanti": 1
+          },
+          "formul": "M(4 sn) → 503"
+        }
+      ]
+    },
+    {
+      "id": "y1",
+      "adimlar": [
+        {
+          "id": "A/+sure-cerez",
+          "kaynak": "C1 tahmini: Y1 duzeldi, public veri gelir",
+          "mod": "pass",
+          "host": "{kok}",
+          "yol": "/",
+          "cerez": "sure",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "cerezSil": false,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "altMs": 0,
+            "authIstegi": 0,
+            "cerezYaz": false
+          },
+          "yenidenBaslat": true,
+          "isit": true,
+          "formul": "C6: public yolda auth YOK → yenileme POST'u gitmez (0), cerez okunmaz/silinmez; sayfa verili 200"
+        }
+      ]
+    },
+    {
+      "id": "panel-oturum",
+      "adimlar": [
+        {
+          "id": "A/admin-katman-tasima",
+          "kaynak": "C8 tahmini: tasima hatasi → gecici ekran, yonlendirme yok",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 1,
+            "sonra": "kopar"
+          },
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "konum": null,
+            "icerir": [
+              "Geçici Bir Sorun Oluştu"
+            ],
+            "icermez": [
+              "type=\"password\""
+            ],
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "isit": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "A/admin-uyelik-hatasi",
+          "kaynak": "ongoru (sahte JWT → tenant_users 401 → gecici ekran)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 2,
+            "sonra": "kopar"
+          },
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "Geçici Bir Sorun Oluştu"
+            ],
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "isit": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "SA/panel-rpc-hatasi",
+          "kaynak": "C8 tahmini: rpc hatasi → gecici ekran",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 2,
+            "sonra": "kopar"
+          },
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "Geçici Bir Sorun Oluştu"
+            ],
+            "icermez": [
+              "Bu panele erişim yetkiniz yok."
+            ],
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "isit": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "SA/panel-rpc-false",
+          "kaynak": "ongoru (gercek yetkisizlik)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 2,
+            "sonra": "kopar"
+          },
+          "rpcCevap": "false",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "Bu panele erişim yetkiniz yok."
+            ],
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "isit": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "SA/api-rpc-hatasi",
+          "kaynak": "C8 tahmini: rpc hatasi → 503 JSON",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 1,
+            "sonra": "kopar"
+          },
+          "host": "{sa}",
+          "yol": "/api/super-admin/tenant-setup-check?tenantId={B.id}",
+          "cerez": "taze",
+          "accept": "application/json",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 8000,
+            "icerir": [
+              "doğrulanamadı"
+            ],
+            "icermez": [
+              "Yetkiniz yok."
+            ],
+            "basliklar": {
+              "retry-after": "30",
+              "cache-control": "re:no-store"
+            },
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "isit": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        },
+        {
+          "id": "SA/api-rpc-false",
+          "kaynak": "ongoru (gercek yetkisizlik → 403)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 1,
+            "sonra": "kopar"
+          },
+          "rpcCevap": "false",
+          "host": "{sa}",
+          "yol": "/api/super-admin/tenant-setup-check?tenantId={B.id}",
+          "cerez": "taze",
+          "accept": "application/json",
+          "beklenen": {
+            "durum": 403,
+            "ustMs": 8000,
+            "icerir": [
+              "Yetkiniz yok."
+            ],
+            "altMs": 0
+          },
+          "yenidenBaslat": true,
+          "isit": true,
+          "formul": "saglikli: Supabase'e 0–2 dalga × ~0,1–0,4 sn"
+        }
+      ]
+    },
+    {
+      "id": "sure-cerez-public",
+      "adimlar": [
+        {
+          "id": "A/+sure-cerez-karadelik",
+          "kaynak": "C3 tahmini: middleware yenilemesi 6 deneme × M(4 sn) + geri cekilme (0,2+0,4+0,8+1,6+3,2) = 30,2 sn + R: 2 × P(5 sn) = 10 sn",
+          "formul": "C6: public yolda auth YOK → yenileme baglantisi 0; R: 2 render × P(5 sn) = [10; 12], kd = karadelik-taze/A/ ile ayni 8 (C6a'da 14 = 6 yenileme + 8)",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/",
+          "cerez": "sure",
+          "beklenen": {
+            "durum": 500,
+            "altMs": 10000,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "cerezSil": false,
+            "karadelikBaglanti": 8,
+            "cerezYaz": false,
+            "authIstegi": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "gecikme-8sn",
+      "adimlar": [
+        {
+          "id": "A/",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "delay",
+          "gecikmeMs": 8000,
+          "host": "{kok}",
+          "yol": "/",
+          "formul": "R: 2 render × P(5 sn) — 8 sn gecikme butceyi asar",
+          "beklenen": {
+            "durum": 500,
+            "altMs": 10000,
+            "ustMs": 12000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "karadelikBaglanti": 0
+          }
+        },
+        {
+          "id": "Bcustom/",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "delay",
+          "gecikmeMs": 8000,
+          "host": "{B.custom}",
+          "yol": "/",
+          "formul": "M(4 sn) → 503",
+          "beklenen": {
+            "durum": 503,
+            "altMs": 4000,
+            "ustMs": 5500,
+            "icerir": [
+              "Geçici bir sorun oluştu"
+            ],
+            "basliklar": {
+              "retry-after": "30"
+            }
+          }
+        },
+        {
+          "id": "A/admin-giris",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "delay",
+          "gecikmeMs": 8000,
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "formul": "P(5 sn, notr) ∥ A(6 sn, yutulur) → 6 sn",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 6000,
+            "ustMs": 7500,
+            "icerir": [
+              "type=\"password\""
+            ],
+            "icermez": [
+              "Alan Adı Tanımlı Değil"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "cf5xx",
+      "adimlar": [
+        {
+          "id": "A/",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "cf5xx",
+          "host": "{kok}",
+          "yol": "/",
+          "formul": "hizli 522 + HTML → fetch reddedilir (supabase-5xx) → PostgREST {error} → birincil veri hatasi → notr 500 kabuk (hizli)",
+          "beklenen": {
+            "durum": 500,
+            "altMs": 0,
+            "ustMs": 3000,
+            "icerir": [
+              "id=\"__next_error__\""
+            ],
+            "icermez": [
+              "Sendika Adı",
+              "Kurmay Teknoloji",
+              "kurmay-teknoloji",
+              "{B.custom}",
+              "{A.id}",
+              "{B.id}",
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ],
+            "basliklar": {
+              "cache-control": "re:no-store"
+            },
+            "logIcerir": [
+              "[HTML govde atildi",
+              "supabase-5xx"
+            ],
+            "logIcermez": [
+              "<!DOCTYPE",
+              "cf-wrapper"
+            ]
+          }
+        },
+        {
+          "id": "Bcustom/",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "cf5xx",
+          "host": "{B.custom}",
+          "yol": "/",
+          "formul": "hizli 522 + HTML → fetch reddedilir → ozel alan adi sorgusu hatasi → 503 (hizli)",
+          "beklenen": {
+            "durum": 503,
+            "altMs": 0,
+            "ustMs": 3000,
+            "basliklar": {
+              "retry-after": "30"
+            },
+            "logIcerir": [
+              "custom_domain lookup hatasi",
+              "[HTML govde atildi",
+              "supabase-5xx"
+            ],
+            "logIcermez": [
+              "<!DOCTYPE",
+              "cf-wrapper"
+            ]
+          }
+        },
+        {
+          "id": "A/admin+taze-cerez",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "cf5xx",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "taze",
+          "formul": "getUser GET /auth/v1/user 522 → fetch reddi → AuthRetryableFetchError (getUser yeniden DENEMEZ: 1 istek) → tasima → girise, cerez KORUNUR",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 0,
+            "ustMs": 3000,
+            "konum": "re:^/admin/giris",
+            "cerezSil": false,
+            "logIcermez": [
+              "<!DOCTYPE",
+              "cf-wrapper"
+            ],
+            "authIstegi": 1,
+            "logIcerir": [
+              "Supabase auth erisilemedi (cerez KORUNDU)",
+              "supabase-5xx"
+            ]
+          }
+        },
+        {
+          "id": "A/admin+sure-cerez",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "cf5xx",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "sure",
+          "formul": "C6: yenileme 522 → fetch reddi → yeniden deneme; denemeler t ≈ 0 / 0,2 / 0,6 / 1,4 / 3,0 sn (5 istek), 6.'si 6,2 sn → yaris 4,0 sn: [4 000; 5 500], authIstegi 5 (sayim yanit + 0,4 sn'de kapanir); cerez KORUNUR",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 4000,
+            "ustMs": 5500,
+            "konum": "re:^/admin/giris",
+            "cerezSil": false,
+            "authIstegi": 5,
+            "logIcerir": [
+              "Supabase auth erisilemedi (cerez KORUNDU)",
+              "toplam butce 4000 ms doldu",
+              "supabase-5xx"
+            ],
+            "logIcermez": [
+              "<!DOCTYPE",
+              "cf-wrapper",
+              "Oturum cerezi kullanilamaz"
+            ]
+          }
+        },
+        {
+          "id": "json5xx/Bcustom/",
+          "yenidenBaslat": true,
+          "isit": true,
+          "mod": "pass",
+          "sahteRest": {
+            "/rest/v1/tenants": {
+              "durum": 503,
+              "govde": {
+                "message": "sahte-json-503",
+                "code": "PGRST000",
+                "details": null,
+                "hint": null
+              }
+            }
+          },
+          "host": "{B.custom}",
+          "yol": "/",
+          "formul": "POZITIF KONTROL: JSON govdeli 503 (PostgREST bicimi) DONUSTURULMEZ → PostgREST {error: JSON} → ozel alan adi sorgusu hatasi → 503 (hizli); log'da JSON mesaji VAR, supabase-5xx YOK",
+          "beklenen": {
+            "durum": 503,
+            "altMs": 0,
+            "ustMs": 3000,
+            "basliklar": {
+              "retry-after": "30",
+              "x-kurum-durumu": "gecici-hata"
+            },
+            "logIcerir": [
+              "custom_domain lookup hatasi",
+              "sahte-json-503"
+            ],
+            "logIcermez": [
+              "supabase-5xx"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "yazma",
+      "adimlar": [
+        {
+          "id": "SA/toggle-belirsiz",
+          "mod": "delay",
+          "gecikmeMs": 30000,
+          "gecikmeYontem": "PATCH",
+          "authKota": {
+            "basarili": 1,
+            "sonra": "kopar"
+          },
+          "rpcCevap": "true",
+          "host": "{sa}",
+          "yol": "/api/super-admin/toggle-tenant",
+          "yontem": "POST",
+          "govdeJson": {
+            "tenantId": "{B.id}",
+            "isActive": true
+          },
+          "cerez": "taze",
+          "accept": "application/json",
+          "formul": "okuma (GET tenants) gecer; PATCH vekilde 30 sn bekletilir → Y(25 sn) keser → 504 'sonuc dogrulanamadi' (yazma canliya ULASMAZ: vekil PATCH'i 403'ler)",
+          "beklenen": {
+            "durum": 504,
+            "altMs": 25000,
+            "ustMs": 27500,
+            "icerir": [
+              "belirsiz",
+              "doğrulanamadı"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "yonlendirme-cerez",
+      "adimlar": [
+        {
+          "id": "Y1 A/admin-giris+sure+yenileme-basarili",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "cerez": "sure",
+          "authYenileme": "basarili",
+          "authKota": {
+            "basarili": 3,
+            "sonra": "kopar"
+          },
+          "formul": "middleware getUser → yenileme (sahte 200) + GET user → user var → 307 /admin; C6a: kutuphane cerezi YONLENDIRMEYE yazilir",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 0,
+            "ustMs": 3000,
+            "konum": "re:^/admin$",
+            "cerezYaz": true,
+            "cerezSil": false,
+            "authIstegi": 2
+          }
+        },
+        {
+          "id": "Y2 SA/giris+sure+yenileme-basarili",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{sa}",
+          "yol": "/super-admin/giris",
+          "cerez": "sure",
+          "authYenileme": "basarili",
+          "authKota": {
+            "basarili": 3,
+            "sonra": "kopar"
+          },
+          "formul": "ayni, super admin girisi → 307 /super-admin; C6a: kutuphane cerezi yonlendirmeye yazilir",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 0,
+            "ustMs": 3000,
+            "konum": "re:^/super-admin$",
+            "cerezYaz": true,
+            "cerezSil": false,
+            "authIstegi": 2
+          }
+        },
+        {
+          "id": "Y3 A/admin+sure+yenileme-400",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "sure",
+          "authYenileme": {
+            "durum": 400,
+            "govde": {
+              "code": "refresh_token_not_found",
+              "error_code": "refresh_token_not_found",
+              "msg": "Invalid Refresh Token: Refresh Token Not Found"
+            }
+          },
+          "formul": "yenileme 400 → AuthApiError → oturum silinir (kutuphane) + 4xx dali (bozukCerezAdlari) → 307 giris, silme yonlendirmede",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 0,
+            "ustMs": 3000,
+            "konum": "re:^/admin/giris",
+            "cerezSil": true,
+            "cerezYaz": false,
+            "authIstegi": 1
+          }
+        },
+        {
+          "id": "Y4 A/+sure+yenileme-basarili (public)",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{kok}",
+          "yol": "/",
+          "cerez": "sure",
+          "authYenileme": "basarili",
+          "authKota": {
+            "basarili": 3,
+            "sonra": "kopar"
+          },
+          "formul": "C6: public yolda auth YOK → yenileme yok, yeni jeton yazilmaz (0 auth istegi)",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 8000,
+            "cerezYaz": false,
+            "cerezSil": false,
+            "authIstegi": 0,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          }
+        },
+        {
+          "id": "Y5 A/admin-giris+sure+yenileme-400",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "cerez": "sure",
+          "authYenileme": {
+            "durum": 400,
+            "govde": {
+              "code": "refresh_token_not_found",
+              "error_code": "refresh_token_not_found",
+              "msg": "Invalid Refresh Token: Refresh Token Not Found"
+            }
+          },
+          "formul": "yonlendirmesiz giris sayfasi, silme supabaseResponse'ta",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 8000,
+            "cerezSil": true,
+            "cerezYaz": false,
+            "authIstegi": 1,
+            "icerir": [
+              "type=\"password\""
+            ]
+          }
+        },
+        {
+          "id": "Y6 A/admin+sure+yenileme-basarili (panel sayfasi)",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "sure",
+          "authYenileme": "basarili",
+          "authKota": {
+            "basarili": 3,
+            "sonra": "kopar"
+          },
+          "formul": "middleware yeniler (1 POST) + getUser; layout yeni jetonla getUser (ikinci yenileme YOK) → 1 POST + 2 GET",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 8000,
+            "cerezYaz": true,
+            "cerezSil": false,
+            "authIstegi": 3
+          }
+        },
+        {
+          "id": "C6 Bcustom/+sure+yenileme-basarili (ozel alan adi public)",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{B.custom}",
+          "yol": "/",
+          "cerez": "sure",
+          "authYenileme": "basarili",
+          "authKota": {
+            "basarili": 3,
+            "sonra": "kopar"
+          },
+          "formul": "C6: ozel alan adi sorgusu CEREZSIZ istemciyle → getSession/yenileme YOK; public → getUser YOK → 0 auth istegi, cerez yazilmaz/silinmez (C6a kodunda: sorgunun oturumlu istemcisi suresi gecmis oturumu yenilerdi)",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 8000,
+            "cerezYaz": false,
+            "cerezSil": false,
+            "authIstegi": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "s1",
+      "adimlar": [
+        {
+          "id": "S1a SA/pano rpc-false HTML",
+          "yenidenBaslat": true,
+          "mod": "pass",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "authKota": {
+            "basarili": 5,
+            "sonra": "kopar"
+          },
+          "sahteRest": {
+            "/rest/v1/tenants": {
+              "durum": 200,
+              "govde": [
+                {
+                  "id": "99999999-9999-4999-8999-999999999999",
+                  "name": "S1-SIZINTI-KURUM",
+                  "slug": "s1-sizinti-slug",
+                  "is_active": true,
+                  "created_at": "2026-01-01T00:00:00Z"
+                }
+              ],
+              "basliklar": {
+                "content-range": "0-0/7"
+              }
+            }
+          },
+          "rpcCevap": "false",
+          "formul": "kapi: getUser + rpc false → yetkisiz; layout Yetkisiz ekrani, pano null (okuma YOK)",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 3000,
+            "icerir": [
+              "Bu panele erişim yetkiniz yok."
+            ],
+            "icermez": [
+              "S1-SIZINTI-KURUM",
+              "s1-sizinti-slug",
+              "99999999-9999-4999-8999-999999999999",
+              "Platform Özeti"
+            ],
+            "restIstegi": {
+              "/rest/v1/tenants": 0,
+              "/rest/v1/rpc/is_super_admin": 1
+            },
+            "authIstegi": 2
+          }
+        },
+        {
+          "id": "S1b SA/pano rpc-false RSC",
+          "mod": "pass",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "authKota": {
+            "basarili": 5,
+            "sonra": "kopar"
+          },
+          "sahteRest": {
+            "/rest/v1/tenants": {
+              "durum": 200,
+              "govde": [
+                {
+                  "id": "99999999-9999-4999-8999-999999999999",
+                  "name": "S1-SIZINTI-KURUM",
+                  "slug": "s1-sizinti-slug",
+                  "is_active": true,
+                  "created_at": "2026-01-01T00:00:00Z"
+                }
+              ],
+              "basliklar": {
+                "content-range": "0-0/7"
+              }
+            }
+          },
+          "ekBasliklar": {
+            "rsc": "1"
+          },
+          "accept": "text/x-component",
+          "rpcCevap": "false",
+          "formul": "ayni, istemci gezintisi RSC yuku",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 3000,
+            "icermez": [
+              "S1-SIZINTI-KURUM",
+              "s1-sizinti-slug",
+              "99999999-9999-4999-8999-999999999999",
+              "Platform Özeti"
+            ],
+            "restIstegi": {
+              "/rest/v1/tenants": 0,
+              "/rest/v1/rpc/is_super_admin": 1
+            },
+            "authIstegi": 2
+          }
+        },
+        {
+          "id": "S1c SA/pano rpc-hatasi HTML",
+          "mod": "pass",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "authKota": {
+            "basarili": 5,
+            "sonra": "kopar"
+          },
+          "sahteRest": {
+            "/rest/v1/tenants": {
+              "durum": 200,
+              "govde": [
+                {
+                  "id": "99999999-9999-4999-8999-999999999999",
+                  "name": "S1-SIZINTI-KURUM",
+                  "slug": "s1-sizinti-slug",
+                  "is_active": true,
+                  "created_at": "2026-01-01T00:00:00Z"
+                }
+              ],
+              "basliklar": {
+                "content-range": "0-0/7"
+              }
+            }
+          },
+          "formul": "rpc POST vekilde 403 (yazma engeli) → rpc hatasi → gecici; layout Gecici ekrani, pano null",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 3000,
+            "icerir": [
+              "Geçici Bir Sorun Oluştu"
+            ],
+            "icermez": [
+              "S1-SIZINTI-KURUM",
+              "s1-sizinti-slug",
+              "99999999-9999-4999-8999-999999999999",
+              "Platform Özeti",
+              "Bu panele erişim yetkiniz yok."
+            ],
+            "restIstegi": {
+              "/rest/v1/tenants": 0,
+              "/rest/v1/rpc/is_super_admin": 1
+            },
+            "authIstegi": 2
+          }
+        },
+        {
+          "id": "S1d SA/pano rpc-hatasi RSC",
+          "mod": "pass",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "authKota": {
+            "basarili": 5,
+            "sonra": "kopar"
+          },
+          "sahteRest": {
+            "/rest/v1/tenants": {
+              "durum": 200,
+              "govde": [
+                {
+                  "id": "99999999-9999-4999-8999-999999999999",
+                  "name": "S1-SIZINTI-KURUM",
+                  "slug": "s1-sizinti-slug",
+                  "is_active": true,
+                  "created_at": "2026-01-01T00:00:00Z"
+                }
+              ],
+              "basliklar": {
+                "content-range": "0-0/7"
+              }
+            }
+          },
+          "ekBasliklar": {
+            "rsc": "1"
+          },
+          "accept": "text/x-component",
+          "formul": "ayni, RSC yuku",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 3000,
+            "icermez": [
+              "S1-SIZINTI-KURUM",
+              "s1-sizinti-slug",
+              "99999999-9999-4999-8999-999999999999",
+              "Platform Özeti"
+            ],
+            "restIstegi": {
+              "/rest/v1/tenants": 0,
+              "/rest/v1/rpc/is_super_admin": 1
+            },
+            "authIstegi": 2
+          }
+        },
+        {
+          "id": "S1e SA/pano rpc-true HTML (pozitif kontrol)",
+          "mod": "pass",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "authKota": {
+            "basarili": 5,
+            "sonra": "kopar"
+          },
+          "sahteRest": {
+            "/rest/v1/tenants": {
+              "durum": 200,
+              "govde": [
+                {
+                  "id": "99999999-9999-4999-8999-999999999999",
+                  "name": "S1-SIZINTI-KURUM",
+                  "slug": "s1-sizinti-slug",
+                  "is_active": true,
+                  "created_at": "2026-01-01T00:00:00Z"
+                }
+              ],
+              "basliklar": {
+                "content-range": "0-0/7"
+              }
+            }
+          },
+          "rpcCevap": "true",
+          "formul": "izin → pano okur (HEAD ×2 + GET) → isaret VAR",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 0,
+            "ustMs": 3000,
+            "icerir": [
+              "S1-SIZINTI-KURUM",
+              "Platform Özeti"
+            ],
+            "restIstegi": {
+              "/rest/v1/tenants": 3,
+              "/rest/v1/rpc/is_super_admin": 1
+            },
+            "authIstegi": 2
+          }
+        },
+        {
+          "id": "S1f SA/pano oturumsuz",
+          "mod": "pass",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "formul": "middleware: oturum yok → 307 girise (ag istegi yok)",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 0,
+            "ustMs": 3000,
+            "konum": "re:^/super-admin/giris",
+            "authIstegi": 0,
+            "restIstegi": {
+              "/rest/v1/tenants": 0,
+              "/rest/v1/rpc/is_super_admin": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

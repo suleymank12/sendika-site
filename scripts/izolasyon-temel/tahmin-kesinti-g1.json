@@ -1,0 +1,26 @@
+{
+  "tur": "Guvenlik G1 — super admin panosu T10 deseni (S1) + muhur test:super-admin-sayfa",
+  "yazildi": "2026-09-25T01:57:06+03:00",
+  "not": "KODDAN ONCE yazildi. Degisiklik: YENI src/lib/super-admin/super-admin-karari.ts (superAdminKarari = React cache: createClient + getUser + rpc is_super_admin + decideSuperAdminAccess; gecici hatada log). super-admin/(authenticated)/layout.tsx kararini bu kapidan alir; ekranlar AYNEN (gecici-hata → SuperAdminGeciciHataView, giris → redirect(SUPER_ADMIN_LOGIN_PATH), yetkisiz → SuperAdminYetkisizView, izin → Shell). page.tsx ilk iki ifade kapi + 'if (karar.kind !== \"izin\") return null;'. MATRIS: oturumsuz → super admin yollari middleware'de 307/404, render yok → 0 hucre farki, 0 FAIL, 2590/0. YENI test:super-admin-sayfa: 11 gecti, 0 kaldi = gercek kaynak 4 [K1 sunucu sayfasi ilk ifade kapi (1 sayfa), K2 ikinci ifade 'if (X.kind !== \"izin\") return', K3 istemci sayfalari sunucu/service istemcisi ice aktarmaz (4 sayfa), K4 taban sunucu 1 / istemci 4] + oz-sinama 6 [M1 kapi silinir → K1, M2 kapi createClient'tan sonraya → K1, M3 if silinir → K2, M4 kosul ters (=== \"izin\") → K2, M5 kapisiz yeni sunucu sayfasi → K1+K4, M6 istemci sayfasina createAdminClient → K3] + negatif kontrol 1. KALIP GUNCELLEMESI (kural ayni): scripts/test-admin-access.mjs:318 'super admin layout: decideSuperAdminAccess + gecici ekran, Yetkisiz yalniz izin disi' — decideSuperAdminAccess artik kapi modulunde; kalip: layout superAdminKarari() + <SuperAdminGeciciHataView /> + 'karar.kind !== \"izin\"' VE kapi modulu decideSuperAdminAccess( icerir. test:admin-access 72 AYNI. Diger: test:super-admin-host 144 (layout'ta redirect(SUPER_ADMIN_LOGIN_PATH) + <SuperAdminYetkisizView /> aynen), test:super-admin-kurum 71, test:kurum-cozumu 65, test:cerez 70, test:supabase-zaman-asimi 34 (yeni modul supabase-js/ssr fabrikasi CAGIRMAZ; server.ts createClient'i kullanir) AYNI. 32 betik 2419/0 AYNI (yeni betik ayri kosulur). test:kesinti beklenti-g1.json 70/70 (c6'nin 64'u birebir + s1 6).",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)",
+  "beklenen_muhur_satiri": "SONUC: 34 gecti, 0 kaldi",
+  "beklenen_cerez_satiri": "SONUC: 70 gecti, 0 kaldi",
+  "beklenen_sayfa_muhru_satiri": "SONUC: 11 gecti, 0 kaldi"
+}
