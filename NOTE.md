@@ -95,7 +95,7 @@ yerine geçmez.
 
 ---
 
-# 🌩️ SUPABASE KESİNTİ DAYANIKLILIĞI (24 Eylül 2026 — Tur 1 / 3 tamam)
+# 🌩️ SUPABASE KESİNTİ DAYANIKLILIĞI (24–25 Eylül 2026 — Tur 2 / 3 tamam)
 
 Raporlar: `raporlar/2026-09-24-1334-supabase-kesinti-teshis.md` (teşhis),
 `…-1454-kesinti-tur1-DUR.md`, `…-1529-kesinti-tur1-c2c7-DUR.md` ve Tur 1
@@ -155,6 +155,18 @@ açıkça yer alır.
   (ör. işaret kuralı) yalnız kullanıcı onayıyla, ayrı kilitli commit'te ve
   öncekine atıfla (örnek: c2c7 v1 `ace73b7` → v2 `281fa53`).
 - İzolasyon tahmin üreteci kuralı (22 Eylül) aynen geçerli.
+- **Tur 2'den itibaren (24 Eylül 2026, kullanıcı kararı) iki ek:**
+  1. **Süreler ARALIK olarak kilitlenir.** Her kesinti adımına mekanizma
+     formülü yazılır (ör. "2 render × public bütçe 5 sn", "middleware ≤ 4 sn",
+     "yenileme geri çekilmesi 200·(2⁷−1) ms"), alt ve üst sınır formülden
+     çıkar. Süre sapması **yalnız aralık dışıysa** DUR. Şunlar **KESİN**
+     kalır, birebir tutmazsa DUR: durum kodu, gövde/kabuk işareti, sızıntı
+     denetimi, çerez silme/yazma, kara delik bağlantı sayısı (`kd`).
+  2. **Tahmin commit'i yalnız tahmin/beklenti dosyalarını içerir.** Commit'ten
+     önce `git diff --cached --name-only` çıktısı rapora yazılır; listede
+     başka dosya varsa commit atılmaz, önce ayrılır (`281fa53` dersi:
+     sahnelenmiş iki yeniden adlandırma tahmin commit'ine girmişti).
+     Tercihen `git commit -- <dosyalar>`.
 
 ## Tur 1 sonucu (C0, C1, C2+C7, C8)
 
@@ -174,12 +186,67 @@ adlandırmayı (sitemap/robots → route klasörü, içerik değişmeden) da ald
 commit tek başına build edilmez, içerik `328b8fa`'da tamamlandı (geçmiş yeniden
 yazılmadı).
 
+## Tur 2 sonucu (C5, C3 v2, C4, C6a, C6 — 24/25 Eylül 2026)
+
+Raporlar: `raporlar/2026-09-24-1805-kesinti-tur2-c3-DUR.md`, Tur 2 kapanış raporu
+(25 Eylül). Sıra: C5 → C3 → C4 → C6a → C6 (C5 önce: C3'ün fabrika bağlaması yeni
+oturumsuz istemciyi de kapsasın diye).
+
+| Commit | Ne |
+|---|---|
+| `22e8c80` C5 | Public sayfalar oturumsuz, çerezsiz anon istemci (`lib/supabase/public.ts`); service role okumaları aynen. Public tarafta oturuma bağlı davranış yok (arandı) |
+| `b265932` C3 v2 | `lib/supabase/zaman-asimli-fetch.ts` — tek kaynak. **Bütçeler: middleware 4 / public-okuma 5 / admin-okuma 6 / yazma 25 sn** (çağrı başına, gövde dahil). AbortController; Edge'de `AbortSignal.timeout` VAR, `AbortSignal.any` YOK (ölçüldü) → çağıranın sinyali elle bağlanır. `createAdminClient(katman)` zorunlu. Yazma zaman aşımında **504 `{sonuc:"belirsiz"}`** "Sonuç doğrulanamadı — listeyi yenileyip kontrol edin." (`lib/yazma-yaniti`). `kisaHata`: HTML atılır, ≤ 300 karakter. **v2 (kullanıcı kararı):** 520–527 ya da gövdesi JSON olmayan 5xx → fetch REDDEDİLİR (ağ sınıfı). Neden: auth-js 2.101.1 yalnız 502/503/504'ü yeniden denenebilir sayar; 522 + HTML → `AuthUnknownError` → `_callRefreshToken` oturumu SİLİYORDU. Artık `AuthRetryableFetchError` → oturum korunur. JSON 5xx (PostgREST'in kendi hatası) aynen |
+| `61a441c` C4 | `npm run test:supabase-zaman-asimi` (34): R1 fabrika yalnız izinli dosyalarda, R2 `global.fetch = zamanAsimliFetch(katman)` ezilemez, R3 modül (AST, yorumsuz kod), R4 taban 7, R5 `createAdminClient` katmanı metin sabiti; davranış birimleri; öz-sınama M1–M8. İstisnalar: tarayıcı istemcisi, `scripts/**`, setup-probe-deps, next/image |
+| `81b9509` C6a | Middleware'in döndürdüğü **her** yanıta (redirect/503/next) kütüphanenin Set-Cookie'leri taşınır. Ölçüldü: `/admin/giris` ve `/super-admin/giris` yönlendirmesinde yenilenen jeton tarayıcıya ULAŞMIYORDU. (`requestHeaders` şüphesi doğrulanmadı: Next 14 middleware yanıt çerezlerini render isteğine taşıyor — tek yenileme ölçüldü) |
+| `f5d7104` C6 | Middleware auth yalnız `/admin*`, `/super-admin*` (`PANEL_ONEKLERI`); oturumlu istemci yalnız orada kurulur (kurucusu bile çerez okur). `getUser` toplam bütçesi **4 sn** (`Promise.race`) → süre dolunca taşıma dalı (user null, çerez KORUNUR, girişe). Özel alan adı sorgusu çerezsiz istemciyle. Public yolda çerez okunmaz, yenilenmez, silinmez |
+
+**Ölçülen kesinti süreleri (test:kesinti, yerel arıza enjektörü):**
+
+| Durum | Tur 1 sonu | Tur 2 sonu |
+|---|---|---|
+| Süresi geçmiş admin çereziyle public anasayfa, kara delik | 171 sn (teşhis) | **10,1 sn**, yenileme bağlantısı 0 |
+| Public sayfa kara delik (A/, haberler, haber, sayfa) | ~21 sn | 10,1–10,3 sn (2 render × 5 sn) |
+| Özel alan adı kara delik / gecikme 8 sn | 10,0 sn | 4,0 sn (503) |
+| Admin girişi kara delik | 10,5 sn | 6,1 sn |
+| `/admin` + taze çerez kara delik | 10,0 sn | 4,0 sn (307, çerez korunur) |
+| `/admin` + süresi geçmiş çerez, ret / cf5xx | 25,5 sn | 4,0 sn (307, çerez korunur) |
+| sitemap kara delik | 10,5 sn | 5,0 sn (503) |
+| Sunucu yazması, yanıt gelmiyor | — | 25,4 sn → 504 belirsiz |
+| cf5xx (hızlı 522 + HTML) public / özel alan adı | — | 0,1 / 0,02 sn; log'da HTML yok |
+
+Kapılar (her commit): izolasyon:kapi **2590/0 birebir**; test:kesinti son hâl
+**64/64** (`beklenti-c6.json`); test:cerez **70**; mühür **34**; 32 betik **2419/0**
+(`test:backup-db` NTFS'te bilerek ORTAM); körleşme 10/10 (tur sonu).
+
+Bilinen (kabul edildi, izleniyor): panel yolunda 4 sn yarışı kaybedilince arka
+plandaki yenileme sürer; yanıttan SONRA başarılı olursa sunucu jetonu döndürür ama
+tarayıcı yeni jetonu alamaz (yenileme jetonu yeniden kullanım aralığı dışında
+kalırsa oturum düşer — fail-closed).
+
+### S1 teşhisi — süper admin sayfaları ve T10 dersi (kod yok; ayrı tur)
+
+- Tek sunucu bileşeni `super-admin/(authenticated)/page.tsx` (dashboard): `:15`
+  `createClient()` (oturumlu, anon anahtar — service role YOK), `:17-28` tenants
+  sayısı ×2 + son 5 kurum. Diğer 4 sayfa istemci bileşeni (tarayıcı istemcisi, RLS).
+- Layout (`layout.tsx:31` getUser, `:47` rpc, `:57` Geçici, `:65` Yetkisiz) ile sayfa
+  PARALEL render edilir: sayfanın okumaları rpc'den ÖNCE gidiyor.
+- **Ölçüldü (yerel, sahte oturum + sahte tenants):** rpc false (Yetkisiz ekranı) ve
+  rpc hatası (Geçici ekranı) yanıtlarında dashboard çıktısı — kurum adı, slug, id,
+  "Platform Özeti" — HTML içindeki RSC akışında (`self.__next_f`) ve `RSC: 1`
+  yükünde VAR (DOM'da görünmez). Oturumsuz → 307, sızıntı yok.
+- Bugünkü etki düşük: sızan alanlar `tenants_public_select USING (true)` + anon
+  GRANT ile zaten herkese okunabilir. Risk ileriye dönük: dashboard'a service role
+  ya da gizli veri eklenirse yetkisiz oturuma sızar.
+- Öneri (ayrı tur): T10 deseni — sayfa yetkiyi kendisi çözer (`requireSuperAdmin`
+  benzeri, rpc false/hata → veri OKUNMAZ) + mühür ("süper admin sunucu sayfası
+  veri okumadan önce yetki kapısından geçer") + test:kesinti'de kalıcı S1 adımı.
+
 ## 3 turluk plan
 
 | Tur | Kapsam | Durum |
 |---|---|---|
 | 1 | C0 arıza enjektörü, C1 Y1, C2 hata ≠ yok, C7 dürüst hata, C8 panel geçici hata | ✅ 24 Eylül 2026 |
-| 2 | C3 tek merkezden zaman aşımı (`global.fetch` + AbortSignal, bütçeler yukarıda; çarpan: ≈ 2 × bütçe), C4 AST mührü ("her sunucu Supabase istemcisi zaman aşımlı fetch'ten geçer"), C5 public sayfalar oturumsuz anon istemci (171 sn'lik yenileme fırtınası), C6 middleware auth yalnız `/admin*`, `/super-admin*` + toplam bütçe | bekliyor |
+| 2 | C3 tek merkezden zaman aşımı (+ v2 ağ sınıfı 5xx), C4 AST mührü, C5 public oturumsuz istemci, C6a yönlendirmede kütüphane çerezleri, C6 middleware auth yalnız panel + 4 sn toplam bütçe; S1 teşhisi | ✅ 25 Eylül 2026 |
 | 3 | C9 nginx log'una `$request_time $upstream_response_time`, `/_next/image` `proxy_read_timeout`; C10 deploy; C11 izleme (VPS içi yoklama → Healthchecks) | bekliyor |
 
 **Deploy notu (Tur 3):** deploy'daki `rsync -a --delete .next/standalone/
