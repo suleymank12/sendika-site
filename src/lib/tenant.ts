@@ -66,11 +66,21 @@ export async function getTenant(slug: string): Promise<Tenant | null> {
   const cached = unstable_cache(
     async () => {
       const supabase = createTenantLookupClient();
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("tenants")
         .select("*")
         .eq("slug", slug)
         .maybeSingle();
+      // 🔴 HATA ≠ KURUM YOK (Supabase kesinti dayanikliligi C2, 24 Eylul 2026).
+      // Eskiden hata yutulup `null` donuyordu ve bu `null` 60 sn
+      // onbellekte kaliyordu (olculdu: Supabase geri geldikten SONRA calisan
+      // iki kurum 404, admin girisi "Alan Adı Tanımlı Değil").
+      // Firlatinca: soguk girdide hata cagirana gider (resolveCurrentTenant →
+      // "gecici-hata"); bayat girdinin arka plan yenilemesinde Next hatayi
+      // loglayip ESKI kaydi korur (hatada son bilinen kayit — karar). null
+      // YALNIZ satir gercekten yoksa doner; bu olumsuz sonuc onceki gibi
+      // onbellege yazilir.
+      if (error) throw new Error(`[tenant] kurum okunamadi (slug=${slug}): ${error.message}`);
       return (data as Tenant) ?? null;
     },
     ["tenant-by-slug", slug],

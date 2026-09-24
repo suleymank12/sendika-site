@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import { formatDate, truncateText } from "@/lib/utils";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -36,7 +37,7 @@ export default async function AnnouncementsListPage({ searchParams }: Props) {
   // bu sayfanin JSX'inin kullandigi alanlar: slug, published_at,
   // created_at, title, summary (+ key icin id). cover_image bu listede
   // gosterilmiyor. Karta alan eklenirse burasi da guncellenmeli.
-  const { data, count } = await supabase
+  const { data, count, error } = await supabase
     .from("announcements")
     .select("id, slug, title, summary, published_at, created_at", { count: "exact" })
     .eq("tenant_id", tenant.id)
@@ -44,6 +45,7 @@ export default async function AnnouncementsListPage({ searchParams }: Props) {
     .order("published_at", { ascending: false })
     .range(from, to);
 
+  hataVarsaFirlat(error, "duyuru listesi"); // BIRINCIL (C7)
   const announcements = data || [];
   const totalPages = Math.ceil((count || 0) / PAGE_SIZE.ANNOUNCEMENTS);
 

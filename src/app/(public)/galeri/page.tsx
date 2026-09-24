@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import Link from "next/link";
 import SafeImage from "@/components/SafeImage";
@@ -20,12 +21,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function GalleryPage() {
   const supabase = createClient();
   const tenant = await getCurrentTenant();
-  const { data: albums } = await supabase
+  const { data: albums, error } = await supabase
     .from("gallery_albums")
     .select("*, gallery_images(count)")
     .eq("tenant_id", tenant.id)
     .eq("is_published", true)
     .order("order", { ascending: true });
+
+  hataVarsaFirlat(error, "galeri albumleri"); // BIRINCIL (C7)
 
   interface AlbumWithCount extends GalleryAlbum {
     gallery_images: { count: number }[];

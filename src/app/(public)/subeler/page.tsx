@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import BranchCard from "@/components/public/BranchCard";
 
@@ -19,12 +20,13 @@ export default async function BranchesPage() {
   // manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
   const supabase = createAdminClient();
   const tenant = await getCurrentTenant();
-  const { data: branches } = await supabase
+  const { data: branches, error } = await supabase
     .from("branches")
     .select("*")
     .eq("tenant_id", tenant.id)
     .eq("is_active", true)
     .order("order", { ascending: true });
+  hataVarsaFirlat(error, "sube listesi"); // BIRINCIL (C7)
 
   return (
     <>

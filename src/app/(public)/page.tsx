@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { YEDEK_SITE_ADI } from "@/lib/constants";
 import { getSiteSettings } from "@/lib/site-settings";
+import { hataVarsaFirlat, yanitHatasi } from "@/lib/veri-hatasi";
 import Layout1Homepage from "@/components/public/Layout1Homepage";
 import Layout2Homepage from "@/components/public/Layout2Homepage";
 import {
@@ -95,6 +96,14 @@ export default async function HomePage() {
       .order("order", { ascending: true }),
   ]);
 
+  // BIRINCIL (C7): anasayfanin bolum listesi ve icerikleri. Hata → notr
+  // 500; eskiden bos anasayfa 200 donuyordu (izlemeye gorunmuyordu).
+  hataVarsaFirlat(headlinesRes.error, "anasayfa mansetleri");
+  hataVarsaFirlat(newsRes.error, "anasayfa haberleri");
+  hataVarsaFirlat(announcementsRes.error, "anasayfa duyurulari");
+  hataVarsaFirlat(slidersRes.error, "anasayfa slider");
+  hataVarsaFirlat(sectionsRes.error, "anasayfa bolumleri");
+
   const rawHeadlines = (headlinesRes.data as Headline[]) || [];
 
   const news = (newsRes.data as unknown as News[]) || [];
@@ -184,6 +193,15 @@ export default async function HomePage() {
           .limit(Math.max(maxAnnCount, announcements.length))
       : Promise.resolve({ data: null }),
   ]);
+
+  // BIRINCIL: manset baglantilari, ozel bolum ogeleri, bolum havuzlari.
+  for (const [yanit, yer] of [
+    [newsSlugsRes, "manset haber adresleri"],
+    [annSlugsRes, "manset duyuru adresleri"],
+    [customItemsRes, "ozel bolum ogeleri"],
+    [extraNewsRes, "bolum haber havuzu"],
+    [extraAnnRes, "bolum duyuru havuzu"],
+  ] as const) hataVarsaFirlat(yanitHatasi(yanit), yer);
 
   const slugMap = new Map<string, string>();
   (newsSlugsRes.data || []).forEach((r) => slugMap.set(`news:${r.id}`, r.slug));

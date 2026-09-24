@@ -58,7 +58,13 @@ import { BILINMEYEN_ALAN_SLUG } from "./constants";
 export type TenantResolution =
   | { kind: "found"; tenant: Tenant }
   | { kind: "unknown-slug" }
-  | { kind: "no-header" };
+  | { kind: "no-header" }
+  /**
+   * Kurum OKUNAMADI (veritabani hatasi / zaman asimi) — "yok" DEGIL (C2,
+   * 24 Eylul 2026). Public: FIRLATILIR (notr hata sayfasi), ASLA notFound
+   * ya da kurumsuz render. Admin: "Geçici Bir Sorun Oluştu" ekrani.
+   */
+  | { kind: "gecici-hata" };
 
 export const resolveCurrentTenant = cache(async (): Promise<TenantResolution> => {
   const h = headers();
@@ -70,9 +76,24 @@ export const resolveCurrentTenant = cache(async (): Promise<TenantResolution> =>
   // olmadigi KESIN, veritabanina sorgu gonderilmez (unstable_cache girdisi
   // de acilmaz). Kanit dogrulandiktan SONRA: imzasiz isaret no-header.
   if (slug === BILINMEYEN_ALAN_SLUG) return { kind: "unknown-slug" };
-  const tenant = await getTenant(slug);
+  let tenant: Tenant | null;
+  try {
+    tenant = await getTenant(slug);
+  } catch (hata) {
+    // Hata "bulunamadi" ile BIRLESTIRILMEZ (test:kurum-cozumu R5 muhurlu).
+    console.error("[get-tenant] kurum okunamadi, gecici-hata:", hata);
+    return { kind: "gecici-hata" };
+  }
   return tenant ? { kind: "found", tenant } : { kind: "unknown-slug" };
 });
+
+/** Public tarafin gecici hatada firlattigi hata (notr hata sayfasina gider). */
+export class KurumGeciciHatasi extends Error {
+  constructor() {
+    super("Kurum bilgisi gecici olarak okunamadi");
+    this.name = "KurumGeciciHatasi";
+  }
+}
 
 /**
  * Header'daki slug'i cozer — BULAMAZSA `null`, default'a DUSMEZ (b3 / Asama 0).
@@ -130,6 +151,9 @@ export const getCurrentTenantOrNull = cache(async (): Promise<Tenant | null> => 
 export const getCurrentTenant = cache(async (): Promise<Tenant> => {
   const cozum = await resolveCurrentTenant();
   if (cozum.kind === "found") return cozum.tenant;
+  // Gecici hata "yok" DEGIL: notFound'a CEVRILMEZ (404 arama motorunda sayfayi
+  // dusurur); firlatilir → notr hata sayfasi (C2/C7). notFound'dan ONCE olmali.
+  if (cozum.kind === "gecici-hata") throw new KurumGeciciHatasi();
   // no-header ve unknown-slug: notr 404 (default'a dusus YOK)
   notFound();
 });

@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import type {
   News,
   Announcement,
@@ -40,23 +41,27 @@ import type {
  * Her fonksiyonun ustunde hangisini kullandigi yaziyor; cagiran sayfayla
  * AYNI olmak zorunda.
  *
- * `.maybeSingle()` tercih edildi: cagiranlarin hepsi yalnizca `!data`
- * kontrolu yapiyor, `.single()`'in 0 satirda urettigi error nesnesi
- * kimsenin isine yaramiyordu (manset disinda — orada log korundu).
+ * `.maybeSingle()` tercih edildi: 0 satir = `data: null, error: null` →
+ * cagiran 404 verir (davranis AYNI).
+ *
+ * 🔴 HATA ≠ YOK (C7, 24 Eylul 2026): sorgu HATASI artik yutulmuyor —
+ * `return (data as X) || hataVarsaFirlat(error, "…")` → kayit varsa kayit,
+ * yoksa hata FIRLAR (notr 500), hata da yoksa null (404). Eskiden hata da
+ * null'a dusup 404 veriyordu (kesintide detay sayfalari dizinden duserdi).
  */
 
 /** anon client — `is_published` filtresini RLS ile birlikte tasir. */
 export const getNewsBySlug = cache(
   async (tenantId: string, slug: string): Promise<News | null> => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("news")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("slug", slug)
       .eq("is_published", true)
       .maybeSingle();
-    return (data as News) || null;
+    return (data as News) || hataVarsaFirlat(error, "haber detayi");
   }
 );
 
@@ -64,14 +69,14 @@ export const getNewsBySlug = cache(
 export const getAnnouncementBySlug = cache(
   async (tenantId: string, slug: string): Promise<Announcement | null> => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("announcements")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("slug", slug)
       .eq("is_published", true)
       .maybeSingle();
-    return (data as Announcement) || null;
+    return (data as Announcement) || hataVarsaFirlat(error, "duyuru detayi");
   }
 );
 
@@ -79,14 +84,14 @@ export const getAnnouncementBySlug = cache(
 export const getPageBySlug = cache(
   async (tenantId: string, slug: string): Promise<Page | null> => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("pages")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("slug", slug)
       .eq("is_published", true)
       .maybeSingle();
-    return (data as Page) || null;
+    return (data as Page) || hataVarsaFirlat(error, "sayfa detayi");
   }
 );
 
@@ -102,14 +107,14 @@ export type GalleryAlbumWithCount = GalleryAlbum & {
 export const getGalleryAlbumById = cache(
   async (tenantId: string, albumId: string): Promise<GalleryAlbumWithCount | null> => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("gallery_albums")
       .select("*, gallery_images(count)")
       .eq("tenant_id", tenantId)
       .eq("id", albumId)
       .eq("is_published", true)
       .maybeSingle();
-    return (data as unknown as GalleryAlbumWithCount) || null;
+    return (data as unknown as GalleryAlbumWithCount) || hataVarsaFirlat(error, "galeri albumu");
   }
 );
 
@@ -117,14 +122,14 @@ export const getGalleryAlbumById = cache(
  * anon client. `is_active` filtresi YOK — pasif mansetlere direkt URL ile
  * erisilebilsin (mevcut davranis korunuyor).
  *
- * `error` de doneriyor: manset sayfasi sorgu hatasini loglamak istiyor
- * ("[manset/[id]] Supabase sorgu hatasi"), o log korundu.
+ * Sorgu hatasi FIRLAR (C7); eskiden `{ headline, error }` donup sayfada
+ * loglaniyor ve 404'e dusuyordu.
  */
 export const getHeadlineById = cache(
   async (
     tenantId: string,
     id: string
-  ): Promise<{ headline: Headline | null; error: string | null }> => {
+  ): Promise<Headline | null> => {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("headlines")
@@ -132,7 +137,7 @@ export const getHeadlineById = cache(
       .eq("tenant_id", tenantId)
       .eq("id", id)
       .maybeSingle();
-    return { headline: (data as Headline) || null, error: error?.message ?? null };
+    return (data as Headline) || hataVarsaFirlat(error, "manset detayi");
   }
 );
 
@@ -140,14 +145,14 @@ export const getHeadlineById = cache(
 export const getHomepageSectionById = cache(
   async (tenantId: string, id: string): Promise<HomepageSection | null> => {
     const supabase = createAdminClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("homepage_sections")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("id", id)
       .eq("is_active", true)
       .maybeSingle();
-    return (data as HomepageSection) || null;
+    return (data as HomepageSection) || hataVarsaFirlat(error, "anasayfa bolumu");
   }
 );
 
@@ -158,14 +163,14 @@ export const getHomepageSectionById = cache(
 export const getBranchBySlug = cache(
   async (tenantId: string, slug: string): Promise<Branch | null> => {
     const supabase = createAdminClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("branches")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("slug", slug)
       .eq("is_active", true)
       .maybeSingle();
-    return (data as Branch) || null;
+    return (data as Branch) || hataVarsaFirlat(error, "sube detayi");
   }
 );
 
@@ -173,13 +178,13 @@ export const getBranchBySlug = cache(
 export const getBoardMemberBySlug = cache(
   async (tenantId: string, slug: string): Promise<BoardMember | null> => {
     const supabase = createAdminClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("board_members")
       .select("*")
       .eq("tenant_id", tenantId)
       .eq("slug", slug)
       .eq("is_active", true)
       .maybeSingle();
-    return (data as BoardMember) || null;
+    return (data as BoardMember) || hataVarsaFirlat(error, "yonetim kurulu uyesi");
   }
 );

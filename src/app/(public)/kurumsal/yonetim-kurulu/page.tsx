@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import BoardMemberCard from "@/components/public/BoardMemberCard";
 
@@ -13,12 +14,13 @@ const aktifUyeler = cache(async (tenantId: string) => {
   // createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
   // manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
   const supabase = createAdminClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("board_members")
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .order("order", { ascending: true });
+  hataVarsaFirlat(error, "yonetim kurulu"); // BIRINCIL (C7)
   return data || [];
 });
 

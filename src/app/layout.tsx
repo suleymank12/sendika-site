@@ -32,6 +32,16 @@ export async function generateMetadata(): Promise<Metadata> {
   // host'ta sanki gecerli bir siteymis gibi metadata uretilir.
   const cozum = await resolveCurrentTenant();
 
+  // Kurum GECICI olarak okunamadi (C2): notr, indekslenmez baslik. Bilincli
+  // olarak FIRLATILMAZ: kok metadata admin rotalarini da sarar; firlatsa
+  // admin'in "Geçici Bir Sorun Oluştu" ekrani yerine kok hata sayfasi cikardi.
+  // Public tarafi korumasiz degil — (public)/layout ve sayfalar
+  // getCurrentTenant ile FIRLATIR. "Sayfa Bulunamadı" dalina da DUSMEZ
+  // (test:kurum-cozumu R5).
+  if (cozum.kind === "gecici-hata") {
+    return { title: "Geçici sorun", robots: { index: false, follow: false } };
+  }
+
   // KURUM YOK → NOTR (K6 + K8). Iki durum AYNI metadata'yi uretir; boylece
   // bilinmeyen subdomain'in 404'u baska bir notr 404'ten AYIRT EDILEMEZ:
   //   - no-header (K6, 21 Eylul 2026): istek middleware'den GECMEDI
@@ -67,7 +77,18 @@ export async function generateMetadata(): Promise<Metadata> {
   // cache()'li ortak yardimci: (public) layout ayni istekte ayni map'i
   // kullaniyor, DB'ye tek sorgu gidiyor. (Eskiden burada 3 key'lik ayri
   // bir sorgu vardi.)
-  const map = await getSiteSettings(tenant.id);
+  // Ayar okunamadi (C7): getSiteSettings artik FIRLATIR. Kok metadata BUNU
+  // bilincli olarak yakalar ve notr metadata doner: admin rotalarini da
+  // sardigi icin firlatsa admin girisi / "Geçici Bir Sorun" ekrani yerine kok
+  // hata sayfasi cikardi. Public taraf korumasiz DEGIL — (public)/layout ayni
+  // ayar okumasinda firlatip notr hata sayfasina gider. Kurum adi basilmaz.
+  let map: Record<string, string>;
+  try {
+    map = await getSiteSettings(tenant.id);
+  } catch (hata) {
+    console.error("[layout] kok metadata: site ayarlari okunamadi, notr baslik:", hata);
+    return { title: "Geçici sorun", robots: { index: false, follow: false } };
+  }
 
   const title = map.site_title || tenant.name || YEDEK_SITE_ADI;
   const description = map.site_description || `${title} Kurumsal Web Sitesi`;

@@ -1,4 +1,20 @@
+/**
+ * /sitemap.xml — ROUTE HANDLER (Supabase kesinti dayanikliligi C7, 24 Eylul 2026).
+ *
+ * Eskiden `app/sitemap.ts` metadata route'u idi. Metadata route bir hata
+ * durum kodu SECEMIYOR: veri hatasi yutulup eksik sitemap 200 donuyor ya da
+ * kurum hatasi 404'e dusuyordu (olculdu). Karar: hata → 503 + Retry-After: 30,
+ * notr govde (lib/veri-hatasi geciciHata503).
+ *
+ * Saglikli cikti BIREBIR ayni: Next'in kendi uretecinin (next-metadata-route-
+ * loader, dinamik metin rotasi) yaptigini yapiyoruz — ayni `resolveRouteData`,
+ * ayni Content-Type, ayni Cache-Control. Bilinmeyen host'ta getCurrentTenant
+ * notFound() atar → Next'in govdesiz 404'u (aynen). Izolasyon matrisi bu iki
+ * yolu hucre hucre gozluyor.
+ */
 import { MetadataRoute } from "next";
+import { resolveRouteData } from "next/dist/build/webpack/loaders/metadata/resolve-route-data";
+import { geciciHata503, geciciHataMi, hataVarsaFirlat } from "@/lib/veri-hatasi";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { buildTenantPublicUrl } from "@/lib/tenant-url";
@@ -6,7 +22,7 @@ import { buildTenantPublicUrl } from "@/lib/tenant-url";
 // Tenant header'ina (x-tenant-slug) bagli oldugu icin statik render edilemez.
 export const dynamic = "force-dynamic";
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+async function sitemapVerisi(): Promise<MetadataRoute.Sitemap> {
   // Kurum yoksa (bilinmeyen subdomain, K8 — 22 Eylul 2026) getCurrentTenant
   // notFound() atar → govdesiz notr 404. Eskiden default kurumun dosyasi
   // servis ediliyordu (apex adresleriyle).
@@ -56,6 +72,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .eq("tenant_id", tenant.id)
       .eq("is_active", true),
   ]);
+
+  // BIRINCIL (C7): eksik sitemap 200 → arama motoru yollari "kayboldu" sanar.
+  for (const [yanit, yer] of [
+    [newsRes, "sitemap haberler"],
+    [announcementsRes, "sitemap duyurular"],
+    [pagesRes, "sitemap sayfalar"],
+    [albumsRes, "sitemap albumler"],
+    [branchesRes, "sitemap subeler"],
+    [membersRes, "sitemap yonetim kurulu"],
+  ] as const) hataVarsaFirlat(yanit.error, yer);
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: baseUrl, lastModified: new Date(), changeFrequency: "daily", priority: 1 },
@@ -130,4 +156,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...branchPages,
     ...memberPages,
   ];
+}
+
+export async function GET(): Promise<Response> {
+  try {
+    const content = resolveRouteData(await sitemapVerisi(), "sitemap");
+    return new Response(content, {
+      headers: {
+        "Content-Type": "application/xml",
+        "Cache-Control": "public, max-age=0, must-revalidate",
+      },
+    });
+  } catch (hata) {
+    // Yalniz GECICI hata 503'e cevrilir; notFound() (kurum yok) aynen gecer.
+    if (geciciHataMi(hata)) {
+      console.error("[sitemap.xml] gecici hata → 503:", hata);
+      return geciciHata503();
+    }
+    throw hata;
+  }
 }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentTenantOrNull } from "@/lib/get-tenant";
+import { resolveCurrentTenant } from "@/lib/get-tenant";
 import { decideAdminAccess } from "@/lib/admin-access";
 import AdminShell from "@/components/admin/AdminShell";
 import AdminTenantPasifView from "../_components/AdminTenantPasifView";
@@ -37,7 +37,12 @@ export default async function AuthenticatedAdminLayout({
   //
   // Yonlendirme DEGIL render: ust layout ile ayni desen, sonsuz yonlendirme
   // riski yok (gerekce: `app/admin/layout.tsx` basindaki dongu analizi).
-  const tenant = await getCurrentTenantOrNull();
+  const cozum = await resolveCurrentTenant();
+  if (cozum.kind === "gecici-hata") {
+    // C2: kurum okunamadi ≠ kurum yok (ust layout da ayni ekrani gosterir).
+    return <AdminGeciciHataView />;
+  }
+  const tenant = cozum.kind === "found" ? cozum.tenant : null;
   if (!tenant) {
     console.error("[AdminLayout] Tenant resolve edilemedi — x-tenant-slug karsiligi yok");
     return <AdminTenantBulunamadiView />;

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { getCurrentTenantOrNull, resolveCurrentTenant } from "@/lib/get-tenant";
+import { resolveCurrentTenant } from "@/lib/get-tenant";
 import AdminTenantBulunamadiView from "./_components/AdminTenantBulunamadiView";
+import AdminGeciciHataView from "./_components/AdminGeciciHataView";
 
 /**
  * K8 (22 Eylul 2026): root layout, kurumu olmayan her istege artik NOTR
@@ -53,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
  *  (b) Middleware'de subdomain dogrulamasi → her subdomain istegine
  *      +117 ms ve Edge'de `unstable_cache` olmadigi icin GERI ALINAMAZ;
  *      b3'un tum kazancini yerdi (Asama 0 kararinin aynisi).
- *  (c) BURASI → tek yer, sifir ek sorgu (`getCurrentTenantOrNull` hem
+ *  (c) BURASI → tek yer, sifir ek sorgu (`resolveCurrentTenant` hem
  *      React.cache hem unstable_cache'li; alttaki layout ayni sonucu
  *      paylasiyor), ve yeni eklenen her /admin sayfasi OTOMATIK korunur.
  *
@@ -78,9 +79,14 @@ export default async function AdminRootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const tenant = await getCurrentTenantOrNull();
+  const cozum = await resolveCurrentTenant();
 
-  if (!tenant) {
+  // Kurum OKUNAMADI (C2): "alan adi tanimli degil" DEMEK YANLIS — gecici
+  // sorun ekrani. Fail-closed: children render edilmez.
+  if (cozum.kind === "gecici-hata") {
+    return <AdminGeciciHataView />;
+  }
+  if (cozum.kind !== "found") {
     return <AdminTenantBulunamadiView />;
   }
 

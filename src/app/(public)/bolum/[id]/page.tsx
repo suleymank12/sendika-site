@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getHomepageSectionById } from "@/lib/public-queries";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import SafeImage from "@/components/SafeImage";
@@ -73,6 +74,7 @@ export default async function SectionPage({ params }: Props) {
 
   if (section.source !== "custom") notFound();
 
+  hataVarsaFirlat(itemsRes.error, "bolum ogeleri"); // BIRINCIL (C7)
   const items = (itemsRes.data as HomepageSectionItem[]) || [];
 
   return (

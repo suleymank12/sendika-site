@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getBranchBySlug } from "@/lib/public-queries";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import { notFound, redirect } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
 import Breadcrumb from "@/components/public/Breadcrumb";
@@ -44,13 +45,15 @@ export default async function BranchManagerPage({ params }: Props) {
 
   // Yönetim kurulundan seçilmişse o sayfaya yönlendir
   if (branch.manager_id) {
-    const { data: bm } = await supabase
+    // .single() → .maybeSingle() (C7): 0 satir "hata" (PGRST116) DEGIL, "yok".
+    const { data: bm, error } = await supabase
       .from("board_members")
       .select("slug")
       .eq("tenant_id", tenant.id)
       .eq("id", branch.manager_id)
       .eq("is_active", true)
-      .single();
+      .maybeSingle();
+    hataVarsaFirlat(error, "sube yoneticisi yonlendirmesi"); // BIRINCIL
     if (bm?.slug) {
       redirect(`/yonetim-kurulu/${bm.slug}`);
     }

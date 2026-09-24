@@ -10,6 +10,7 @@ import SafeHtml from "@/components/SafeHtml";
 import { sanitizeContentHtml } from "@/lib/sanitize";
 import { extractImagesFromHtml } from "@/lib/utils";
 import { buildPublicMetadata } from "@/lib/seo";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import type { Metadata } from "next";
 import type { Headline } from "@/types";
 
@@ -20,7 +21,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const tenant = await getCurrentTenant();
   // cache()'li ortak okuyucu — sayfa ile AYNI sorguyu paylaşır (b2).
-  const { headline: data } = await getHeadlineById(tenant.id, params.id);
+  const data = await getHeadlineById(tenant.id, params.id);
 
   if (!data) return { title: "Manşet Bulunamadı" };
 
@@ -40,11 +41,8 @@ export default async function MansetDetailPage({ params }: Props) {
   //
   // Bu sayfa BİLEREK seri kaldı (b2): ikinci sorgu `source_type`'a göre
   // DALLANIYOR (news mi announcement mı), ikisi aynı anda çalışamaz.
-  const { headline: data, error } = await getHeadlineById(tenant.id, params.id);
-
-  if (error) {
-    console.error("[manset/[id]] Supabase sorgu hatası:", error);
-  }
+  // Sorgu HATASI getHeadlineById'de FIRLAR (C7) → notr 500; burada null = yok.
+  const data = await getHeadlineById(tenant.id, params.id);
 
   if (!data) {
     console.warn("[manset/[id]] Manşet bulunamadı, id:", params.id);
@@ -55,21 +53,23 @@ export default async function MansetDetailPage({ params }: Props) {
 
   // Haber/duyuru kaynağı varsa orijinal sayfaya yönlendir
   if (item.source_type === "news" && item.source_id) {
-    const { data: news } = await supabase
+    const { data: news, error } = await supabase
       .from("news")
       .select("slug")
       .eq("tenant_id", tenant.id)
       .eq("id", item.source_id)
       .maybeSingle();
+    hataVarsaFirlat(error, "manset kaynak haberi"); // BIRINCIL: sayfanin isi yonlendirme
     if (news?.slug) redirect(`/haberler/${news.slug}`);
   }
   if (item.source_type === "announcement" && item.source_id) {
-    const { data: ann } = await supabase
+    const { data: ann, error } = await supabase
       .from("announcements")
       .select("slug")
       .eq("tenant_id", tenant.id)
       .eq("id", item.source_id)
       .maybeSingle();
+    hataVarsaFirlat(error, "manset kaynak duyurusu");
     if (ann?.slug) redirect(`/duyurular/${ann.slug}`);
   }
 

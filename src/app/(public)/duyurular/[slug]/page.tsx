@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getAnnouncementBySlug } from "@/lib/public-queries";
+import { hataVarsaFirlat, ikincilHata } from "@/lib/veri-hatasi";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
@@ -65,13 +66,15 @@ export default async function AnnouncementDetailPage({ params }: Props) {
   const item = data;
 
   // limit(5) + slice(3) idi; artık limit(3).
-  const relatedItems = (relatedRes.data as unknown as Announcement[]) || [];
+  // IKINCIL (C7): "ilgili duyurular" yan parca.
+  ikincilHata(relatedRes.error, "ilgili duyurular");
+  const relatedItems = (relatedRes.error ? [] : (relatedRes.data as unknown as Announcement[])) || [];
   // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
   const cleanContent = sanitizeContentHtml(item.content);
   const editorImages = extractImagesFromHtml(cleanContent);
 
   // 2. DALGA — content_media GERÇEKTEN bağımlı (`item.id` lazım).
-  const { data: mediaData } = await supabase
+  const { data: mediaData, error: mediaError } = await supabase
     .from("content_media")
     .select("url")
     .eq("tenant_id", tenant.id)
@@ -80,6 +83,7 @@ export default async function AnnouncementDetailPage({ params }: Props) {
     .eq("media_type", "image")
     .order("order", { ascending: true });
 
+  hataVarsaFirlat(mediaError, "duyuru gorselleri"); // BIRINCIL: icerigin parcasi (C7)
   const galleryUrls = (mediaData || []).map((m) => m.url as string);
   const contentImages: string[] = [];
   for (const url of [...galleryUrls, ...editorImages]) {

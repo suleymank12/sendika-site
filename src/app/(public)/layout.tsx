@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import SiteKapaliView from "./_components/SiteKapaliView";
 import PageLoader from "@/components/public/PageLoader";
 import TopBar from "@/components/public/TopBar";
@@ -35,12 +36,14 @@ function lightenColorRgb(hex: string, amount: number = 0.2): string {
 
 async function getMenuItems(tenantId: string) {
   const supabase = createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("menu_items")
     .select("*")
     .eq("tenant_id", tenantId)
     .eq("is_active", true)
     .order("order", { ascending: true });
+  // BIRINCIL (C7): menusuz sayfa render ETMEK YOK — notr hata sayfasi.
+  hataVarsaFirlat(error, "menu");
   return data || [];
 }
 

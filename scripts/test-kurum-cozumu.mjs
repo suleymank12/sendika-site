@@ -36,6 +36,18 @@
  *      UUID'si ya da `"default"` metin sabiti.
  *   R4 Kapsam korlesmesin: (public) altindaki her page.tsx'in varsayilan
  *      disa aktarimi taranmis ve veri okuyor olmali; taban sayilar tutmali.
+ *   R5 GECICI HATA ≠ YOK (Supabase kesinti dayanikliligi C2, 24 Eylul 2026):
+ *      a) lib/get-tenant.ts getCurrentTenant "gecici-hata"yi FIRLATIR, bu dal
+ *         notFound()'dan ONCE gelir ve notFound cagirmaz.
+ *      b) resolveCurrentTenant'in catch'i { kind: "gecici-hata" } doner
+ *         ("unknown-slug" ile birlesmez).
+ *      c) Kapsamda getCurrentTenantOrNull YOK (gecici hatayi null'a cevirip
+ *         kurumsuz render etmenin yolu).
+ *      d) resolveCurrentTenant'i dogrudan kullanan her kapsam fonksiyonu
+ *         "gecici-hata"yi ACIKCA ele alir; dal notFound cagirmaz, firlatir.
+ *         TEK istisna kok layout generateMetadata: notr metadata DONER
+ *         (admin rotalarini da sardigi icin firlatamaz; public'i
+ *         (public)/layout + sayfalar firlatarak korur).
  *
  * ## OZ-SINAMA (mutasyon, DISKE YAZMADAN)
  *
@@ -61,7 +73,7 @@ const ts = createRequire(import.meta.url)("typescript");
 const RESOLVERS = new Set(["getCurrentTenant", "resolveCurrentTenant", "getCurrentTenantOrNull"]);
 const KENDI_COZEN = new Set(["buildPublicMetadata"]);
 const YARDIMCI_DOSYALARI = ["src/lib/public-queries.ts", "src/lib/site-settings.ts"];
-const EK_DOSYALAR = ["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts", "src/lib/seo.ts", ...YARDIMCI_DOSYALARI];
+const EK_DOSYALAR = ["src/app/layout.tsx", "src/app/robots.txt/route.ts", "src/app/sitemap.xml/route.ts", "src/lib/seo.ts", ...YARDIMCI_DOSYALARI];
 const DEFAULT_UUID = /^0{8}-0{4}-0{4}-0{4}-0{11}1$/;
 
 // ---------------------------------------------------------------------------
@@ -219,6 +231,68 @@ iddia(`veri okuyan fonksiyon >= 40 (${veriF.length})`, veriF.length >= 40);
 iddia(`veri yardimcisi >= 9 (${VERI_YARDIMCILARI.size}: ${[...VERI_YARDIMCILARI].join(", ")})`, VERI_YARDIMCILARI.size >= 9);
 iddia(`tenantId parametreli yardimci >= 11 (${veriF.filter((f) => f.yardimci).length})`, veriF.filter((f) => f.yardimci).length >= 11);
 
+console.log("\n--- (2b) gecici hata ≠ yok (R5)");
+const GT = "src/lib/get-tenant.ts";
+const R5_DONEN_ISTISNA = new Set(["src/app/layout.tsx :: generateMetadata"]);
+const cagriVar = (dugum, ad) => { let v = false; gez(dugum, (n) => { if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === ad) v = true; }); return v; };
+const throwVar = (dugum) => { let v = false; gez(dugum, (n) => { if (ts.isThrowStatement(n)) v = true; }); return v; };
+const returnVar = (dugum) => { let v = false; gez(dugum, (n) => { if (ts.isReturnStatement(n)) v = true; }); return v; };
+const geciciIf = (fn, sf) => { const o = []; gez(fn.body, (n) => { if (ts.isIfStatement(n) && n.expression.getText(sf).includes('"gecici-hata"')) o.push(n); }); return o; };
+/** R5a + R5b: get-tenant.ts */
+function r5GetTenant(metin) {
+  const sf = kaynak(GT, metin);
+  const ihl = [];
+  const fns = Object.fromEntries(ustFonksiyonlar(sf).map((f) => [f.ad, f.fn]));
+  const gct = fns.getCurrentTenant;
+  if (!gct) ihl.push("R5a getCurrentTenant bulunamadi");
+  else {
+    const dal = geciciIf(gct, sf)[0];
+    let ilkNotFound = null;
+    gez(gct.body, (n) => { if (ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === "notFound") ilkNotFound = ilkNotFound ?? n.getStart(sf); });
+    if (!dal) ihl.push("R5a getCurrentTenant'ta gecici-hata dali YOK");
+    else if (!throwVar(dal.thenStatement) || cagriVar(dal.thenStatement, "notFound")) ihl.push("R5a gecici-hata dali firlatmiyor ya da notFound cagiriyor");
+    else if (ilkNotFound !== null && dal.getStart(sf) > ilkNotFound) ihl.push("R5a gecici-hata dali notFound'dan SONRA");
+  }
+  const rct = fns.resolveCurrentTenant;
+  let catchTamam = false;
+  if (rct) gez(rct.body, (n) => {
+    if (!ts.isCatchClause(n)) return;
+    gez(n.block, (r) => { if (ts.isReturnStatement(r) && r.expression && /kind:\s*"gecici-hata"/.test(r.expression.getText(sf))) catchTamam = true; });
+  });
+  if (!catchTamam) ihl.push("R5b resolveCurrentTenant catch'i gecici-hata DONMUYOR");
+  return ihl;
+}
+/** R5c + R5d: kapsam dosyalari */
+function r5Kapsam(metinler) {
+  const ihl = [];
+  let dogrudan = 0;
+  for (const [g, m] of Object.entries(metinler)) {
+    const sf = kaynak(g, m);
+    if (cagriVar(sf, "getCurrentTenantOrNull")) ihl.push(`R5c ${g}: getCurrentTenantOrNull kullaniliyor`);
+    for (const { ad: fad, fn } of ustFonksiyonlar(sf)) {
+      if (!cagriVar(fn.body, "resolveCurrentTenant")) continue;
+      dogrudan++;
+      const yer = `${g} :: ${fad}`;
+      const dallar = geciciIf(fn, sf);
+      if (!dallar.length) { ihl.push(`R5d ${yer}: gecici-hata ACIKCA ele alinmiyor`); continue; }
+      for (const d of dallar) {
+        if (cagriVar(d.thenStatement, "notFound")) ihl.push(`R5d ${yer}: gecici-hata dali notFound cagiriyor`);
+        else if (!throwVar(d.thenStatement) && !(R5_DONEN_ISTISNA.has(yer) && returnVar(d.thenStatement))) ihl.push(`R5d ${yer}: gecici-hata dali firlatmiyor`);
+      }
+    }
+  }
+  return { ihl, dogrudan };
+}
+{
+  const a = r5GetTenant(oku(GT));
+  iddia("R5a/b get-tenant: getCurrentTenant gecici-hata → firlat (notFound'dan once); catch → gecici-hata", a.length === 0, a.join(" | "));
+  const k = r5Kapsam(GERCEK);
+  const c = k.ihl.filter((x) => x.startsWith("R5c")), d = k.ihl.filter((x) => x.startsWith("R5d"));
+  iddia("R5c kapsamda getCurrentTenantOrNull yok", c.length === 0, c.join(" | "));
+  iddia(`R5d resolveCurrentTenant kullanan kapsam fonksiyonlari gecici-hata'yi acikca ele aliyor (${k.dogrudan})`, d.length === 0, d.join(" | "));
+  iddia(`R5 kapsam korlesmesin: dogrudan resolveCurrentTenant kullanan >= 1 (${k.dogrudan})`, k.dogrudan >= 1);
+}
+
 console.log("\n--- (3) oz-sinama: bellekte mutasyon → beklenen kural dusmeli");
 /**
  * Her mutasyon: [ad, dosya, [[aranan, yerine], ...], beklenen kural, beklenen yer parcasi].
@@ -273,6 +347,24 @@ for (const [ad, dosya, degisim, bekKurallar, bekYer] of MUTASYONLAR) {
   const r = cozumle("src/app/(public)/yeni/page.tsx", yeni, VERI_YARDIMCILARI);
   const k = new Set(r.ihlaller.map((x) => x.kural));
   iddia("M8 yeni sayfa kurum cozmeden + filtresiz okur → R1+R2 yakalandi", k.has("R1") && k.has("R2"), JSON.stringify(r.ihlaller));
+}
+// R5 oz-sinama (C2): gecici hatayi "yok"a ceviren her bicim yakalanmali
+{
+  const R5_MUT = [
+    ["M9 getCurrentTenant gecici-hata → notFound", GT, [['if (cozum.kind === "gecici-hata") throw new KurumGeciciHatasi();', 'if (cozum.kind === "gecici-hata") notFound();']], "R5a"],
+    ["M10 getCurrentTenant gecici-hata dali silinir", GT, [['  if (cozum.kind === "gecici-hata") throw new KurumGeciciHatasi();\n', ""]], "R5a"],
+    ["M11 catch unknown-slug'a birlesir", GT, [['return { kind: "gecici-hata" };', 'return { kind: "unknown-slug" };']], "R5b"],
+    ["M12 kok metadata gecici-hata dali silinir (Sayfa Bulunamadı'ya duser)", "src/app/layout.tsx", [['  if (cozum.kind === "gecici-hata") {\n    return { title: "Geçici sorun", robots: { index: false, follow: false } };\n  }\n', ""]], "R5d"],
+    ["M13 public layout getCurrentTenantOrNull ile kurumsuz render", "src/app/(public)/layout.tsx", [["  const tenant = await getCurrentTenant();\n", "  const tenant = (await getCurrentTenantOrNull())!;\n"]], "R5c"],
+  ];
+  for (const [ad, dosya, degisim, kural] of R5_MUT) {
+    let m = norm(dosya === GT ? oku(GT) : GERCEK[dosya] ?? "");
+    let gecerli = !!m;
+    for (const [a, b] of degisim) { if (m.split(a).length !== 2) { gecerli = false; break; } m = m.replace(a, b); }
+    if (!gecerli) { iddia(`${ad}: mutasyon uygulanabilir (desen dosyada tam bir kez)`, false, dosya); continue; }
+    const ihl = dosya === GT ? r5GetTenant(m) : r5Kapsam({ ...GERCEK, [dosya]: m }).ihl;
+    iddia(`${ad} → ${kural} yakalandi`, ihl.some((x) => x.startsWith(kural)), ihl.join(" | ") || "(ihlal yok)");
+  }
 }
 // Negatif kontrol: norm edilmis gercek metinler 0 ihlal (CRLF farki sahte ihlal uretmesin)
 {

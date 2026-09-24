@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getNewsBySlug } from "@/lib/public-queries";
+import { hataVarsaFirlat, ikincilHata } from "@/lib/veri-hatasi";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import NewsCard from "@/components/public/NewsCard";
@@ -70,14 +71,16 @@ export default async function NewsDetailPage({ params }: Props) {
   const item = news;
 
   // limit(5) + slice(3) idi: 2 satır hep boşuna geliyordu, artık limit(3).
-  const relatedNews = (relatedRes.data as unknown as News[]) || [];
+  // IKINCIL (C7): "ilgili haberler" yan parca — hata → parca gizlenir + log.
+  ikincilHata(relatedRes.error, "ilgili haberler");
+  const relatedNews = (relatedRes.error ? [] : (relatedRes.data as unknown as News[])) || [];
   // Once sanitize, SONRA gorsel cikarimi: elenen <img>'ler lightbox'a sizmasin.
   const cleanContent = sanitizeContentHtml(item.content);
   const editorImages = extractImagesFromHtml(cleanContent);
 
   // 2. DALGA — content_media GERÇEKTEN bağımlı: `item.id` lazım, elimizde
   // yalnız slug var. Paralelleştirilemez.
-  const { data: mediaData } = await supabase
+  const { data: mediaData, error: mediaError } = await supabase
     .from("content_media")
     .select("url")
     .eq("tenant_id", tenant.id)
@@ -86,6 +89,7 @@ export default async function NewsDetailPage({ params }: Props) {
     .eq("media_type", "image")
     .order("order", { ascending: true });
 
+  hataVarsaFirlat(mediaError, "haber gorselleri"); // BIRINCIL: icerigin parcasi
   const galleryUrls = (mediaData || []).map((m) => m.url as string);
   const contentImages: string[] = [];
   for (const url of [...galleryUrls, ...editorImages]) {

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getGalleryAlbumById } from "@/lib/public-queries";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import { notFound } from "next/navigation";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import GalleryGrid from "@/components/public/GalleryGrid";
@@ -53,6 +54,7 @@ export default async function GalleryAlbumPage({ params }: Props) {
 
   if (!album) notFound();
 
+  hataVarsaFirlat(imagesRes.error, "album fotograflari"); // BIRINCIL (C7)
   const images = imagesRes.data;
 
   return (

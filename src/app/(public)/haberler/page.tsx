@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import Breadcrumb from "@/components/public/Breadcrumb";
 import NewsCard from "@/components/public/NewsCard";
 import Link from "next/link";
@@ -38,7 +39,7 @@ export default async function NewsListPage({ searchParams }: Props) {
   // NewsCard'in kullandigi alanlar: slug, cover_image, title, category,
   // published_at, created_at, summary (+ key icin id). Karta alan
   // eklenirse burasi da guncellenmeli.
-  const { data, count } = await supabase
+  const { data, count, error } = await supabase
     .from("news")
     .select("id, slug, title, summary, cover_image, category, published_at, created_at", {
       count: "exact",
@@ -50,6 +51,8 @@ export default async function NewsListPage({ searchParams }: Props) {
 
   // Kolon listesi News tipinin alt kumesi — NewsCard yalnizca bu alanlari
   // kullaniyor (anasayfadaki desenle ayni cast).
+  // BIRINCIL (C7): hata → notr 500 (eskiden "henuz haber yok" 200).
+  hataVarsaFirlat(error, "haber listesi");
   const news = (data as unknown as News[]) || [];
   const totalPages = Math.ceil((count || 0) / PER_PAGE);
 

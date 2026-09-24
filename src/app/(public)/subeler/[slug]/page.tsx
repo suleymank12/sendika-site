@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getBranchBySlug } from "@/lib/public-queries";
+import { hataVarsaFirlat, ikincilHata, yanitHatasi } from "@/lib/veri-hatasi";
 import { isSafeMapEmbedUrl } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import SafeImage from "@/components/SafeImage";
@@ -87,8 +88,12 @@ export default async function BranchDetailPage({ params }: Props) {
       .limit(4),
   ]);
 
+  // BIRINCIL: subenin yonetici karti sube sayfasinin parcasi.
+  hataVarsaFirlat(yanitHatasi(managerRes), "sube yoneticisi");
+  // IKINCIL (C7): "diger subeler" yan parca — hata → gizlenir + log.
+  ikincilHata(otherBranchesRes.error, "diger subeler");
   const boardManager = (managerRes.data as BoardMember) || null;
-  const otherBranches = (otherBranchesRes.data as Branch[]) || [];
+  const otherBranches = (otherBranchesRes.error ? [] : (otherBranchesRes.data as Branch[])) || [];
 
   const mapEmbed = buildMapEmbed(branch);
   const mapsLink = buildMapsLink(branch);

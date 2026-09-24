@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getPageBySlug } from "@/lib/public-queries";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import { notFound } from "next/navigation";
 import DetailPageLayout from "@/components/public/DetailPageLayout";
 import SafeHtml from "@/components/SafeHtml";
@@ -57,7 +58,7 @@ export default async function DynamicPage({ params }: Props) {
   const cleanContent = sanitizeContentHtml(page.content);
   const editorImages = extractImagesFromHtml(cleanContent);
 
-  const { data: mediaData } = await supabase
+  const { data: mediaData, error: mediaError } = await supabase
     .from("content_media")
     .select("url")
     .eq("tenant_id", tenant.id)
@@ -66,6 +67,7 @@ export default async function DynamicPage({ params }: Props) {
     .eq("media_type", "image")
     .order("order", { ascending: true });
 
+  hataVarsaFirlat(mediaError, "sayfa gorselleri"); // BIRINCIL: icerigin parcasi (C7)
   const galleryUrls = (mediaData || []).map((m) => m.url as string);
   const contentImages: string[] = [];
   for (const url of [...galleryUrls, ...editorImages]) {

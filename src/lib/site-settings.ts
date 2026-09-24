@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 
 /**
  * Tenant'in TUM site_settings satirlarini key -> value map'i olarak doner
@@ -14,10 +15,14 @@ import { createClient } from "@/lib/supabase/server";
 export const getSiteSettings = cache(
   async (tenantId: string): Promise<Record<string, string>> => {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("site_settings")
       .select("key, value")
       .eq("tenant_id", tenantId);
+    // BIRINCIL (C7): ayar okunamadiysa varsayilanla (markasiz, menusuz) 200
+    // render ETMEK YOK — firlat, notr hata sayfasi. Kok metadata bu hatayi
+    // bilincli olarak yakalar (admin'i de sardigi icin; app/layout.tsx).
+    hataVarsaFirlat(error, "site ayarlari");
 
     const settings: Record<string, string> = {};
     data?.forEach((item: { key: string; value: string | null }) => {
