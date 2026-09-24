@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 2 / C5 — public sayfalar oturumsuz anon istemciyle okur (lib/supabase/public.ts)",
+  "yazildi": "2026-09-24T18:15:00+03:00",
+  "not": "KODDAN ONCE yazildi. Matris CEREZSIZ kosar: public okumalar zaten anon rolle yapiliyordu (cerez yokken server.ts istemcisi anon anahtarla gider) → sorgular, filtreler (tenant_id, is_published, is_active) ve service role kullanan okumalar AYNI → 0 hucre farki, 0 FAIL, bolum sayilari ayni. Birim: test:kurum-cozumu 65 AYNI (R1/R2 istemci turune bakmaz; taranan 25, veri okuyan 42, yardimci 11 ayni), test:admin-access 72, test:cerez 59 (public yolda middleware C6 oncesi degismedi; Node tarafi cerez okumuyor → 5xx yine yok), diger betikler ayni sayilar.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
