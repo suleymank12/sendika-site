@@ -235,6 +235,53 @@ header("SAGLAM CEREZ KORUNUYOR (yanlislikla silme yok)");
 }
 
 // ---------------------------------------------------------------------------
+header("(C6a) YONLENDIRMEDE KUTUPHANE CEREZLERI — yenilenen jeton ve 4xx silmesi tarayiciya ulasir");
+// ---------------------------------------------------------------------------
+// 25 Eylul 2026: middleware yonlendirme/503 yaniti ayri bir nesne; kutuphane
+// (setAll) cerezleri eskiden yalniz `supabaseResponse`'a yaziliyordu →
+// yonlendirmede yenilenen jeton KAYBOLUYORDU (olculdu, arıza enjektoruyle:
+// raporlar/2026-09-25-…-kesinti-tur2). Canli sunucu gercek Supabase'e gittigi
+// icin basarili yenileme burada uretilemez (gercek oturum gerekir); o yarim
+// test:kesinti'de (vekilin yerel sahte yenilemesi) davranis olarak, burada
+// KAYNAK muhru olarak durur. 4xx silmesi burada canli sinanir.
+{
+  const { status, location, setCookie } = await iste("/admin", `${CEREZ_ADI}=${gecerliGovde}`);
+  ok("c6a", "canli: /admin + imzasi gecersiz (suresi dolmamis) cerez → 307 /admin/giris", [status, (location || "").replace(/^https?:\/\/[^/]+/, "").split("?")[0]], [307, "/admin/giris"], `HTTP ${status} ${location}`);
+  const silindi = setCookie.some((c) => c.startsWith(`${CEREZ_ADI}=`) && /Max-Age=0|Expires=Thu, 01 Jan 1970/i.test(c));
+  ok("c6a", "canli: 🔴 ayni YONLENDIRME yanitinda auth cerezi Max-Age=0 ile siliniyor", silindi, true, setCookie.join(" | ") || "(Set-Cookie yok)");
+
+  const MW = readFileSync(new URL("../src/middleware.ts", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const yorumsuz = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+  /** Kaynak kurallari (metin uzerinde; oz-sinama ayni fonksiyonu mutasyonla cagirir). */
+  const kaynakKurallari = (metin) => {
+    const kod = yorumsuz(metin);
+    const bas = kod.indexOf("const yanit =");
+    const son = kod.indexOf("export const config");
+    const govde = bas >= 0 && son > bas ? kod.slice(bas, son) : "";
+    const ciplak = govde.split("\n").map((l) => l.trim())
+      .filter((l) => /^return\b/.test(l) && !/^return yanit\(/.test(l) && l !== "return res;" && l !== "return kept;");
+    const yanitGovdesi = govde.slice(0, govde.indexOf("};") + 2);
+    const setAll = kod.slice(kod.indexOf("setAll("), kod.indexOf("setAll(") + 1200);
+    return {
+      tumReturnlerYanittan: govde !== "" && ciplak.length === 0,
+      ciplak,
+      kutuphaneTasiniyor:
+        /kutuphaneCerezleri\.set\(name, \{ value, options \}\)/.test(setAll) &&
+        /kutuphaneCerezleri\.forEach\(\(\{ value, options \}, name\) => \{\s*res\.cookies\.set\(name, value, options\);/.test(yanitGovdesi),
+    };
+  };
+  const g = kaynakKurallari(MW);
+  ok("c6a", "kaynak: 'const yanit =' sonrasi HER return yanit(...) ile (redirect/503 dahil)", g.tumReturnlerYanittan, true, g.ciplak.join(" | ") || "(ciplak return yok)");
+  ok("c6a", "kaynak: setAll kutuphane cerezlerini kaydediyor, yanit() her yanita yaziyor", g.kutuphaneTasiniyor, true, "middleware.ts setAll / yanit");
+
+  // Oz-sinama (bellekte): kurallar kendi hatasini yakaliyor mu?
+  const m1 = MW.replace(/    kutuphaneCerezleri\.forEach\(\(\{ value, options \}, name\) => \{\n      res\.cookies\.set\(name, value, options\);\n    \}\);\n/, "");
+  ok("c6a", "oz-sinama: yanit()'ten kutuphane cerezi dongusu silinirse kural DUSER", m1 !== MW && kaynakKurallari(m1).kutuphaneTasiniyor, false, "mutasyon M1");
+  const m2 = MW.replace("return yanit(NextResponse.redirect(loginUrl));", "return NextResponse.redirect(loginUrl);");
+  ok("c6a", "oz-sinama: ciplak 'return NextResponse.redirect' eklenirse kural DUSER", m2 !== MW && kaynakKurallari(m2).tumReturnlerYanittan, false, "mutasyon M2");
+}
+
+// ---------------------------------------------------------------------------
 console.log("");
 console.log(`SONUC: ${passed} gecti, ${failures.length} kaldi`);
 console.log("");

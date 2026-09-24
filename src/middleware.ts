@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
 import { imzala } from "@/lib/tenant-proof";
@@ -289,16 +289,30 @@ export async function middleware(request: NextRequest) {
   // doldurur, `yanit()` bunları tarayıcıdan düşürür.
   const bozukCerezAdlari: string[] = [];
 
+  // KÜTÜPHANENİN YAZDIĞI ÇEREZLER (C6a, 25 Eylül 2026) — `setAll` doldurur
+  // (yenilenen jetonlar, 4xx'te oturum silmesi), `yanit()` bunları
+  // middleware'in döndürdüğü HER yanıta yazar. Eskiden yalnız
+  // `supabaseResponse`'a yazılıyordu; yönlendirme (`NextResponse.redirect`)
+  // ve 503 ayrı nesne olduğu için tarayıcıya ULAŞMIYORDU (ölçüldü: yenilenen
+  // jeton kayboluyor, tarayıcı kullanılmış yenileme jetonuyla kalıyordu).
+  const kutuphaneCerezleri = new Map<string, { value: string; options: CookieOptions }>();
+
   /**
    * Middleware'in DÖNDÜĞÜ HER yanıt buradan geçer (bu noktadan sonraki tüm
-   * `return`'ler). Tek işi: kullanılamaz bulunan auth çerezlerini tarayıcıdan
-   * düşürmek — sistem kendini onarsın, kullanıcı "çerezleri temizle"yi
-   * bilmek zorunda kalmasın.
+   * `return`'ler). İki işi var:
+   *   1. kütüphanenin yazdığı çerezleri (C6a) her yanıta taşımak;
+   *   2. kullanılamaz bulunan auth çerezlerini tarayıcıdan düşürmek — sistem
+   *      kendini onarsın, kullanıcı "çerezleri temizle"yi bilmek zorunda
+   *      kalmasın.
    *
    * `Max-Age=0` + aynı `path`: çerez host-only ve `path=/` yazıldığı için
    * (bkz. @supabase/ssr DEFAULT_COOKIE_OPTIONS) bu silme eşleşir.
    */
   const yanit = (res: NextResponse): NextResponse => {
+    kutuphaneCerezleri.forEach(({ value, options }, name) => {
+      res.cookies.set(name, value, options);
+    });
+    // Bozuk çerez silmesi SONRA: aynı ad iki listede de varsa silme kazanır.
     for (const name of bozukCerezAdlari) {
       res.cookies.set(name, "", { path: "/", maxAge: 0 });
     }
@@ -339,9 +353,10 @@ export async function middleware(request: NextRequest) {
           // CSP header'i bu satir olmadan token yenilenen isteklerde duserdi.
           // x-tenant-slug ile birebir ayni gerekce.
           supabaseResponse.headers.set(CSP_HEADER_NAME, csp);
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
+          cookiesToSet.forEach(({ name, value, options }) => {
+            supabaseResponse.cookies.set(name, value, options);
+            kutuphaneCerezleri.set(name, { value, options });
+          });
         },
       },
     }
