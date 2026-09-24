@@ -311,9 +311,12 @@ header("(h) C8 — gecici hata ≠ yetkisiz / giris (24 Eylul 2026)");
       !/if \(authError\) \{\s*console\.error\([^)]*\);\s*redirect\("\/admin\/giris"\)/.test(adminL),
     "admin layout");
   const saL = stripComments(read("src/app/super-admin/(authenticated)/layout.tsx"));
+  // G1 (25 Eylul 2026): karar paylasilan kapida (lib/super-admin/super-admin-karari); kural ayni.
+  const saK = stripComments(read("src/lib/super-admin/super-admin-karari.ts"));
   okTrue("kaynak", "super admin layout: decideSuperAdminAccess + gecici ekran, Yetkisiz yalniz izin disi",
-    saL.includes("decideSuperAdminAccess(") && saL.includes("<SuperAdminGeciciHataView />") && saL.includes('karar.kind !== "izin"'),
-    "super admin layout");
+    saL.includes("await superAdminKarari()") && saK.includes("decideSuperAdminAccess(") &&
+      saL.includes("<SuperAdminGeciciHataView />") && saL.includes('karar.kind !== "izin"'),
+    "super admin layout + kapi");
   const apiDizin = "src/app/api/super-admin";
   const rotalar = [];
   const gez = (d) => { for (const a of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) { const g = `${d}/${a.name}`; if (a.isDirectory()) gez(g); else if (a.name === "route.ts") rotalar.push(g); } };

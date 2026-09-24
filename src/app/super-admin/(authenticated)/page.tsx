@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { superAdminKarari } from "@/lib/super-admin/super-admin-karari";
 import { Building2, CheckCircle2, Plus, ArrowRight, Calendar } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
@@ -12,6 +13,12 @@ interface TenantRow {
 }
 
 export default async function SuperAdminDashboard() {
+  // G1 / S1 (25 Eylul 2026): YETKI VERI OKUMADAN ONCE. Layout ile paralel
+  // render edildigi icin layout'taki kapi bu sayfayi KORUMAZ; yetkisizde
+  // pano ciktisi RSC yukune giriyordu (olculdu). Muhur: test:super-admin-sayfa.
+  const karar = await superAdminKarari();
+  if (karar.kind !== "izin") return null;
+
   const supabase = createClient();
 
   const [allRes, activeRes, recentRes] = await Promise.all([
