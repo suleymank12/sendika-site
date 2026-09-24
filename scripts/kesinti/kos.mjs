@@ -267,6 +267,9 @@ function denetle(g, b) {
     const v = g.basliklar[ad];
     if (d === null ? v !== undefined : v === undefined || !esles(d, String(v))) hatalar.push(`baslik ${ad}="${v ?? ""}" ≠ ${d}`);
   }
+  // Vekilde kara delige dusen TCP baglantisi sayisi = sirali upstream bekleme
+  // sayisinin kaniti (ör. hata render'inda kurumun ikinci kez sorulmasi).
+  if (b.karadelikBaglanti !== undefined && g.karadelik !== b.karadelikBaglanti) hatalar.push(`kara delik baglantisi ${g.karadelik} ≠ ${b.karadelikBaglanti}`);
   if (b.cerezSil !== undefined) {
     const sil = (g.basliklar["set-cookie"] || []).some((c) => c.startsWith(CEREZ_ADI) && /max-age=0/i.test(c));
     if (sil !== b.cerezSil) hatalar.push(`cerez silme ${sil} ≠ ${b.cerezSil}`);
@@ -336,7 +339,7 @@ try {
       const sonuc = await istek({ host, yol: yerlestir(a.yol), cerez: a.cerez, accept: a.accept });
       await bekle(400);
       const olay = vekil.kayit(once);
-      const hatalar = denetle(sonuc, a.beklenen);
+      const hatalar = denetle({ ...sonuc, karadelik: olay.filter((e) => e.ev === "tcp-karadelik").length }, a.beklenen);
       hatalar.length ? kaldi++ : gecti++;
       const satir = {
         senaryo: sn.id, adim: a.id, mod: a.mod || "pass", durum: sonuc.durum, ms: sonuc.ms,

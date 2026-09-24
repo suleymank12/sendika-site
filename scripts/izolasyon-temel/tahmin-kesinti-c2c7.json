@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 1 / C2+C7 birlesik — getTenant hata ≠ yok (gecici-hata) + public veri hatalari firlatilir, notr sinirlar, sitemap/robots route handler (hata → 503)",
+  "yazildi": "2026-09-24T17:10:00+03:00",
+  "not": "KODDAN ONCE yazildi (C7 kodu yok). bbf0bc9'daki C2 tahmini matris/birim tarafinda birebir tuttu (2590/0, T10 65/0); tutmayan tek hucre test:kesinti soguk/A/ suresiydi (mekanizma beklenti-c2c7.json notunda). Matris saglikli veriyle kosar: hicbir sorgu hata vermez → yeni dallar calismaz. sitemap.xml/robots.txt metadata route'tan ayni govde (next resolveRouteData), ayni Content-Type (application/xml, text/plain) ve ayni Cache-Control ('public, max-age=0, must-revalidate') ureten route handler'a tasinir; bilinmeyen host'ta notFound() → ayni govdesiz 404 → 0 hucre farki, 0 FAIL, bolum sayilari ayni. Yeni app/error.tsx ve app/global-error.tsx yalniz hata yolunda render edilir; saglikli sayfalarin RSC yukune girip gozlenen bir alani degistirirse (sizinti sozlugu, notr-bas vb.) = DUR. Birim: test:kurum-cozumu 65 ayni — EK_DOSYALAR'da src/app/robots.ts → src/app/robots.txt/route.ts, src/app/sitemap.ts → src/app/sitemap.xml/route.ts (dosya tasindigi icin YOL guncellemesi; kural degismez; M4 mutasyon deseni korunur), taranan dosya 25, veri okuyan fonksiyon 42, yardimci 11 ayni. test:tenant-proof 51, test:super-admin-host 144, test:admin-access 54 ayni. Diger betikler ayni.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
