@@ -1,0 +1,24 @@
+{
+  "tur": "Supabase kesinti Tur 2 / C4 — muhur test:supabase-zaman-asimi (her sunucu Supabase istemcisi zaman asimli fetch'ten gecer)",
+  "yazildi": "2026-09-25T00:31:35+03:00",
+  "not": "Urun kodu DEGISMEZ (yalniz scripts/test-supabase-zaman-asimi.mjs + package.json betik satiri). DURUSTLUK KAYDI (kullanici kabul etti, 25 Eylul 2026): betik C4 tahmininden ONCE yazildi (24 Eylul, 29 kontrol, kontrol sayisi betikten once belirlenmisti) ama HIC calistirilmadi; ilk calistirma bu tahminin commit'inden SONRA. C3 v2 (5xx ag sinifi) sonrasinda betige 3 davranis birimi eklendi (522+HTML reddedilir / 503+JSON aynen / 502+duz metin reddedilir) — bu tahmin onlari da sayar. Beklenen test:supabase-zaman-asimi: 32 gecti, 0 kaldi = (1) gercek kaynak 15 [R1 1, R2 6 dosya, R4 1 (taban 6), R5 2, R3 3, istisna 2] + (2) davranis 10 [middleware 4 sn kesme, cagiran sinyali, v2 x3, zamanAsimiMi x2, kisaHata x3] + (3) oz-sinama 7 [M1–M5, M6, negatif kontrol 0 ihlal]. Kapi: urun kodu yok → 2590/0, temel cizgi farki 0. 32 betik 2408/0 AYNI (test:backup-db NTFS'te ORTAM); muhur ayri kosulur (package.json'a eklenir). test:kesinti beklenti-c3-v2.json 57/57 AYNI (araliklar ve kesin alanlar degismez).",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)",
+  "beklenen_muhur_satiri": "SONUC: 32 gecti, 0 kaldi"
+}
