@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tenantTagsForUpdate } from "@/lib/tenant-cache";
 import {
@@ -12,6 +11,7 @@ import {
 } from "@/lib/constants";
 import { normalizeCustomDomain } from "@/lib/tenant-hostname";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
+import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
 
 /**
  * Tenant alanlarini gunceller (name, slug, custom_domain, is_active, enabled_modules).
@@ -40,31 +40,7 @@ import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
  * (savunma derinligi, Sprint 3.8 pattern'i).
  */
 
-// Super admin guard — mevcut delete-tenant/tenant-users/toggle-tenant pattern'i ile ayni
-async function requireSuperAdmin() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return {
-      error: NextResponse.json({ error: "Yetkisiz erisim." }, { status: 401 }),
-    };
-  }
-
-  const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", {
-    user_id: user.id,
-  });
-
-  if (!isSuperAdmin) {
-    return {
-      error: NextResponse.json({ error: "Yetkiniz yok." }, { status: 403 }),
-    };
-  }
-
-  return { user };
-}
+// Super admin yetki kapisi: lib/super-admin/require-super-admin (C8 — rpc HATASI 503, 403 degil).
 
 export async function POST(request: NextRequest) {
   // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { cleanupOrphanUserIfNeeded } from "@/lib/super-admin/cleanup-orphan-user";
 import { isUuid, listOrphanUsers } from "@/lib/super-admin/orphan-users";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
+import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
 
 // Liste her istekte canlı okunmalı (önbellekten eski liste silme kararını
 // yanıltır). cookies() zaten dinamik yapıyor; açıkça da işaretli.
@@ -20,24 +20,7 @@ export const dynamic = "force-dynamic";
  *                      olabilir — o durumda SİLİNMEZ, 409).
  */
 
-// Super admin guard — tenant-users / delete-tenant ile aynı sözleşme
-// ({ error } | { user }); her route kendi guard'ını tanımlıyor.
-async function requireSuperAdmin() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { error: NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 }) };
-  }
-  const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", {
-    user_id: user.id,
-  });
-  if (!isSuperAdmin) {
-    return { error: NextResponse.json({ error: "Yetkiniz yok." }, { status: 403 }) };
-  }
-  return { user };
-}
+// Super admin yetki kapisi: lib/super-admin/require-super-admin (C8 — rpc HATASI 503, 403 degil).
 
 export async function GET(req: NextRequest) {
   // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).

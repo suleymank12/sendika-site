@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tenantTag } from "@/lib/tenant-cache";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
+import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
 
 /**
  * Tenant'in is_active durumunu degistirir (aktif/pasif toggle).
@@ -23,25 +23,7 @@ import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
  * (is_super_admin RPC tabanli, diger super-admin route'lariyla ayni).
  */
 
-// Super admin guard — delete-tenant + tenant-users pattern'i ile birebir
-// ayni (is_super_admin RPC). Paylasilan export degil; her route kendi
-// guard'ini tanimlar.
-async function requireSuperAdmin() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { error: NextResponse.json({ error: "Yetkisiz erisim." }, { status: 401 }) };
-  }
-  const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", {
-    user_id: user.id,
-  });
-  if (!isSuperAdmin) {
-    return { error: NextResponse.json({ error: "Yetkiniz yok." }, { status: 403 }) };
-  }
-  return { user };
-}
+// Super admin yetki kapisi: lib/super-admin/require-super-admin (C8 — rpc HATASI 503, 403 degil).
 
 export async function POST(request: NextRequest) {
   // Host kapisi — auth'tan ONCE (bkz. lib/super-admin/api-host-guard).

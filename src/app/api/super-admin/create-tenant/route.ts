@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tenantTag } from "@/lib/tenant-cache";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
@@ -13,6 +12,7 @@ import {
 import { RESERVED_TENANT_SLUGS } from "@/lib/constants";
 import { normalizeCustomDomain } from "@/lib/tenant-hostname";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
+import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
 
 interface RequestBody {
   name: string;
@@ -32,27 +32,10 @@ export async function POST(req: NextRequest) {
   const denied = requireSuperAdminHost(req);
   if (denied) return denied;
 
-  // 1) Auth — gelen istekteki kullanıcıyı al
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
-  }
-
-  // 2) Süper admin kontrolü
-  const { data: isSuperAdmin, error: rpcError } = await supabase.rpc("is_super_admin", {
-    user_id: user.id,
-  });
-
-  if (rpcError || !isSuperAdmin) {
-    return NextResponse.json(
-      { error: "Bu işlem için yetkiniz yok." },
-      { status: 403 }
-    );
-  }
+  // 1–2) Auth + super admin — ortak kapi (C8): rpc HATASI artik 503
+  // (eskiden 403 "yetkiniz yok"); gercek yetkisizlik 403, oturumsuz 401.
+  const guard = await requireSuperAdmin();
+  if ("error" in guard) return guard.error;
 
   // 3) Body validation
   let body: RequestBody;

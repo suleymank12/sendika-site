@@ -39,8 +39,8 @@
  *   `npm run test:cerez-dayanikliligi` (dev sunucu ayakken).
  */
 
-import { readFileSync } from "node:fs";
-import { decideAdminAccess } from "../src/lib/admin-access.ts";
+import { readdirSync, readFileSync } from "node:fs";
+import { decideAdminAccess, decideOturum, decideSuperAdminAccess } from "../src/lib/admin-access.ts";
 import {
   isAuthCookieName,
   isDecodableAuthCookieValue,
@@ -277,6 +277,55 @@ header("(g) layout + yetkisiz sayfasi");
   // 🔴 19 Eylul obskurite karari: panel adresi kurum host'unda ANILMAZ.
   okTrue("yetkisiz", "🔴 super admin panel adresi ANILMIYOR", !yetkisiz.includes("superadminpanel"), "yetkisiz");
   okTrue("yetkisiz", "🔴 /super-admin yolu da ANILMIYOR", !yetkisizKod.includes("/super-admin"), "yetkisiz");
+}
+
+// ---------------------------------------------------------------------------
+header("(h) C8 — gecici hata ≠ yetkisiz / giris (24 Eylul 2026)");
+// ---------------------------------------------------------------------------
+{
+  const U = { id: "u1" };
+  const T = isTransportAuthError;
+  // decideOturum — tasima hatasi GIRIS SAYILMAZ, oturum da SAYILMAZ
+  ok("oturum", "kullanici var, hata yok → var", decideOturum({ user: U, authError: null }, T), "var", "u+0");
+  ok("oturum", "kullanici yok, hata yok → giris", decideOturum({ user: null, authError: null }, T), "giris", "0+0");
+  ok("oturum", "🔴 ag yok (status 0) → gecici-hata (giris DEGIL)", decideOturum({ user: null, authError: { name: "AuthRetryableFetchError", status: 0 } }, T), "gecici-hata", "status 0");
+  ok("oturum", "AuthRetryableFetchError adi yeterli", decideOturum({ user: null, authError: { name: "AuthRetryableFetchError" } }, T), "gecici-hata", "ad");
+  ok("oturum", "503 → gecici-hata", decideOturum({ user: null, authError: { name: "AuthApiError", status: 503 } }, T), "gecici-hata", "503");
+  ok("oturum", "4xx (oturum kullanilamaz) → giris", decideOturum({ user: null, authError: { name: "AuthSessionMissingError", status: 400 } }, T), "giris", "400");
+  ok("oturum", "taninmayan hata → gecici-hata (supheli durumda panel KAPALI, cikis yok)", decideOturum({ user: null, authError: {} }, T), "gecici-hata", "{}");
+  // decideSuperAdminAccess — rpc HATASI yetkisizlik degil; gercek yetkisizlik AYNEN
+  const sa = (x) => decideSuperAdminAccess({ user: U, authError: null, isSuperAdmin: null, rpcError: null, ...x }, T).kind;
+  ok("super-admin", "oturum yok → giris", sa({ user: null }), "giris", "0");
+  ok("super-admin", "🔴 oturum tasima hatasi → gecici-hata", sa({ user: null, authError: { status: 0 } }), "gecici-hata", "tasima");
+  ok("super-admin", "🔴 rpc HATASI → gecici-hata (Yetkisiz DEGIL)", sa({ rpcError: { message: "fetch failed" } }), "gecici-hata", "rpc hata");
+  ok("super-admin", "rpc false → yetkisiz (AYNEN)", sa({ isSuperAdmin: false }), "yetkisiz", "false");
+  ok("super-admin", "rpc bos (null, hatasiz) → yetkisiz", sa({ isSuperAdmin: null }), "yetkisiz", "null");
+  ok("super-admin", "rpc true → izin", sa({ isSuperAdmin: true }), "izin", "true");
+  ok("super-admin", "rpc hatasi + true birlikte → gecici-hata (hata once)", sa({ isSuperAdmin: true, rpcError: { message: "x" } }), "gecici-hata", "hata+true");
+
+  // Kaynak muhurleri
+  const adminL = stripComments(read("src/app/admin/(authenticated)/layout.tsx"));
+  okTrue("kaynak", "admin layout: decideOturum → gecici ekran; tasima hatasinda girise yonlendirme YOK",
+    adminL.includes("decideOturum({ user, authError }, isTransportAuthError)") &&
+      comesBefore(adminL, "return <AdminGeciciHataView />;", 'redirect("/admin/giris")') &&
+      !/if \(authError\) \{\s*console\.error\([^)]*\);\s*redirect\("\/admin\/giris"\)/.test(adminL),
+    "admin layout");
+  const saL = stripComments(read("src/app/super-admin/(authenticated)/layout.tsx"));
+  okTrue("kaynak", "super admin layout: decideSuperAdminAccess + gecici ekran, Yetkisiz yalniz izin disi",
+    saL.includes("decideSuperAdminAccess(") && saL.includes("<SuperAdminGeciciHataView />") && saL.includes('karar.kind !== "izin"'),
+    "super admin layout");
+  const apiDizin = "src/app/api/super-admin";
+  const rotalar = [];
+  const gez = (d) => { for (const a of readdirSync(new URL(`../${d}`, import.meta.url), { withFileTypes: true })) { const g = `${d}/${a.name}`; if (a.isDirectory()) gez(g); else if (a.name === "route.ts") rotalar.push(g); } };
+  gez(apiDizin);
+  const yerel = rotalar.filter((r) => /async function requireSuperAdmin\b|\.rpc\("is_super_admin"/.test(stripComments(read(r))));
+  const paylasilan = rotalar.filter((r) => read(r).includes('from "@/lib/super-admin/require-super-admin"'));
+  okTrue("kaynak", `yerel requireSuperAdmin / dogrudan is_super_admin rpc'si 0 (${rotalar.length} route tarandi; paylasilan modulu kullanan ${paylasilan.length})`,
+    yerel.length === 0 && paylasilan.length >= 7, yerel.join(", ") || "temiz");
+  const rsa = stripComments(read("src/lib/super-admin/require-super-admin.ts"));
+  okTrue("kaynak", "paylasilan kapi: gecici-hata → 503 + Retry-After, yetkisiz → 403, giris → 401",
+    /case "gecici-hata":[\s\S]*status: 503[\s\S]*"retry-after": "30"/.test(rsa) && /case "yetkisiz":[\s\S]*status: 403/.test(rsa) && /case "giris":[\s\S]*status: 401/.test(rsa),
+    "require-super-admin");
 }
 
 // ---------------------------------------------------------------------------

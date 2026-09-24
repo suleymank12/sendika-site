@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 import { cleanupOrphanUserIfNeeded } from "@/lib/super-admin/cleanup-orphan-user";
@@ -10,25 +9,9 @@ import {
   type AdminInviteOutcome,
 } from "@/lib/super-admin/admin-invite";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
+import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
 
-async function requireSuperAdmin() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { error: NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 }) };
-  }
-  const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", {
-    user_id: user.id,
-  });
-  if (!isSuperAdmin) {
-    return {
-      error: NextResponse.json({ error: "Yetkiniz yok." }, { status: 403 }),
-    };
-  }
-  return { user };
-}
+// Super admin yetki kapisi: lib/super-admin/require-super-admin (C8 — rpc HATASI 503, 403 degil).
 
 // POST: tenant'a admin ekle (e-posta ile bul/invite et + tenant_users insert)
 export async function POST(req: NextRequest) {

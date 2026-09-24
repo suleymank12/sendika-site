@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getRootDomain } from "@/lib/tenant-hostname";
 import { isUuid } from "@/lib/super-admin/orphan-users";
@@ -8,6 +7,7 @@ import { runSetupProbes } from "@/lib/super-admin/setup-probes";
 import { createNodeProbeDeps } from "@/lib/super-admin/setup-probe-deps";
 import type { SetupAdmin, SetupSnapshot } from "@/lib/super-admin/setup-checklist";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
+import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
 
 // Durum her açılışta CANLI ölçülür — önbellekten eski sonuç, düzeltilmiş bir
 // adımı hâlâ "Eksik" (ya da tersi) gösterir.
@@ -26,24 +26,7 @@ export const dynamic = "force-dynamic";
  * lib/super-admin/setup-probes).
  */
 
-// Super admin guard — tenant-users / orphan-users ile aynı sözleşme
-// ({ error } | { user }); her route kendi guard'ını tanımlıyor.
-async function requireSuperAdmin() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { error: NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 }) };
-  }
-  const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", {
-    user_id: user.id,
-  });
-  if (!isSuperAdmin) {
-    return { error: NextResponse.json({ error: "Yetkiniz yok." }, { status: 403 }) };
-  }
-  return { user };
-}
+// Super admin yetki kapisi: lib/super-admin/require-super-admin (C8 — rpc HATASI 503, 403 degil).
 
 /** Kurum admininin işleri için okunan ayarlar. */
 const SETTING_KEYS = ["logo_url", "contact_phone", "contact_address"];

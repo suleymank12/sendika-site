@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUserEmailsByIds } from "@/lib/supabase/admin-helpers";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
+import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
 
 // GET ?tenantId=...
 // Bir tenant'a bağlı kullanıcıları (email ile birlikte) döner.
@@ -11,19 +11,9 @@ export async function GET(req: NextRequest) {
   const denied = requireSuperAdminHost(req);
   if (denied) return denied;
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
-  }
-  const { data: isSuperAdmin } = await supabase.rpc("is_super_admin", {
-    user_id: user.id,
-  });
-  if (!isSuperAdmin) {
-    return NextResponse.json({ error: "Yetkiniz yok." }, { status: 403 });
-  }
+  // Ortak kapi (C8): rpc HATASI 503, gercek yetkisizlik 403, oturumsuz 401.
+  const guard = await requireSuperAdmin();
+  if ("error" in guard) return guard.error;
 
   const { searchParams } = new URL(req.url);
   const tenantId = searchParams.get("tenantId");

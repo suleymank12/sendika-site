@@ -85,3 +85,72 @@ export function decideAdminAccess(input: AdminAccessInput): AdminAccessDecision 
   if (!input.membership) return { kind: "yetkisiz" };
   return { kind: "izin" };
 }
+
+// ===========================================================================
+// OTURUM ve SUPER ADMIN KARARLARI (Supabase kesinti dayanikliligi C8,
+// 24 Eylul 2026) — "gecici hata ≠ yetkisiz / giris".
+// ===========================================================================
+//
+// Eskiden: admin layout'u getUser TASIMA hatasinda `/admin/giris`'e
+// yonlendiriyordu (kismi kesintide middleware basariliyken giris sayfasi
+// kullaniciyi geri yolluyor → dongu riski); super admin layout'u ve API'si
+// `is_super_admin` rpc HATASINI "yetkiniz yok" (ekran / 403) sayiyordu.
+// Hepsi FAIL-CLOSED kalir: gecici hata ekraninda panel acilmaz, API 503.
+//
+// Bu modul saf tutulur (testte dogrudan Node ile yuklenir, baska modul
+// iceri almaz); tasima sinifi `tasimaHatasiMi` ile disaridan verilir —
+// uretimde `lib/supabase/cookie-sanitize` `isTransportAuthError`.
+
+/** `auth.getUser()` hatasinin kararin okudugu en kucuk sekli. */
+export interface OturumHatasi {
+  name?: string;
+  status?: number;
+}
+
+export type OturumKarari =
+  /** Kullanici dogrulandi. */
+  | "var"
+  /** Oturum yok ya da kullanilamaz (4xx) → giris sayfasi. */
+  | "giris"
+  /** Supabase'e ulasilamadi → gecici sorun ekrani / 503 (GIRIS SAYILMAZ). */
+  | "gecici-hata";
+
+/**
+ * Sira bilincli: TASIMA hatasi `user` null olsa bile ONCE ele alinir —
+ * "Supabase'e ulasamadim"i "oturumun yok" diye okumak kullaniciyi girise
+ * atar (ve kismi kesintide dongu yaratir).
+ */
+export function decideOturum(
+  girdi: { user: AdminAccessUser | null; authError: OturumHatasi | null | undefined },
+  tasimaHatasiMi: (hata: OturumHatasi) => boolean
+): OturumKarari {
+  if (girdi.authError && tasimaHatasiMi(girdi.authError)) return "gecici-hata";
+  if (girdi.authError || !girdi.user) return "giris";
+  return "var";
+}
+
+export type SuperAdminAccessDecision =
+  | { kind: "giris" }
+  /** Oturum ya da `is_super_admin` DOGRULANAMADI → gecici sorun (panel/API KAPALI). */
+  | { kind: "gecici-hata" }
+  /** rpc basariyla `false`/bos dondu → gercek yetkisizlik (AYNEN). */
+  | { kind: "yetkisiz" }
+  | { kind: "izin" };
+
+export function decideSuperAdminAccess(
+  girdi: {
+    user: AdminAccessUser | null;
+    authError: OturumHatasi | null | undefined;
+    isSuperAdmin: unknown;
+    rpcError: { message?: string } | null | undefined;
+  },
+  tasimaHatasiMi: (hata: OturumHatasi) => boolean
+): SuperAdminAccessDecision {
+  const oturum = decideOturum(girdi, tasimaHatasiMi);
+  if (oturum === "gecici-hata") return { kind: "gecici-hata" };
+  if (oturum === "giris") return { kind: "giris" };
+  // rpc HATASI yetkisizlikten ONCE: hata varsa `isSuperAdmin` anlamsizdir.
+  if (girdi.rpcError) return { kind: "gecici-hata" };
+  if (girdi.isSuperAdmin !== true) return { kind: "yetkisiz" };
+  return { kind: "izin" };
+}

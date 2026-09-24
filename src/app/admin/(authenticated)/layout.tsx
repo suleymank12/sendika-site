@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { resolveCurrentTenant } from "@/lib/get-tenant";
-import { decideAdminAccess } from "@/lib/admin-access";
+import { decideAdminAccess, decideOturum } from "@/lib/admin-access";
+import { isTransportAuthError } from "@/lib/supabase/cookie-sanitize";
 import AdminShell from "@/components/admin/AdminShell";
 import AdminTenantPasifView from "../_components/AdminTenantPasifView";
 import AdminTenantBulunamadiView from "../_components/AdminTenantBulunamadiView";
@@ -19,11 +20,17 @@ export default async function AuthenticatedAdminLayout({
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
-  if (authError) {
-    console.error("[AdminLayout] Auth check failed:", authError);
-    redirect("/admin/giris");
+  // C8 (24 Eylul 2026): TASIMA hatasi (Supabase'e ulasilamadi) GIRIS DEGIL —
+  // "Geçici Bir Sorun" ekrani. Eskiden girise yonleniyordu; kismi kesintide
+  // middleware'in getUser'i basariliysa giris sayfasi kullaniciyi geri
+  // /admin'e yolluyor → dongu. Fail-closed: panel render edilmez.
+  const oturum = decideOturum({ user, authError }, isTransportAuthError);
+  if (oturum === "gecici-hata") {
+    console.error("[AdminLayout] Auth dogrulanamadi (tasima, gecici):", authError);
+    return <AdminGeciciHataView />;
   }
-  if (!user) {
+  if (oturum === "giris" || !user) {
+    if (authError) console.error("[AdminLayout] Auth check failed:", authError);
     redirect("/admin/giris");
   }
 
