@@ -10,6 +10,13 @@
  *   blackhole  TCP kabul edilir, TLS el sikismasi HIC yapilmaz
  *              → undici UND_ERR_CONNECT_TIMEOUT (10 sn) — olaydaki hata kodu
  *   refuse     dinleme soketi kapatilir → ECONNREFUSED (hizli ret)
+ *   cf5xx      her istege HIZLI 522 (ya da `cfDurum`) + Cloudflare benzeri HTML
+ *              govde (Tur 2, 24 Eylul 2026 — olayda log'a HTML basiliyordu)
+ *
+ * Tur 2 secenekleri: `gecikmeYontem` (delay yalniz bu HTTP yontemine uygulanir,
+ * ör. "PATCH" — yazma zaman asimi senaryosu); `sahteRest` ({ yol: {durum,
+ * govde, basliklar} }) — GET/HEAD icin YEREL sahte cevap (S1 teshisi; disari
+ * hic gitmez).
  *
  * 🔴 YAZMA ENGELI (kalici, her modda): GET/HEAD/OPTIONS DISINDAKI HER YONTEM
  * vekilde 403 alir, gercek Supabase'e HIC ulasmaz. Iki yerel sahte cevap da
@@ -41,6 +48,9 @@ export function vekilBaslat({ port = 443, key, cert, gercekUrl }) {
   let gecikmeMs = 0;
   let authKota = null;
   let rpcCevap = null;
+  let gecikmeYontem = null;
+  let cfDurum = 522;
+  let sahteRest = null;
   let seq = 0;
   const kayit = [];
   const t0 = Date.now();
@@ -53,7 +63,22 @@ export function vekilBaslat({ port = 443, key, cert, gercekUrl }) {
     const yol = u.pathname;
     const m = mod;
     log({ ev: "istek", yontem: req.method, yol, mod: m });
-    if (m === "delay") await new Promise((r) => setTimeout(r, gecikmeMs));
+    if (m === "cf5xx") {
+      req.resume();
+      res.writeHead(cfDurum, { "content-type": "text/html; charset=UTF-8", server: "cloudflare" });
+      res.end(`<!DOCTYPE html>\n<html lang="en-US"><head><title>localhost | ${cfDurum}: Connection timed out</title><style>body{font-family:sans-serif}</style></head><body><div id="cf-wrapper"><h1>Connection timed out</h1><span>Error code ${cfDurum}</span><p>Visit cloudflare.com for more information.</p>${"<div class=\"cf-pad\"></div>".repeat(40)}</div></body></html>`);
+      log({ ev: "cf5xx", yontem: req.method, yol, durum: cfDurum });
+      return;
+    }
+    if (m === "delay" && (!gecikmeYontem || req.method === gecikmeYontem)) await new Promise((r) => setTimeout(r, gecikmeMs));
+    if (sahteRest && OKUMA.has(req.method) && sahteRest[yol]) {
+      const s = sahteRest[yol];
+      req.resume();
+      res.writeHead(s.durum ?? 200, { "content-type": "application/json", ...(s.basliklar || {}) });
+      res.end(typeof s.govde === "string" ? s.govde : JSON.stringify(s.govde));
+      log({ ev: "sahte-rest", yol });
+      return;
+    }
 
     if (req.method === "GET" && yol === "/auth/v1/user" && authKota) {
       if (authKota.basarili > 0) {
@@ -131,6 +156,9 @@ export function vekilBaslat({ port = 443, key, cert, gercekUrl }) {
       gecikmeMs = secenek.gecikmeMs || 0;
       authKota = secenek.authKota ? { ...secenek.authKota } : null;
       rpcCevap = secenek.rpcCevap ?? null;
+      gecikmeYontem = secenek.gecikmeYontem ?? null;
+      cfDurum = secenek.cfDurum ?? 522;
+      sahteRest = secenek.sahteRest ?? null;
       soketleriYokEt();
       log({ ev: "mod", mod: yeni, gecikmeMs, authKota, rpcCevap });
       if (yeni === "refuse") await dinlemeyiKes();

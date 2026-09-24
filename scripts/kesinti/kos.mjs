@@ -218,13 +218,15 @@ function yerlestir(s) {
     .replace(/\{gorsel:(\d+)\}/g, (_, w) => `/_next/image?url=${encodeURIComponent(GORSEL)}&w=${w}&q=75`);
 }
 
-function istek({ host, yol, cerez, accept, limitMs = 200_000 }) {
+function istek({ host, yol, cerez, accept, yontem = "GET", govdeJson, limitMs = 200_000 }) {
   return new Promise((resolve) => {
     const t0 = performance.now();
     const headers = { host: `${host}:${PORT}`, accept: accept || "text/html" };
     if (cerez === "taze") headers.cookie = sahteCerez(3600);
     if (cerez === "sure") headers.cookie = sahteCerez(-120);
-    const req = http.request({ host: "127.0.0.1", port: PORT, path: yol, headers }, (res) => {
+    const govde = govdeJson === undefined ? null : Buffer.from(JSON.stringify(govdeJson));
+    if (govde) { headers["content-type"] = "application/json"; headers["content-length"] = String(govde.length); }
+    const req = http.request({ host: "127.0.0.1", port: PORT, path: yol, method: yontem, headers }, (res) => {
       const parcalar = [];
       res.on("data", (d) => parcalar.push(d));
       res.on("end", () => resolve({
@@ -236,7 +238,7 @@ function istek({ host, yol, cerez, accept, limitMs = 200_000 }) {
     });
     req.setTimeout(limitMs, () => req.destroy(new Error("istemci-zaman-asimi")));
     req.on("error", (e) => resolve({ durum: `HATA:${e.message}`, ms: Math.round(performance.now() - t0), govde: "", basliklar: {} }));
-    req.end();
+    req.end(govde ?? undefined);
   });
 }
 
@@ -273,6 +275,11 @@ function denetle(g, b) {
   // Vekilde kara delige dusen TCP baglantisi sayisi = sirali upstream bekleme
   // sayisinin kaniti (ör. hata render'inda kurumun ikinci kez sorulmasi).
   if (b.karadelikBaglanti !== undefined && g.karadelik !== b.karadelikBaglanti) hatalar.push(`kara delik baglantisi ${g.karadelik} ≠ ${b.karadelikBaglanti}`);
+  // Tur 2: vekile ulasan auth isteklerinin sayisi (ör. "public yolda auth cagrisi YOK").
+  if (b.authIstegi !== undefined && g.authIstegi !== b.authIstegi) hatalar.push(`auth istegi ${g.authIstegi} ≠ ${b.authIstegi}`);
+  // Tur 2: adim sirasinda Next log'una dusen satirlar (ör. HTML govde log'a BASILMAZ).
+  for (const d of b.logIcerir || []) if (!esles(d, g.log ?? "")) hatalar.push(`log'da YOK: ${d}`);
+  for (const d of b.logIcermez || []) if (esles(d, g.log ?? "")) hatalar.push(`log'da VAR: ${d}`);
   if (b.cerezSil !== undefined) {
     const sil = (g.basliklar["set-cookie"] || []).some((c) => c.startsWith(CEREZ_ADI) && /max-age=0/i.test(c));
     if (sil !== b.cerezSil) hatalar.push(`cerez silme ${sil} ≠ ${b.cerezSil}`);
@@ -379,9 +386,10 @@ try {
         await istek({ host, yol: host.startsWith("superadminpanel.") ? "/super-admin/giris" : "/" });
       }
       if (a.bekleOnceMs) await bekle(a.bekleOnceMs);
-      await vekil.mod(a.mod || "pass", { gecikmeMs: a.gecikmeMs, authKota: a.authKota, rpcCevap: a.rpcCevap });
+      await vekil.mod(a.mod || "pass", { gecikmeMs: a.gecikmeMs, gecikmeYontem: a.gecikmeYontem, cfDurum: a.cfDurum, sahteRest: a.sahteRest, authKota: a.authKota, rpcCevap: a.rpcCevap });
       const once = vekil.seq();
-      const sonuc = await istek({ host, yol: yerlestir(a.yol), cerez: a.cerez, accept: a.accept });
+      const logOnce = existsSync(LOG) ? readFileSync(LOG).length : 0;
+      const sonuc = await istek({ host, yol: yerlestir(a.yol), cerez: a.cerez, accept: a.accept, yontem: a.yontem, govdeJson: a.govdeJson ? JSON.parse(yerlestir(JSON.stringify(a.govdeJson))) : undefined });
       await bekle(400);
       const olay = vekil.kayit(once);
       // Tani: KESINTI_GOVDE_DIZIN verilirse her adimin govdesi dosyaya yazilir (denetimi etkilemez).
@@ -389,7 +397,13 @@ try {
         mkdirSync(process.env.KESINTI_GOVDE_DIZIN, { recursive: true });
         writeFileSync(path.join(process.env.KESINTI_GOVDE_DIZIN, `${sn.id}__${a.id}.html`.replace(/[/:+]/g, "_")), sonuc.govde);
       }
-      const hatalar = denetle({ ...sonuc, karadelik: olay.filter((e) => e.ev === "tcp-karadelik").length }, a.beklenen);
+      const adimLog = existsSync(LOG) ? readFileSync(LOG).subarray(logOnce).toString("utf8") : "";
+      const hatalar = denetle({
+        ...sonuc,
+        karadelik: olay.filter((e) => e.ev === "tcp-karadelik").length,
+        authIstegi: olay.filter((e) => e.ev === "istek" && e.yol.startsWith("/auth/v1/")).length,
+        log: adimLog,
+      }, a.beklenen);
       if (a.tarayici) hatalar.push(...(await tarayiciDenetle(host, yerlestir(a.yol), a.tarayici)));
       hatalar.length ? kaldi++ : gecti++;
       const satir = {
