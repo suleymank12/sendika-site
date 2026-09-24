@@ -13,7 +13,7 @@ import type { Metadata } from "next";
 const aktifUyeler = cache(async (tenantId: string) => {
   // createAdminClient (RLS bypass) kasıtlı: tenant izolasyonu ve aktiflik
   // manuel .eq("tenant_id") / .eq("is_active", true) filtreleriyle sağlanıyor.
-  const supabase = createAdminClient();
+  const supabase = createAdminClient("public-okuma");
   const { data, error } = await supabase
     .from("board_members")
     .select("*")

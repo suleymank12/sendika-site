@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Geçersiz kurum." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("admin-okuma");
   const { data: tenant, error: tenantError } = await admin
     .from("tenants")
     .select("id, slug, name, custom_domain, is_active")

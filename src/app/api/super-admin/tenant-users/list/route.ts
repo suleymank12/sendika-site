@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "tenantId gerekli." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("admin-okuma");
 
   const { data: links, error } = await admin
     .from("tenant_users")

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { yazmaHataYaniti } from "@/lib/yazma-yaniti";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 import { cleanupOrphanUserIfNeeded } from "@/lib/super-admin/cleanup-orphan-user";
 import {
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Geçerli bir e-posta girin." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
 
   // Tenant gerçekten var mı?
   const { data: tenant } = await admin
@@ -82,10 +83,7 @@ export async function POST(req: NextRequest) {
       await admin.auth.admin.inviteUserByEmail(email, inviteOptions);
     if (inviteError || !invited?.user) {
       console.error("[TenantUsers] inviteUserByEmail hatası:", inviteError);
-      return NextResponse.json(
-        { error: "Kullanıcı davet edilemedi: " + (inviteError?.message || "") },
-        { status: 500 }
-      );
+      return yazmaHataYaniti(inviteError, "Kullanıcı davet edilemedi: " + (inviteError?.message || ""));
     }
     userId = invited.user.id;
   }
@@ -104,10 +102,7 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    return NextResponse.json(
-      { error: "Bağlantı kurulamadı: " + linkError.message },
-      { status: 500 }
-    );
+    return yazmaHataYaniti(linkError, "Bağlantı kurulamadı: " + linkError.message);
   }
 
   // "reinvite" dalı: kullanıcı vardı ama daveti hiç kabul etmemiş. Davet
@@ -152,7 +147,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "id parametresi gerekli." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
 
   // 1) Üyelik satırını çek (user_id + tenant_id öğren)
   const { data: membership, error: fetchError } = await admin
@@ -188,7 +183,7 @@ export async function DELETE(req: NextRequest) {
 
     if (rowDeleteError) {
       console.error("[tenant-users:DELETE] uyelik silme hatasi:", rowDeleteError);
-      return NextResponse.json({ error: rowDeleteError.message }, { status: 500 });
+      return yazmaHataYaniti(rowDeleteError, rowDeleteError.message);
     }
   }
   // Helper sildiyse: cascade üyelik satırını zaten götürdü.

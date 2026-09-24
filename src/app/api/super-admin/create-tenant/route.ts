@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { yazmaHataYaniti } from "@/lib/yazma-yaniti";
 import { tenantTag } from "@/lib/tenant-cache";
 import { findUserByEmail } from "@/lib/supabase/admin-helpers";
 import {
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
 
   // 4) Slug çakışma kontrolü
   const { data: existing } = await admin
@@ -109,10 +110,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (tenantError || !tenant) {
-    return NextResponse.json(
-      { error: "Tenant oluşturulamadı: " + (tenantError?.message || "bilinmeyen hata") },
-      { status: 500 }
-    );
+    return yazmaHataYaniti(tenantError, "Tenant oluşturulamadı: " + (tenantError?.message || "bilinmeyen hata"));
   }
 
   const tenantId = tenant.id as string;

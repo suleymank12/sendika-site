@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
   }
 
   const userIds = links.map((l) => l.user_id as string);
-  const admin = createAdminClient();
+  const admin = createAdminClient("admin-okuma");
 
   // FAIL-CLOSED (tenant-users/list ile ayni karar): e-postasiz liste bu
   // ekrani anlamsiz kilar — eksik veri gostermek yerine hata bildirilir.

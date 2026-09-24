@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { yazmaHataYaniti } from "@/lib/yazma-yaniti";
 import { tenantTagsForUpdate } from "@/lib/tenant-cache";
 import {
   RESERVED_TENANT_SLUGS,
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
 
   // 1) Mevcut tenant fetch
   const { data: existing, error: fetchError } = await admin
@@ -237,10 +238,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: updateError.message || "Guncelleme basarisiz oldu." },
-      { status: 500 }
-    );
+    return yazmaHataYaniti(updateError, updateError.message || "Guncelleme basarisiz oldu.");
   }
 
   // 8) 🔴 CACHE GECERSIZLESTIRME (b3) — ESKI VE YENI slug birlikte.

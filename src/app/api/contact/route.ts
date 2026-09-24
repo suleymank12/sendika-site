@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { yazmaHataYaniti } from "@/lib/yazma-yaniti";
 import { parseHostname } from "@/lib/tenant-hostname";
 import { rejectSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 3) TENANT'i HOSTNAME'den belirle (client'a asla guvenme)
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
   const host =
     req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   const tenantId = await resolveTenantId(admin, host);
@@ -170,10 +171,7 @@ export async function POST(req: NextRequest) {
 
   if (insertError) {
     console.error("[Contact] Mesaj kaydi hatasi:", insertError);
-    return NextResponse.json(
-      { error: "Bir hata oluştu, lütfen tekrar deneyin." },
-      { status: 500 }
-    );
+    return yazmaHataYaniti(insertError, "Bir hata oluştu, lütfen tekrar deneyin.");
   }
 
   // Rate limit kaydini ekle (best-effort; hatasi mesaj kaydini bozmaz)

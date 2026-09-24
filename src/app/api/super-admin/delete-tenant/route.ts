@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { yazmaHataYaniti } from "@/lib/yazma-yaniti";
 import { tenantTag } from "@/lib/tenant-cache";
 import {
   cleanupOrphanUserIfNeeded,
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "tenantId zorunlu" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
 
   // 1) Tenant kaydini cek + default kontrol
   const { data: tenant, error: tenantFetchError } = await admin
@@ -107,13 +108,7 @@ export async function POST(request: NextRequest) {
 
   if (deleteTenantError) {
     console.error("[delete-tenant] tenant silme hatasi:", deleteTenantError);
-    return NextResponse.json(
-      {
-        error:
-          "Tenant silinemedi. Ona bagli icerikler veya baska bir kisit olabilir.",
-      },
-      { status: 500 }
-    );
+    return yazmaHataYaniti(deleteTenantError, "Tenant silinemedi. Ona bagli icerikler veya baska bir kisit olabilir.");
   }
 
   // 3.5) 🔴 CACHE GECERSIZLESTIRME (b3) — BURADA, silme basarili olur olmaz.

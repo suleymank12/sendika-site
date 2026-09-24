@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function BranchManagerPage({ params }: Props) {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient("public-okuma");
   const tenant = await getCurrentTenant();
 
   // Bu sayfa BİLEREK seri kaldı (b2): ikinci sorgu `branch.manager_id`

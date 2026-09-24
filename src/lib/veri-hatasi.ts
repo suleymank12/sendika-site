@@ -1,5 +1,6 @@
 import { KurumGeciciHatasi } from "./get-tenant";
 import { NOTR_HATA_METNI } from "./notr-hata";
+import { kisaHata } from "./supabase/zaman-asimli-fetch";
 
 export { NOTR_HATA_METNI };
 
@@ -36,13 +37,14 @@ export class VeriOkumaHatasi extends Error {
  * bicimiyle: kayit varsa kayit, yoksa hata → firlat, hata da yoksa null.
  */
 export function hataVarsaFirlat(error: { message?: string } | null | undefined, yer: string): null {
-  if (error) throw new VeriOkumaHatasi(yer, error.message ?? "bilinmeyen hata");
+  // Mesaj kisaltilir (C3): Cloudflare/Supabase HTML hata sayfasi log'a basilmaz.
+  if (error) throw new VeriOkumaHatasi(yer, kisaHata(error));
   return null;
 }
 
 /** Ikincil okuma: hata varsa parca gizlenir, tek satir log. */
 export function ikincilHata(error: { message?: string } | null | undefined, yer: string): void {
-  if (error) console.error(`[veri] ikincil parca gizlendi (${yer}): ${error.message ?? "bilinmeyen hata"}`);
+  if (error) console.error(`[veri] ikincil parca gizlendi (${yer}): ${kisaHata(error)}`);
 }
 
 /** Kurum ya da veri okumasinin GECICI hatasi mi (route handler 503 karari). */

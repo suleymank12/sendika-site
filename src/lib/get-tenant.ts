@@ -5,6 +5,7 @@ import { getTenant } from "./tenant";
 import type { Tenant } from "./tenant";
 import { dogrula } from "./tenant-proof";
 import { BILINMEYEN_ALAN_SLUG } from "./constants";
+import { kisaHata } from "./supabase/zaman-asimli-fetch";
 
 /**
  * Bu istegin kurumu — UC durum, ikisi birbirine KARISTIRILMAZ (K6, 21 Eylul 2026):
@@ -81,7 +82,7 @@ export const resolveCurrentTenant = cache(async (): Promise<TenantResolution> =>
     tenant = await getTenant(slug);
   } catch (hata) {
     // Hata "bulunamadi" ile BIRLESTIRILMEZ (test:kurum-cozumu R5 muhurlu).
-    console.error("[get-tenant] kurum okunamadi, gecici-hata:", hata);
+    console.error("[get-tenant] kurum okunamadi, gecici-hata:", kisaHata(hata));
     return { kind: "gecici-hata" };
   }
   return tenant ? { kind: "found", tenant } : { kind: "unknown-slug" };

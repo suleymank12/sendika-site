@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { zamanAsimliFetch } from "./zaman-asimli-fetch";
 
 /**
  * PUBLIC OKUMA ISTEMCISI — oturumsuz, cerezsiz (Supabase kesinti
@@ -28,6 +29,8 @@ export function createPublicClient() {
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
+      // C3: public okuma butcesi 5 sn.
+      global: { fetch: zamanAsimliFetch("public-okuma") },
     }
   );
 }

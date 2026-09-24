@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { yazmaHataYaniti } from "@/lib/yazma-yaniti";
 import { cleanupOrphanUserIfNeeded } from "@/lib/super-admin/cleanup-orphan-user";
 import { isUuid, listOrphanUsers } from "@/lib/super-admin/orphan-users";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
   if ("error" in guard) return guard.error;
 
   try {
-    const users = await listOrphanUsers(createAdminClient());
+    const users = await listOrphanUsers(createAdminClient("admin-okuma"));
     return NextResponse.json({ users });
   } catch (err) {
     console.error("[orphan-users:GET] liste alınamadı:", err);
@@ -55,7 +56,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Geçerli bir userId gerekli." }, { status: 400 });
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
 
   // Liste eskimiş olabilir: hesap hâlâ var mı?
   const { data: existing, error: getError } = await admin.auth.admin.getUserById(userId);
@@ -86,8 +87,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Süper admin hesabı silinemez." }, { status: 409 });
   }
   // reason === "error" — geçici hata (A2: kalıcı FK engeli yok); tekrar denenebilir.
-  return NextResponse.json(
-    { error: "Silme başarısız oldu. Lütfen tekrar deneyin." },
-    { status: 500 }
-  );
+  // C3: deleteUser 25 sn ust sinirda kesildiyse sonuc BELIRSIZ (504).
+  return yazmaHataYaniti({ message: "error" in result ? result.error : "" }, "Silme başarısız oldu. Lütfen tekrar deneyin.");
 }

@@ -32,7 +32,7 @@ export default async function HomePage() {
   // manset slug lookup'larinda (news/announcements) is_published filtresi
   // YOK, onu RLS uyguluyor; service-role'e tasinirlarsa yayinlanmamis
   // icerige link uretirler (Y1 Parca B'deki sessiz regresyonun esi).
-  const adminSupabase = createAdminClient();
+  const adminSupabase = createAdminClient("public-okuma");
   const tenant = await getCurrentTenant();
 
   // Liste sorgularinda content (rich text, buyuk) BILEREK cekilmiyor.

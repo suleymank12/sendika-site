@@ -38,7 +38,7 @@ async function sitemapVerisi(): Promise<MetadataRoute.Sitemap> {
 
   // createAdminClient (RLS bypass) kasitli: tenant izolasyonu manuel
   // .eq("tenant_id") filtresiyle saglaniyor.
-  const supabase = createAdminClient();
+  const supabase = createAdminClient("public-okuma");
 
   const [newsRes, announcementsRes, pagesRes, albumsRes, branchesRes, membersRes] = await Promise.all([
     supabase

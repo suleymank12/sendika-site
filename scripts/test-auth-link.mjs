@@ -72,7 +72,7 @@
 
 import { readFileSync } from "node:fs";
 import { createBrowserClient } from "@supabase/ssr";
-import { createAuthMailClient } from "../src/lib/supabase/auth-mail-client.ts";
+import { tsUzantisizKancaKur } from "./lib/ts-uzantisiz-kanca.mjs";
 import {
   AUTH_LINK_JOINER,
   AUTH_RETURN_PATH,
@@ -84,6 +84,11 @@ import {
 import { AUTH_RETURN_PATH as CHECKLIST_RETURN_PATH } from "../src/lib/super-admin/setup-checklist.ts";
 import { SUPABASE_RETURN_PATH } from "../src/lib/super-admin/setup-probes.ts";
 import { SUPER_ADMIN_HOME_PATH } from "../src/lib/constants.ts";
+
+// auth-mail-client.ts uzantisiz "./zaman-asimli-fetch" iceri aliyor (C3) —
+// Node ESM bunu cozmez; kanca kurulduktan SONRA dinamik import.
+tsUzantisizKancaKur();
+const { createAuthMailClient } = await import("../src/lib/supabase/auth-mail-client.ts");
 
 // ---------------------------------------------------------------------------
 // Kucuk test kosucusu (diger test script'leriyle ayni desen)

@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function SectionPage({ params }: Props) {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient("public-okuma");
   const tenant = await getCurrentTenant();
 
   // TEK DALGA — öğe sorgusu `section.id` kullanıyordu ama o değer zaten

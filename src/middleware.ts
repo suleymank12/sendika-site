@@ -15,6 +15,7 @@ import {
   isTransportAuthError,
   sanitizeAuthCookies,
 } from "@/lib/supabase/cookie-sanitize";
+import { kisaHata, zamanAsimliFetch } from "@/lib/supabase/zaman-asimli-fetch";
 
 // ===========================================================================
 // CSP (Guvenlik bulgusu Y2 / ikinci savunma katmani)
@@ -308,6 +309,8 @@ export async function middleware(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // C3: middleware butcesi cagri basina 4 sn (ozel alan adi sorgusu, getUser).
+      global: { fetch: zamanAsimliFetch("middleware") },
       cookies: {
         getAll() {
           // 🔴 BOZUK ÇEREZ SAVUNMASI — ilk katman (20 Eylül 2026).
@@ -360,7 +363,7 @@ export async function middleware(request: NextRequest) {
 
     if (error) {
       // VERİTABANI HATASI ≠ BULUNAMADI (B2) — gerekçe: geciciHataYaniti.
-      console.error("[Middleware] custom_domain lookup hatasi:", error);
+      console.error("[Middleware] custom_domain lookup hatasi:", kisaHata(error));
       return yanit(geciciHataYaniti());
     } else if (data?.slug) {
       tenantSlug = data.slug;
@@ -476,12 +479,7 @@ export async function middleware(request: NextRequest) {
     } else if (error) {
       // TAŞIMA: çerez korunur. Log şart — sessiz kalırsa Supabase kesintisi
       // "kullanıcılar giriş yapamıyor" diye gelir ve saatler kaybedilir.
-      console.error(
-        "[Middleware] Supabase auth erisilemedi (cerez KORUNDU):",
-        error.name,
-        error.status,
-        error.message
-      );
+      console.error("[Middleware] Supabase auth erisilemedi (cerez KORUNDU):", kisaHata(error));
     }
   } catch (err) {
     // Beklenmeyen fırlatma — YUTULMUYOR, tam hâliyle loglanıyor.

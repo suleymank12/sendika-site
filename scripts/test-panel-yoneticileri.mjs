@@ -158,7 +158,7 @@ header("(c) API — yetkilendirme RLS'te, fail-closed, veri minimizasyonu");
   // 🔴 Liste CAGIRANIN OTURUMUYLA okunuyor: kurum sinirini RLS uyguluyor.
   // Service role ile okunsaydi yetkilendirme elle yazilmis bir if olurdu.
   const listeIdx = code.indexOf('.from("tenant_users")');
-  const adminIdx = code.indexOf("createAdminClient()");
+  const adminIdx = code.indexOf("createAdminClient(");
   okTrue("api", "tenant_users cagiranin oturumuyla okunuyor", listeIdx !== -1 && listeIdx < adminIdx, "sira");
   okTrue("api", "bos liste -> 403 (uye degil)", code.includes("links.length === 0") && code.includes("status: 403"), API);
 

@@ -50,7 +50,7 @@ function buildMapsLink(branch: Branch): string {
 }
 
 export default async function BranchDetailPage({ params }: Props) {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient("public-okuma");
   const tenant = await getCurrentTenant();
 
   // 1. DALGA — şubenin kendisi.

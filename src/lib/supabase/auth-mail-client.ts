@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { zamanAsimliFetch } from "./zaman-asimli-fetch";
 
 /**
  * Mail TETIKLEYEN auth cagrilari icin PKCE'siz, depolamasiz istemci
@@ -73,6 +74,8 @@ export function createAuthMailClient() {
         autoRefreshToken: false,
         detectSessionInUrl: false,
       },
+      // C3: mail tetikleyen istek bir yazmadir — yalniz 25 sn ust sinir.
+      global: { fetch: zamanAsimliFetch("yazma") },
     }
   );
 }

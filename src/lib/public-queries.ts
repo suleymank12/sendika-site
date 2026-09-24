@@ -144,7 +144,7 @@ export const getHeadlineById = cache(
 /** admin client (RLS bypass) — homepage_* public policy'leri 026'da DROP edildi. */
 export const getHomepageSectionById = cache(
   async (tenantId: string, id: string): Promise<HomepageSection | null> => {
-    const supabase = createAdminClient();
+    const supabase = createAdminClient("public-okuma");
     const { data, error } = await supabase
       .from("homepage_sections")
       .select("*")
@@ -162,7 +162,7 @@ export const getHomepageSectionById = cache(
  */
 export const getBranchBySlug = cache(
   async (tenantId: string, slug: string): Promise<Branch | null> => {
-    const supabase = createAdminClient();
+    const supabase = createAdminClient("public-okuma");
     const { data, error } = await supabase
       .from("branches")
       .select("*")
@@ -177,7 +177,7 @@ export const getBranchBySlug = cache(
 /** admin client (RLS bypass). */
 export const getBoardMemberBySlug = cache(
   async (tenantId: string, slug: string): Promise<BoardMember | null> => {
-    const supabase = createAdminClient();
+    const supabase = createAdminClient("public-okuma");
     const { data, error } = await supabase
       .from("board_members")
       .select("*")

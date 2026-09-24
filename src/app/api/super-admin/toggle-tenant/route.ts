@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { yazmaHataYaniti } from "@/lib/yazma-yaniti";
 import { tenantTag } from "@/lib/tenant-cache";
 import { requireSuperAdminHost } from "@/lib/super-admin/api-host-guard";
 import { requireSuperAdmin } from "@/lib/super-admin/require-super-admin";
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const admin = createAdminClient();
+  const admin = createAdminClient("yazma");
 
   // 1) Tenant fetch + default blanket guard
   const { data: tenant, error: tenantFetchError } = await admin
@@ -84,10 +85,7 @@ export async function POST(request: NextRequest) {
     console.error("[toggle-tenant] update hatasi:", updateError);
     // Trigger exception veya diger DB hatasi — trigger 014 zaten Turkce
     // mesaj firlatir, kullaniciya gosterilebilir.
-    return NextResponse.json(
-      { error: updateError.message || "Durum guncellenemedi." },
-      { status: 500 }
-    );
+    return yazmaHataYaniti(updateError, updateError.message || "Durum guncellenemedi.");
   }
 
   // 3) 🔴 CACHE GECERSIZLESTIRME (b3) — bu satir OLMADAN pasife alinan bir

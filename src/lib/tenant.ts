@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { unstable_cache } from "next/cache";
 import { tenantTag } from "./tenant-cache";
+import { kisaHata, zamanAsimliFetch } from "./supabase/zaman-asimli-fetch";
 
 export interface Tenant {
   id: string;
@@ -41,7 +42,11 @@ function createTenantLookupClient() {
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { persistSession: false, autoRefreshToken: false } }
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+      // C3: kurum sorgusu public okuma butcesiyle (5 sn).
+      global: { fetch: zamanAsimliFetch("public-okuma") },
+    }
   );
 }
 
@@ -80,7 +85,7 @@ export async function getTenant(slug: string): Promise<Tenant | null> {
       // loglayip ESKI kaydi korur (hatada son bilinen kayit — karar). null
       // YALNIZ satir gercekten yoksa doner; bu olumsuz sonuc onceki gibi
       // onbellege yazilir.
-      if (error) throw new Error(`[tenant] kurum okunamadi (slug=${slug}): ${error.message}`);
+      if (error) throw new Error(`[tenant] kurum okunamadi (slug=${slug}): ${kisaHata(error)}`);
       return (data as Tenant) ?? null;
     },
     ["tenant-by-slug", slug],

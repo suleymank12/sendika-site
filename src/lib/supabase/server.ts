@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { sanitizeAuthCookies } from "./cookie-sanitize";
+import { zamanAsimliFetch } from "./zaman-asimli-fetch";
 
 export function createClient() {
   const cookieStore = cookies();
@@ -9,6 +10,8 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // C3: admin/super admin layout'lari ve API okumalari — 6 sn (zaman-asimli-fetch).
+      global: { fetch: zamanAsimliFetch("admin-okuma") },
       cookies: {
         getAll() {
           // 🔴 Çözümlenemeyen auth çerezi istemciye HİÇ verilmez (20 Eylül
