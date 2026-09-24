@@ -279,6 +279,12 @@ function denetle(g, b) {
   if (b.karadelikBaglanti !== undefined && g.karadelik !== b.karadelikBaglanti) hatalar.push(`kara delik baglantisi ${g.karadelik} ≠ ${b.karadelikBaglanti}`);
   // Tur 2: vekile ulasan auth isteklerinin sayisi (ör. "public yolda auth cagrisi YOK").
   if (b.authIstegi !== undefined && g.authIstegi !== b.authIstegi) hatalar.push(`auth istegi ${g.authIstegi} ≠ ${b.authIstegi}`);
+  // Guvenlik G1: vekile ulasan belirli yollarin istek sayisi (tam yol esitligi,
+  // her yontem; ör. yetkisiz super admin'de tenants HIC okunmaz → 0).
+  for (const [yol, n] of Object.entries(b.restIstegi || {})) {
+    const sayi = (g.istekler || []).filter((y) => y === yol).length;
+    if (sayi !== n) hatalar.push(`istek ${yol} ${sayi} ≠ ${n}`);
+  }
   // Tur 2: adim sirasinda Next log'una dusen satirlar (ör. HTML govde log'a BASILMAZ).
   for (const d of b.logIcerir || []) if (!esles(d, g.log ?? "")) hatalar.push(`log'da YOK: ${d}`);
   for (const d of b.logIcermez || []) if (esles(d, g.log ?? "")) hatalar.push(`log'da VAR: ${d}`);
@@ -410,6 +416,7 @@ try {
         ...sonuc,
         karadelik: olay.filter((e) => e.ev === "tcp-karadelik").length,
         authIstegi: olay.filter((e) => e.ev === "istek" && e.yol.startsWith("/auth/v1/")).length,
+        istekler: olay.filter((e) => e.ev === "istek").map((e) => e.yol),
         log: adimLog,
       }, a.beklenen);
       if (a.tarayici) hatalar.push(...(await tarayiciDenetle(host, yerlestir(a.yol), a.tarayici)));
