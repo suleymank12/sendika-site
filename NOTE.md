@@ -241,13 +241,66 @@ kalırsa oturum düşer — fail-closed).
   benzeri, rpc false/hata → veri OKUNMAZ) + mühür ("süper admin sunucu sayfası
   veri okumadan önce yetki kapısından geçer") + test:kesinti'de kalıcı S1 adımı.
 
+### Tur 2 sonrası kararlar (25 Eylül 2026, kullanıcı)
+
+1. **S1** (süper admin panosu T10 deseni) ayrı bir **güvenlik turunda** uygulanır;
+   önce teşhis (S1 + S2 "anon'a açık tablolar").
+2. **Yazmada JSON olmayan 5xx** (ör. Cloudflare 524): yalnız `yazma` katmanında
+   `SupabaseAgHatasi` → 504 `{sonuc:"belirsiz"}`. Tur 3'e küçük commit olarak eklenir.
+3. **4 sn yarışında arka planda süren yenileme:** ek önlem YOK, "bilinen" olarak
+   kalır. Canlı kayıtlarda oturum düşmesi görülürse yeniden bakılır.
+4. **Sıra:** güvenlik turu (teşhis → uygulama) → Tur 3.
+
+### Güvenlik turu kararları (25 Eylül 2026, kullanıcı — teşhis: `raporlar/2026-09-25-0146-guvenlik-S1-S2-teshis.md`)
+
+1. **tenants:** (c) SECURITY DEFINER RPC + G3 daraltma KABUL. `kurum_slugdan`
+   `SETOF tenants` DEĞİL, açık sütunlu `RETURNS TABLE(id, name, slug,
+   custom_domain, logo_url, favicon_url, is_active, enabled_modules)` — tabloya
+   ileride eklenecek iç bir sütun otomatik açılmasın.
+2. **Matris/izolasyon araçları service role'e TAŞINMAZ.** tenants okuması B4'te
+   sabitlenmiş kurumlar için RPC ile yapılır; içerik tabloları anon okumada kalır.
+   Bir araç gerçekten tam kurum listesine ihtiyaç duyuyorsa DUR ve sor.
+3. **G4** (site_settings anahtar beyaz listesi) bu turda, G3'ten sonra. **G5**
+   (storage listeleme) turun son adımı: politika süper admini de kapsar; canlıda
+   sessiz saatte, yükleme testiyle, geri alma SQL'i hazır uygulanır.
+4. S1 mührü ayrı betik: **`test:super-admin-sayfa`**.
+5. **G6** (anon/authenticated'dan TRUNCATE, REFERENCES, TRIGGER) KABUL + gelecekteki
+   tablolar için `ALTER DEFAULT PRIVILEGES` (kesin SQL, canlı 9. sorgu sonucu gelince).
+6. **Sıra:** G1 (bağımsız deploy) → 031 ek migration (canlıya kullanıcı uygular) →
+   G2b + G2c → deploy → G3 → G4 → G6 → G5.
+7. **B4** (yayınlı içeriğin kurumlar arası toplu okunabilmesi): (d) kabul.
+8. **G3'ten önce zorunlu kontrol:** tenants'a başvuran RLS politikaları,
+   fonksiyonlar ve view'ler (canlı SQL sonuçlarıyla). anon'un tenants okuması
+   kapanınca bunlardan biri public içeriği görünmez yapıyorsa G3 o hâliyle
+   uygulanmaz.
+
+### G1 ✅ `477c9b2` — süper admin panosu T10 deseni (25 Eylül 2026)
+
+- `lib/super-admin/super-admin-karari.ts`: `superAdminKarari` = React `cache()`
+  (istek içi tek getUser + rpc + `decideSuperAdminAccess`). Layout ve pano aynı
+  kapıyı bekler; ekranlar aynen.
+- **Kural:** `super-admin/(authenticated)` altındaki her SUNUCU sayfasının ilk iki
+  ifadesi `const karar = await superAdminKarari(); if (karar.kind !== "izin") return null;`.
+  Mühür `npm run test:super-admin-sayfa` (11: K1–K4 + M1–M6 + negatif). Yeni sunucu
+  sayfası eklemek taban sayısını değiştirir → tahmine yazılır.
+- test:kesinti `s1` (6 adım, `beklenti-g1.json`): yetkisiz/geçici ekranda tenants
+  isteği **0**, işaret yok; rpc istek başına **1** (cache). Önce: işaret RSC'de
+  vardı, tenants 3.
+- Kapılar: 2590/0, kesinti 70/70, 32 betik 2419/0, test:cerez 70, mühür 34.
+- Körleşme: ilk koşu **9/1** (T7b: beklenen 28 kapsama kaybı + fazladan 1 FAIL,
+  fark 29; hücre kaydedilmedi). Aynı kodla tanı kopyası 10/10 ve resmî tekrar
+  10/10 (T7b 2471/28 birebir). Tekrarlanmayan tek seferlik sapma olarak kayıtlı.
+  Yeniden görülürse `korlesme.mjs` T7b'nin FAIL listesini basacak şekilde
+  genişletilmeli (bugün yalnız sayıyı basıyor).
+
 ## 3 turluk plan
 
 | Tur | Kapsam | Durum |
 |---|---|---|
 | 1 | C0 arıza enjektörü, C1 Y1, C2 hata ≠ yok, C7 dürüst hata, C8 panel geçici hata | ✅ 24 Eylül 2026 |
 | 2 | C3 tek merkezden zaman aşımı (+ v2 ağ sınıfı 5xx), C4 AST mührü, C5 public oturumsuz istemci, C6a yönlendirmede kütüphane çerezleri, C6 middleware auth yalnız panel + 4 sn toplam bütçe; S1 teşhisi | ✅ 25 Eylül 2026 |
-| 3 | C9 nginx log'una `$request_time $upstream_response_time`, `/_next/image` `proxy_read_timeout`; C10 deploy; C11 izleme (VPS içi yoklama → Healthchecks) | bekliyor |
+| G | Güvenlik turu: S1 süper admin panosu T10 deseni + S2 anon'a açık tablolar (teşhis → uygulama) | teşhis 25 Eylül 2026 |
+| 3 | C9 nginx log'una `$request_time $upstream_response_time`, `/_next/image` `proxy_read_timeout`; C10 deploy; C11 izleme (VPS içi yoklama → Healthchecks); yazmada JSON olmayan 5xx → 504 belirsiz (karar 2) | bekliyor (güvenlik turundan sonra) |
 
 **Deploy notu (Tur 3):** deploy'daki `rsync -a --delete .next/standalone/
 /var/www/sendika-site/` `.next/cache`'i her deploy'da siliyor. Tur 3'te
