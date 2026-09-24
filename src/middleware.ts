@@ -1,4 +1,5 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createOturumsuzClient, type User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { parseHostname } from "@/lib/tenant-hostname";
 import { imzala } from "@/lib/tenant-proof";
@@ -15,7 +16,7 @@ import {
   isTransportAuthError,
   sanitizeAuthCookies,
 } from "@/lib/supabase/cookie-sanitize";
-import { kisaHata, zamanAsimliFetch } from "@/lib/supabase/zaman-asimli-fetch";
+import { kisaHata, SUPABASE_BUTCE_MS, zamanAsimliFetch } from "@/lib/supabase/zaman-asimli-fetch";
 
 // ===========================================================================
 // CSP (Guvenlik bulgusu Y2 / ikinci savunma katmani)
@@ -97,6 +98,23 @@ const TENANT_ERROR_PATH = "/admin/tenant-bulunamadi";
  * burada olmazsa oturumsuz kullanici kendi kendine yonlendirilir (dongu).
  */
 const SUPER_ADMIN_PUBLIC_PATHS = [SUPER_ADMIN_LOGIN_PATH];
+
+/**
+ * AUTH YALNIZ PANEL YOLLARINDA (C6, 25 Eylül 2026). Public sayfalar
+ * kullanıcıya göre değişmez (C5: oturumsuz anon istemci); orada `getUser`
+ * yalnız maliyet ve risk üretiyordu: süresi geçmiş admin çereziyle public
+ * anasayfa kesintide jeton yenileme penceresinde 171 sn bekliyordu (teşhis).
+ * Public yolda çerez OKUNMAZ, yenilenmez, SİLİNMEZ.
+ */
+const PANEL_ONEKLERI = ["/admin", "/super-admin"] as const;
+
+/**
+ * Panel yollarında `getUser`'ın TOPLAM bütçesi (C6): çağrı başına 4 sn
+ * (zaman-asimli-fetch "middleware") jeton yenilemesinde yetmiyor — auth-js
+ * yenilemeyi 30 sn'lik pencerede geri çekilmeyle yeniden dener. Süre dolunca
+ * TAŞIMA dalı: user = null, çerez KORUNUR, girişe. Asla "girişli say" değil.
+ */
+const AUTH_TOPLAM_BUTCE_MS = SUPABASE_BUTCE_MS.middleware;
 
 /** Host kurallarının cevabı — gövdesiz, markasız, sessiz. */
 function notFound(): NextResponse {
@@ -319,7 +337,10 @@ export async function middleware(request: NextRequest) {
     return res;
   };
 
-  const supabase = createServerClient(
+  // Oturumlu istemci YALNIZ panel yolunda kurulur (C6): kurucusu bile çerezi
+  // okur (auth-js _initialize → _recoverAndRefresh → getAll) ve geçersiz
+  // oturumu silebilir.
+  const oturumluIstemci = () => createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -367,10 +388,22 @@ export async function middleware(request: NextRequest) {
   // güncel slug'i taşır. Sorgu yalnızca custom_domain case'inde çalışır;
   // subdomain/apex DB'ye hiç gitmez. Anon key + tenants_public_select
   // (USING true) yeterli — service role gerekmez.
+  //
+  // ÇEREZSİZ istemci (C6): sorgu kullanıcıya göre değişmez. Oturumlu istemci
+  // her sorguda oturumu çerezden okur (supabase-js _getAccessToken →
+  // getSession) ve süresi geçmişse YENİLER — public özel alan adında bile.
   let tenantResolveFailed = false;
 
   if (match.type === "custom_domain") {
-    const { data, error } = await supabase
+    const { data, error } = await createOturumsuzClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        // C3: middleware butcesi 4 sn.
+        global: { fetch: zamanAsimliFetch("middleware") },
+      }
+    )
       .from("tenants")
       .select("slug")
       .eq("custom_domain", match.host)
@@ -468,42 +501,67 @@ export async function middleware(request: NextRequest) {
   //
   // Her iki durumda da istek OTURUMSUZ sürer: `user` null olur, /admin
   // rotaları girişe yönlenir, public site açık kalır.
-  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
-  try {
-    const { data, error } = await supabase.auth.getUser();
-    user = data.user;
+  //
+  // C6 (25 Eylül 2026): YALNIZ panel yollarında, TOPLAM bütçeyle
+  // (PANEL_ONEKLERI, AUTH_TOPLAM_BUTCE_MS).
+  let user: User | null = null;
+  const panelYolu = PANEL_ONEKLERI.some((onek) => pathname.startsWith(onek));
+  if (panelYolu) {
+    const supabase = oturumluIstemci();
+    try {
+      const getUserIstegi = supabase.auth.getUser();
+      // Yarışı kaybeden istek sonradan reddedilirse sahipsiz ret olmasın.
+      getUserIstegi.catch(() => {});
+      let zamanlayici: ReturnType<typeof setTimeout> | undefined;
+      const sonuc = await Promise.race([
+        getUserIstegi,
+        new Promise<"sure-doldu">((coz) => {
+          zamanlayici = setTimeout(() => coz("sure-doldu"), AUTH_TOPLAM_BUTCE_MS);
+        }),
+      ]);
+      clearTimeout(zamanlayici);
+      if (sonuc === "sure-doldu") {
+        // TAŞIMA dalıyla aynı: çerez korunur, istek oturumsuz sürer.
+        console.error(
+          `[Middleware] Supabase auth erisilemedi (cerez KORUNDU): toplam butce ${AUTH_TOPLAM_BUTCE_MS} ms doldu`
+        );
+      } else {
+        const { data, error } = sonuc;
+        user = data.user;
 
-    if (error && !isTransportAuthError(error)) {
-      // 4xx: saklanan oturum kullanılamıyor (bozuk/geçersiz). Sessizce
-      // geçilmez — çerez düşürülür ki kullanıcı bir daha aynı duvara
-      // toslamasın. "Oturum yok" (çerezsiz istek) bu dala HİÇ girmez:
-      // orada silinecek bir ad da yoktur.
+        if (error && !isTransportAuthError(error)) {
+          // 4xx: saklanan oturum kullanılamıyor (bozuk/geçersiz). Sessizce
+          // geçilmez — çerez düşürülür ki kullanıcı bir daha aynı duvara
+          // toslamasın. "Oturum yok" (çerezsiz istek) bu dala HİÇ girmez:
+          // orada silinecek bir ad da yoktur.
+          for (const cookie of request.cookies.getAll()) {
+            if (isAuthCookieName(cookie.name) && !bozukCerezAdlari.includes(cookie.name)) {
+              bozukCerezAdlari.push(cookie.name);
+            }
+          }
+          if (bozukCerezAdlari.length > 0) {
+            console.warn(
+              "[Middleware] Oturum cerezi kullanilamaz, dusuruluyor:",
+              error.name,
+              error.status,
+              bozukCerezAdlari.join(", ")
+            );
+          }
+        } else if (error) {
+          // TAŞIMA: çerez korunur. Log şart — sessiz kalırsa Supabase kesintisi
+          // "kullanıcılar giriş yapamıyor" diye gelir ve saatler kaybedilir.
+          console.error("[Middleware] Supabase auth erisilemedi (cerez KORUNDU):", kisaHata(error));
+        }
+      }
+    } catch (err) {
+      // Beklenmeyen fırlatma — YUTULMUYOR, tam hâliyle loglanıyor.
+      // Çözümleme sınıfı sayılır (taşıma hataları fırlatmıyor, ölçüldü):
+      // çerez düşürülür, istek oturumsuz sürer.
+      console.error("[Middleware] auth.getUser() beklenmeyen hata:", err);
       for (const cookie of request.cookies.getAll()) {
         if (isAuthCookieName(cookie.name) && !bozukCerezAdlari.includes(cookie.name)) {
           bozukCerezAdlari.push(cookie.name);
         }
-      }
-      if (bozukCerezAdlari.length > 0) {
-        console.warn(
-          "[Middleware] Oturum cerezi kullanilamaz, dusuruluyor:",
-          error.name,
-          error.status,
-          bozukCerezAdlari.join(", ")
-        );
-      }
-    } else if (error) {
-      // TAŞIMA: çerez korunur. Log şart — sessiz kalırsa Supabase kesintisi
-      // "kullanıcılar giriş yapamıyor" diye gelir ve saatler kaybedilir.
-      console.error("[Middleware] Supabase auth erisilemedi (cerez KORUNDU):", kisaHata(error));
-    }
-  } catch (err) {
-    // Beklenmeyen fırlatma — YUTULMUYOR, tam hâliyle loglanıyor.
-    // Çözümleme sınıfı sayılır (taşıma hataları fırlatmıyor, ölçüldü):
-    // çerez düşürülür, istek oturumsuz sürer.
-    console.error("[Middleware] auth.getUser() beklenmeyen hata:", err);
-    for (const cookie of request.cookies.getAll()) {
-      if (isAuthCookieName(cookie.name) && !bozukCerezAdlari.includes(cookie.name)) {
-        bozukCerezAdlari.push(cookie.name);
       }
     }
   }

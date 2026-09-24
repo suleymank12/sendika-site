@@ -52,7 +52,7 @@ const IZINLI = {
   "src/lib/tenant.ts": ["public-okuma"],
   "src/middleware.ts": ["middleware"],
 };
-const TABAN_FABRIKA = 6;
+const TABAN_FABRIKA = 7; // C6: middleware'de ikinci izinli fabrika (cerezsiz ozel alan adi sorgusu)
 const KATMANLAR = new Set(["public-okuma", "admin-okuma", "yazma"]);
 
 let gecti = 0;

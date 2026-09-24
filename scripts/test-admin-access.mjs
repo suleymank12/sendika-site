@@ -230,7 +230,7 @@ header("(f) middleware — suzgec, iki katman, cerez dusurme");
 
   okTrue("mw", "suzgec getAll icinde", kod.includes("sanitizeAuthCookies(request.cookies.getAll())"), "middleware");
   okTrue("mw", "elenen adlar toplaniyor", kod.includes("bozukCerezAdlari"), "middleware");
-  okTrue("mw", "getUser try/catch icinde", comesBefore(kod, "try {", "await supabase.auth.getUser()"), "middleware");
+  okTrue("mw", "getUser try/catch icinde", comesBefore(kod, "try {", "supabase.auth.getUser()"), "middleware");
   okTrue("mw", "🔴 tasima/cozumleme ayrimi yapiliyor", kod.includes("isTransportAuthError(error)"), "middleware");
   okTrue("mw", "cerez Max-Age=0 ile dusuruluyor", kod.includes('res.cookies.set(name, "", { path: "/", maxAge: 0 })'), "middleware");
   okTrue("mw", "beklenmeyen hata LOGLANIYOR (yutulmuyor)", kod.includes('console.error("[Middleware] auth.getUser() beklenmeyen hata:", err)'), "middleware");

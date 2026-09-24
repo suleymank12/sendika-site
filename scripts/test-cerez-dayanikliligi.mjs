@@ -282,6 +282,34 @@ header("(C6a) YONLENDIRMEDE KUTUPHANE CEREZLERI — yenilenen jeton ve 4xx silme
 }
 
 // ---------------------------------------------------------------------------
+header("(C6) PUBLIC YOLDA AUTH YOK — cerez okunmaz, yenilenmez, silinmez");
+// ---------------------------------------------------------------------------
+// 25 Eylul 2026: getUser yalniz /admin* ve /super-admin* yollarinda (toplam
+// butce 4 sn). Public yolda bozuk ya da gecersiz cerez artik SILINMEZ —
+// hic okunmuyor; panel yolunda (onarim bolumu) silme aynen suruyor.
+{
+  const cerezYok = async (yol, cerez) => {
+    const { status, setCookie } = await iste(yol, cerez);
+    return { status, auth: setCookie.filter((c) => c.startsWith(CEREZ_ADI)) };
+  };
+  const a = await cerezYok("/", `${CEREZ_ADI}=base64-BOZUKVERI`);
+  ok("c6", "public '/' + cozulemeyen cerez → Set-Cookie YOK (cerez okunmadi)", a.auth, [], `HTTP ${a.status}`);
+  const b = await cerezYok("/haberler", `${CEREZ_ADI}=base64-BOZUKVERI`);
+  ok("c6", "public '/haberler' + cozulemeyen cerez → Set-Cookie YOK", b.auth, [], `HTTP ${b.status}`);
+  const c = await cerezYok("/", `${CEREZ_ADI}=${gecerliGovde}`);
+  ok("c6", "public '/' + imzasi gecersiz cerez → Set-Cookie YOK (getUser cagrilmadi)", c.auth, [], `HTTP ${c.status}`);
+
+  const kod = readFileSync(new URL("../src/middleware.ts", import.meta.url), "utf8").replace(/\r\n/g, "\n")
+    .replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
+  const dal = kod.indexOf("if (panelYolu) {");
+  const cagrilar = [...kod.matchAll(/oturumluIstemci\(\)/g)].map((m) => m.index);
+  ok("c6", "kaynak: oturumlu istemci YALNIZ 'if (panelYolu)' dalinda kuruluyor",
+    dal > 0 && cagrilar.length === 1 && cagrilar[0] > dal && /const panelYolu = PANEL_ONEKLERI\.some\(/.test(kod), true, `dal ${dal}, cagrilar ${cagrilar}`);
+  ok("c6", "kaynak: getUser Promise.race ile toplam butceli (AUTH_TOPLAM_BUTCE_MS)",
+    /Promise\.race\(\[\s*getUserIstegi,/.test(kod) && /setTimeout\(\(\) => coz\("sure-doldu"\), AUTH_TOPLAM_BUTCE_MS\)/.test(kod) && /const AUTH_TOPLAM_BUTCE_MS = SUPABASE_BUTCE_MS\.middleware;/.test(kod), true, "middleware.ts");
+}
+
+// ---------------------------------------------------------------------------
 console.log("");
 console.log(`SONUC: ${passed} gecti, ${failures.length} kaldi`);
 console.log("");
