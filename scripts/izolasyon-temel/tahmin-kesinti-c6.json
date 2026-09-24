@@ -1,0 +1,25 @@
+{
+  "tur": "Supabase kesinti Tur 2 / C6 — middleware auth yalniz panel yollarinda + 4 sn toplam butce; ozel alan adi sorgusu cerezsiz",
+  "yazildi": "2026-09-25T01:08:03+03:00",
+  "not": "KODDAN ONCE yazildi. Degisiklik: src/middleware.ts — PANEL_ONEKLERI ['/admin','/super-admin']; oturumlu istemci (createServerClient) FABRIKA, yalniz panel yolunda kurulur (kurucusu bile getAll okur); getUser Promise.race AUTH_TOPLAM_BUTCE_MS = SUPABASE_BUTCE_MS.middleware (4 sn), sure dolunca tasima dali (user null, cerez korunur, log); ozel alan adi sorgusu createClient (supabase-js) persistSession/autoRefresh kapali, global.fetch zamanAsimliFetch('middleware'). MATRIS: cerezsiz → public'te getUser zaten agsizdi, ozel alan adi sorgusu ayni sonuc → 0 hucre farki, 0 FAIL, 2590/0. test:cerez 65 → 70, KONTROL KONTROL: kanarya 1 AYNI; '5xx' 55 AYNI sonuc (public'te cerez hic okunmaz → yine <500); 'onarim' 1 (/admin/giris panel yolu → silme) AYNI; 'koruma' 2 AYNI; (C6a) 6 AYNI (/admin panel yolu → 307 + silme; kaynak kurallari 'const yanit =' sonrasi her return yanit(), setAll/forEach ayni). YENI 5 [(C6) bolumu]: (a) '/' + cozulemeyen base64 cerez → Set-Cookie YOK (C6a'da silme vardi), (b) '/haberler' ayni → YOK, (c) '/' + suresi dolmamis imzasi gecersiz cerez → YOK (C6a'da 4xx silmesi vardi), (d) kaynak: oturumluIstemci() yalniz 'if (panelYolu)' dalinda, (e) kaynak: getUser Promise.race + AUTH_TOPLAM_BUTCE_MS. (a)–(e) C6a kodunda KALIR (once kaniti olarak kodu yazmadan kosulur: 65/5). KALIP GUNCELLEMELERI (kural ayni): test-admin-access.mjs:233 'await supabase.auth.getUser()' → 'supabase.auth.getUser()' (yaris icin istek once olusturuluyor; 'getUser try/catch icinde' kurali ayni), 72 AYNI. test-supabase-zaman-asimi R4 taban 6 → 7 (middleware'de ikinci izinli fabrika: cerezsiz sorgu istemcisi; R2 ikisinde de 'middleware'), 34 AYNI. test-super-admin-host 144 AYNI (panel onekleri dizi olarak yazilir; :372'nin yasakladigi 'startsWith(\"/admin\") || startsWith(\"/super-admin\")' metni KULLANILMAZ). test:kurum-cozumu 65 AYNI. 32 betik 2414 → 2419. test:kesinti beklenti-c6.json 64/64 (c6a'nin 58'i birebir + degisen 5 + YENI 1).",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)",
+  "beklenen_muhur_satiri": "SONUC: 34 gecti, 0 kaldi",
+  "beklenen_cerez_satiri": "SONUC: 70 gecti, 0 kaldi"
+}
