@@ -1,0 +1,25 @@
+{
+  "tur": "Supabase kesinti Tur 2 / C6a — middleware'in dondurdugu her yanita kutuphane Set-Cookie'leri (yenilenen jeton, 4xx silmesi)",
+  "yazildi": "2026-09-25T00:52:57+03:00",
+  "not": "KODDAN ONCE yazildi. Degisiklik: src/middleware.ts — setAll kutuphane cerezlerini Map'e kaydeder, yanit() onlari her yanita (redirect/503/next) yazar, bozuk cerez silmesi SONRA (ayni adda silme kazanir). Matris cerezsiz → setAll tetiklenmez → 0 hucre farki, 0 FAIL, bolum sayilari ayni (2590/0). test:cerez 59 → 65: mevcut 59 kontrol AYNI sonuc (hicbiri yonlendirme + kutuphane cerezi uretmiyor; 4xx silmesi bozukCerezAdlari yoluyla zaten tasiniyordu); YENI 6 [(C6a) bolumu]: (1) canli /admin + suresi dolmamis imzasi gecersiz cerez → 307 /admin/giris, (2) canli ayni yonlendirmede auth cerezi Max-Age=0 (bugun de gecer — 4xx yarim kural muhru), (3) kaynak: 'const yanit =' sonrasi her return yanit(...), (4) kaynak: setAll kutuphaneCerezleri'ne yaziyor + yanit() dongusu, (5) oz-sinama: dongu silinirse (4) duser, (6) oz-sinama: ciplak return NextResponse.redirect eklenirse (3) duser. Basarili yenilemenin yarisi canli sunucuda uretilemez (gercek Supabase, gercek oturum gerekir) → davranis test:kesinti Y1/Y2'de. Diger: test:admin-access 72 (\"istemciden sonra ciplak return YOK\" + \"return yanit( >= 5\" AYNI), test:super-admin-host 144, test:kurum-cozumu 65, test:supabase-zaman-asimi 34 AYNI; 32 betik 2408 → 2414 (test:cerez +6). test:kesinti beklenti-c6a.json 63/63 (c3-v2'nin 57'si birebir + yonlendirme-cerez 6).",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)",
+  "beklenen_muhur_satiri": "SONUC: 34 gecti, 0 kaldi",
+  "beklenen_cerez_satiri": "SONUC: 65 gecti, 0 kaldi"
+}
