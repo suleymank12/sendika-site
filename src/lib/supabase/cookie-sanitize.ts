@@ -75,8 +75,18 @@ export function isAuthCookieName(name: string): boolean {
  * base64 OLMAYABİLİR; bu yüzden parçalar **çözümlenmeye çalışılmaz**, oldukları
  * gibi geçirilir. Kütüphane parçaları birleştirdikten sonra hata verirse
  * middleware'deki ikinci katman (try/catch + temizlik) devreye girer.
+ *
+ * 🔴 DEĞER `string` OLMAYABİLİR (Y1, 24 Eylül 2026 — canlıda 65 kez): middleware
+ * yenileme 4xx alıp çerezi sildiğinde (`setAll` → `request.cookies.set(ad, "")`)
+ * aynı istekte Node tarafının `cookies().getAll()`'u o çerezi `value: undefined`
+ * ile veriyor. Eskiden burada `undefined.startsWith` → TypeError fırlıyor,
+ * auth-js'in `_emitInitialSession → _useSession` zincirinde yakalanıp
+ * loglanıyor ve O İSTEKTEKİ BÜTÜN anon sorgular hiç gönderilmiyordu (public
+ * sayfa 200 ama verisiz; ölçüm: raporlar/2026-09-24-1334-…). Silinmiş çerez
+ * "oturum yok" demektir → çözümlenemez say, elensin.
  */
-export function isDecodableAuthCookieValue(value: string): boolean {
+export function isDecodableAuthCookieValue(value: unknown): boolean {
+  if (typeof value !== "string") return false;
   if (!value.startsWith("base64-")) return true;
 
   const payload = value.slice("base64-".length);

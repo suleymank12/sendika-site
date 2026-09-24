@@ -180,6 +180,15 @@ header("(d) Cerez suzgeci — cozumlenemeyen auth cerezi elenir");
   // Onaeksiz degerler kutuphanede zaten sessizce "oturum yok"a cevriliyor;
   // elemek gereksiz yere oturum dusurmek olurdu (olculdu).
   ok("suzgec", "oneksiz deger elenmez", isDecodableAuthCookieValue("duz-metin"), true, "duz-metin");
+  // Y1 (24 Eylul 2026): middleware'in sildigi cerez Node tarafinda value: undefined
+  // geliyordu → undefined.startsWith TypeError → o istekteki anon sorgular gitmiyordu.
+  ok("suzgec", "🔴 Y1: undefined deger cozumlenemez (firlatmaz)", isDecodableAuthCookieValue(undefined), false, "undefined");
+  ok("suzgec", "Y1: null deger cozumlenemez", isDecodableAuthCookieValue(null), false, "null");
+  {
+    let sonucY1, hataY1 = null;
+    try { sonucY1 = sanitizeAuthCookies([{ name: "sb-abc-auth-token", value: undefined }, { name: "dil", value: "tr" }]); } catch (e) { hataY1 = e; }
+    ok("suzgec", "Y1: undefined degerli auth cerezi elenir, digeri korunur", hataY1 ? String(hataY1) : [sonucY1.droppedNames, sonucY1.kept.map((c) => c.name)], [["sb-abc-auth-token"], ["dil"]], "silinmis cerez");
+  }
 
   const sonuc = sanitizeAuthCookies([
     { name: "dil-tercihi", value: "tr" },
