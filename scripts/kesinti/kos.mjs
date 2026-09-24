@@ -218,12 +218,14 @@ function yerlestir(s) {
     .replace(/\{gorsel:(\d+)\}/g, (_, w) => `/_next/image?url=${encodeURIComponent(GORSEL)}&w=${w}&q=75`);
 }
 
-function istek({ host, yol, cerez, accept, yontem = "GET", govdeJson, limitMs = 200_000 }) {
+function istek({ host, yol, cerez, accept, yontem = "GET", govdeJson, ekBasliklar, limitMs = 200_000 }) {
   return new Promise((resolve) => {
     const t0 = performance.now();
     const headers = { host: `${host}:${PORT}`, accept: accept || "text/html" };
     if (cerez === "taze") headers.cookie = sahteCerez(3600);
     if (cerez === "sure") headers.cookie = sahteCerez(-120);
+    // Tur 2 / S1: ek istek basliklari (ör. { rsc: "1" } — istemci gezintisinin RSC yuku)
+    Object.assign(headers, ekBasliklar || {});
     const govde = govdeJson === undefined ? null : Buffer.from(JSON.stringify(govdeJson));
     if (govde) { headers["content-type"] = "application/json"; headers["content-length"] = String(govde.length); }
     const req = http.request({ host: "127.0.0.1", port: PORT, path: yol, method: yontem, headers }, (res) => {
@@ -280,6 +282,12 @@ function denetle(g, b) {
   // Tur 2: adim sirasinda Next log'una dusen satirlar (ör. HTML govde log'a BASILMAZ).
   for (const d of b.logIcerir || []) if (!esles(d, g.log ?? "")) hatalar.push(`log'da YOK: ${d}`);
   for (const d of b.logIcermez || []) if (esles(d, g.log ?? "")) hatalar.push(`log'da VAR: ${d}`);
+  // Tur 2 / C6a: yanit auth cerezini YENI (bos olmayan, silme olmayan) degerle yaziyor mu
+  // (jeton yenilemesi tarayiciya ulasti mi). Parcali adlar (.0/.1) dahil.
+  if (b.cerezYaz !== undefined) {
+    const yaz = (g.basliklar["set-cookie"] || []).some((c) => /^sb-localhost-auth-token(\.\d+)?=[^;]+/.test(c) && !/max-age=0/i.test(c));
+    if (yaz !== b.cerezYaz) hatalar.push(`cerez yazma ${yaz} ≠ ${b.cerezYaz}`);
+  }
   if (b.cerezSil !== undefined) {
     const sil = (g.basliklar["set-cookie"] || []).some((c) => c.startsWith(CEREZ_ADI) && /max-age=0/i.test(c));
     if (sil !== b.cerezSil) hatalar.push(`cerez silme ${sil} ≠ ${b.cerezSil}`);
@@ -386,10 +394,10 @@ try {
         await istek({ host, yol: host.startsWith("superadminpanel.") ? "/super-admin/giris" : "/" });
       }
       if (a.bekleOnceMs) await bekle(a.bekleOnceMs);
-      await vekil.mod(a.mod || "pass", { gecikmeMs: a.gecikmeMs, gecikmeYontem: a.gecikmeYontem, cfDurum: a.cfDurum, sahteRest: a.sahteRest, authKota: a.authKota, rpcCevap: a.rpcCevap });
+      await vekil.mod(a.mod || "pass", { gecikmeMs: a.gecikmeMs, gecikmeYontem: a.gecikmeYontem, cfDurum: a.cfDurum, sahteRest: a.sahteRest, authKota: a.authKota, rpcCevap: a.rpcCevap, authYenileme: a.authYenileme });
       const once = vekil.seq();
       const logOnce = existsSync(LOG) ? readFileSync(LOG).length : 0;
-      const sonuc = await istek({ host, yol: yerlestir(a.yol), cerez: a.cerez, accept: a.accept, yontem: a.yontem, govdeJson: a.govdeJson ? JSON.parse(yerlestir(JSON.stringify(a.govdeJson))) : undefined });
+      const sonuc = await istek({ host, yol: yerlestir(a.yol), cerez: a.cerez, accept: a.accept, yontem: a.yontem, ekBasliklar: a.ekBasliklar, govdeJson: a.govdeJson ? JSON.parse(yerlestir(JSON.stringify(a.govdeJson))) : undefined });
       await bekle(400);
       const olay = vekil.kayit(once);
       // Tani: KESINTI_GOVDE_DIZIN verilirse her adimin govdesi dosyaya yazilir (denetimi etkilemez).
@@ -412,6 +420,8 @@ try {
         retryAfter: sonuc.basliklar["retry-after"] || null, cacheControl: sonuc.basliklar["cache-control"] || null,
         ust: olay.filter((e) => e.ev === "istek").map((e) => `${e.yontem} ${e.yol}`),
         karadelik: olay.filter((e) => e.ev === "tcp-karadelik").length,
+        // Tur 2 / C6a: Set-Cookie ozeti (ad + deger var mi + max-age) — degerler yazilmaz
+        setCookie: (sonuc.basliklar["set-cookie"] || []).map((c) => { const [ad, ...d] = c.split(";")[0].split("="); const ma = c.match(/max-age=(\d+)/i); return `${ad}=${d.join("=") ? "<deger>" : ""}${ma ? ` max-age=${ma[1]}` : ""}`; }),
         hatalar,
       };
       gozlem.push(satir);

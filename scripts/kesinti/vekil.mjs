@@ -26,6 +26,11 @@
  *              koparilir (tasima hatasi) ya da gercege iletilir.
  *   rpcCevap   "false" | "true" — POST /rest/v1/rpc/is_super_admin YERELDE
  *              bu JSON ile cevaplanir (yazma degil; hic iletilmez).
+ *   authYenileme "basarili" | { durum, govde } — POST /auth/v1/token (jeton
+ *              yenileme) YERELDE cevaplanir (Tur 2 / C6a, 25 Eylul 2026):
+ *              "basarili" → yeni sahte oturum (access_token 1 saat gecerli,
+ *              refresh_token "yenilenmis-sahte-N"); nesne → o durum + JSON
+ *              govde (ör. 400 refresh_token_not_found). Hic iletilmez.
  */
 import net from "node:net";
 import https from "node:https";
@@ -42,6 +47,14 @@ export const SAHTE_KULLANICI = {
 
 const OKUMA = new Set(["GET", "HEAD", "OPTIONS"]);
 
+const b64u = (s) => Buffer.from(s).toString("base64url");
+/** Yenileme cevabi — kos.mjs sahteCerez ile ayni bicim (imza sahte; sunucu JWT'yi dogrulamaz, getUser'a sorar). */
+function sahteOturum(n) {
+  const exp = Math.floor(Date.now() / 1000) + 3600;
+  const jwt = [b64u('{"alg":"HS256","typ":"JWT"}'), b64u(JSON.stringify({ sub: SAHTE_KULLANICI.id, exp, role: "authenticated", aud: "authenticated", session_id: "22222222-2222-4222-8222-222222222222" })), "eWVuaWxlbm1pcw"].join(".");
+  return { access_token: jwt, token_type: "bearer", expires_in: 3600, expires_at: exp, refresh_token: `yenilenmis-sahte-${n}`, user: SAHTE_KULLANICI };
+}
+
 export function vekilBaslat({ port = 443, key, cert, gercekUrl }) {
   const gercek = new URL(gercekUrl);
   let mod = "pass";
@@ -51,6 +64,8 @@ export function vekilBaslat({ port = 443, key, cert, gercekUrl }) {
   let gecikmeYontem = null;
   let cfDurum = 522;
   let sahteRest = null;
+  let authYenileme = null;
+  let yenilemeSayaci = 0;
   let seq = 0;
   const kayit = [];
   const t0 = Date.now();
@@ -100,6 +115,14 @@ export function vekilBaslat({ port = 443, key, cert, gercekUrl }) {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(rpcCevap);
       log({ ev: "sahte-rpc", yol, cevap: rpcCevap });
+      return;
+    }
+    if (req.method === "POST" && yol === "/auth/v1/token" && authYenileme !== null) {
+      req.resume();
+      const basarili = authYenileme === "basarili";
+      res.writeHead(basarili ? 200 : authYenileme.durum, { "content-type": "application/json" });
+      res.end(JSON.stringify(basarili ? sahteOturum(++yenilemeSayaci) : authYenileme.govde));
+      log({ ev: "sahte-yenileme", yol, durum: basarili ? 200 : authYenileme.durum });
       return;
     }
     if (!OKUMA.has(req.method)) {
@@ -159,6 +182,7 @@ export function vekilBaslat({ port = 443, key, cert, gercekUrl }) {
       gecikmeYontem = secenek.gecikmeYontem ?? null;
       cfDurum = secenek.cfDurum ?? 522;
       sahteRest = secenek.sahteRest ?? null;
+      authYenileme = secenek.authYenileme ?? null;
       soketleriYokEt();
       log({ ev: "mod", mod: yeni, gecikmeMs, authKota, rpcCevap });
       if (yeni === "refuse") await dinlemeyiKes();
