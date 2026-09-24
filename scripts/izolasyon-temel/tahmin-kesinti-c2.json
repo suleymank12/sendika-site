@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 1 / C2 — getTenant hata ≠ kurum yok, resolveCurrentTenant gecici-hata",
+  "yazildi": "2026-09-24T15:55:00+03:00",
+  "not": "KODDAN ONCE yazildi. Matris saglikli veriyle kosar: getTenant hata uretmez → found/unknown-slug/no-header yollari birebir (K8, B2 isaret slug'i, /admin/tenant-bulunamadi → /admin/giris) → 0 hucre farki, 0 FAIL, bolum sayilari ayni. Birim: test:kurum-cozumu 56 → 65 (R5: 4 kural iddiasi + 5 oz-mutasyon: getCurrentTenant gecici-hata → notFound; gecici-hata dali silinir; catch unknown-slug'a birlesir; kok metadata gecici-hata dali silinir; kapsamda getCurrentTenantOrNull kullanimi). test:tenant-proof 51 ayni (get-tenant.ts regex'leri korunur). Diger betikler ayni.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
