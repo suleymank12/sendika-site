@@ -95,6 +95,100 @@ yerine geçmez.
 
 ---
 
+# 🌩️ SUPABASE KESİNTİ DAYANIKLILIĞI (24 Eylül 2026 — Tur 1 / 3 tamam)
+
+Raporlar: `raporlar/2026-09-24-1334-supabase-kesinti-teshis.md` (teşhis),
+`…-1454-kesinti-tur1-DUR.md`, `…-1529-kesinti-tur1-c2c7-DUR.md` ve Tur 1
+kapanış raporu (aynı gün).
+
+## Olay (23/24 Eylül 2026 gecesi, ~23:30–00:25 UTC; gündüz kısa sıçramalar)
+
+Hosting ağ geçidinde aralıklı gecikme (ping 720–920 ms, bir ölçümde %15 kayıp).
+Sunucudan Supabase'e yeni TCP bağlantıları undici'nin 10 sn bağlantı zaman
+aşımına düştü. Public sayfalar 7–20 sn'de açıldı; nginx'te 499 (istemci
+vazgeçti — nginx'te zaman aşımı yazılı değil, varsayılan 60 sn). UptimeRobot
+yeşil kaldı. Kayıtta 65 × `reading 'startsWith'` TypeError (Y1, aşağıda),
+0 × AuthRetryableFetchError, 16 × "Oturum cerezi kullanilamaz".
+
+Teşhiste ölçülen sınıflar: hiçbir Supabase istemcisinde zaman aşımı yok; hata
+çoğu yerde yanlış şeye dönüşüyordu (liste boş 200, detay 404, kurum okuması 404
++ admin'de "Alan Adı Tanımlı Değil"); kurum önbelleği hatayı `null` olarak 60 sn
+saklıyordu (zehirlenme — Supabase dönse de çalışan kurum 404); süresi geçmiş
+admin çereziyle jeton yenilemesi 30 sn'lik yeniden deneme penceresinde
+dönüyordu (public sayfada 171 sn).
+
+## Kararlar
+
+- Kesintide site **dürüst hata** verir. İçerik önbelleği (C13) ve özel alan
+  adı bayat eşleşmesi (C12) **yapılmayacak**.
+- Public veri hatası → **nötr 500** (Google 500 ile 503'ü aynı sayar, 404'ü
+  dizinden düşürür). Devre kesici yok. sitemap.xml / robots.txt route handler
+  → hata **503 + Retry-After: 30**.
+- `getTenant` için "hatada son bilinen kayıt" (`unstable_cache` bayat dalı)
+  **kabul**.
+- Sunucu yazmalarında idempotency Tur 1'de yok.
+- **Tur 2 bütçeleri** (Tur 2'de uygulanacak): middleware **4 sn**, public
+  okuma **5 sn**, admin okuma **6 sn**, sunucu yazması en çok **25 sn**.
+- İzolasyon ve yetki hiçbir koşulda gevşemez: hata = kapalı kal. Zaman aşımı
+  asla "kurum X say" ya da "girişli say" anlamına gelmez.
+
+## 🔴 Next 14 hata kabuğu — kesinti yanıtı ≈ 2 × zaman aşımı (ölçüldü)
+
+Next 14'te hata "shell" render'ında oluşunca sunucu HTML'i
+`<html id="__next_error__">` kabuğudur; nötr sınır (`app/error.tsx`)
+hidrasyondan sonra **tarayıcıda** çizilir. Kabuğu üretirken Next RSC ağacını
+**yeniden render eder, kök metadata iki kez koşar** → kurum/ayar okuması ikinci
+kez gider. Kesinti yanıtı ≈ **2 × zaman aşımı** (bugün ≈ 2 × 10 sn = ~21 sn;
+Tur 2 bütçeleriyle ≈ 2 × 5 sn). Kanıt: bbf0bc9 (`soguk/A/` 21,5 sn, 2 bağlantı),
+ace73b7 (kara delik hata adımları 20,9–21,9 sn). **Next 15 yükseltmesinde
+(Faz 3) yeniden ölç**; hâlâ sürerse istek başına not (kök metadata sonucunun
+isteğe özgü tutulması) ayrı turda değerlendirilir. Tur 2 tahmininde bu çarpan
+açıkça yer alır.
+
+## 🔑 Kilitli tahmin kuralı — taban turu ile ürün turu AYRI (24 Eylül 2026, kullanıcı kararı)
+
+- **Taban kaydı turu (ürün kodu DEĞİŞMİYOR):** teşhiste ölçülmemiş hücre
+  `ongoru` etiketiyle girer. Değişmemiş kodda ölçülen değere çekilmesi
+  serbesttir; her düzeltme ayrı kilitli commit + gerekçe (örnek: C0 v1 → v3).
+- **Ürün kodu değiştiren tur:** beklenti koddan ÖNCE kilitlenir; sonucu
+  gördükten sonra değere çekmek **YASAK**; sapma = DUR. Kural düzeltmesi
+  (ör. işaret kuralı) yalnız kullanıcı onayıyla, ayrı kilitli commit'te ve
+  öncekine atıfla (örnek: c2c7 v1 `ace73b7` → v2 `281fa53`).
+- İzolasyon tahmin üreteci kuralı (22 Eylül) aynen geçerli.
+
+## Tur 1 sonucu (C0, C1, C2+C7, C8)
+
+| Commit | Ne |
+|---|---|
+| `8dde7e4` C0 | `npm run test:kesinti` — kalıcı arıza enjektörü (`scripts/kesinti/`): repo dışı ayrı build (`NEXT_PUBLIC_SUPABASE_URL=https://localhost`), 443'te TLS vekili (pass / delay / blackhole / refuse; **GET/HEAD/OPTIONS dışı her yöntem 403 — canlıya yazma yok**), senaryolar + durum/üst süre/gövde/başlık/bağlantı sayısı denetimi, kalıcı tarayıcı adımı (`playwright-core` 1.63.0 devDependency → kurulu Chromium 1243; yoksa ORTAM, kalır). ~9–10 dk. Her koşuda değil: kesinti turlarında ve Next/Node/Supabase yükseltmelerinde |
+| `4fb56e7` C1 | Y1: middleware çerezi silince (yenileme 4xx) Node tarafı `getAll()` `value: undefined` görüyordu → TypeError → o istekteki TÜM anon sorgular gitmiyordu (public sayfa 200 ama verisiz). `string` olmayan değer artık çözümlenemez sayılır |
+| `328b8fa` C2+C7 | **C2:** `getTenant` hatada fırlatır (null yalnız satır yoksa); `resolveCurrentTenant` → `gecici-hata`; public `KurumGeciciHatasi`, admin "Geçici Bir Sorun Oluştu". Zehirlenme kapandı (bayat kayıt hatada korunur, ölçüldü). T10 mührü R5 + M9–M13. **C7:** `lib/veri-hatasi` — birincil okuma hatası fırlatır (nötr 500, `app/error.tsx` + `app/global-error.tsx`; kurum adı/marka/ayrıntı yok, metin `lib/notr-hata`), ikincil (ilgili haberler/duyurular, diğer şubeler) gizlenir + log. Kök metadata hatada nötr (admin'i de sardığı için fırlatmaz). sitemap.xml/robots.txt route handler (aynı çıktı, hata → 503). robots kurum önbellekteyken kesintide doğru içerikle 200 (Supabase'e gitmez), soğukta 503 |
+| `fae4c63` C8 | `decideOturum` / `decideSuperAdminAccess` (saf); admin layout taşıma hatası → geçici ekran (giriş döngüsü kalktı); süper admin layout rpc/taşıma hatası → `SuperAdminGeciciHataView` (Yetkisiz değil); `lib/super-admin/require-super-admin` — 8 yerel kopya tek kapıda, rpc hatası 503 + Retry-After; rpc false 403 / oturumsuz 401 aynen |
+
+Kapılar (her commit): izolasyon:kapi **2590/0 birebir**, veri önce/sonra aynı;
+test:kesinti son hâl **47/47** (`beklenti-c8.json`); 32 betik **2408/0**
+(`test:backup-db` NTFS'te bilerek ORTAM); körleşme 10/10 (tur sonu).
+
+Bilinen: `281fa53` (C2+C7 v2 tahmin commit'i) sahnelenmiş iki yeniden
+adlandırmayı (sitemap/robots → route klasörü, içerik değişmeden) da aldı; o ara
+commit tek başına build edilmez, içerik `328b8fa`'da tamamlandı (geçmiş yeniden
+yazılmadı).
+
+## 3 turluk plan
+
+| Tur | Kapsam | Durum |
+|---|---|---|
+| 1 | C0 arıza enjektörü, C1 Y1, C2 hata ≠ yok, C7 dürüst hata, C8 panel geçici hata | ✅ 24 Eylül 2026 |
+| 2 | C3 tek merkezden zaman aşımı (`global.fetch` + AbortSignal, bütçeler yukarıda; çarpan: ≈ 2 × bütçe), C4 AST mührü ("her sunucu Supabase istemcisi zaman aşımlı fetch'ten geçer"), C5 public sayfalar oturumsuz anon istemci (171 sn'lik yenileme fırtınası), C6 middleware auth yalnız `/admin*`, `/super-admin*` + toplam bütçe | bekliyor |
+| 3 | C9 nginx log'una `$request_time $upstream_response_time`, `/_next/image` `proxy_read_timeout`; C10 deploy; C11 izleme (VPS içi yoklama → Healthchecks) | bekliyor |
+
+**Deploy notu (Tur 3):** deploy'daki `rsync -a --delete .next/standalone/
+/var/www/sendika-site/` `.next/cache`'i her deploy'da siliyor. Tur 3'te
+**yalnız görsel önbelleği (`.next/cache/images`) korunacak**; `fetch-cache`
+(kurum önbelleği) her deploy'da sıfırlanmaya devam edecek.
+
+---
+
 # 🍪 BOZUK ÇEREZ TÜM SİTEYİ DÜŞÜRÜYORDU + "YETKİSİZ" EKRANI (20 Eylül 2026)
 
 **Durum:** ✅ **Kod hazır** — tsc + build + lint + **22 Node test script'i,
