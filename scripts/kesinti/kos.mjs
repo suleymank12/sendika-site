@@ -251,7 +251,10 @@ function upstreamGet(yol) {
 // ---------------------------------------------------------------------------
 // Denetim
 // ---------------------------------------------------------------------------
-const esles = (desen, metin) => (desen.startsWith("re:") ? new RegExp(desen.slice(3)).test(metin) : metin.includes(desen));
+const esles = (desen, metin) => {
+  const d = yerlestir(desen);
+  return d.startsWith("re:") ? new RegExp(d.slice(3)).test(metin) : metin.includes(d);
+};
 function denetle(g, b) {
   const hatalar = [];
   if (b.durum !== undefined && g.durum !== b.durum) hatalar.push(`durum ${g.durum} ≠ ${b.durum}`);
@@ -281,6 +284,48 @@ function denetle(g, b) {
 // Kosu
 // ---------------------------------------------------------------------------
 let vekil;
+
+// ---------------------------------------------------------------------------
+// Tarayici adimi (C2+C7 v2, kullanici karari): Next 14'te "shell" hatasinda
+// notr hata siniri SUNUCU HTML'inde degil, hidrasyondan sonra TARAYICIDA
+// cizilir (olculdu). Sunucu tarafi `__next_error__` kabugunu + sizintisizligi
+// denetler; bu adim gorunen metni ve sinir degerini. playwright-core
+// (devDependency, 1.63.0 → Playwright'in kurdugu Chromium 1243) yuklenemez ya
+// da tarayici baslayamazsa adim ORTAM der ve KALIR — sessizce gecmez.
+// ---------------------------------------------------------------------------
+let tarayici = null;
+async function tarayiciDenetle(host, yol, b) {
+  const hatalar = [];
+  try {
+    if (!tarayici) {
+      const { chromium } = await import("playwright-core");
+      tarayici = await chromium.launch({ args: ["--host-resolver-rules=MAP * 127.0.0.1"] });
+    }
+  } catch (e) {
+    return [`ORTAM: tarayici baslatilamadi (${String(e.message || e).split("\n")[0]})`];
+  }
+  const sayfa = await tarayici.newPage();
+  try {
+    const t0 = performance.now();
+    const yanit = await sayfa.goto(`http://${host}:${PORT}${yol}`, { waitUntil: "load", timeout: 120_000 });
+    await sayfa.waitForSelector("[data-sinir]", { timeout: 20_000 }).catch(() => {});
+    const g = await sayfa.evaluate(() => ({
+      sinir: [...document.querySelectorAll("[data-sinir]")].map((e) => e.getAttribute("data-sinir")),
+      metin: document.body.innerText.trim(),
+      html: document.documentElement.outerHTML,
+    }));
+    if (b.durum !== undefined && yanit?.status() !== b.durum) hatalar.push(`tarayici durum ${yanit?.status()} ≠ ${b.durum}`);
+    if (b.sinir !== undefined && JSON.stringify(g.sinir) !== JSON.stringify([b.sinir])) hatalar.push(`tarayici data-sinir ${JSON.stringify(g.sinir)} ≠ ["${b.sinir}"]`);
+    if (b.gorunenMetin !== undefined && !g.metin.startsWith(b.gorunenMetin)) hatalar.push(`tarayici gorunen metin "${g.metin.slice(0, 80)}" ≠ "${b.gorunenMetin}"`);
+    for (const d of b.icermez || []) if (esles(d, g.html)) hatalar.push(`tarayici DOM'da VAR: ${d}`);
+    if (b.ustMs !== undefined && performance.now() - t0 > b.ustMs) hatalar.push(`tarayici sure > ${b.ustMs} ms`);
+  } catch (e) {
+    hatalar.push(`tarayici hatasi: ${String(e.message || e).split("\n")[0]}`);
+  } finally {
+    await sayfa.close().catch(() => {});
+  }
+  return hatalar;
+}
 const gozlem = [];
 let kaldi = 0, gecti = 0;
 try {
@@ -339,7 +384,13 @@ try {
       const sonuc = await istek({ host, yol: yerlestir(a.yol), cerez: a.cerez, accept: a.accept });
       await bekle(400);
       const olay = vekil.kayit(once);
+      // Tani: KESINTI_GOVDE_DIZIN verilirse her adimin govdesi dosyaya yazilir (denetimi etkilemez).
+      if (process.env.KESINTI_GOVDE_DIZIN) {
+        mkdirSync(process.env.KESINTI_GOVDE_DIZIN, { recursive: true });
+        writeFileSync(path.join(process.env.KESINTI_GOVDE_DIZIN, `${sn.id}__${a.id}.html`.replace(/[/:+]/g, "_")), sonuc.govde);
+      }
       const hatalar = denetle({ ...sonuc, karadelik: olay.filter((e) => e.ev === "tcp-karadelik").length }, a.beklenen);
+      if (a.tarayici) hatalar.push(...(await tarayiciDenetle(host, yerlestir(a.yol), a.tarayici)));
       hatalar.length ? kaldi++ : gecti++;
       const satir = {
         senaryo: sn.id, adim: a.id, mod: a.mod || "pass", durum: sonuc.durum, ms: sonuc.ms,
@@ -359,6 +410,7 @@ try {
   if (!e.ortam) console.log(e.stack);
   kaldi = kaldi || -1;
 } finally {
+  if (tarayici) await tarayici.close().catch(() => {});
   await sunucuDurdur();
   if (vekil) await vekil.kapat();
   if (sha(readFileSync(envYol)) !== envOnce) console.log("🔴 GERCEK ENV DOSYASI DEGISTI — olmamaliydi!");

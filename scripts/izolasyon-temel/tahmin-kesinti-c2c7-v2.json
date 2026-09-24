@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 1 / C2+C7 birlesik v2 — kod v1 kosusuyla ayni; test altyapisi: kesinti koşucusuna tarayici adimi + playwright-core 1.63.0 devDependency",
+  "yazildi": "2026-09-24T16:40:00+03:00",
+  "not": "v1 (ace73b7, sha 99b85877…) matris/birim tarafinda BIREBIR tuttu (2590/0, T10 65/0, 32 betik 2390/0). v2 ayni koda karsi ayni ongoruyu yeniler: 0 hucre farki, 0 FAIL, bolum sayilari ayni. playwright-core yalniz scripts/kesinti kullanir (build'e girmez) → matris etkisi yok. Birim: test:kurum-cozumu 65, test:admin-access 54, 32 betik ayni sayilar.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
