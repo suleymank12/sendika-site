@@ -1,0 +1,785 @@
+{
+  "tur": "C1 — cookie-sanitize: string olmayan deger cozumlenemez (Y1)",
+  "yazildi": "2026-09-24T15:25:00+03:00",
+  "not": "KODDAN ONCE yazildi. Taban: beklenti-c0.json v3 (sha 7f715ee7…). TEK DEGISEN hucre: y1/A/+sure-cerez — middleware cerezi sildiginde (4xx yenileme) Node tarafindaki getAll artik firlatmiyor, silinen cerez elenir, anon sorgular gider → haber baglantisi GELIR. Durum 200 ve cerez silme ayni. Diger 46 adim birebir c0 v3.",
+  "senaryolar": [
+    {
+      "id": "saglikli",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          }
+        },
+        {
+          "id": "A/haberler",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/haberler",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          }
+        },
+        {
+          "id": "A/haber",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/haberler/{A.haber}",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000
+          }
+        },
+        {
+          "id": "A/sayfa",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/sayfa/{A.sayfa}",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000
+          }
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000
+          }
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "type=\"password\""
+            ],
+            "icermez": [
+              "Alan Adı Tanımlı Değil"
+            ]
+          }
+        },
+        {
+          "id": "SA/giris",
+          "kaynak": "olculdu",
+          "host": "{sa}",
+          "yol": "/super-admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000
+          }
+        },
+        {
+          "id": "A/sitemap",
+          "kaynak": "ongoru",
+          "host": "{kok}",
+          "yol": "/sitemap.xml",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "<urlset",
+              "re:/haberler/[^<]+</loc>"
+            ],
+            "basliklar": {
+              "content-type": "application/xml"
+            }
+          }
+        },
+        {
+          "id": "A/robots",
+          "kaynak": "ongoru",
+          "host": "{kok}",
+          "yol": "/robots.txt",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000,
+            "icerir": [
+              "User-Agent"
+            ]
+          }
+        },
+        {
+          "id": "gorsel",
+          "kaynak": "olculdu",
+          "host": "{kok}",
+          "yol": "{gorsel:640}",
+          "accept": "image/webp",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 5000
+          }
+        }
+      ],
+      "yenidenBaslat": true
+    },
+    {
+      "id": "karadelik-taze",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "olculdu 10,7 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 14000,
+            "icermez": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/haberler",
+          "kaynak": "olculdu 10,2 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/haberler",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 14000,
+            "icermez": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/haber",
+          "kaynak": "olculdu 21,1 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/haberler/{A.haber}",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 27000,
+            "icerir": [
+              "Sayfa Bulunamadı"
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/sayfa",
+          "kaynak": "olculdu 21,0 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/sayfa/{A.sayfa}",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 27000,
+            "icerir": [
+              "Sayfa Bulunamadı"
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "Bsub/",
+          "kaynak": "olculdu 10,3 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{B.sub}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 14000,
+            "icermez": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu 10,0 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 13000,
+            "icerir": [
+              "Geçici bir sorun oluştu"
+            ],
+            "basliklar": {
+              "retry-after": "30",
+              "x-kurum-durumu": "gecici-hata"
+            }
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "olculdu 10,3 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 14000,
+            "icerir": [
+              "type=\"password\""
+            ],
+            "icermez": [
+              "Alan Adı Tanımlı Değil"
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/admin+taze-cerez",
+          "kaynak": "olculdu 10,0 sn",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 307,
+            "ustMs": 13000,
+            "konum": "re:^/admin/giris",
+            "cerezSil": false
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "SA/giris",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{sa}",
+          "yol": "/super-admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "gorsel",
+          "kaynak": "olculdu 10,6 sn",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "{gorsel:750}",
+          "accept": "image/webp",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 14000
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/sitemap",
+          "kaynak": "olculdu v2 10,7 sn (kurum onbellekten okunmuyor → canli sorgu → null → 404)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/sitemap.xml",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 14000,
+            "icermez": [
+              "<urlset"
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/robots",
+          "kaynak": "olculdu v2 10,7 sn (ayni)",
+          "isit": true,
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/robots.txt",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 14000,
+            "icermez": [
+              "User-Agent"
+            ]
+          },
+          "yenidenBaslat": true
+        }
+      ]
+    },
+    {
+      "id": "ret-taze",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icermez": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/haberler",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/haberler",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icermez": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/haber",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/haberler/{A.haber}",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 3000,
+            "icerir": [
+              "Sayfa Bulunamadı"
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 3000,
+            "basliklar": {
+              "retry-after": "30"
+            }
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "olculdu",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icerir": [
+              "type=\"password\""
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/admin+sure-cerez",
+          "kaynak": "olculdu 25,5 sn (yenileme geri cekilmesi)",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "sure",
+          "beklenen": {
+            "durum": 307,
+            "altMs": 20000,
+            "ustMs": 32000,
+            "konum": "re:^/admin/giris",
+            "cerezSil": false
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "gorsel",
+          "kaynak": "olculdu",
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "{gorsel:828}",
+          "accept": "image/webp",
+          "beklenen": {
+            "durum": 500,
+            "ustMs": 3000
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "A/sitemap",
+          "kaynak": "olculdu v2 (ayni, hizli)",
+          "isit": true,
+          "mod": "refuse",
+          "host": "{kok}",
+          "yol": "/sitemap.xml",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 3000,
+            "icermez": [
+              "<urlset"
+            ]
+          },
+          "yenidenBaslat": true
+        }
+      ]
+    },
+    {
+      "id": "gecikme-3sn",
+      "adimlar": [
+        {
+          "id": "A/",
+          "kaynak": "olculdu 6,3 sn (2 dalga)",
+          "isit": true,
+          "mod": "delay",
+          "gecikmeMs": 3000,
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 5500,
+            "ustMs": 10000,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu 9,5 sn (3 dalga)",
+          "isit": true,
+          "mod": "delay",
+          "gecikmeMs": 3000,
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "altMs": 8500,
+            "ustMs": 13500
+          },
+          "yenidenBaslat": true
+        }
+      ]
+    },
+    {
+      "id": "zehirlenme",
+      "adimlar": [
+        {
+          "id": "Bsub/-bayat-karadelik",
+          "kaynak": "olculdu 10,7 sn",
+          "isit": true,
+          "bekleOnceMs": 65000,
+          "mod": "blackhole",
+          "host": "{B.sub}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 14000,
+            "icermez": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          }
+        },
+        {
+          "id": "Bsub/admin-giris-saglikli",
+          "kaynak": "olculdu (zehirli null)",
+          "mod": "pass",
+          "host": "{B.sub}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icerir": [
+              "Alan Adı Tanımlı Değil"
+            ],
+            "icermez": [
+              "type=\"password\""
+            ]
+          }
+        },
+        {
+          "id": "Bsub/-saglikli",
+          "kaynak": "olculdu 404",
+          "mod": "pass",
+          "host": "{B.sub}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 3000,
+            "icerir": [
+              "Sayfa Bulunamadı"
+            ]
+          }
+        }
+      ],
+      "yenidenBaslat": true
+    },
+    {
+      "id": "soguk",
+      "yenidenBaslat": true,
+      "adimlar": [
+        {
+          "id": "A/robots",
+          "kaynak": "ongoru (kurum hatasi → null → notFound)",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/robots.txt",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 14000
+          }
+        },
+        {
+          "id": "A/",
+          "kaynak": "olculdu (v1 kosusu 10,9 sn; robots null'i yeniden kullanilmadi)",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 404,
+            "ustMs": 14000,
+            "icerir": [
+              "Sayfa Bulunamadı"
+            ]
+          }
+        },
+        {
+          "id": "A/admin-giris",
+          "kaynak": "olculdu 0,1 sn",
+          "mod": "blackhole",
+          "host": "{kok}",
+          "yol": "/admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000,
+            "icerir": [
+              "Alan Adı Tanımlı Değil"
+            ],
+            "icermez": [
+              "type=\"password\""
+            ]
+          }
+        },
+        {
+          "id": "SA/giris",
+          "kaynak": "olculdu",
+          "mod": "blackhole",
+          "host": "{sa}",
+          "yol": "/super-admin/giris",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 3000
+          }
+        },
+        {
+          "id": "Bcustom/",
+          "kaynak": "olculdu 10,0 sn",
+          "mod": "blackhole",
+          "host": "{B.custom}",
+          "yol": "/",
+          "beklenen": {
+            "durum": 503,
+            "ustMs": 13000,
+            "basliklar": {
+              "retry-after": "30"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "y1",
+      "adimlar": [
+        {
+          "id": "A/+sure-cerez",
+          "kaynak": "C1 tahmini: Y1 duzeldi, public veri gelir",
+          "mod": "pass",
+          "host": "{kok}",
+          "yol": "/",
+          "cerez": "sure",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "cerezSil": true,
+            "icerir": [
+              "re:href=\"/haberler/[^\"/?#]+\""
+            ]
+          },
+          "yenidenBaslat": true,
+          "isit": true
+        }
+      ]
+    },
+    {
+      "id": "panel-oturum",
+      "adimlar": [
+        {
+          "id": "A/admin-katman-tasima",
+          "kaynak": "ongoru (layout getUser tasima hatasi → redirect)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 1,
+            "sonra": "kopar"
+          },
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 307,
+            "ustMs": 8000,
+            "konum": "re:^/admin/giris"
+          },
+          "yenidenBaslat": true,
+          "isit": true
+        },
+        {
+          "id": "A/admin-uyelik-hatasi",
+          "kaynak": "ongoru (sahte JWT → tenant_users 401 → gecici ekran)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 2,
+            "sonra": "kopar"
+          },
+          "host": "{kok}",
+          "yol": "/admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "Geçici Bir Sorun Oluştu"
+            ]
+          },
+          "yenidenBaslat": true,
+          "isit": true
+        },
+        {
+          "id": "SA/panel-rpc-hatasi",
+          "kaynak": "ongoru (rpc POST vekilde 403 → hata yutulur → Yetkisiz)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 2,
+            "sonra": "kopar"
+          },
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "Bu panele erişim yetkiniz yok."
+            ]
+          },
+          "yenidenBaslat": true,
+          "isit": true
+        },
+        {
+          "id": "SA/panel-rpc-false",
+          "kaynak": "ongoru (gercek yetkisizlik)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 2,
+            "sonra": "kopar"
+          },
+          "rpcCevap": "false",
+          "host": "{sa}",
+          "yol": "/super-admin",
+          "cerez": "taze",
+          "beklenen": {
+            "durum": 200,
+            "ustMs": 8000,
+            "icerir": [
+              "Bu panele erişim yetkiniz yok."
+            ]
+          },
+          "yenidenBaslat": true,
+          "isit": true
+        },
+        {
+          "id": "SA/api-rpc-hatasi",
+          "kaynak": "ongoru (requireSuperAdmin rpc hatasi → 403)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 1,
+            "sonra": "kopar"
+          },
+          "host": "{sa}",
+          "yol": "/api/super-admin/tenant-setup-check?tenantId={B.id}",
+          "cerez": "taze",
+          "accept": "application/json",
+          "beklenen": {
+            "durum": 403,
+            "ustMs": 8000,
+            "icerir": [
+              "Yetkiniz yok."
+            ]
+          },
+          "yenidenBaslat": true,
+          "isit": true
+        },
+        {
+          "id": "SA/api-rpc-false",
+          "kaynak": "ongoru (gercek yetkisizlik → 403)",
+          "mod": "pass",
+          "authKota": {
+            "basarili": 1,
+            "sonra": "kopar"
+          },
+          "rpcCevap": "false",
+          "host": "{sa}",
+          "yol": "/api/super-admin/tenant-setup-check?tenantId={B.id}",
+          "cerez": "taze",
+          "accept": "application/json",
+          "beklenen": {
+            "durum": 403,
+            "ustMs": 8000,
+            "icerir": [
+              "Yetkiniz yok."
+            ]
+          },
+          "yenidenBaslat": true,
+          "isit": true
+        }
+      ]
+    }
+  ]
+}

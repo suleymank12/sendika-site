@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 1 / C1 — cookie-sanitize string olmayan deger (Y1)",
+  "yazildi": "2026-09-24T15:25:00+03:00",
+  "not": "KODDAN ONCE yazildi. Matris cerezsiz kosar; sanitizeAuthCookies yalniz auth cerezi olan isteklerde farkli davranir → 0 hucre farki, 0 FAIL, bolum sayilari ayni. Tek satir sapma = DUR. Birim: test:admin-access 51 → 54 (undefined/null deger cozumlenemez; undefined degerli auth cerezi elenir ve FIRLATMAZ). Diger betik sayilari degismez.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
