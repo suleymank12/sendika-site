@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 2 / C3 — tek merkezden zaman asimli fetch (lib/supabase/zaman-asimli-fetch.ts), yazma 504 belirsiz, log kisaltma",
+  "yazildi": "2026-09-24T19:05:00+03:00",
+  "not": "KODDAN ONCE yazildi. Matris saglikli veriyle kosar: tum cagrilar butcenin cok altinda (olculen RTT ~0,1–0,4 sn) → zaman asimi dallari calismaz → 0 hucre farki, 0 FAIL, bolum sayilari ayni. Birim: test:kurum-cozumu 65, test:admin-access 72, test:cerez 59 AYNI. test:panel-yoneticileri 69 AYNI SAYI — ancak scripts/test-panel-yoneticileri.mjs:161 kalibi `createAdminClient()` → `createAdminClient(` guncellenir (fabrika artik katman parametresi aliyor; kural — liste cagiranin oturumuyla, service role SONRA — aynen). Diger betikler ayni sayilar; 32 betik toplam 2408.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
