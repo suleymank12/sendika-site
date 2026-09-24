@@ -44,6 +44,7 @@
     "test:izolasyon-korlesme": "node scripts/izolasyon-araclari/korlesme.mjs",
     "test:lint-kurallari": "node scripts/test-lint-kurallari.mjs",
     "test:kurum-cozumu": "node scripts/test-kurum-cozumu.mjs",
+    "test:supabase-zaman-asimi": "node scripts/test-supabase-zaman-asimi.mjs",
     "test:nginx": "node scripts/test-nginx.mjs",
     "test:kesinti": "node scripts/kesinti/kos.mjs --beklenti scripts/kesinti/beklenti-c3-v2.json",
     "izolasyon:tam": "node scripts/izolasyon-kos.mjs",
