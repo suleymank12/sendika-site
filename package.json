@@ -45,7 +45,7 @@
     "test:lint-kurallari": "node scripts/test-lint-kurallari.mjs",
     "test:kurum-cozumu": "node scripts/test-kurum-cozumu.mjs",
     "test:nginx": "node scripts/test-nginx.mjs",
-    "test:kesinti": "node scripts/kesinti/kos.mjs --beklenti scripts/kesinti/beklenti-c8.json",
+    "test:kesinti": "node scripts/kesinti/kos.mjs --beklenti scripts/kesinti/beklenti-c5.json",
     "izolasyon:tam": "node scripts/izolasyon-kos.mjs",
     "izolasyon:temel": "node scripts/izolasyon-kos.mjs --kaydet",
     "izolasyon:kapi": "node scripts/izolasyon-araclari/kapi.mjs",

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getSiteSettings } from "@/lib/site-settings";
 import { hataVarsaFirlat } from "@/lib/veri-hatasi";
@@ -35,7 +35,7 @@ function lightenColorRgb(hex: string, amount: number = 0.2): string {
 }
 
 async function getMenuItems(tenantId: string) {
-  const supabase = createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("menu_items")
     .select("*")

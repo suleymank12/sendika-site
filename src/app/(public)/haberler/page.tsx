@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import Breadcrumb from "@/components/public/Breadcrumb";
@@ -29,7 +29,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function NewsListPage({ searchParams }: Props) {
   const page = parseInt(searchParams.sayfa || "1");
-  const supabase = createClient();
+  const supabase = createPublicClient();
   const tenant = await getCurrentTenant();
 
   const from = (page - 1) * PER_PAGE;

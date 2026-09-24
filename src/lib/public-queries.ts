@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import type {
@@ -32,7 +32,7 @@ import type {
  * `pages` — `content` (tam HTML govdesi) iki kez tasiniyordu.
  *
  * 🔴 ISTEMCI SECIMI KASITLI, DEGISTIRMEYIN:
- *   - anon client (`createClient`) → RLS uyguluyor. `is_published` gibi
+ *   - anon client (`createPublicClient`, oturumsuz — C5) → RLS uyguluyor. `is_published` gibi
  *     filtreleri RLS tasiyorsa service-role'e tasimak YAYINLANMAMIS
  *     icerigi acar. (Anasayfadaki ayni uyariya bakin.)
  *   - admin client (`createAdminClient`) → 026'da public SELECT policy'leri
@@ -53,7 +53,7 @@ import type {
 /** anon client — `is_published` filtresini RLS ile birlikte tasir. */
 export const getNewsBySlug = cache(
   async (tenantId: string, slug: string): Promise<News | null> => {
-    const supabase = createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("news")
       .select("*")
@@ -68,7 +68,7 @@ export const getNewsBySlug = cache(
 /** anon client. */
 export const getAnnouncementBySlug = cache(
   async (tenantId: string, slug: string): Promise<Announcement | null> => {
-    const supabase = createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("announcements")
       .select("*")
@@ -83,7 +83,7 @@ export const getAnnouncementBySlug = cache(
 /** anon client. */
 export const getPageBySlug = cache(
   async (tenantId: string, slug: string): Promise<Page | null> => {
-    const supabase = createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("pages")
       .select("*")
@@ -106,7 +106,7 @@ export type GalleryAlbumWithCount = GalleryAlbum & {
 
 export const getGalleryAlbumById = cache(
   async (tenantId: string, albumId: string): Promise<GalleryAlbumWithCount | null> => {
-    const supabase = createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("gallery_albums")
       .select("*, gallery_images(count)")
@@ -130,7 +130,7 @@ export const getHeadlineById = cache(
     tenantId: string,
     id: string
   ): Promise<Headline | null> => {
-    const supabase = createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("headlines")
       .select("*")

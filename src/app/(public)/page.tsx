@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { YEDEK_SITE_ADI } from "@/lib/constants";
@@ -24,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function HomePage() {
-  const supabase = createClient();
+  const supabase = createPublicClient();
   // YALNIZCA homepage_* sorgulari icin (RLS bypass) — public SELECT
   // policy'leri 026 ile DROP edildi; tenant izolasyonu ve aktiflik manuel
   // .eq("tenant_id") / .eq("is_active", true) filtreleriyle saglaniyor.

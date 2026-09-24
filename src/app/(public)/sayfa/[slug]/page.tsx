@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getPageBySlug } from "@/lib/public-queries";
 import { hataVarsaFirlat } from "@/lib/veri-hatasi";
@@ -46,7 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function DynamicPage({ params }: Props) {
-  const supabase = createClient();
+  const supabase = createPublicClient();
   const tenant = await getCurrentTenant();
   // Bu sayfa BİLEREK seri kaldı (b2): content_media sorgusu `page.id`
   // istiyor, elimizde yalnız slug var — gerçek bağımlılık.

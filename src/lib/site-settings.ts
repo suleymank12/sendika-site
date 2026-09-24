@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 
 /**
@@ -14,7 +14,7 @@ import { hataVarsaFirlat } from "@/lib/veri-hatasi";
  */
 export const getSiteSettings = cache(
   async (tenantId: string): Promise<Record<string, string>> => {
-    const supabase = createClient();
+    const supabase = createPublicClient();
     const { data, error } = await supabase
       .from("site_settings")
       .select("key, value")

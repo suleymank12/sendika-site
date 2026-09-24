@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getAnnouncementBySlug } from "@/lib/public-queries";
 import { hataVarsaFirlat, ikincilHata } from "@/lib/veri-hatasi";
@@ -43,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function AnnouncementDetailPage({ params }: Props) {
-  const supabase = createClient();
+  const supabase = createPublicClient();
   const tenant = await getCurrentTenant();
 
   // 1. DALGA — duyurunun kendisi + ilgili duyurular PARALEL (b2).

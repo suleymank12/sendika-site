@@ -1,7 +1,7 @@
 // Supabase SQL Editor'de çalıştırın (kolon yoksa ekler):
 // ALTER TABLE headlines ADD COLUMN IF NOT EXISTS content TEXT;
 
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { getHeadlineById } from "@/lib/public-queries";
 import { notFound, redirect } from "next/navigation";
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function MansetDetailPage({ params }: Props) {
-  const supabase = createClient();
+  const supabase = createPublicClient();
   const tenant = await getCurrentTenant();
 
   // is_active filtresi yok — pasif manşetlere de direkt URL ile erişilebilsin

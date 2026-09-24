@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getCurrentTenant } from "@/lib/get-tenant";
 import { hataVarsaFirlat } from "@/lib/veri-hatasi";
 import Breadcrumb from "@/components/public/Breadcrumb";
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function GalleryPage() {
-  const supabase = createClient();
+  const supabase = createPublicClient();
   const tenant = await getCurrentTenant();
   const { data: albums, error } = await supabase
     .from("gallery_albums")
