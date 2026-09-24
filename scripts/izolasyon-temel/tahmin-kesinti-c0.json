@@ -1,0 +1,23 @@
+{
+  "tur": "Supabase kesinti Tur 1 / C0 — ariza enjektoru (scripts/kesinti/, package.json test:kesinti). Urun kodu (src/) DEGISMEZ.",
+  "yazildi": "2026-09-24T14:35:00+03:00",
+  "not": "KODDAN VE KOSUDAN ONCE yazildi. Karsilastirilan: next-14.2.35.json (875 hucre, 2590 kural). C0 yalniz test altyapisi ekler; build ciktisi ayni kaynaktan. 0 hucre farki, 0 FAIL, bolum sayilari node-runtime kapisiyla ayni. Tek satir sapma = DUR.",
+  "fark_satirlari": [],
+  "yeni_hucreler": [],
+  "kayip_hucreler": [],
+  "kapsama_kaybi": [],
+  "kapsama_artti": [],
+  "beklenen_fail": [],
+  "beklenen_bilinen_kusur": {},
+  "bolum_sayilari_gecti": {
+    "0": 4,
+    "1": 824,
+    "2": 1110,
+    "3": 335,
+    "4": 230,
+    "5": 8,
+    "6": 62,
+    "7": 17
+  },
+  "beklenen_sonuc_satiri": "SONUC: 2590 gecti, 0 kaldi (bilinen kusur: 0, temel cizgi farki: 0)"
+}
